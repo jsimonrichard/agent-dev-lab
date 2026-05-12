@@ -1,0 +1,31 @@
+{
+  "name": "@agent-dev-lab/common",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./eslint": "./eslint.config.js",
+    "./db": "./src/db/index.ts",
+    "./logging": "./src/logging/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.7",
+    "pino": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.31.6",
+    "typescript": "^6.0.2"
+  }
+}

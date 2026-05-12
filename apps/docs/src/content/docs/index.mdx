@@ -1,0 +1,32 @@
+---
+title: Agent Development Lab
+description: Docs and generated API reference for the Agent Development Lab monorepo.
+template: splash
+hero:
+  tagline: TypeScript-first agentic workflow research — runtime, inspection UI, and shared tooling.
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Guides
+      link: /guides/overview/
+      icon: right-arrow
+    - text: Runtime API (TypeDoc)
+      link: /api/readme/
+      icon: document
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Workspace
+
+<CardGrid stagger>
+  <Card title="Headless runtime" icon="rocket">
+    `@agent-dev-lab/runtime` — Vercel AI SDK, markdown prompts, workflow surface TBD.
+  </Card>
+  <Card title="Shared infrastructure" icon="setting">
+    `@agent-dev-lab/common` — Drizzle + SQLite (Bun), logging, ESLint preset.
+  </Card>
+  <Card title="Web inspection UI" icon="laptop">
+    `apps/web` — TanStack Start; consumes runs and telemetry later, not required to execute workflows.
+  </Card>
+</CardGrid>
