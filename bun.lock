@@ -20,7 +20,6 @@
       "name": "@agent-dev-lab/docs",
       "version": "0.0.1",
       "dependencies": {
-        "@agent-dev-lab/runtime": "workspace:*",
         "@astrojs/starlight": "^0.39.2",
         "astro": "^6.3.1",
         "sharp": "^0.34.5",
