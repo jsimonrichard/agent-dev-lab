@@ -33,7 +33,7 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 
 ## Generated docs
 
-`apps/docs/src/content/docs/api/` is **gitignored**; it is produced by `astro build`, `astro check`, or `astro dev`.
+`apps/docs` gitignores `src/content/docs/api/`; that folder is produced by `astro build`, `astro check`, or `astro dev`.
 
 ## Open questions (unchanged)
 
