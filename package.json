@@ -12,8 +12,8 @@
     "dev:web": "turbo run dev --filter=@agent-dev-lab/web",
     "dev:docs": "turbo run dev --filter=@agent-dev-lab/docs",
     "build": "turbo run build",
-    "format": "prettier --ignore-path .prettierignore --ignore-path apps/docs/.prettierignore --write .",
-    "format:check": "prettier --ignore-path .prettierignore --ignore-path apps/docs/.prettierignore --check .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test"
