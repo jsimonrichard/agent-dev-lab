@@ -1,0 +1,8 @@
+dist
+.output
+node_modules
+.turbo
+.astro
+bun.lock
+routeTree.gen.ts
+apps/docs/src/content/docs/api
