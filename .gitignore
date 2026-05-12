@@ -19,6 +19,9 @@ apps/docs/src/content/docs/api/
 # package-json
 package-json.lock
 
+# Turborepo
+.turbo/
+
 # bun deploy file
 node_modules.bun
 

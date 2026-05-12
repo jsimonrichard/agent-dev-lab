@@ -27,7 +27,7 @@ No top-level `prompts` package — prompts live beside code or in tests.
 
 ## Tooling
 
-Root: `bun install`, `bun run dev` / `dev:web` / `dev:docs`, `bun run build`, `bun run lint`, `bun run typecheck`, `bun --cwd packages/runtime test`.
+Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + docs in parallel), `bun run dev:web` / `bun run dev:docs` for a single app, **`bun run build`** / `typecheck` / `test` via Turborepo, `bun run lint` (root ESLint, repo-wide globs).
 
 **Nitro + Bun**: root declares `"nitro": "npm:nitro-nightly@latest"` so Nitro’s Vite plugin can resolve the `nitro` package when hoisted from Bun’s store.
 

@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Turbo: dev (all apps)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bun run dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "Web: dev server",
       "type": "node-terminal",
       "request": "launch",
