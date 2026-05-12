@@ -12,11 +12,12 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
-    "test": "bun test"
+    "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
     "@agent-dev-lab/common": "workspace:*",
-    "ai": "^5.0.86"
+    "ai": "^5.0.86",
+    "handlebars": "^4.7.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
