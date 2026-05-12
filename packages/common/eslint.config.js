@@ -1,6 +1,6 @@
-import js from '@eslint/js';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
 /** Shared ESLint flat config for the monorepo. */
 export default tseslint.config(
@@ -13,11 +13,11 @@ export default tseslint.config(
   },
   {
     ignores: [
-      '**/dist/**',
-      '**/node_modules/**',
-      '**/.astro/**',
-      '**/routeTree.gen.ts',
-      '**/.output/**',
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/.astro/**",
+      "**/routeTree.gen.ts",
+      "**/.output/**",
     ],
   },
 );
