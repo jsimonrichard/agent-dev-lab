@@ -1,4 +1,4 @@
-import base from "./packages/common/eslint.config.js";
+import base from "@agent-dev-lab/common/eslint";
 import globals from "globals";
 
 export default [

@@ -1,7 +1,14 @@
 // @ts-check
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
+
+const require = createRequire(import.meta.url);
+const runtimeRoot = dirname(
+  require.resolve("@agent-dev-lab/runtime/package.json"),
+);
 
 // https://astro.build/config
 export default defineConfig({
@@ -18,8 +25,8 @@ export default defineConfig({
       ],
       plugins: [
         starlightTypeDoc({
-          entryPoints: ["../../packages/runtime/src/index.ts"],
-          tsconfig: "../../packages/runtime/tsconfig.json",
+          entryPoints: [join(runtimeRoot, "src", "index.ts")],
+          tsconfig: join(runtimeRoot, "tsconfig.json"),
           sidebar: { label: "Runtime API", collapsed: false },
         }),
       ],
