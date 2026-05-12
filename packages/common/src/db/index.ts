@@ -1,8 +1,8 @@
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { Database } from "bun:sqlite";
-import * as schema from "./schema.js";
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { Database } from 'bun:sqlite';
+import * as schema from './schema.js';
 
-const defaultPath = process.env.ADL_SQLITE_PATH ?? ".data/agent-dev-lab.sqlite";
+const defaultPath = process.env.ADL_SQLITE_PATH ?? '.data/agent-dev-lab.sqlite';
 
 /**
  * Opens the shared SQLite database (Bun). Schema is intentionally minimal so
@@ -15,5 +15,5 @@ export function createDb(path: string = defaultPath) {
 
 export type Db = ReturnType<typeof createDb>;
 
-export type { RunRow } from "./schema.js";
+export type { RunRow } from './schema.js';
 export { schema };

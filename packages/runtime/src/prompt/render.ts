@@ -7,7 +7,7 @@ const token = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
 export function renderPromptTemplate(template: string, variables: Record<string, string>): string {
   return template.replaceAll(token, (match, key: string) => {
     if (Object.hasOwn(variables, key)) {
-      return variables[key] ?? "";
+      return variables[key] ?? '';
     }
     return match;
   });
