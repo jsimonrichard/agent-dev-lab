@@ -3,12 +3,17 @@
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.13",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@agent-dev-lab/web",
     "dev:docs": "turbo run dev --filter=@agent-dev-lab/docs",
     "build": "turbo run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test"
@@ -20,6 +25,7 @@
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "nitro": "npm:nitro-nightly@latest",
+    "prettier": "^3.8.3",
     "turbo": "^2.9.12",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.46.4"

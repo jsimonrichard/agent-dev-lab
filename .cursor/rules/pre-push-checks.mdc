@@ -1,0 +1,15 @@
+---
+description: Checks that must pass before pushing code
+globs:
+alwaysApply: true
+---
+
+# Pre-push checks
+
+Before pushing any code changes, you MUST verify all of the following pass:
+
+1. **Build**: Run `bun run build` and confirm it completes without errors.
+2. **Lint**: Run `bun run lint` and confirm there are no ESLint errors.
+3. **Format**: Run `bun run format:check` and confirm all files are formatted with Prettier. If any files are unformatted, run `bun run format` to fix them before committing.
+
+Do not push code that fails any of these checks. Fix all issues first.
