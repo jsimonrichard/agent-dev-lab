@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { ADL_PROJECT_ROOT_ENV, loadAdlProject } from "@agent-dev-lab/runtime";
 
-import type { AdlCliContext } from "../../context.js";
-import { webPackageRoot } from "../../paths.js";
+import type { AdlCliContext } from "../../context";
+import { webPackageRoot } from "../../paths";
 
 interface DevFlags {
   project?: string;

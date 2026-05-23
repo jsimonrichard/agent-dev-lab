@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { readFileSync } from "node:fs";
 
-import { webOutputRoot, webPackageRoot } from "../src/paths.ts";
+import { webOutputRoot, webPackageRoot } from "../src/paths";
 
 interface NitroManifest {
   serverEntry?: string;

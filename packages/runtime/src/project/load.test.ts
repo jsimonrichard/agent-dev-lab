@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "bun:test";
 
-import { loadAdlProject } from "./resolve.js";
+import { loadAdlProject } from "./resolve";
 
 const playgroundRoot = path.resolve(
   fileURLToPath(new URL("../../../../apps/playground", import.meta.url)),

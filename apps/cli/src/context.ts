@@ -1,6 +1,6 @@
 import type { CommandContext } from "@stricli/core";
 
-import { monorepoPlaygroundRoot } from "./paths.js";
+import { monorepoPlaygroundRoot } from "./paths";
 
 export interface AdlCliContext extends CommandContext {
   readonly process: NodeJS.Process;
