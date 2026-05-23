@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
-import { ADL_PROJECT_ROOT_ENV, loadAdlProject } from "@agent-dev-lab/runtime";
+import { ADL_PROJECT_ROOT_ENV, loadAdlProject } from "@agent-dev-lab/runtime/project";
 
 import type { AdlCliContext } from "../../context";
 import { webPackageRoot } from "../../paths";
