@@ -20,9 +20,16 @@ if (!process.env.ADL_PROJECT_ROOT) {
 const config = defineConfig({
   envPrefix: "ADL_",
   resolve: { tsconfigPaths: true },
+  ssr: {
+    external: ["@agent-dev-lab/runtime", "@agent-dev-lab/runtime/project"],
+  },
   plugins: [
     devtools(),
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    nitro({
+      rollupConfig: {
+        external: [/^@sentry\//, /^@agent-dev-lab\/runtime(\/.*)?$/],
+      },
+    }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

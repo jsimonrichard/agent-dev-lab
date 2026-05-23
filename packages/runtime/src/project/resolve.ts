@@ -60,7 +60,9 @@ async function loadConfigModule(configPath: string, filename: string): Promise<A
     return normalizeConfig(parsed, configPath);
   }
 
-  const mod: { default?: unknown } = await import(pathToFileURL(configPath).href);
+  const mod: { default?: unknown } = await import(
+    /* @vite-ignore */ pathToFileURL(configPath).href
+  );
   const exported = mod.default ?? mod;
   return normalizeConfig(exported, configPath);
 }

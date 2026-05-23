@@ -42,7 +42,11 @@
     "clean": true,
     "splitting": true,
     "minify": false,
-    "target": "node22"
+    "target": "node22",
+    "external": [
+      "@agent-dev-lab/runtime",
+      "@agent-dev-lab/runtime/project"
+    ]
   },
   "peerDependencies": {
     "@agent-dev-lab/runtime": "workspace:*"
