@@ -1,10 +1,9 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
-import { ADL_PROJECT_ROOT_ENV, loadAdlProject } from "@agent-dev-lab/runtime/project";
-
 import type { AdlCliContext } from "../../context";
 import { webPackageRoot } from "../../paths";
+import { importProjectRuntimeProject } from "../../resolve-packages";
 
 interface DevFlags {
   project?: string;
@@ -13,7 +12,8 @@ interface DevFlags {
 
 export default async function dev(this: AdlCliContext, flags: DevFlags): Promise<void> {
   const projectRoot = path.resolve(flags.project ?? this.defaultProjectRoot);
-  const loaded = await loadAdlProject({ root: projectRoot });
+  const runtime = await importProjectRuntimeProject(projectRoot);
+  const loaded = await runtime.loadAdlProject({ root: projectRoot });
 
   this.process.stdout.write(
     `Starting inspection UI for "${loaded.config.name}" (${loaded.root})\n`,
@@ -24,7 +24,7 @@ export default async function dev(this: AdlCliContext, flags: DevFlags): Promise
     cwd: webRoot,
     env: {
       ...this.process.env,
-      [ADL_PROJECT_ROOT_ENV]: loaded.root,
+      [runtime.ADL_PROJECT_ROOT_ENV]: loaded.root,
     },
     stdio: "inherit",
   });

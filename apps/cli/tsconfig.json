@@ -2,17 +2,12 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": "src",
-    "types": [
-      "node",
-      "bun"
-    ],
+    "types": ["node", "bun"],
     "resolveJsonModule": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
     "skipLibCheck": true,
     "strict": true,
     "isolatedModules": true,
@@ -21,10 +16,6 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "**/*.test.ts"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts"]
 }

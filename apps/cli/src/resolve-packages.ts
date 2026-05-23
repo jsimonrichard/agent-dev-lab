@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { fileURLToPath } from "node:url";
 
-const require = createRequire(import.meta.url);
+const cliRequire = createRequire(import.meta.url);
 
 /** Directory containing this module (`src/` in dev, `dist/` when built). */
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -54,13 +55,42 @@ function workspaceLayoutPath(monorepoRoot: string, packageName: string): string 
 }
 
 /**
- * Resolve an ADL workspace package to its root directory.
- * Uses Node module resolution from the CLI install location first, then falls back
- * to monorepo layout discovery so `adl` works when invoked from any subdirectory.
+ * Resolve a package from a project directory by walking up the tree.
+ * Uses each ancestor's node_modules (supports hoisted installs).
+ */
+export function resolveFromProjectRoot(projectRoot: string, specifier: string): string {
+  let dir = path.resolve(projectRoot);
+  const fsRoot = path.parse(dir).root;
+
+  while (true) {
+    const pkgJsonPath = path.join(dir, "package.json");
+    if (existsSync(pkgJsonPath)) {
+      try {
+        const projectRequire = createRequire(pkgJsonPath);
+        return projectRequire.resolve(specifier);
+      } catch {
+        // Not installed at this level — try parent directory.
+      }
+    }
+
+    if (dir === fsRoot) {
+      break;
+    }
+    dir = path.dirname(dir);
+  }
+
+  throw new Error(
+    `Could not resolve ${specifier} from ${projectRoot}. Add it to your project dependencies and install.`,
+  );
+}
+
+/**
+ * Resolve an ADL monorepo workspace package (web, playground, cli internals).
+ * Anchored to the CLI install location, not the user's project cwd.
  */
 export function resolveWorkspacePackageRoot(packageName: string): string {
   try {
-    const pkgJsonPath = require.resolve(`${packageName}/package.json`);
+    const pkgJsonPath = cliRequire.resolve(`${packageName}/package.json`);
     return path.dirname(pkgJsonPath);
   } catch {
     // Fall through to monorepo layout lookup.
@@ -81,9 +111,30 @@ export function resolveWorkspacePackageRoot(packageName: string): string {
 }
 
 export function resolveDefaultProjectRoot(): string {
-  try {
-    return resolveWorkspacePackageRoot("@agent-dev-lab/playground");
-  } catch {
-    return process.cwd();
+  const monorepoRoot = findMonorepoRoot(moduleDir) ?? findMonorepoRoot(process.cwd());
+  if (monorepoRoot) {
+    try {
+      return resolveWorkspacePackageRoot("@agent-dev-lab/playground");
+    } catch {
+      // Fall through to cwd in monorepo without playground.
+    }
   }
+  return process.cwd();
+}
+
+export interface ProjectRuntimeProjectModule {
+  ADL_PROJECT_ROOT_ENV: string;
+  loadAdlProject: (options?: { root?: string; cwd?: string }) => Promise<{
+    root: string;
+    configPath: string;
+    config: { name: string };
+  }>;
+}
+
+/** Load `@agent-dev-lab/runtime/project` from the target project's dependency tree. */
+export async function importProjectRuntimeProject(
+  projectRoot: string,
+): Promise<ProjectRuntimeProjectModule> {
+  const entry = resolveFromProjectRoot(projectRoot, "@agent-dev-lab/runtime/project");
+  return import(pathToFileURL(entry).href) as Promise<ProjectRuntimeProjectModule>;
 }

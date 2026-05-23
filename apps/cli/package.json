@@ -20,7 +20,6 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@agent-dev-lab/runtime": "workspace:*",
     "@agent-dev-lab/web": "workspace:*",
     "@stricli/core": "^1.2.7",
     "@agent-dev-lab/playground": "workspace:*"
@@ -29,7 +28,8 @@
     "@types/node": "^22.10.2",
     "tsup": "^8.5.0",
     "typescript": "^6.0.2",
-    "@types/bun": "^1.3.13"
+    "@types/bun": "^1.3.13",
+    "@agent-dev-lab/runtime": "workspace:*"
   },
   "tsup": {
     "entry": [
@@ -42,10 +42,9 @@
     "clean": true,
     "splitting": true,
     "minify": false,
-    "target": "node22",
-    "noExternal": [
-      "@agent-dev-lab/runtime",
-      "@agent-dev-lab/runtime/project"
-    ]
+    "target": "node22"
+  },
+  "peerDependencies": {
+    "@agent-dev-lab/runtime": "workspace:*"
   }
 }
