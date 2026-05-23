@@ -1,0 +1,44 @@
+{
+  "name": "@agent-dev-lab/cli",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Agent Development Lab command-line interface",
+  "type": "module",
+  "bin": {
+    "adl": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "bun run src/bin/cli.ts",
+    "prebuild": "tsc -p tsconfig.json --noEmit",
+    "build": "tsup --silent",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-dev-lab/runtime": "workspace:*",
+    "@agent-dev-lab/web": "workspace:*",
+    "@stricli/core": "^1.2.7",
+    "@agent-dev-lab/playground": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.2"
+  },
+  "tsup": {
+    "entry": [
+      "src/bin/cli.ts"
+    ],
+    "format": [
+      "esm"
+    ],
+    "tsconfig": "tsconfig.json",
+    "clean": true,
+    "splitting": true,
+    "minify": false,
+    "target": "node22"
+  }
+}

@@ -6,12 +6,14 @@
 
 Bun + Turborepo monorepo for an agentic workflow research framework. Four packages:
 
-| Package                  | Path               | Role                                                      |
-| ------------------------ | ------------------ | --------------------------------------------------------- |
-| `@agent-dev-lab/web`     | `apps/web`         | TanStack Start (React 19) inspection UI — port 3000       |
-| `@agent-dev-lab/docs`    | `apps/docs`        | Astro Starlight API/project docs — port 4321              |
-| `@agent-dev-lab/runtime` | `packages/runtime` | Headless runtime library (Vercel AI SDK)                  |
-| `@agent-dev-lab/common`  | `packages/common`  | Shared infra: Drizzle+SQLite, Pino logging, ESLint config |
+| Package                     | Path               | Role                                                      |
+| --------------------------- | ------------------ | --------------------------------------------------------- |
+| `@agent-dev-lab/web`        | `apps/web`         | TanStack Start (React 19) inspection UI — port 3000       |
+| `@agent-dev-lab/cli`        | `apps/cli`         | Stricli CLI (`adl`) — dev server orchestration            |
+| `@agent-dev-lab/playground` | `apps/playground`  | Monorepo ADL project target (`adl.config.ts`) for dev     |
+| `@agent-dev-lab/docs`       | `apps/docs`        | Astro Starlight API/project docs — port 4321              |
+| `@agent-dev-lab/runtime`    | `packages/runtime` | Headless runtime library (Vercel AI SDK)                  |
+| `@agent-dev-lab/common`     | `packages/common`  | Shared infra: Drizzle+SQLite, Pino logging, ESLint config |
 
 ### Commands
 
