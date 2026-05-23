@@ -12,10 +12,11 @@
   ],
   "scripts": {
     "dev": "bun run src/bin/cli.ts",
-    "prebuild": "tsc -p tsconfig.json --noEmit",
+    "prebuild": "bun run verify:web-output && tsc -p tsconfig.json --noEmit",
     "build": "tsup --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "verify:web-output": "bun run scripts/verify-web-output.ts"
   },
   "dependencies": {
     "@agent-dev-lab/runtime": "workspace:*",

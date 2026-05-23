@@ -14,6 +14,10 @@ export function webPackageRoot(): string {
   return path.dirname(webPkg);
 }
 
+export function webOutputRoot(): string {
+  return path.join(webPackageRoot(), ".output");
+}
+
 export function cliPackageRoot(): string {
   return path.dirname(fileURLToPath(new URL("..", import.meta.url)));
 }
