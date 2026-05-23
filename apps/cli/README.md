@@ -20,11 +20,9 @@ cd apps/cli && bun run dev -- dev
 
 ## Build
 
+`bun run build` runs `verify:web-output` first and requires `@agent-dev-lab/web/.output` (Nitro `server/index.mjs` + `public/`). From the repo root, Turbo builds web before the CLI automatically.
+
 ```bash
 bun run build
 ./dist/cli.js --help
 ```
-
-### Inspection UI build prerequisite
-
-`bun run build` runs `verify:web-output` first and requires `@agent-dev-lab/web/.output` (Nitro `server/index.mjs` + `public/`). From the repo root, `bun run build` via Turbo builds web before the CLI automatically.

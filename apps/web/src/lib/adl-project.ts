@@ -9,12 +9,11 @@ import {
 
 const webPackageRoot = path.dirname(fileURLToPath(new URL("../../", import.meta.url)));
 
-/** Default monorepo dev target when `ADL_PROJECT_ROOT` is unset. */
-export function defaultMonorepoProjectRoot(): string {
+function defaultMonorepoProjectRoot(): string {
   return path.resolve(webPackageRoot, "../playground");
 }
 
-export function resolveAdlProjectRoot(): string {
+function resolveAdlProjectRoot(): string {
   return process.env[ADL_PROJECT_ROOT_ENV] ?? defaultMonorepoProjectRoot();
 }
 

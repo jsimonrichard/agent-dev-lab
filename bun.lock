@@ -24,16 +24,18 @@
         "adl": "./dist/cli.js",
       },
       "dependencies": {
-        "@agent-dev-lab/playground": "workspace:*",
-        "@agent-dev-lab/runtime": "workspace:*",
         "@agent-dev-lab/web": "workspace:*",
         "@stricli/core": "^1.2.7",
       },
       "devDependencies": {
+        "@agent-dev-lab/runtime": "workspace:*",
         "@types/bun": "^1.3.13",
         "@types/node": "^22.10.2",
         "tsup": "^8.5.0",
         "typescript": "^6.0.2",
+      },
+      "peerDependencies": {
+        "@agent-dev-lab/runtime": "workspace:*",
       },
     },
     "apps/docs": {

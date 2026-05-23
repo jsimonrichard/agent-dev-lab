@@ -21,8 +21,7 @@
   },
   "dependencies": {
     "@agent-dev-lab/web": "workspace:*",
-    "@stricli/core": "^1.2.7",
-    "@agent-dev-lab/playground": "workspace:*"
+    "@stricli/core": "^1.2.7"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
