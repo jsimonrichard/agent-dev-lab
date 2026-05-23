@@ -12,13 +12,18 @@ export const devCommand = buildCommand({
       },
       port: {
         kind: "parsed",
-        brief: "Port for the inspection UI dev server",
+        brief: "Port for the inspection UI",
         parse: Number,
         default: "3000",
+      },
+      serve: {
+        kind: "boolean",
+        brief: "Run the prebuilt inspection UI (Nitro) instead of Vite dev",
+        default: false,
       },
     },
   },
   docs: {
-    brief: "Start the inspection UI dev server for an ADL project",
+    brief: "Start the inspection UI for an ADL project",
   },
 });

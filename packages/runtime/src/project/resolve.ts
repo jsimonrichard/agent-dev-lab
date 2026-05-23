@@ -27,6 +27,29 @@ export function findAdlConfigPath(projectRoot: string): AdlConfigFilename | null
   return null;
 }
 
+/**
+ * Walks upward from `cwd` to find a directory containing `adl.config.*`.
+ * Used by the CLI and inspection UI when no explicit project root is set.
+ */
+export function findAdlProjectRootFromCwd(cwd: string = process.cwd()): string {
+  let dir = path.resolve(cwd);
+  const fsRoot = path.parse(dir).root;
+
+  while (true) {
+    if (findAdlConfigPath(dir)) {
+      return dir;
+    }
+    if (dir === fsRoot) {
+      break;
+    }
+    dir = path.dirname(dir);
+  }
+
+  throw new Error(
+    `No ADL project found from ${cwd}. Run from a project directory containing adl.config.*, or pass --project.`,
+  );
+}
+
 export interface LoadedAdlProject {
   root: string;
   configPath: string;

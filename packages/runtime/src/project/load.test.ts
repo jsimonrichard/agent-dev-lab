@@ -15,3 +15,11 @@ describe("loadAdlProject", () => {
     expect(project.configPath).toEndWith("adl.config.ts");
   });
 });
+
+describe("findAdlProjectRootFromCwd", () => {
+  it("finds apps/playground when cwd is inside it", async () => {
+    const { findAdlProjectRootFromCwd } = await import("./resolve.js");
+    const root = findAdlProjectRootFromCwd(path.join(playgroundRoot, "src"));
+    expect(root).toBe(playgroundRoot);
+  });
+});

@@ -16,3 +16,6 @@ export const ADL_CONFIG_FILENAMES = [
 ] as const;
 
 export type AdlConfigFilename = (typeof ADL_CONFIG_FILENAMES)[number];
+
+/** When `"1"`, the inspection UI runs in framework dev mode (playground default). */
+export const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";

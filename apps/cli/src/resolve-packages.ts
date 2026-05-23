@@ -110,20 +110,9 @@ export function resolveWorkspacePackageRoot(packageName: string): string {
   );
 }
 
-export function resolveDefaultProjectRoot(): string {
-  const monorepoRoot = findMonorepoRoot(moduleDir) ?? findMonorepoRoot(process.cwd());
-  if (monorepoRoot) {
-    try {
-      return resolveWorkspacePackageRoot("@agent-dev-lab/playground");
-    } catch {
-      // Fall through to cwd in monorepo without playground.
-    }
-  }
-  return process.cwd();
-}
-
 export interface ProjectRuntimeProjectModule {
   ADL_PROJECT_ROOT_ENV: string;
+  findAdlProjectRootFromCwd: (cwd?: string) => string;
   loadAdlProject: (options?: { root?: string; cwd?: string }) => Promise<{
     root: string;
     configPath: string;

@@ -7,7 +7,9 @@ export { renderPromptTemplate } from "./prompt/render.js";
 export {
   ADL_CONFIG_FILENAMES,
   ADL_PROJECT_ROOT_ENV,
+  ADL_FRAMEWORK_DEV_ENV,
   findAdlConfigPath,
+  findAdlProjectRootFromCwd,
   loadAdlProject,
   resolveProjectRoot,
   type AdlConfigFilename,

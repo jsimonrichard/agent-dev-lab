@@ -6,11 +6,12 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "ADL_FRAMEWORK_DEV=1 ADL_PROJECT_ROOT=../playground vite dev --port 3000",
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:project": "vite dev --port 3000"
   },
   "dependencies": {
     "@agent-dev-lab/runtime": "workspace:*",

@@ -10,11 +10,14 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
-const webRoot = path.dirname(fileURLToPath(import.meta.url));
-const defaultPlaygroundRoot = path.resolve(webRoot, "../playground");
+const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
+const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
-if (!process.env.ADL_PROJECT_ROOT) {
-  process.env.ADL_PROJECT_ROOT = defaultPlaygroundRoot;
+const webRoot = path.dirname(fileURLToPath(import.meta.url));
+const frameworkPlaygroundRoot = path.resolve(webRoot, "../playground");
+
+if (process.env[ADL_FRAMEWORK_DEV_ENV] === "1" && !process.env[ADL_PROJECT_ROOT_ENV]) {
+  process.env[ADL_PROJECT_ROOT_ENV] = frameworkPlaygroundRoot;
 }
 
 const config = defineConfig({
