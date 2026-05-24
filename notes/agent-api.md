@@ -243,6 +243,13 @@ type AgentRunInput<Context = unknown> = {
    * appended by a workflow loop). Must be valid ModelMessages.
    */
   messages?: CoreMessage[];
+
+  /**
+   * Future (not v1): allow episode cache lookup when message fingerprint matches.
+   * Default false — agents with side-effect tools must not cache unless safe.
+   * See resumability.md.
+   */
+  cacheable?: boolean;
 };
 
 type AgentRunResult = {

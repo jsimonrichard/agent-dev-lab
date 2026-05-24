@@ -105,7 +105,7 @@ We do **not** plan v1 “replay the closure” from observability.
 
 ---
 
-## D. UI replay → **observability only**
+## D. UI replay → **`WorkflowStore` only**
 
 The inspection UI rebuilds waterfalls from **run events**. **`MessageStore`** is not required for replay if `messages_committed` (or agent events) captured enough for display. For full transcript fidelity, link UI to **memoryScope** + `MessageStore` or store message snapshots in events.
 
@@ -134,9 +134,86 @@ observers.onMessagesCommitted(...)     ← UI / audit
 | List / inspect past runs | Yes — **`WorkflowStore`** (not observers) |
 | Manual retry with new run + same input | Yes — user/CLI |
 | Auto resume workflow mid-execution | **No** — step-level skip only; steps are atomic |
-| Agent episode cache (same message fingerprint) | **Optional** later — skip LLM only |
+| Agent episode cache (`cacheable` on `agent.run`) | **Future** — opt-in; skip LLM only when fingerprint hits |
 | Mid-stream token resume | **No** — not v1 |
 | Checkpoints / `ctx.checkpoint` | **Deferred** |
+
+---
+
+## Agent re-run vs mid-agent resume
+
+### Re-run the agent from the beginning (default)
+
+When a **step retries**, `agent.run` typically runs again with:
+
+- Fresh closure work (unless you split steps), and
+- **`MessageStore.load(memoryScope)`** — may already contain system, user, assistant, and tool messages from the **failed attempt**.
+
+That is **conversation resume** (model sees prior turns), not **skipping** the LLM call. Often correct after a crash mid-episode: you may want the model to continue or redo the last turn, not skip it.
+
+**Policy choices** (project-defined, not automatic):
+
+| Policy | Behavior on step retry |
+|--------|-------------------------|
+| **Continue scope** | Same `memoryScope`; load existing transcript |
+| **Fork scope** | New `memoryScope` suffix per attempt (`:retry-1`) |
+| **Clear scope** | Wipe store for that scope before `agent.run` |
+
+### Mid-agent resume (same step, same generation)
+
+**True** mid-stream resume (stop after 500 tokens, later continue the same completion) is **fragile** (provider/SDK support, partial assistant message in store) and **not** a v1 ADL goal.
+
+What *does* make sense as an **optional optimization**:
+
+### Agent episode cache (future — not v1)
+
+Episode deduplication is **deferred**. When added, it must be **opt-in per call** because agents can perform **side-effect work** in `execute` (tools) that must run again if prior custom logic re-ran—even when the message list fingerprint matches.
+
+```ts
+await agent.run({
+  memoryScope,
+  user: prompt,
+  cacheable: true, // future: allow lookup/store in episode cache; default false
+});
+```
+
+- **`cacheable: false` (default):** always call the model; tools always run as usual.
+- **`cacheable: true`:** if fingerprint of messages-to-model matches a stored episode, return cached result and **skip** `streamText` (tool side effects in that episode would **not** re-run — only safe when the agent is a pure function of messages or tools are idempotent).
+
+Still does not skip **custom TS** before `agent.run` inside a step—only the LLM episode.
+
+### Agent episode cache — behavior sketch (future)
+
+Before calling the model, the runner hashes the **exact messages** sent to the API (and optionally `agentId` + tool set version), **only when `cacheable: true`**:
+
+```ts
+fingerprint = hash(stableSerialize(messagesForModel));
+
+if (await agentEpisodeCache.get(fingerprint)) {
+  return cachedResult; // skip streamText
+}
+const result = await executeAgentEpisode(...);
+await agentEpisodeCache.set(fingerprint, result);
+```
+
+**When this helps:**
+
+- Step **re-runs** and precall logic is **deterministic** → same `messages` → **skip redundant LLM** (cost/latency), even though precall still executed.
+- Explicit **retry** of a failed run where nothing about the prompt changed.
+
+**When it does not help:**
+
+- Precall changes messages every time (timestamps, random ids) → fingerprint miss → full model call anyway.
+- You still need **idempotent** side effects outside the cache (uploads, DB writes).
+
+**Where to store cache:**
+
+- **`WorkflowStore`** extension (`recordAgentEpisode` + lookup by fingerprint), or
+- Separate **`AgentEpisodeCache`** interface — not the observer layer.
+
+**Not the same as `MessageStore`:** memory holds the canonical transcript; cache holds **optional** `(fingerprint → last result)` for deduplication. On cache hit you may still append to memory if the failed run never committed.
+
+**“Exactly the same input messages”** is the right key for *skip model call*. It does **not** fix re-running custom TS before `agent.run`—only **finer steps** or **idempotent** precall do.
 
 ---
 
@@ -158,7 +235,7 @@ interface WorkflowCheckpointStore {
 ## Summary
 
 - **Memory store** → resumability of **conversations** (what the model remembers).
-- **Observability** → resumability of **runs** (what happened, step outputs, replay UI, retry orchestration).
+- **`WorkflowStore`** → resumability of **runs** (step outputs, replay UI, retry orchestration).
 - **Both** matter when a crashed run had already committed agent messages and finished steps.
 - Neither alone gives **transparent** resume of arbitrary TypeScript workflow state — that needs idempotent design, explicit inputs, and eventually checkpoints.
 

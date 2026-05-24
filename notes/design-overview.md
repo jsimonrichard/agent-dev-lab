@@ -43,7 +43,7 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 | [`workflow-api.md`](./workflow-api.md) | Steps, nesting, tracing, templates, nested workflows |
 | [`project-api.md`](./project-api.md) | `adl.config` registries, `workflow.run`, CLI entrypoints |
 | [`streaming-api.md`](./streaming-api.md) | Run events, `agent.stream`, UI SSE |
-| [`observability-api.md`](./observability-api.md) | `WorkflowObserver`, `AgentObserver`, `RunReader` |
+| [`observability-api.md`](./observability-api.md) | Observers (push only) vs `WorkflowStore` (record + query) |
 | (memory vs observability) | [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer) — separate concerns, dual write on commit |
 | [`resumability.md`](./resumability.md) | Conversation vs workflow resume; which store when |
 | [`message-store.md`](./message-store.md) | `MessageStore` contract (planned; not in code yet) |

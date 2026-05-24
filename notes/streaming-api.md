@@ -62,14 +62,10 @@ Events are **JSON-serializable** for SQLite + SSE.
 Not a `RunHandle`. **`RunEvent`** is the SSE/replay shape. **Observers** push to stdout/OTEL (no reads). **`WorkflowStore.record*`** persists events for `getRunEvents` — see [`observability-api.md`](./observability-api.md).
 
 ```ts
-interface RunEventSink {
-  emit(event: RunEvent): void | Promise<void>;
-}
-
 function createRunContext(project: LoadedAdlProject): WorkflowContext {
   const runId = generateId();
-  const sink = createRunEventSink({ runId, project }); // or composite observers → events
-  return { runId, /* step, ... */ };
+  // fan-out: observers.onStepStart + workflowStore?.recordStepStart
+  return { runId, /* step, emit, ... */ };
 }
 ```
 

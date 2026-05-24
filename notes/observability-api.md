@@ -181,21 +181,21 @@ Do **not** extend `WorkflowObserver` with getters—keeps OTEL adapters honest.
 // adl.config.ts
 export default {
   name: "my-research",
-  workflows: { /* ... */ },
 
-  /** Push-only — zero retrieval */
-  observers: {
-    workflow: [new OtelWorkflowObserver()],
-    agent: [new OtelAgentObserver()],
+  workflows: {
+    literatureReview,
+    /** Reserved key — run persistence + query (parallel to registry entries) */
+    store: createSqliteWorkflowStore({ db }),
   },
 
-  /** Optional — inspection UI + resume */
-  stores: {
-    workflow: createSqliteWorkflowStore({ db }),
+  /** Push-only — zero retrieval; plural keys match workflows / agents */
+  observers: {
+    workflows: [new OtelWorkflowObserver()],
+    agents: [new OtelAgentObserver()],
   },
 
   memory: {
-    store: createSqliteMessageStore({ db }), // separate; see message-store.md
+    store: createSqliteMessageStore({ db }),
   },
 } satisfies AdlProjectConfig;
 ```
@@ -205,11 +205,11 @@ Per-run override:
 ```ts
 createRunContext(project, {
   workflowObservers: [stdoutWorkflowObserver],
-  workflowStore: project.config.stores?.workflow,
+  workflowStore: project.config.workflows?.store,
 });
 ```
 
-**Observers-only project:** `stores` omitted — full ADL execution works; no built-in run history in UI unless you add a custom store.
+**Observers-only project:** omit `workflows.store` — execution works; no built-in run history in UI unless you add a store.
 
 ---
 
@@ -243,7 +243,7 @@ See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same
 - [ ] `WorkflowStore` with `record*` + `getRun` / `listRuns` / `getRunEvents`
 - [ ] Runtime fan-out: observers + store in parallel
 - [ ] Default SQLite `WorkflowStore` in `@agent-dev-lab/common`
-- [ ] `adl.config`: `observers` vs `stores` blocks
+- [ ] `adl.config`: `observers.workflows` / `observers.agents`, `workflows.store`
 - [ ] `apps/web` SSE uses `WorkflowStore` only
 - [ ] `WorkflowResumer` (optional, can defer)
 

@@ -54,6 +54,8 @@ export default {
   workflows: {
     literatureReview,
     quickSummary,
+    /** Run persistence + UI query — see observability-api.md */
+    store: createSqliteWorkflowStore({ db }),
   },
 
   templates: {
@@ -92,8 +94,11 @@ export interface AdlProjectConfig {
   /** Named agents addressable as config.agents.researcher */
   agents?: Record<string, Agent<unknown, ToolSet>>;
 
-  /** Named workflows addressable as config.workflows.literatureReview */
-  workflows?: Record<string, Workflow<unknown, unknown>>;
+  /**
+   * Named workflows + optional `store` (reserved key).
+   * `config.workflows.literatureReview` — definitions only; not `config.workflows.store`.
+   */
+  workflows?: WorkflowRegistry;
 
   /** Named templates for listing / docs; optional if only used inside agents */
   templates?: Record<string, Template<unknown>>;
@@ -106,24 +111,23 @@ export interface AdlProjectConfig {
 
   /**
    * Push-only observers (stdout, OTEL) — no retrieval. See observability-api.md.
+   * Plural keys parallel `workflows` / `agents`.
    */
   observers?: {
-    workflow?: WorkflowObserver[];
-    agent?: AgentObserver[];
+    workflows?: WorkflowObserver[];
+    agents?: AgentObserver[];
   };
 
-  /**
-   * Optional persistence + query for UI / resume. Separate from observers.
-   */
-  stores?: {
-    workflow?: WorkflowStore;
-  };
-
-  /** Conversation transcripts for agents — separate from workflow store. */
+  /** Conversation transcripts for agents — separate from workflows.store */
   memory?: {
     store?: MessageStore;
   };
 }
+
+/** Workflow definitions plus optional run store on the same block. */
+type WorkflowRegistry = Record<string, Workflow<unknown, unknown>> & {
+  store?: WorkflowStore;
+};
 ```
 
 `defineAgent` / `defineWorkflow` / `template()` return values that satisfy these types. Registry keys are **stable string ids** chosen by the project (object keys), in addition to any `id` field on the definition.
@@ -132,6 +136,7 @@ export interface AdlProjectConfig {
 
 - `name` required (already enforced).
 - Registry values are the correct branded types (lightweight runtime checks or `satisfies` only in userland).
+- Reserved workflow registry key: **`store`** (not a workflow id). Loaders skip it when listing workflows.
 - Duplicate keys impossible in a single object literal; no dynamic key enumeration required.
 
 ---
