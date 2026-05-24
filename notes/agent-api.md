@@ -28,6 +28,7 @@ An agent is a reusable configuration: identity (instructions), model, tools, mem
 ```ts
 import { defineAgent, template } from "@agent-dev-lab/runtime";
 
+/** `id` is the registry key (CLI, UI, stores) — listed in adl.config `agents` array */
 export const researcher = defineAgent({
   id: "researcher",
 

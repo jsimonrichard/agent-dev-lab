@@ -133,14 +133,13 @@ export interface AdlProjectConfig {
 }
 ```
 
-`defineAgent` / `defineWorkflow` / `template()` return values that satisfy these types. Registry keys are **stable string ids** chosen by the project (object keys), in addition to any `id` field on the definition.
+`defineAgent` / `defineWorkflow` must include a non-empty string **`id`** (used by CLI, UI, `recordRunStart`, etc.). `template()` may use a separate naming scheme (still often `Record` in config).
 
 **Validation at load time (v1):**
 
 - `name` required (already enforced).
-- Registry values are the correct branded types (lightweight runtime checks or `satisfies` only in userland).
-- `workflows` / `agents` registries are plain records (any string id, including `"store"` if you really want—avoid for clarity).
-- Duplicate keys impossible in a single object literal; no dynamic key enumeration required.
+- Each workflow/agent in the arrays has a unique **`id`** (throw on duplicate).
+- Values are the correct branded types (lightweight runtime checks or `satisfies` in userland).
 
 ---
 
@@ -208,9 +207,9 @@ So the split is not “`runWorkflow` vs `.run`”; it is **lookup** (config reco
 
 | Layer | Responsibility |
 |-------|----------------|
-| **`adl.config.ts`** | `Record` of definitions |
-| **`loadAdlProject`** | Load config module |
-| **CLI / UI** | List keys; `workflows[id].run(input, { project })` |
+| **`adl.config.ts`** | Arrays of definitions (`workflows`, `agents`) |
+| **`loadAdlProject`** | Load config + index by `id` |
+| **CLI / UI** | List ids; `getWorkflow(id).run(input, { project })` |
 | **`workflow.run`** | Execute with step tree; returns **`Promise<Output>`** |
 
 ### No `RunHandle` in the core API

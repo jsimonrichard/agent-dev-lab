@@ -33,6 +33,7 @@ Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live U
 **Pure TS default:** a nested workflow is just an async function with metadata:
 
 ```ts
+/** `id` is the registry key — listed in adl.config `workflows` array */
 export const searchPapers = defineWorkflow({
   id: "search-papers",
   input: z.object({ topic: z.string() }),
