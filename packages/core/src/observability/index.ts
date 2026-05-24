@@ -8,6 +8,8 @@ export type {
   AgentToolResultEvent,
   RunEvent,
   RunEventBase,
+  RunEventOfType,
+  RunEventType,
   RunSummary,
   StepFailedEvent,
   StepFinishedEvent,
@@ -15,13 +17,17 @@ export type {
   StepSkippedEvent,
   StepSlot,
   StepStartedEvent,
+  WorkflowCancelledEvent,
   WorkflowCustomEvent,
+  WorkflowFailedEvent,
+  WorkflowFinishedEvent,
   WorkflowObserverEvent,
   WorkflowRunCancelledEvent,
   WorkflowRunFailedEvent,
   WorkflowRunFinishedEvent,
   WorkflowRunStartedEvent,
   WorkflowRunSummary,
+  WorkflowStartedEvent,
 } from "./events";
 export type {
   AgentObserver,
@@ -31,4 +37,4 @@ export type {
 } from "./observers";
 export type { AdlSpan, StartSpanOptions, TraceContext } from "./tracing";
 export { noopTraceContext } from "./tracing";
-export type { WorkflowStore } from "./workflow-store";
+export type { ListEventsFilter, WorkflowStore } from "./workflow-store";

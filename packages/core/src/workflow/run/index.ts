@@ -1,4 +1,4 @@
-export { createRunContext, createWorkflowRunContext } from "./create-workflow-run-context";
+export { createRunContext, createWorkflowRunContext } from "./create-context";
 export type {
   CreateRunContextOptions,
   CreateWorkflowRunContextOptions,

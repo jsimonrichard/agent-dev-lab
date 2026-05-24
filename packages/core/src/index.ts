@@ -16,15 +16,19 @@ export type {
   AgentStreamResult,
 } from "./agent";
 
-export { createWorkflow } from "./workflow";
+export { createRunContext, createWorkflow, createWorkflowRunContext } from "./workflow";
 export type {
+  CreateRunContextOptions,
+  CreateWorkflowRunContextOptions,
   CustomWorkflowEvent,
+  RunContext,
   StepFn,
   StepIdentity,
   StepOptions,
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
+  WorkflowRunContext,
   WorkflowRunHandle,
   WorkflowRunOptions,
 } from "./workflow";
@@ -44,8 +48,11 @@ export type {
   AgentObserver,
   AgentObserverEvent,
   AgentObservers,
+  ListEventsFilter,
   RunEvent,
   RunEventBase,
+  RunEventOfType,
+  RunEventType,
   RunSummary,
   StepRecord,
   StepSlot,
@@ -53,18 +60,11 @@ export type {
   WorkflowObserverEvent,
   WorkflowObservers,
   WorkflowRunSummary,
+  WorkflowStartedEvent,
   WorkflowStore,
 } from "./observability";
 export type { AdlSpan, StartSpanOptions, TraceContext } from "./observability";
 export { noopTraceContext } from "./observability";
-
-export { createRunContext, createWorkflowRunContext } from "./workflow-run";
-export type {
-  CreateRunContextOptions,
-  CreateWorkflowRunContextOptions,
-  RunContext,
-  WorkflowRunContext,
-} from "./workflow-run";
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
 export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";

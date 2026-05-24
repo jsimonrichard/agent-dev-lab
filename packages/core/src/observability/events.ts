@@ -2,7 +2,7 @@
  * Append-only run event union for SSE / waterfall UI.
  *
  * Every event shares `workflowRunId` — the id for one top-level workflow invocation.
- * Steps are addressed with `stepId`; agent episodes with `agentCallId` (when applicable).
+ * Steps use `stepId`; agent episodes use `agentCallId`.
  *
  * @see notes/streaming-api.md
  */
@@ -15,24 +15,24 @@ export type RunEventBase = {
   at: string;
 };
 
-export type WorkflowRunStartedEvent = RunEventBase & {
-  type: "workflow_run_started";
+export type WorkflowStartedEvent = RunEventBase & {
+  type: "workflow_started";
   workflowId: string;
   input: unknown;
 };
 
-export type WorkflowRunFinishedEvent = RunEventBase & {
-  type: "workflow_run_finished";
+export type WorkflowFinishedEvent = RunEventBase & {
+  type: "workflow_finished";
   output: unknown;
 };
 
-export type WorkflowRunFailedEvent = RunEventBase & {
-  type: "workflow_run_failed";
+export type WorkflowFailedEvent = RunEventBase & {
+  type: "workflow_failed";
   error: unknown;
 };
 
-export type WorkflowRunCancelledEvent = RunEventBase & {
-  type: "workflow_run_cancelled";
+export type WorkflowCancelledEvent = RunEventBase & {
+  type: "workflow_cancelled";
 };
 
 export type StepStartedEvent = RunEventBase & {
@@ -116,18 +116,18 @@ export type AgentMessagesCommittedEvent = RunEventBase & {
 };
 
 export type WorkflowCustomEvent = RunEventBase & {
-  type: "workflow_custom";
+  type: "custom";
   stepId: string;
   name: string;
   payload: unknown;
 };
 
-/** All workflow + step + agent events emitted during a workflow run. */
+/** All events emitted during a workflow invocation. */
 export type RunEvent =
-  | WorkflowRunStartedEvent
-  | WorkflowRunFinishedEvent
-  | WorkflowRunFailedEvent
-  | WorkflowRunCancelledEvent
+  | WorkflowStartedEvent
+  | WorkflowFinishedEvent
+  | WorkflowFailedEvent
+  | WorkflowCancelledEvent
   | StepStartedEvent
   | StepFinishedEvent
   | StepSkippedEvent
@@ -140,12 +140,17 @@ export type RunEvent =
   | AgentMessagesCommittedEvent
   | WorkflowCustomEvent;
 
+export type RunEventType = RunEvent["type"];
+
+/** Narrow {@link RunEvent} by discriminant `type`. */
+export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
+
 /** Events a {@link WorkflowObserver} typically handles (workflow + steps + custom). */
 export type WorkflowObserverEvent =
-  | WorkflowRunStartedEvent
-  | WorkflowRunFinishedEvent
-  | WorkflowRunFailedEvent
-  | WorkflowRunCancelledEvent
+  | WorkflowStartedEvent
+  | WorkflowFinishedEvent
+  | WorkflowFailedEvent
+  | WorkflowCancelledEvent
   | StepStartedEvent
   | StepFinishedEvent
   | StepSkippedEvent
@@ -171,6 +176,15 @@ export type WorkflowRunSummary = {
 
 /** @deprecated Use {@link WorkflowRunSummary}. */
 export type RunSummary = WorkflowRunSummary;
+
+/** @deprecated Use {@link WorkflowStartedEvent}. */
+export type WorkflowRunStartedEvent = WorkflowStartedEvent;
+/** @deprecated Use {@link WorkflowFinishedEvent}. */
+export type WorkflowRunFinishedEvent = WorkflowFinishedEvent;
+/** @deprecated Use {@link WorkflowFailedEvent}. */
+export type WorkflowRunFailedEvent = WorkflowFailedEvent;
+/** @deprecated Use {@link WorkflowCancelledEvent}. */
+export type WorkflowRunCancelledEvent = WorkflowCancelledEvent;
 
 export type StepRecord = {
   stepId: string;
