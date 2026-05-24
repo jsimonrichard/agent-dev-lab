@@ -45,6 +45,14 @@ export const researcher = createAgent({
   },
 
   /**
+   * Optional structured output schema (Zod / AI SDK `Output` helper).
+   * When set, the runner uses AI SDK structured output for this agent
+   * (generateObject or streamText + `output` — same internal path as `run`).
+   * Override per call via `agent.run({ output })`.
+   */
+  output?: z.ZodType<SomeStructuredType>,
+
+  /**
    * Optional per-agent override. When omitted, uses `adl.config` `stores.memory`.
    * See message-store.md (not implemented in runtime yet).
    */
@@ -69,10 +77,32 @@ Volatile context for a turn belongs in a **user** message (workflow template or 
 - Standard AI SDK `tool()` definitions on the agent.
 - **Execution** for v1: either the SDK `execute` on the tool, or the workflow runs a tool loop and appends results—TBD in workflow doc. Regardless, **persistence** is always via messages (below).
 
+### Structured output
+
+Agents support **typed model output** in addition to free-form text:
+
+| Level            | Field                              | Behavior                                                         |
+| ---------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| **Agent default** | `createAgent({ output: schema })` | Every `run` / `stream` uses structured output unless overridden |
+| **Per call**      | `agent.run({ output: schema })`   | Overrides agent default for one episode                          |
+
+Implementation (AI SDK v5):
+
+- Prefer **`streamText` + `output`** (or `generateObject` when non-streaming only) so **one code path** serves `run` and `stream`.
+- **`AgentRunResult`** includes:
+  - `output` — parsed object when schema succeeded
+  - `text` — optional string representation / reasoning text if the provider emits it alongside structured fields
+  - `sdk` — raw result for advanced use
+- **Streaming:** still use `streamText`; forward **reasoning / text deltas** to observers and `text_delta` events when the provider emits them. Structured fields may arrive in a final chunk — UI shows live reasoning, then structured payload on finish.
+- Persist **assistant messages** from `result.response.messages` as today (structured output appears in message content per SDK shape).
+
+Workflows that need JSON from an agent should read **`result.output`** (typed) rather than parsing `result.text`.
+
 ### What agents do _not_ carry
 
 - **`stopWhen` / step limits** — workflow concern (TypeScript loops, conditions, cost caps).
 - **Memory pipeline** — deferred ([`memory-pipeline.md`](./memory-pipeline.md)); v1 may use a fixed policy (e.g. pass-through or simple last-N in the runner without a public pipeline API).
+- **Evals / scorers** — not planned in core; see [`future-extensions.md`](./future-extensions.md).
 
 ---
 
@@ -246,6 +276,12 @@ type AgentRunInput<Context = unknown> = {
   messages?: CoreMessage[];
 
   /**
+   * Override agent-level structured output schema for this episode.
+   * Omit to use `createAgent({ output })` default; omit both for plain text.
+   */
+  output?: z.ZodType<unknown>;
+
+  /**
    * Future (not v1): allow episode cache lookup when message fingerprint matches.
    * Default false — agents with side-effect tools must not cache unless safe.
    * See resumability.md.
@@ -253,9 +289,12 @@ type AgentRunInput<Context = unknown> = {
   cacheable?: boolean;
 };
 
-type AgentRunResult = {
-  /** Text from the model for this episode (last step if SDK returns multiple). */
+type AgentRunResult<TOutput = unknown> = {
+  /** Text from the model for this episode (reasoning / plain text when present). */
   text: string;
+
+  /** Parsed structured output when `output` schema was used; else undefined. */
+  output?: TOutput;
 
   /** Messages passed to the model for this call (after load + bootstrap + user + any pipeline). */
   messages: CoreMessage[];
@@ -279,9 +318,9 @@ Parameter name is **`memoryScope`**, not `memory`, to avoid confusion with a fut
 2. If empty → render `instructions` → append and persist **system** message
 3. If `user` → append **user** message (persist with commit or as part of final save)
 4. _(Future)_ memory pipeline shapes the list — deferred
-5. **`streamText`** internally (even for `agent.run`) — drain stream, forward chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
+5. **`streamText`** internally (even for `agent.run`) — with `output` when schema set; drain stream, forward **text/reasoning** chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
 6. Append `newMessages` from SDK response to store
-7. Return `AgentRunResult`
+7. Return `AgentRunResult` (`text`, optional `output`, `newMessages`, `sdk`)
 
 ---
 
@@ -350,8 +389,10 @@ Template metadata (`template.name`, `inputData` snapshot) can attach to events f
 
 - [ ] `createAgent` + agent registry metadata (`id`)
 - [ ] `MessageStore` interface + `inMemory` (+ optional SQLite later)
-- [ ] `agent.run({ memoryScope, user?, messages? })` with system bootstrap + persist
+- [ ] `agent.run({ memoryScope, user?, messages?, output? })` with system bootstrap + persist
+- [ ] Structured `output` on agent + per-run override (`streamText` + `output`)
 - [ ] Commit `result.response.messages` to store
+- [ ] `createToolFromAgent` — [`workflow-api.md`](./workflow-api.md)
 - [ ] Template ref + `renderPromptTemplate` integration in runner
 - [ ] Defer public **memory pipeline** API ([`memory-pipeline.md`](./memory-pipeline.md))
 

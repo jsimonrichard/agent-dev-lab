@@ -30,6 +30,7 @@ Prefer **re-export** over wrapping so user code matches upstream docs.
 ## Agent execution
 
 - [ ] **Single internal path:** `streamText` for both `agent.run` (drain) and `agent.stream` (expose streams) — [`streaming-api.md`](./streaming-api.md)
+- [ ] **Structured output:** `streamText` / `generateText` with `output` schema when `createAgent({ output })` or `run({ output })` — still stream reasoning/text parts when provider emits them
 - [ ] Forward **`experimental_context`** from `agent.run({ context })` to `streamText` → tool `execute` `options.experimental_context`
 - [ ] Default **one SDK step** per `agent.run` (`stopWhen: stepCountIs(1)` or equivalent); multi-step tool loops live in **workflow** TypeScript
 - [ ] Do **not** require AI SDK experimental **`Agent`** class for v1 — ADL **`createAgent`** wraps `streamText` / `generateText` directly
@@ -75,6 +76,7 @@ When bumping `ai` major:
 
 ## Non-goals (v1)
 
+- [ ] Built-in **evals / scorers**
 - [ ] AI SDK **`Experimental_Agent`** / `@ai-sdk/workflow` durable agents as required path
 - [ ] UI message types (`UIMessage`) in headless runtime — convert only in `apps/web` if needed
 - [ ] Provider-specific APIs in core runtime (users configure `LanguageModel` in project code)

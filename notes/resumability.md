@@ -56,12 +56,12 @@ await ctx.step("search", async ({ ctx }) => {
 
 **Implications:**
 
-| Practice                                             | Why                                                 |
-| ---------------------------------------------------- | --------------------------------------------------- |
-| Put **side effects** in their own steps              | So retry can skip or target them                    |
-| Put **non-idempotent** work behind explicit guards   | Or accept that retry duplicates it                  |
-| Pass prior step outputs as **arguments**             | Resume = new run with stored JSON, not magic replay |
-| Treat **one agent call per step** when retry matters | Clear boundary for store + memory                   |
+| Practice                                             | Why                                                              |
+| ---------------------------------------------------- | ---------------------------------------------------------------- |
+| Put **side effects** in their own steps              | So retry can **skip** the step via stored **output**             |
+| Put **non-idempotent** work behind explicit guards   | Or accept that retry duplicates it                               |
+| Pass prior step outputs as **arguments**             | Useful across new runs; same-run retry uses `getStepOutput` skip |
+| Treat **one agent call per step** when retry matters | Clear boundary for store + memory                                |
 
 **Mid-conversation inside a workflow** usually means: same **`memoryScope`** across a retry, not “resume the same step halfway.” Conversation continuity is **`MessageStore`**; step retry is **`WorkflowStore`** step outputs.
 
@@ -72,10 +72,11 @@ await ctx.step("search", async ({ ctx }) => {
 To retry “from step `search`” without re-running `outline`:
 
 1. **`WorkflowStore`** must have recorded:
-   - `run_started` with workflow **input**
-   - `step_finished` for completed steps with **serialized outputs** (JSON-safe return values)
+   - Run **`input`** and (when finished) run **`output`**
+   - Per-step **`output`** (and optional `input` snapshot) for completed steps
    - `step_failed` at the failure point
-2. **Workflow code** must be written to **accept injected prior results** (explicit parameters, not magic closure replay).
+2. **Runtime skip:** on retry with the same `runId`, **`ctx.step`** calls `getStepOutput` and **returns the stored output without running the callback** (see [`workflow-api.md`](./workflow-api.md)). No per-step manual early-return boilerplate in user TS for the common case.
+3. **Workflow code** still must be **idempotent** for work *outside* `ctx.step` (top-level `run` body, code between steps).
 
 The **memory store** does not know about workflow steps. It only knows **agent** transcripts per `memoryScope`.
 
@@ -128,12 +129,12 @@ observers.onMessagesCommitted(...)     ← UI / audit
 
 ## Recommended v1 stance
 
-| Capability                                       | v1                                                       |
-| ------------------------------------------------ | -------------------------------------------------------- |
-| Multi-turn agent via `memoryScope`               | Yes — **MessageStore**                                   |
-| List / inspect past runs                         | Yes — **`WorkflowStore`** (not observers)                |
-| Manual retry with new run + same input           | Yes — user/CLI                                           |
-| Auto resume workflow mid-execution               | **No** — step-level skip only; steps are atomic          |
+| Capability                         | v1                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Multi-turn agent via `memoryScope` | Yes — **MessageStore**                                                                  |
+| List / inspect past runs           | Yes — **`WorkflowStore`** (not observers)                                               |
+| Manual retry with new run + same input | Yes — user/CLI                                                                      |
+| Auto resume workflow mid-execution | **Partial** — same-`runId` **step skip** via stored output; no mid-step callback resume |
 | Agent episode cache (`cacheable` on `agent.run`) | **Future** — opt-in; skip LLM only when fingerprint hits |
 | Mid-stream token resume                          | **No** — not v1                                          |
 | Checkpoints / `ctx.checkpoint`                   | **Deferred**                                             |

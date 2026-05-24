@@ -8,18 +8,18 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 ## Designed (in notes)
 
-| Area                | Doc                                                    | v1 intent                                             |
-| ------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
-| Agents              | [`agent-api.md`](./agent-api.md)                       | `createAgent`, `run` / `stream`, context, memoryScope |
-| Workflows           | [`workflow-api.md`](./workflow-api.md)                 | `createWorkflow`, `ctx.step`, keys, `{ ctx }` nesting |
-| Templates           | [`templates-api.md`](./templates-api.md)               | `createTemplate` + Zod + `.render()`                  |
-| Project config      | [`project-api.md`](./project-api.md)                   | arrays, `stores.*`, `observers.*`, `getWorkflow`      |
-| Message memory      | [`message-store.md`](./message-store.md)               | `MessageStore` load/save                              |
-| Run persistence     | [`observability-api.md`](./observability-api.md)       | observers vs `WorkflowStore`                          |
-| Streaming / UI feed | [`streaming-api.md`](./streaming-api.md)               | run events, SSE, `ctx.emit` custom                    |
-| Resumability        | [`resumability.md`](./resumability.md)                 | step atomicity; ⏸ episode cache                       |
-| AI SDK              | [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) | checklist                                             |
-| Memory pipeline     | [`memory-pipeline.md`](./memory-pipeline.md)           | ⏸ deferred                                            |
+| Area                | Doc                                                    | v1 intent                                                                  |
+| ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Agents              | [`agent-api.md`](./agent-api.md)                       | `createAgent`, `run` / `stream`, context, memoryScope, structured output |
+| Workflows           | [`workflow-api.md`](./workflow-api.md)                 | `createWorkflow`, `ctx.step`, keys, `{ ctx }` nesting                      |
+| Templates           | [`templates-api.md`](./templates-api.md)               | `createTemplate` + Zod + `.render()`                                       |
+| Project config      | [`project-api.md`](./project-api.md)                   | arrays, `stores.*`, `observers.*`, `getWorkflow`                         |
+| Message memory      | [`message-store.md`](./message-store.md)               | `MessageStore` load/save                                                   |
+| Run persistence     | [`observability-api.md`](./observability-api.md)       | observers vs `WorkflowStore` (run/step **I/O** + events)                   |
+| Streaming / UI feed | [`streaming-api.md`](./streaming-api.md)               | run events, SSE, `ctx.emit` custom                                         |
+| Resumability        | [`resumability.md`](./resumability.md)                 | step atomicity; ⏸ episode cache                                            |
+| AI SDK              | [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) | checklist                                                                  |
+| Memory pipeline     | [`memory-pipeline.md`](./memory-pipeline.md)           | ⏸ deferred                                                                 |
 
 ---
 
@@ -29,7 +29,8 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 - [ ] `createRunContext`, `workflow.run(input, ctx | { project })`
 - [ ] `agent.run`, `agent.stream` (shared `streamText` core)
 - [ ] `MessageStore` + `inMemory`; optional `stores.memory` SQLite in common
-- [ ] `WorkflowStore` + default SQLite; `record*` / `getRunEvents`
+- [ ] `WorkflowStore` + default SQLite; run/step **I/O**, `getStepOutput`, `getRunEvents`
+- [ ] `ctx.step` skip when stored output exists (same `runId` retry)
 - [ ] `WorkflowObserver` / `AgentObserver` fan-out
 - [ ] Extend `loadAdlProject` + `getWorkflow` / `getAgent` / duplicate `id` checks
 - [ ] Re-exports per AI SDK checklist
@@ -64,25 +65,30 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 ## Gaps — discuss or decide for v1
 
-| Topic                               | Status     | Notes                                                                         |
-| ----------------------------------- | ---------- | ----------------------------------------------------------------------------- |
-| **Model / provider setup**          | 🔲 thin    | Where `LanguageModel` comes from: `adl.config.defaults`, env, per-agent field |
-| **Workflow `run` input validation** | 🔲 implied | Zod on `createWorkflow`; who calls `.parse` — runner at `run()` boundary      |
-| **Shared `tools` in config**        | 🔲         | `ToolSet` on config vs only on agents                                         |
-| **Templates registry**              | ✅         | array; `name` = filename basename                                             |
-| **Error types**                     | 🔲         | `AdlError`, step failure propagation, user-facing CLI messages                |
-| **Testing helpers**                 | 🔲         | `createTestRunContext`, in-memory store/observers bundle                      |
-| **Workflow tool-loop helper**       | 🔲         | Optional `runAgentToolLoop` in runtime vs raw TS in workflow                  |
-| **OTEL default observer**           | 🔲         | Package in common vs example only                                             |
-| **Event schema versioning**         | 🔲         | `eventSchemaVersion` on run events for UI                                     |
-| **Secrets / API keys**              | 🔲         | Document env vars only; no ADL vault v1                                       |
-| **Export map**                      | 🔲         | `@agent-dev-lab/runtime`, `/project` subpath — already started                |
-| **Cancellation UX**                 | partial    | `AbortSignal` documented; CLI/UI cancel 🔲                                    |
-| **agent.stream in v1?**             | partial    | Designed; could ship `run` only first                                         |
-| **WorkflowResumer**                 | ⏸          | interface later                                                               |
-| **Episode cache `cacheable`**       | ⏸          | [`resumability.md`](./resumability.md)                                        |
-| **Memory pipeline**                 | ⏸          | [`memory-pipeline.md`](./memory-pipeline.md)                                  |
-| **Checkpoints**                     | ⏸          | [`resumability.md`](./resumability.md)                                        |
+| Topic                               | Status  | Notes                                                                                      |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| **Model / provider setup**          | 🔲 thin | Where `LanguageModel` comes from: `adl.config.defaults`, env, per-agent field              |
+| **Workflow `run` input validation** | 🔲 implied | Zod on `createWorkflow`; who calls `.parse` — runner at `run()` boundary                |
+| **Shared `tools` in config**        | 🔲      | `ToolSet` on config vs only on agents                                                      |
+| **Templates registry**              | ✅      | array; `name` = filename basename                                                          |
+| **Error types**                     | 🔲      | `AdlError`, step failure propagation, user-facing CLI messages                             |
+| **Testing helpers**                 | 🔲      | `createTestRunContext`, in-memory store/observers bundle                                   |
+| **Structured output**               | ✅      | `output` on `createAgent` + `run`; `streamText` + reasoning deltas                         |
+| **Workflow/agent as tool**          | 🔲      | `createToolFromWorkflow`, `createToolFromAgent` — [`workflow-api.md`](./workflow-api.md)    |
+| **Workflow tool-loop helper**       | 🔲      | Optional `runAgentToolLoop` in runtime vs raw TS in workflow                               |
+| **Human approval**                  | ⏸       | `ctx.requestApproval` + `approvals.dispatcher` — [`future-extensions.md`](./future-extensions.md) |
+| **Extension hooks**                 | ⏸       | Pre/post model & persist — [`future-extensions.md`](./future-extensions.md)               |
+| **Evals / scorers**                 | —       | **Not planned** in core                                                                    |
+| **OTEL default observer**           | 🔲      | Package in common vs example only                                                          |
+| **Event schema versioning**         | 🔲      | `eventSchemaVersion` on run events for UI                                                    |
+| **Secrets / API keys**              | 🔲      | Document env vars only; no ADL vault v1                                                    |
+| **Export map**                      | 🔲      | `@agent-dev-lab/runtime`, `/project` subpath — already started                             |
+| **Cancellation UX**                 | partial | `AbortSignal` documented; CLI/UI cancel 🔲                                                 |
+| **agent.stream in v1?**             | partial | Designed; could ship `run` only first                                                      |
+| **WorkflowResumer**                 | ⏸       | interface later                                                                            |
+| **Episode cache `cacheable`**       | ⏸       | [`resumability.md`](./resumability.md)                                                     |
+| **Memory pipeline**                 | ⏸       | [`memory-pipeline.md`](./memory-pipeline.md)                                               |
+| **Checkpoints**                     | ⏸       | [`resumability.md`](./resumability.md)                                                     |
 
 ---
 
@@ -93,6 +99,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 - Auto workflow resume mid-closure
 - Mid-stream token resume
 - AI SDK WorkflowAgent / durable execution required path
+- Evals / scorers in runtime
 - Template preview UI (unless trivial)
 - Multi-tenant auth on run APIs
 
