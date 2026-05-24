@@ -14,7 +14,8 @@ Expose **workflows, agents, templates, tools** (and optional defaults) from the 
 
 - Implementations live in arbitrary paths (`src/workflows/…`, `src/agents/…`, colocated prompts).
 - Only **`adl.config.ts`** (or `.mts` / `.js` / `.mjs`) is the **discovery surface** for the CLI, inspection UI, and `loadAdlProject()`.
-- The config file **imports** definitions and assigns them to named registry keys.
+- The config file **imports** definitions and lists them in **`workflows`** / **`agents`** arrays.
+- Each definition carries its own **`id`** string — no parallel object keys to keep in sync.
 
 We **do not** plan for dynamic registration (runtime plugin scan, conditional agents per request, etc.). The registry is **static** at load time. If a project needs variants, use separate workflows/agents or pass **input** / **`context`** at run time—not hidden registry mutation.
 
@@ -46,15 +47,9 @@ import { searchTool, citeTool } from "./src/tools/index";
 export default {
   name: "my-research",
 
-  agents: {
-    researcher,
-    writer,
-  },
+  agents: [researcher, writer],
 
-  workflows: {
-    literatureReview,
-    quickSummary,
-  },
+  workflows: [literatureReview, quickSummary],
 
   templates: {
     findPapers: findPapersPrompt,
@@ -99,11 +94,11 @@ export interface AdlProjectConfig {
   /** Shown in inspection UI and CLI. */
   name: string;
 
-  /** Named agents addressable as config.agents.researcher */
-  agents?: Record<string, Agent<unknown, ToolSet>>;
+  /** Agents — `id` on each `defineAgent` is the sole registry key */
+  agents?: Agent<unknown, ToolSet>[];
 
-  /** Named workflows — plain record, no reserved keys */
-  workflows?: Record<string, Workflow<unknown, unknown>>;
+  /** Workflows — `id` on each `defineWorkflow` is the sole registry key */
+  workflows?: Workflow<unknown, unknown>[];
 
   /** Named templates for listing / docs; optional if only used inside agents */
   templates?: Record<string, Template<unknown>>;
@@ -152,22 +147,22 @@ export interface LoadedAdlProject {
   root: string;
   configPath: string;
   config: AdlProjectConfig;
+
+  /** Resolve by `workflow.id` — built when config loads */
+  getWorkflow(id: string): Workflow<unknown, unknown> | undefined;
+  getAgent(id: string): Agent<unknown, ToolSet> | undefined;
+  listWorkflowIds(): string[];
+  listAgentIds(): string[];
 }
 ```
 
-Callers use `project.config.workflows?.literatureReview` after load. No separate glob discovery or `workflows/` convention enforced by the framework.
+Callers use **`project.getWorkflow("literature-review")`** (or import the definition directly). No glob discovery convention enforced by the framework.
 
 ---
 
-## Execution: one primitive, registry is just a `Record`
+## Execution: one primitive, registry is a list + `id`
 
-The registry is not a special runtime type. It is a plain object on config:
-
-```ts
-workflows?: Record<string, Workflow<Input, Output>>;
-agents?: Record<string, Agent<Context, Tools>>;
-// same idea for templates, tools
-```
+Registries are **arrays** at config time; the runtime indexes by **`definition.id`**:
 
 `defineWorkflow` returns a **workflow object** with a `.run()` method. That is the **only** execution API for workflow logic. There is no separate `runWorkflow()` in the public runtime unless we add a one-line helper—and we probably should **not**, to avoid two ways to do the same thing.
 
@@ -184,17 +179,17 @@ const output = await literatureReview.run(
 );
 ```
 
-**By registry key** (after `loadAdlProject`):
+**By id** (after `loadAdlProject`):
 
 ```ts
 const project = await loadAdlProject();
-const workflow = project.config.workflows?.literatureReview;
+const workflow = project.getWorkflow("literature-review");
 if (!workflow) throw new Error("Unknown workflow");
 
 const output = await workflow.run({ topic: "CRISPR delivery" }, ctx);
 ```
 
-String lookup is just `Record` access. The CLI does exactly that: resolve id → `config.workflows[id].run(input, ctx)`.
+The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The id is whatever you set on `defineWorkflow({ id: "literature-review", ... })`, not a separate config key.
 
 ### Who creates `WorkflowContext`?
 
@@ -203,7 +198,7 @@ String lookup is just `Record` access. The CLI does exactly that: resolve id →
 1. **Caller passes `ctx`** — nested workflow, tests with a fake context.
 2. **`workflow.run(input, { project })`** (or `createRunContext(project)`) — runtime builds root `ctx` (`runId`, event sink, defaults from config) when omitted.
 
-So the split is not “`runWorkflow` vs `.run`”; it is **lookup** (config record / CLI id) vs **invoke** (always `.run`).
+So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI / `getWorkflow`) vs **invoke** (always `.run`).
 
 | Layer | Responsibility |
 |-------|----------------|
@@ -242,23 +237,20 @@ const runPromise = literatureReview.run(input, { project });
 | Entry | What it does |
 |-------|----------------|
 | **`workflow.run(input, ctx \| { project })`** | The execution primitive |
-| **`adl run <id>`** | Load project → `config.workflows[id].run(...)` |
-| **`adl dev` / UI** | Same registry for listing and triggering runs |
+| **`adl run <id>`** | Load project → `getWorkflow(id).run(...)` |
+| **`adl dev` / UI** | `listWorkflowIds()` + trigger by `id` |
 | **Import workflow directly** | Skip registry; still use `.run` |
 
 Optional tiny helper (internal or exported, low priority):
 
-```ts
-// Equivalent to config.workflows[id].run(input, { project }) — sugar only
-function getWorkflow(project: LoadedAdlProject, id: string): Workflow { ... }
-```
+`getWorkflow` / `getAgent` on `LoadedAdlProject` are the supported lookup API (may be thin wrappers over an internal `Map`).
 
 ### CLI (planned behavior)
 
 ```bash
 adl run literatureReview --input '{"topic":"…"}'
-adl workflows list    # keys from config.workflows
-adl agents list       # keys from config.agents
+adl workflows list    # ids from config.workflows[].id
+adl agents list       # ids from config.agents[].id
 ```
 
 Input via JSON flag or stdin; schema validation from workflow `input` Zod when present.
@@ -275,7 +267,7 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 | Scenario | Approach |
 |----------|----------|
 | Different models per environment | `defaults` in config or env in `adl.config.ts`, not runtime registry mutation |
-| A/B two workflows | Register both; choose at CLI or `workflows[id].run(...)` |
+| A/B two workflows | List both; choose at CLI or `getWorkflow(id).run(...)` |
 | “Dynamic” agent count | Not supported; use one agent + `context` / tool data instead |
 | Monorepo multiple projects | Multiple `adl.config.*` roots; each `loadAdlProject({ root })` |
 
@@ -307,9 +299,10 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 - [ ] Extend `AdlProjectConfig` + `normalizeConfig` (optional registries, passthrough unknown keys or strict)
 - [ ] Type exports for `Agent`, `Workflow`, `Template` registries
 - [ ] `workflow.run(input, ctx | { project })` + `createRunContext(project)`
-- [ ] Playground registers sample agent + workflow in config `Record`s
-- [ ] CLI `adl run` → lookup `config.workflows[id].run`
-- [ ] UI reads workflow/agent keys for navigation (minimal)
+- [ ] Playground lists sample agent + workflow in config arrays
+- [ ] `loadAdlProject` builds id index; duplicate id errors
+- [ ] CLI `adl run` → `getWorkflow(id).run`
+- [ ] UI lists ids from `listWorkflowIds()` / `listAgentIds()`
 
 ---
 
