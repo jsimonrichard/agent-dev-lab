@@ -100,6 +100,17 @@ interface WorkflowObserver {
     key?: string;
     error: unknown;
   }): void | Promise<void>;
+
+  /**
+   * Application events from ctx.emit — see streaming-api.md.
+   * Prefer this over abusing onStepComplete metadata.
+   */
+  onCustomEvent?(e: {
+    runId: string;
+    stepId: string;
+    name: string;
+    payload: unknown;
+  }): void | Promise<void>;
 }
 ```
 

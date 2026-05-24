@@ -77,14 +77,62 @@ function createRunContext(project: LoadedAdlProject): WorkflowContext {
 - **`workflow.run`** and **`workflow.stream`** both use the same sink and step events.
 - No `cancel()` on the sink—use **`AbortSignal`** on run options ([`project-api.md`](./project-api.md)).
 
-### Emitting without `agent.stream`
+### One implementation path: always `streamText` inside the agent runner
 
-`agent.run` → `generateText`: emit `agent_started` / `agent_finished`, step events, `messages_committed` on finish. **No `text_delta`** unless we add a future “simulate stream from full text” (not v1).
+**Yes** — implement both `agent.run` and `agent.stream` on top of **`streamText`**, not `generateText` + a separate path.
 
-Workflows that call the AI SDK **directly** inside a step should either:
+| Public API | Caller sees | Runner behavior |
+|------------|-------------|-----------------|
+| **`agent.run`** | `Promise<AgentRunResult>` only | `streamText` + **drain** stream internally; resolve when generation finishes |
+| **`agent.stream`** | `AgentStreamResult` (SDK streams + `finished` promise) | Same `streamText` call; **expose** `textStream` / `fullStream` to caller |
 
-- Use **`agent.stream`** / **`agent.run`** (recommended), or
-- Call a helper that forwards SDK callbacks to the sink (below).
+Reasons:
+
+- **One place** for `onChunk`, `onStepFinish`, tool calls, persistence, [`AgentObserver`](./observability-api.md) hooks.
+- **`agent.run` still supplies stream-shaped observability** (`onStream`, tool events) without forcing the caller to read a stream.
+- AI SDK already unifies final result on `streamText` (`text`, `response.messages`, `usage` on completion).
+
+```ts
+// Internal (conceptual)
+async function executeAgentEpisode(options: AgentRunOptions): Promise<{
+  result: AgentRunResult;
+  stream: StreamTextResult; // only returned to agent.stream callers
+}> {
+  const streamResult = streamText({
+    model: agent.model,
+    tools: agent.tools,
+    messages: preparedMessages,
+    experimental_context: options.context,
+    abortSignal: options.signal,
+    stopWhen: stepCountIs(1), // one episode per agent.run; workflow loops externally
+    onChunk: ({ chunk }) => {
+      if (chunk.type === "text-delta") {
+        observers.agent.onStream?.({ delta: chunk.textDelta, ...ids });
+        emitRunEvent({ type: "text_delta", delta: chunk.textDelta, ... });
+      }
+      // forward other chunk types as needed (tool-input-start, etc.)
+    },
+    onStepFinish: (step) => {
+      // tool calls / results for observers
+    },
+    onFinish: async ({ response }) => {
+      await messageStore.append(memoryScope, response.messages);
+      observers.agent.onMessagesCommitted?.({ newMessages: response.messages, ... });
+    },
+  });
+
+  // agent.run: consume until done without exposing stream
+  const text = await streamResult.text; // or consume textStream
+  const result = buildAgentRunResult(streamResult);
+  return { result, stream: streamResult };
+}
+```
+
+**Caller using `agent.run`:** awaits the promise; UI still receives **`text_delta`** via observers / run event log if subscribed.
+
+**Optional flag** `emitModelDeltas: false` on a run (or observer no-op) if a batch job wants less noise—default **on** when observers are registered.
+
+Workflows that call the SDK **directly** should use shared **`executeAgentEpisode`** or `pipeStreamTextToObservers` helpers—avoid a third copy.
 
 ---
 
@@ -92,67 +140,88 @@ Workflows that call the AI SDK **directly** inside a step should either:
 
 ### `agent.stream`
 
-Mirror of [`agent.run`](./agent-api.md) but delegates to **`streamText`**:
+Same episode executor as `run`, but returns SDK handles:
 
 ```ts
-agent.stream({
-  memoryScope: string;
-  context?: Context;
-  user?: string;
-  messages?: CoreMessage[];
-  signal?: AbortSignal;
-}): AgentStreamResult;
+agent.stream({ memoryScope, context?, user?, signal? }): AgentStreamResult;
 ```
 
-**`AgentStreamResult`** (wraps AI SDK `StreamTextResult`):
+**`AgentStreamResult`:**
 
-- **`textStream`**, **`fullStream`**, etc. — re-export or delegate to SDK (caller can consume tokens).
-- **`finished`: `Promise<AgentRunResult>`** — same persistence contract as `run` (`onFinish` / equivalent: commit `response.messages`, update `MessageStore`).
-- While streaming: runner **`emit({ type: 'text_delta', delta, stepId, ... })`** from SDK `onChunk` (or `textStream` pump) into `RunEventSink`.
+- **`textStream`**, **`fullStream`**, … — from underlying `StreamTextResult`.
+- **`finished: Promise<AgentRunResult>`** — same persistence as `run` (store updated on SDK finish).
+- Observers / run events fire **identically** to `run` (including `onStream`).
 
-Persistence still happens **on finish**, not per delta—same as `run`, plus live deltas for UI.
-
-### `workflow.stream`
-
-Same as `workflow.run` for steps and run events; difference is only which child calls use `agent.stream` vs `agent.run`:
+### `agent.run`
 
 ```ts
-await workflow.stream(input, { project, signal });
-// step tree events identical; text_delta appears when a step uses agent.stream
+await agent.run({ ... }); // Promise<AgentRunResult> — drains streamText internally
 ```
 
-Alternatively a single entry with a flag:
+No duplicate persistence logic; no missing tool/stream events compared to `agent.stream`.
+
+---
+
+## Workflow streaming & custom events
+
+### Framework events (fixed union)
+
+Be **intentional** about built-in [`RunEvent`](./streaming-api.md) types—only what the UI and `RunReader` rely on:
+
+- Run: `run_started`, `run_finished`, `run_failed`, `run_cancelled`
+- Step: `step_started`, `step_finished`, `step_failed`
+- Agent: `agent_started`, `agent_finished`, `text_delta`, `tool_call`, `tool_result`, `messages_committed`
+
+Do not overload this union with ad-hoc domain events.
+
+### Custom events via `ctx`
+
+Workflow code emits **application-defined** events on the same log/SSE channel:
 
 ```ts
-workflow.run(input, { project, stream: true }); // if we want one method — TBD
+await ctx.step("ingest", async ({ ctx }) => {
+  ctx.emit({
+    type: "custom",
+    name: "files_scanned",
+    payload: { count: 42 },
+  });
+
+  for (const file of files) {
+    ctx.emit({ type: "custom", name: "file_progress", payload: { id: file.id } });
+    // ...
+  }
+});
 ```
 
-**Recommendation:** **`run` + `stream` as two methods** on agent and workflow (clear types; `stream` return type includes stream handles).
+**Rules:**
 
-### Helpers for “external” SDK use
+- `ctx.emit` only valid **inside an active step** (has `stepId`, `runId`).
+- `name` is a project-defined string; **`payload`** JSON-serializable.
+- UI: subscribe to run events; render `custom` with a project-provided component map or generic JSON view.
+- Optional Zod registry in `adl.config` for known custom event names (validation in dev, not required).
 
-When code inside a step calls **`streamText` / `generateText` directly** (not `agent.stream`), run events still need to reach the UI:
+Maps to [`WorkflowObserver`](./observability-api.md) via adapter: `onCustomEvent?` or generic `onRunEvent`.
+
+### `workflow.run` vs `workflow.stream`
+
+| | **`workflow.run`** | **`workflow.stream`** |
+|---|-------------------|----------------------|
+| Return | `Promise<Output>` | Same (stream is observability-side, not a second return type) |
+| Steps | Same `ctx.step` | Same |
+| Agents | `agent.run` (drained `streamText`) | Often `agent.stream` when caller wants token access; still same observer events |
+| Custom | `ctx.emit` | `ctx.emit` |
+
+We likely **do not** need a separate `workflow.stream()` unless we later expose a merged readable stream of all run events. For v1: **`workflow.run` + event tail** is enough; “workflow streaming” = run event SSE + optional `agent.stream` inside steps.
+
+### Helpers for raw SDK use
+
+When a step calls **`streamText` directly**, route through:
 
 ```ts
-// Optional runtime helper (non-core path, exported utility)
-pipeStreamTextToSink(result: StreamTextResult, {
-  sink: RunEventSink;
-  stepId: string;
-  agentCallId?: string;
-}): StreamTextResult;
+executeStreamTextWithObservers({ ...streamTextArgs }, { observers, ids });
 ```
 
-Or lower-level:
-
-```ts
-trackModelStream({
-  sink,
-  stepId,
-  stream: () => streamText({ ... }),
-}): { textStream; finished: Promise<void> };
-```
-
-Document that **first-class** integration is `agent.stream`; helpers are for escape hatches.
+Same as the internal agent runner hookup.
 
 ---
 

@@ -271,7 +271,7 @@ Parameter name is **`memoryScope`**, not `memory`, to avoid confusion with a fut
 2. If empty → render `instructions` → append and persist **system** message
 3. If `user` → append **user** message (persist with commit or as part of final save)
 4. *(Future)* memory pipeline shapes the list — deferred
-5. `generateText({ model, tools, messages, experimental_context: context })` (prefer messages-only for one source of truth; do not duplicate `system` if already in `messages`)
+5. **`streamText`** internally (even for `agent.run`) — drain stream, forward chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
 6. Append `newMessages` from SDK response to store
 7. Return `AgentRunResult`
 
