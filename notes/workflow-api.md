@@ -20,7 +20,7 @@ Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live U
 
 ## Two composition primitives
 
-| | **`ctx.step`** | **Nested workflow** (`defineWorkflow` + `run`) |
+| | **`ctx.step`** | **Nested workflow** (`createWorkflow` + `run`) |
 |---|----------------|--------------------------------------------------|
 | **Purpose** | Observability + logical span boundary | Reusable unit with typed **input → output** |
 | **Contract** | None enforced; callback closure captures anything | `input` / `output` schemas (e.g. Zod) on the workflow |
@@ -34,7 +34,7 @@ Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live U
 
 ```ts
 /** `id` is the registry key — listed in adl.config `workflows` array */
-export const searchPapers = defineWorkflow({
+export const searchPapers = createWorkflow({
   id: "search-papers",
   input: z.object({ topic: z.string() }),
   output: z.object({ papers: z.array(z.string()) }),
@@ -58,7 +58,7 @@ You can also call **`searchPapers.run` without `step`** when you do not need an 
 - **Only `step`**: one-off script, exploratory flow, closure-heavy glue, no stable I/O contract.
 - **Only nested workflow** (no wrapping step): internal helper the UI should not show separately; or top-level entry is already one workflow.
 - **`step` + nested workflow**: reusable module **and** visible span in the waterfall (common case).
-- **Plain function** (no `defineWorkflow`): private helper inside a file; promote to `defineWorkflow` when you need registry, docs, or typed `run` from CLI/UI.
+- **Plain function** (no `createWorkflow`): private helper inside a file; promote to `createWorkflow` when you need registry, docs, or typed `run` from CLI/UI.
 
 ---
 
@@ -208,7 +208,7 @@ No `ctx.step.all` required for v1.
 Templates are **standalone values** with validation and `.render()`:
 
 ```ts
-export const findPapersPrompt = template({
+export const findPapersPrompt = createTemplate({
   path: "./prompts/find-papers.md",
   data: z.object({ topic: z.string(), maxResults: z.number().int().positive() }),
 });
@@ -252,7 +252,7 @@ type StepFn = <T>(
 ) => Promise<T>;
 ```
 
-`defineWorkflow` exposes:
+`createWorkflow` exposes:
 
 ```ts
 workflow.run(
@@ -300,18 +300,18 @@ flowchart TB
 
 | Piece | Status |
 |-------|--------|
-| `defineWorkflow` | Not implemented |
+| `createWorkflow` | Not implemented |
 | `WorkflowContext` / `step` | Not implemented |
 | Step key registry + errors | Not implemented |
 | Run event log / step tree | Not implemented |
-| `template()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
+| `createTemplate()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
 
 ---
 
 ## v1 checklist
 
-- [ ] `template({ path, data })` with `.render()` (Zod)
-- [ ] `defineWorkflow` + typed `run(input, ctx)`
+- [ ] `createTemplate({ path, data })` with `.render()` (Zod)
+- [ ] `createWorkflow` + typed `run(input, ctx)`
 - [ ] `ctx.step(name, async ({ ctx }) => …, options?)` with child `ctx`
 - [ ] Key rules: require `key` on repeat; throw on duplicate `(parent, name, key)`
 - [ ] Document parallel same-`name` requires distinct keys

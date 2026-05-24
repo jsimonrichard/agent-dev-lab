@@ -117,7 +117,7 @@ Tool calls and results are **messages**, not a separate column or table in the s
 | `inMemoryMessageStore()` | Tests, local scripts; `Map<string, CoreMessage[]>` |
 | `sqliteMessageStore(...)` (later) | Inspection UI, durable runs; likely shares SQLite with run events in `@agent-dev-lab/common` |
 
-Default store: `adl.config` **`stores.memory`**, or per-agent override on `defineAgent({ memory: { store } })` when omitted uses project default.
+Default store: `adl.config` **`stores.memory`**, or per-agent override on `createAgent({ memory: { store } })` when omitted uses project default.
 
 ---
 
@@ -126,7 +126,7 @@ Default store: `adl.config` **`stores.memory`**, or per-agent override on `defin
 The store itself is **not** generic—only `CoreMessage[]`. Typing belongs on the agent:
 
 ```ts
-const agent = defineAgent<MyContext, typeof myTools>({ ... });
+const agent = createAgent<MyContext, typeof myTools>({ ... });
 
 await agent.run({
   memoryScope: "...",
@@ -134,7 +134,7 @@ await agent.run({
 });
 ```
 
-See [`agent-api.md`](./agent-api.md) for `defineAgent` / `run` generics.
+See [`agent-api.md`](./agent-api.md) for `createAgent` / `run` generics.
 
 ---
 

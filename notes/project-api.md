@@ -94,10 +94,10 @@ export interface AdlProjectConfig {
   /** Shown in inspection UI and CLI. */
   name: string;
 
-  /** Agents — `id` on each `defineAgent` is the sole registry key */
+  /** Agents — `id` on each `createAgent` is the sole registry key */
   agents?: Agent<unknown, ToolSet>[];
 
-  /** Workflows — `id` on each `defineWorkflow` is the sole registry key */
+  /** Workflows — `id` on each `createWorkflow` is the sole registry key */
   workflows?: Workflow<unknown, unknown>[];
 
   /** Named templates for listing / docs; optional if only used inside agents */
@@ -128,7 +128,7 @@ export interface AdlProjectConfig {
 }
 ```
 
-`defineAgent` / `defineWorkflow` must include a non-empty string **`id`** (used by CLI, UI, `recordRunStart`, etc.). `template()` may use a separate naming scheme (still often `Record` in config).
+`createAgent` / `createWorkflow` must include a non-empty string **`id`** (used by CLI, UI, `recordRunStart`, etc.). `createTemplate()` registry optional (array + `id` or defer to v1.1) — see [`templates-api.md`](./templates-api.md).
 
 **Validation at load time (v1):**
 
@@ -164,7 +164,7 @@ Callers use **`project.getWorkflow("literature-review")`** (or import the defini
 
 Registries are **arrays** at config time; the runtime indexes by **`definition.id`**:
 
-`defineWorkflow` returns a **workflow object** with a `.run()` method. That is the **only** execution API for workflow logic. There is no separate `runWorkflow()` in the public runtime unless we add a one-line helper—and we probably should **not**, to avoid two ways to do the same thing.
+`createWorkflow` returns a **workflow object** with a `.run()` method. That is the **only** execution API for workflow logic. There is no separate `runWorkflow()` in the public runtime unless we add a one-line helper—and we probably should **not**, to avoid two ways to do the same thing.
 
 ### Running a workflow
 
@@ -189,7 +189,7 @@ if (!workflow) throw new Error("Unknown workflow");
 const output = await workflow.run({ topic: "CRISPR delivery" }, ctx);
 ```
 
-The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The id is whatever you set on `defineWorkflow({ id: "literature-review", ... })`, not a separate config key.
+The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The id is whatever you set on `createWorkflow({ id: "literature-review", ... })`, not a separate config key.
 
 ### Who creates `WorkflowContext`?
 
@@ -248,7 +248,7 @@ Optional tiny helper (internal or exported, low priority):
 ### CLI (planned behavior)
 
 ```bash
-adl run literatureReview --input '{"topic":"…"}'
+adl run literature-review --input '{"topic":"…"}'
 adl workflows list    # ids from config.workflows[].id
 adl agents list       # ids from config.agents[].id
 ```

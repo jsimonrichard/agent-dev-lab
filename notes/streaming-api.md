@@ -266,8 +266,8 @@ Whether the project uses ADL’s **`agent.stream`** or raw **`streamText`**, the
 
 Same type parameters as non-streaming paths:
 
-- `defineAgent<Context, Tools>` → `stream(...)` typed `context`, `AgentStreamResult<Tools>`.
-- `defineWorkflow<Input, Output>` → `stream` returns `Promise<Output>` plus stream side effects via sink (return type may include `StreamTextResult` only at agent level, not workflow).
+- `createAgent<Context, Tools>` → `stream(...)` typed `context`, `AgentStreamResult<Tools>`.
+- `createWorkflow<Input, Output>` → `stream` returns `Promise<Output>` plus stream side effects via sink (return type may include `StreamTextResult` only at agent level, not workflow).
 
 ---
 

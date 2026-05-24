@@ -8,7 +8,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 
 - **TypeScript-first**, headless, AI SDK–native (`ModelMessage` / `CoreMessage`, `generateText`, `tool()`).
 - **Agents** = one model episode per `run()` (no multi-step tool loop config on the agent; workflows own loops in plain TS).
-- **Templates** stay pure (`template().render(data) → string`); usable outside workflows — see [`workflow-api.md`](./workflow-api.md).
+- **Templates** stay pure (`createTemplate().render(data) → string`); usable outside workflows — see [`templates-api.md`](./templates-api.md).
 - **Memory** = scoped message lists; tool calls and results live **in** the list as messages, not in a parallel store.
 
 ## Related docs
@@ -21,19 +21,22 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 
 ---
 
-## `defineAgent`
+## `createAgent`
 
 An agent is a reusable configuration: identity (instructions), model, tools, memory store binding, and optional defaults.
 
 ```ts
-import { defineAgent, template } from "@agent-dev-lab/runtime";
+import { createAgent, template } from "@agent-dev-lab/runtime";
 
 /** `id` is the registry key (CLI, UI, stores) — listed in adl.config `agents` array */
-export const researcher = defineAgent({
+export const researcher = createAgent({
   id: "researcher",
 
   /** Rendered once per new conversation scope; persisted as a system message. */
-  instructions: template("./researcher.md"),
+  instructions: createTemplate({
+    path: "./researcher.md",
+    data: z.object({}), // or project-specific schema
+  }),
 
   model: openai("gpt-4o"),
 
@@ -151,7 +154,7 @@ execute: async (input, { experimental_context }) => {
 
 So: **`context` on `run()` → `experimental_context` on `generateText` → `experimental_context` in `execute`**. Not injected into the prompt unless a tool or workflow copies it into a message.
 
-Note: the AI SDK also ships an experimental **`Agent`** class (`Experimental_Agent` in v5 exports). ADL **`defineAgent` is our own** wrapper; it should still delegate to `generateText` / `streamText` for v1, not a separate completion shape.
+Note: the AI SDK also ships an experimental **`Agent`** class (`Experimental_Agent` in v5 exports). ADL **`createAgent` is our own** wrapper; it should still delegate to `generateText` / `streamText` for v1, not a separate completion shape.
 
 ### Generics (planned)
 
@@ -161,7 +164,7 @@ Use type parameters where they catch real mistakes at compile time:
 import type { ToolSet } from "ai";
 
 // Context = per-run bag for tools; Tools = agent tool set (for inference)
-export function defineAgent<
+export function createAgent<
   Context = undefined,
   Tools extends ToolSet = ToolSet,
 >(config: AgentDefinition<Context, Tools>): Agent<Context, Tools> { ... }
@@ -192,13 +195,13 @@ export interface Agent<Context, Tools extends ToolSet> {
 Optional helper (later, not required for v1):
 
 ```ts
-export function defineTool<Context, Input, Output>(def: {
+export function createTool<Context, Input, Output>(def: {
   /* ... */
   execute: (input: Input, options: ToolCallOptions & { context: Context }) => Promise<Output>;
 }): Tool<...>;
 ```
 
-`defineAgent` would still only forward `context` via `generateText`; the helper documents the expected shape.
+`createAgent` would still only forward `context` via `generateText`; the helper documents the expected shape.
 
 ### Guidelines
 
@@ -314,7 +317,7 @@ When the workflow (not the agent) drives “call model → execute tools → cal
 
 1. `run()` → persist assistant/tool messages from `newMessages`.
 2. Workflow executes tools if needed (or SDK auto-execute on tools with `execute`).
-3. Next `run()` on the **same** `memoryScope` with more `user` / `messages`, or a single SDK call with `stopWhen` inside a **workflow helper** (not on `defineAgent`).
+3. Next `run()` on the **same** `memoryScope` with more `user` / `messages`, or a single SDK call with `stopWhen` inside a **workflow helper** (not on `createAgent`).
 
 All committed tool outcomes must appear as **tool** role messages in the store.
 
@@ -347,7 +350,7 @@ Template metadata (`templateId`, `data` snapshot) can attach to events for debug
 
 ## v1 implementation checklist
 
-- [ ] `defineAgent` + agent registry metadata (`id`)
+- [ ] `createAgent` + agent registry metadata (`id`)
 - [ ] `MessageStore` interface + `inMemory` (+ optional SQLite later)
 - [ ] `agent.run({ memoryScope, user?, messages? })` with system bootstrap + persist
 - [ ] Commit `result.response.messages` to store
