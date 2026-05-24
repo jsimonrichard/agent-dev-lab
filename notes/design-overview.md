@@ -43,6 +43,7 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 | [`workflow-api.md`](./workflow-api.md) | Steps, nesting, tracing, templates, nested workflows |
 | [`project-api.md`](./project-api.md) | `adl.config` registries, `workflow.run`, CLI entrypoints |
 | [`streaming-api.md`](./streaming-api.md) | Run events, `agent.stream`, UI SSE |
+| [`observability-api.md`](./observability-api.md) | `WorkflowObserver`, `AgentObserver`, `RunReader` |
 | [`message-store.md`](./message-store.md) | `MessageStore` contract (planned; not in code yet) |
 | [`memory-pipeline.md`](./memory-pipeline.md) | Deferred message-list shaping |
 

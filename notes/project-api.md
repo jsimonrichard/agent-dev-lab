@@ -103,6 +103,16 @@ export interface AdlProjectConfig {
 
   /** Optional defaults: message store factory, model router, etc. */
   defaults?: AdlProjectDefaults;
+
+  /**
+   * Optional observers + run reader — see observability-api.md.
+   * Projects are not required to use @agent-dev-lab/common SQLite.
+   */
+  observability?: {
+    workflow?: WorkflowObserver[];
+    agent?: AgentObserver[];
+    reader?: RunReader;
+  };
 }
 ```
 

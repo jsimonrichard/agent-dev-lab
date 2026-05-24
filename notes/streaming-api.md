@@ -59,7 +59,7 @@ Events are **JSON-serializable** for SQLite + SSE.
 
 ### `RunEventSink`
 
-Not a `RunHandle`. A small interface attached to [`WorkflowContext`](./workflow-api.md) when the run starts:
+Not a `RunHandle`. A small **transport** interface (append-only events for SSE/replay). Prefer **`WorkflowObserver` / `AgentObserver`** for application hooks—see [`observability-api.md`](./observability-api.md). The default stack adapts observers → `RunEvent` → SQLite.
 
 ```ts
 interface RunEventSink {
@@ -68,8 +68,8 @@ interface RunEventSink {
 
 function createRunContext(project: LoadedAdlProject): WorkflowContext {
   const runId = generateId();
-  const sink = createRunEventSink({ runId, project }); // writes DB + optional in-memory subscribers
-  return { runId, emit: (e) => sink.emit({ ...e, runId }), /* step, ... */ };
+  const sink = createRunEventSink({ runId, project }); // or composite observers → events
+  return { runId, /* step, ... */ };
 }
 ```
 

@@ -16,7 +16,8 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 - Project principles: [`design-overview.md`](./design-overview.md)
 - Message persistence (`MessageStore`): [`message-store.md`](./message-store.md) — **planned**; not in runtime yet
 - Deferred memory shaping: [`memory-pipeline.md`](./memory-pipeline.md)
-- Project registry & `runWorkflow`: [`project-api.md`](./project-api.md)
+- Project registry & `workflow.run`: [`project-api.md`](./project-api.md)
+- Streaming & UI live runs: [`streaming-api.md`](./streaming-api.md)
 
 ---
 
@@ -353,4 +354,4 @@ Template metadata (`templateId`, `data` snapshot) can attach to events for debug
 - Default `memoryScope` generation from `WorkflowContext` (per step vs per agent invocation).
 - Whether `user` is required on every `run()` after the first turn.
 - Tool `execute` on agent vs workflow-owned execution.
-- Streaming `agent.stream` parity with persistence on finish.
+- `agent.stream` + run event sink (see [`streaming-api.md`](./streaming-api.md)).
