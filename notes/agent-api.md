@@ -84,13 +84,9 @@ Workflows should not re-bootstrap system prompts. They pass turn input; the agen
 
 ## Memory scope
 
-### Why not `thread` + `resource`?
-
-Frameworks like Mastra use separate **thread** (one conversation) and **resource** (e.g. user) ids so working memory and semantic recall can be shared across threads. That is useful but adds API surface before we need it.
-
 ### v1: `memoryScope: string`
 
-A single opaque key selects the message list in the store. The caller (usually the workflow) builds the string:
+A single opaque key selects the **conversation message list** in the store. The caller (usually the workflow) builds the string:
 
 ```ts
 // Examples — conventions are project-defined, not enforced by ADL
@@ -101,16 +97,90 @@ A single opaque key selects the message list in the store. The caller (usually t
 
 Same agent + same `memoryScope` → shared history. New scope → new conversation (new system bootstrap when store is empty).
 
-If we later need first-class cross-thread sharing, we can add optional helpers (e.g. `forkScope`, `parentScope`) without breaking string scopes.
+This replaces Mastra-style **`thread`** ids for *chat history*. It intentionally does **not** encode resource/user scope—that belongs in **`context`** (below) and in tools that choose their own storage keys.
+
+---
+
+## Run `context` (Mastra-like resource semantics without dual IDs)
+
+### Idea
+
+Pass an optional, arbitrary **`context`** on `agent.run()`. The agent runner forwards it to tool `execute` functions (via AI SDK `experimental_context`). Tools that need cross-conversation state, working memory, or RAG use **fields from `context`** (e.g. `resourceId`, `userId`, `db`, `runId`) to read/write—**not** the message store API baked into ADL.
+
+| Concern | Mechanism |
+|---------|-----------|
+| What the model reads (turn-by-turn chat) | `memoryScope` → `MessageStore` of `CoreMessage[]` |
+| What tools / side logic use (identity, DB, shared prefs) | `context` on each `run()` |
+| Mastra “thread” | Your `memoryScope` string convention |
+| Mastra “resource” | A key inside `context` that **your tools** use (e.g. `context.resourceId`) |
+
+ADL does not need a first-class `resource` parameter if tools and optional core helpers are parameterized by `context`.
+
+### AI SDK alignment
+
+`generateText` / `streamText` accept `experimental_context`. Tool `execute(input, options)` receives `options.experimental_context`. The agent runner sets:
+
+```ts
+generateText({
+  // ...
+  experimental_context: runInput.context,
+});
+```
+
+No parallel context system inside ADL unless we add typed sugar on top.
+
+### Typing (recommended)
+
+```ts
+defineAgent<{ Context: ResearchContext }>({
+  id: "researcher",
+  // ...
+});
+
+await researcher.run({
+  memoryScope: `run:${runId}:researcher`,
+  user: "...",
+  context: {
+    resourceId: userId,       // convention, not framework-enforced
+    runId,
+    subjectId,
+  },
+});
+```
+
+Tools defined beside the agent close over types or read `options.experimental_context as ResearchContext`. Avoid an untyped bag in application code; the framework can default `context` to `undefined` or `{}`.
+
+### Guidelines
+
+- **Do not put large or secret blobs in `context` for the model** — `context` is not automatically injected into prompts. Only tools (and workflow code) see it.
+- **Persisted state** still lands in the message list (tool results as messages) or in storage that tools address via `context` keys.
+- **Conventions, not enforcement**: document suggested keys (`resourceId`, `threadId`, `runId`) in project/workflow docs; ADL stays agnostic.
+- **Optional core tools** (later): e.g. `createWorkingMemoryTool({ keyFromContext: (c) => c.resourceId })`) ship in runtime but remain ordinary AI SDK tools—no special “memory tool” runtime primitive.
+
+### Compared to encoding everything in `memoryScope`
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Only `memoryScope` strings | Minimal API | Awkward for “same user, new thread, shared profile”; string parsing as protocol |
+| `thread` + `resource` first-class | Familiar to Mastra users | Two IDs on every call; ADL must define merge semantics |
+| `memoryScope` + `context` | Simple history key; flexible resource semantics via tools | Projects must define conventions; core library may ship helpers |
+
+**Recommendation:** adopt `memoryScope` + optional typed `context`; defer first-class `resource` until a clear pattern emerges from real tools.
 
 ---
 
 ## `agent.run()`
 
 ```ts
-type AgentRunInput = {
+type AgentRunInput<Context = unknown> = {
   /** Selects the message list in the store. */
   memoryScope: string;
+
+  /**
+   * Passed to tool execute (AI SDK experimental_context).
+   * Not sent to the model unless a tool or workflow does so explicitly.
+   */
+  context?: Context;
 
   /**
    * Turn input appended as a user message before the model call.
