@@ -16,6 +16,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 - Project principles: [`design-overview.md`](./design-overview.md)
 - Message persistence (`MessageStore`): [`message-store.md`](./message-store.md) — **planned**; not in runtime yet
 - Deferred memory shaping: [`memory-pipeline.md`](./memory-pipeline.md)
+- Project registry & `runWorkflow`: [`project-api.md`](./project-api.md)
 
 ---
 
