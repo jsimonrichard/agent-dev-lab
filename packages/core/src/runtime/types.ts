@@ -6,7 +6,7 @@ import type { AgentObservers, WorkflowObservers } from "../observability/observe
 import type { WorkflowStore } from "../observability/workflow-store";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
-import type { Workflow, WorkflowContext, WorkflowDefinition } from "../workflow/types";
+import type { Workflow, WorkflowDefinition } from "../workflow/types";
 
 /**
  * Process-level services for agents and workflows (stores, observers).
@@ -59,8 +59,6 @@ export interface AdlRuntime {
     definition: WorkflowDefinition<TInput, TOutput>,
     overrides?: AdlRuntimeOverrides,
   ): Workflow<TInput, TOutput>;
-
-  createWorkflowRunContext(overrides?: AdlRuntimeOverrides): WorkflowContext;
 
   createToolFromAgent<Context>(
     agent: Agent<Context>,

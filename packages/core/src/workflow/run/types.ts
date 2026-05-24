@@ -3,5 +3,5 @@ import type { WorkflowContext } from "../types";
 
 export type CreateWorkflowRunContextOptions = AdlRuntimeOverrides;
 
-/** Root {@link WorkflowContext} for a workflow invocation (from `adl.createWorkflowRunContext()`). */
+/** Root workflow context (package-internal; authors see {@link WorkflowContext} in `run`). */
 export type WorkflowRunContext = WorkflowContext;

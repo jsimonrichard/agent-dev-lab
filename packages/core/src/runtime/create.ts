@@ -1,6 +1,5 @@
 import { createAgent } from "../agent/create";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
-import { AdlNotImplementedError } from "../internal/not-implemented";
 import { createWorkflow } from "../workflow/create";
 import type { AdlRuntime, AdlRuntimeConfig } from "./types";
 import { resolveRuntimeConfig, resolveRuntimeOverrides } from "./resolve-overrides";
@@ -27,11 +26,6 @@ export function createAdlRuntime(config: AdlRuntimeConfig = {}): AdlRuntime {
         runtime,
         services: resolveRuntimeOverrides(services, overrides),
       });
-    },
-
-    createWorkflowRunContext(overrides) {
-      void resolveRuntimeOverrides(services, overrides);
-      throw new AdlNotImplementedError("adl.createWorkflowRunContext");
     },
 
     createToolFromAgent(agent, options) {

@@ -24,6 +24,8 @@ export type StepIdentity = {
  * Workflow execution scope. Implemented as a context host: `step` and `emit` are methods
  * that close over parent services and identity — **do not destructure** (`const { step } = ctx`).
  *
+ * Passed to the workflow author's `run` function only — not via the public `Workflow.run` API.
+ *
  * @see notes/runtime-api.md
  */
 export interface WorkflowContext {
@@ -55,8 +57,8 @@ export type StepFn = <T>(
 ) => Promise<T>;
 
 /**
- * Internal: run a workflow nested inside a parent {@link WorkflowContext} (subworkflow).
- * End users call {@link Workflow.run} with the root context from `createWorkflowRunContext`.
+ * @internal Nested workflow invocation inside a parent step (subworkflow / tool).
+ * Not part of the public API.
  */
 export type NestedWorkflowRunOptions = {
   parentCtx: WorkflowContext;
@@ -66,10 +68,13 @@ export type WorkflowDefinition<TInput, TOutput> = {
   id: string;
   input?: z.ZodType<TInput>;
   output?: z.ZodType<TOutput>;
+  /** Author implementation — receives `ctx` from the runtime, not from the caller. */
   run: (input: TInput, ctx: WorkflowContext) => Promise<TOutput>;
 };
 
 export type WorkflowRunHandle<TOutput> = {
+  /** Available immediately when the run starts (for SSE / store subscription). */
+  readonly workflowRunId: string;
   result: Promise<TOutput>;
   cancel: () => void;
 };
@@ -77,8 +82,8 @@ export type WorkflowRunHandle<TOutput> = {
 export interface Workflow<TInput, TOutput> {
   readonly id: string;
   /**
-   * Start a workflow run. Pass the root context from {@link AdlRuntime.createWorkflowRunContext}.
-   * Nested runs inside `ctx.step` use {@link NestedWorkflowRunOptions} internally — not this signature.
+   * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
+   * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    */
-  run(input: TInput, ctx: WorkflowContext): WorkflowRunHandle<TOutput>;
+  run(input: TInput): WorkflowRunHandle<TOutput>;
 }

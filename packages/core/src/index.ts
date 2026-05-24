@@ -18,10 +18,9 @@ export type {
   CreateAgentParams,
 } from "./agent";
 
-export { createWorkflow, createWorkflowRunContext } from "./workflow";
+export { createWorkflow } from "./workflow";
 export type {
   CreateWorkflowParams,
-  CreateWorkflowRunContextOptions,
   CustomWorkflowEvent,
   StepFn,
   StepIdentity,
@@ -29,8 +28,6 @@ export type {
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
-  WorkflowRunContext,
-  NestedWorkflowRunOptions,
   WorkflowRunHandle,
 } from "./workflow";
 

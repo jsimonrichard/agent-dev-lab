@@ -29,7 +29,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 - [ ] `createAgent`, `createWorkflow`, `createTemplate`
 - [ ] `createAdlRuntime`, `adl.createAgent` / `createAgent({ runtime })`
-- [ ] `adl.createWorkflowRunContext`, `workflow.run(input, ctx)` (no `{ project }`)
+- [ ] `workflow.run(input)` with internal context + `workflowRunId` on handle (no `{ project }`, no public `ctx`)
 - [ ] `agent.run`, `agent.stream` (shared `streamText` core)
 - [ ] `MessageStore` + `inMemory`; optional `stores.memory` SQLite in common
 - [ ] `WorkflowStore` + default SQLite; run/step **I/O**, `getStepOutput`, `getRunEvents`

@@ -63,18 +63,23 @@ const researcher = adl.createAgent({
 
 const review = adl.createWorkflow({
   id: "literature-review",
-  run: async (input, ctx) => { /* … */ },
+  run: async (input, ctx) => {
+    /* `ctx` is provided by the runtime inside workflow.run — not passed by the caller */
+  },
 });
 
-const ctx = adl.createWorkflowRunContext();
-const handle = review.run(input, ctx);
+const handle = review.run(input);
+// handle.workflowRunId — subscribe immediately (SSE / WorkflowStore)
+await handle.result;
 ```
+
+`adl.createWorkflow` binds the runtime on the returned workflow; **`workflow.run` creates `WorkflowContext` internally** via `createWorkflowRunContext` (package-internal). Callers never pass `ctx` or `parentCtx`.
 
 `adl.createAgent` / `adl.createWorkflow` delegate to the functional factories with `runtime` injected.
 
 ### Overrides (stores + extra observers)
 
-Second argument on `adl.createAgent` / `adl.createWorkflow` / `adl.createWorkflowRunContext`:
+Second argument on `adl.createAgent` / `adl.createWorkflow`:
 
 ```ts
 const researcher = adl.createAgent(
@@ -155,17 +160,19 @@ Tools: `createToolFromAgent(…, { mapRun: (args, { ctx }) => ({ …, workflow: 
 ## `workflow.run`
 
 ```ts
-const ctx = adl.createWorkflowRunContext();
-workflow.run(input, ctx);
+const handle = review.run(input);
+handle.workflowRunId; // for UI / SSE before result completes
+await handle.result;
 ```
 
-- End users pass the **root** `WorkflowContext` from `createWorkflowRunContext` — not `{ parentCtx: … }`.
-- No `{ project }` on the execution path.
-- CLI: `loadAdlProject()` → `project.config.adl` → `adl.createWorkflowRunContext()` → `workflow.run(input, ctx)`.
+- **Public API:** `run(input)` only — no `WorkflowContext` argument.
+- **Author API:** `createWorkflow({ run: async (input, ctx) => … })` — `ctx` is supplied by the runtime when the bound workflow runs.
+- **No `{ project }`** on the execution path.
+- CLI: `loadAdlProject()` → `getWorkflow(id)` → `workflow.run(input)` using `config.adl`-bound workflows.
 
-### Nested / subworkflows (internal)
+### Nested / subworkflows (package-internal)
 
-When a workflow runs **inside** a parent step (subworkflow, `createToolFromWorkflow`), the runtime uses **`NestedWorkflowRunOptions`** (`{ parentCtx }`) — not part of the public `workflow.run` signature.
+Subworkflows and `createToolFromWorkflow` use **`NestedWorkflowRunOptions`** (`{ parentCtx }`) inside the core library — never exposed on public `Workflow.run`.
 
 ---
 

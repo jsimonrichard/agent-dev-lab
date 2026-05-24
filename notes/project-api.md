@@ -171,10 +171,8 @@ Registries are **arrays** at config time; the runtime indexes by **`definition.i
 ```ts
 import { literatureReview } from "./src/workflows/literature-review";
 
-const output = await literatureReview.run(
-  { topic: "CRISPR delivery" },
-  ctx, // WorkflowContext — see below
-);
+const handle = literatureReview.run({ topic: "CRISPR delivery" });
+const output = await handle.result;
 ```
 
 **By id** (after `loadAdlProject`):
@@ -184,60 +182,53 @@ const project = await loadAdlProject();
 const workflow = project.getWorkflow("literature-review");
 if (!workflow) throw new Error("Unknown workflow");
 
-const output = await workflow.run({ topic: "CRISPR delivery" }, ctx);
+const handle = workflow.run({ topic: "CRISPR delivery" });
+const output = await handle.result;
 ```
 
 The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The id is whatever you set on `createWorkflow({ id: "literature-review", ... })`, not a separate config key.
 
 ### Who creates `WorkflowContext`?
 
-`workflow.run(input, ctx)` needs a context for steps and events. Options:
-
-1. **Caller passes `ctx`** — nested workflow, tests with a fake context.
-2. **`workflow.run(input, ctx)`** — `ctx` from `project.config.adl.createWorkflowRunContext()` (see [`runtime-api.md`](./runtime-api.md)).
+`workflow.run(input)` creates run context internally (workflow is bound to `adl` at factory time). The handle exposes **`workflowRunId`** immediately for SSE / store subscription (see [`runtime-api.md`](./runtime-api.md)).
 
 So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI / `getWorkflow`) vs **invoke** (always `.run`).
 
-| Layer                | Responsibility                                        |
-| -------------------- | ----------------------------------------------------- |
-| **`adl.config.ts`**  | Arrays of definitions (`workflows`, `agents`)         |
-| **`loadAdlProject`** | Load config + index by `id`                           |
-| **CLI / UI**         | List ids; `getWorkflow(id).run(input, ctx)`           |
-| **`workflow.run`**   | Execute with step tree; returns **`Promise<Output>`** |
+| Layer                | Responsibility                                                  |
+| -------------------- | --------------------------------------------------------------- |
+| **`adl.config.ts`**  | Arrays of definitions (`workflows`, `agents`)                   |
+| **`loadAdlProject`** | Load config + index by `id`                                     |
+| **CLI / UI**         | List ids; `getWorkflow(id).run(input)` → `handle.workflowRunId` |
+| **`workflow.run`**   | Execute with step tree; returns **`WorkflowRunHandle`**         |
 
-### No `RunHandle` in the core API
+### `WorkflowRunHandle` (minimal)
 
-Early sketches mentioned a **`RunHandle`** (`id`, `status`, `cancel()`, `subscribe()`). That is **not** a framework primitive for v1.
+`workflow.run(input)` returns a small handle — not a rich in-memory run controller:
 
-**Why skip it:**
+- **`workflowRunId`** — available immediately for SSE / `WorkflowStore` subscription ([`streaming-api.md`](./streaming-api.md)).
+- **`result`** — `Promise<Output>` (typed rejection on failure).
+- **`cancel()`** — cooperative cancellation (implementation forwards `AbortSignal` internally).
 
-- **`runId`**, step state, and metadata already live on [`WorkflowContext`](./workflow-api.md) (`ctx.runId`, `ctx.stepId`, …).
-- **Output** is the resolved value of `await workflow.run(...)`.
-- **Status / history** for the inspection UI come from the **append-only run event log** (keyed by `runId`), not from an in-memory handle object.
-- **Cancel** → pass **`AbortSignal`** into `workflow.run` options; workflow and agent code cooperatively check `signal.aborted` (and forward to `generateText` / `streamText`).
-- **Subscribe / live updates** → run **event log** + SSE by `runId` ([`streaming-api.md`](./streaming-api.md)); not a core `RunHandle`.
+Authors still receive [`WorkflowContext`](./workflow-api.md) inside `createWorkflow({ run: async (input, ctx) => … })`; callers never pass `ctx` or `parentCtx`.
 
-`workflow.run` should be a normal **`Promise<Output>`** (plus typed rejection on failure). Background execution is `void workflow.run(...)` or storing the promise in a variable—standard async TS.
+Background execution: `void workflow.run(input)` or keep the handle and await `result` later.
 
-**Optional helpers (non-core):** a small utility in runtime or `apps/web`, e.g. `trackRun({ runId, promise, signal })`, that wires promise settlement to the event log or UI state. Helpful, not required for the execution model.
+**Optional helpers (non-core):** utilities in runtime or `apps/web` (e.g. `trackRun({ workflowRunId, promise })`) for UI state — not required for the execution model.
 
 ```ts
-// Core (framework)
-const output = await literatureReview.run(input, { project, signal });
-
-// Application / web (userland or @agent-dev-lab/web helper)
-const runPromise = literatureReview.run(input, { project });
-// UI stores runId from createRunContext, subscribes to DB events, awaits runPromise for completion
+const handle = literatureReview.run(input);
+// UI: subscribe by handle.workflowRunId before result settles
+const output = await handle.result;
 ```
 
 ### Entrypoints (no duplicate runtime API)
 
-| Entry                                         | What it does                              |
-| --------------------------------------------- | ----------------------------------------- |
-| **`workflow.run(input, ctx \| { project })`** | The execution primitive                   |
-| **`adl run <id>`**                            | Load project → `getWorkflow(id).run(...)` |
-| **`adl dev` / UI**                            | `listWorkflowIds()` + trigger by `id`     |
-| **Import workflow directly**                  | Skip registry; still use `.run`           |
+| Entry                        | What it does                              |
+| ---------------------------- | ----------------------------------------- |
+| **`workflow.run(input)`**    | The execution primitive                   |
+| **`adl run <id>`**           | Load project → `getWorkflow(id).run(...)` |
+| **`adl dev` / UI**           | `listWorkflowIds()` + trigger by `id`     |
+| **Import workflow directly** | Skip registry; still use `.run`           |
 
 Optional tiny helper (internal or exported, low priority):
 
@@ -296,7 +287,7 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 
 - [ ] Extend `AdlProjectConfig` + `normalizeConfig` (optional registries, passthrough unknown keys or strict)
 - [ ] Type exports for `Agent`, `Workflow`, `Template` registries
-- [ ] `createAdlRuntime` + `workflow.run(input, ctx)` + `config.adl` on project
+- [ ] `createAdlRuntime` + `workflow.run(input)` + `config.adl` on project
 - [ ] Playground lists sample agent + workflow in config arrays
 - [ ] `loadAdlProject` builds id index; duplicate id errors
 - [ ] CLI `adl run` → `getWorkflow(id).run`
