@@ -2,7 +2,9 @@
 
 How an ADL **project** declares agents, workflows, templates, and tools, and how the CLI / UI / scripts **run** them.
 
-**Status:** Design for v1 planning. Today `AdlProjectConfig` only has `name`; registries are **not implemented** ([`packages/runtime/src/project/config.ts`](../packages/runtime/src/project/config.ts)).
+**Status:** Design for v1 planning. Registry + `adl` field are typed in [`packages/core/src/project/config.ts`](../packages/core/src/project/config.ts); execution is incremental.
+
+Related: [`runtime-api.md`](./runtime-api.md).
 
 Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md), [`message-store.md`](./message-store.md).
 
@@ -36,46 +38,21 @@ my-research/
 ```
 
 ```ts
-// adl.config.ts
-import type { AdlProjectConfig } from "@agent-dev-lab/runtime";
+// src/adl.ts — see runtime-api.md
+import { createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
+export const adl = createAdlRuntime({ messageStore: inMemoryMessageStore() });
 
+// adl.config.ts
+import type { AdlProjectConfig } from "@agent-dev-lab/core";
+import { adl } from "./src/adl";
 import { researcher, writer } from "./src/agents/index";
 import { literatureReview, quickSummary } from "./src/workflows/index";
-import { findPapersPrompt, outlinePrompt } from "./src/prompts/index";
-import { searchTool, citeTool } from "./src/tools/index";
 
 export default {
   name: "my-research",
-
+  adl,
   agents: [researcher, writer],
-
   workflows: [literatureReview, quickSummary],
-
-  templates: [findPapersPrompt, outlinePrompt],
-
-  tools: {
-    search: searchTool,
-    cite: citeTool,
-  },
-
-  /** Optional project-wide defaults (TBD) */
-  defaults: {
-    // model router, …
-  },
-
-  observers: {
-    workflows: [
-      /* WorkflowObserver */
-    ],
-    agents: [
-      /* AgentObserver */
-    ],
-  },
-
-  stores: {
-    workflows: createSqliteWorkflowStore({ db }),
-    memory: createSqliteMessageStore({ db }),
-  },
 } satisfies AdlProjectConfig;
 ```
 
@@ -114,21 +91,10 @@ export interface AdlProjectConfig {
   defaults?: AdlProjectDefaults;
 
   /**
-   * Push-only observers (stdout, OTEL) — no retrieval. See observability-api.md.
+   * Process runtime for CLI execution (`src/adl.ts`). Stores/observers live there —
+   * not on this config object. See runtime-api.md.
    */
-  observers?: {
-    workflows?: WorkflowObserver[];
-    agents?: AgentObserver[];
-  };
-
-  /**
-   * Optional persistence — workflow run history + agent conversation memory.
-   * See observability-api.md and message-store.md.
-   */
-  stores?: {
-    workflows?: WorkflowStore;
-    memory?: MessageStore;
-  };
+  adl?: AdlRuntime;
 
   /**
    * Future — how human approval requests are delivered (UI, CLI, webhook).
@@ -228,7 +194,7 @@ The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The 
 `workflow.run(input, ctx)` needs a context for steps and events. Options:
 
 1. **Caller passes `ctx`** — nested workflow, tests with a fake context.
-2. **`workflow.run(input, { project })`** (or `createRunContext(project)`) — runtime builds root `ctx` (`runId`, event sink, defaults from config) when omitted.
+2. **`workflow.run(input, ctx)`** — `ctx` from `project.config.adl.createWorkflowRunContext()` (see [`runtime-api.md`](./runtime-api.md)).
 
 So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI / `getWorkflow`) vs **invoke** (always `.run`).
 
@@ -330,7 +296,7 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 
 - [ ] Extend `AdlProjectConfig` + `normalizeConfig` (optional registries, passthrough unknown keys or strict)
 - [ ] Type exports for `Agent`, `Workflow`, `Template` registries
-- [ ] `workflow.run(input, ctx | { project })` + `createRunContext(project)`
+- [ ] `createAdlRuntime` + `workflow.run(input, ctx)` + `config.adl` on project
 - [ ] Playground lists sample agent + workflow in config arrays
 - [ ] `loadAdlProject` builds id index; duplicate id errors
 - [ ] CLI `adl run` → `getWorkflow(id).run`

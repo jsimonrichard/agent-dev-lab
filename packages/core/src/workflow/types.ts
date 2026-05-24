@@ -1,7 +1,5 @@
 import type { z } from "zod";
 
-import type { LoadedAdlProject } from "../project/resolve";
-
 export type CustomWorkflowEvent = {
   type: "custom";
   name: string;
@@ -22,13 +20,23 @@ export type StepIdentity = {
   parentStepId: string | null;
 };
 
-export type WorkflowContext = {
+/**
+ * Workflow execution scope. Implemented as a context host: `step` and `emit` are methods
+ * that close over parent services and identity — **do not destructure** (`const { step } = ctx`).
+ *
+ * @see notes/runtime-api.md
+ */
+export interface WorkflowContext {
   /** Id of this workflow invocation (shared by all steps/agents in the run). */
   readonly workflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
 
+  /**
+   * Run a named, cacheable unit of work. Child contexts are built from the parent host
+   * (`this`) — no ambient AsyncLocalStorage.
+   */
   step: StepFn;
 
   readonly memoryScope: (suffix: string) => string;
@@ -38,7 +46,7 @@ export type WorkflowContext = {
    * (when {@link stepId} is null).
    */
   emit(event: CustomWorkflowEvent): void;
-};
+}
 
 export type StepFn = <T>(
   name: string,
@@ -46,11 +54,8 @@ export type StepFn = <T>(
   options?: StepOptions,
 ) => Promise<T>;
 
-export type WorkflowRunOptions =
-  | WorkflowContext
-  | {
-      project: LoadedAdlProject;
-    };
+/** Pass the root or child context from {@link AdlRuntime.createWorkflowRunContext}. */
+export type WorkflowRunOptions = WorkflowContext;
 
 export type WorkflowDefinition<TInput, TOutput> = {
   id: string;

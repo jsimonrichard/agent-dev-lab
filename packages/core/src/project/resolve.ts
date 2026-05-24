@@ -130,13 +130,12 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
 
   return {
     name,
+    adl: record.adl as AdlProjectConfig["adl"],
     agents: agents as AdlProjectConfig["agents"],
     workflows: workflows as AdlProjectConfig["workflows"],
     templates: templates as AdlProjectConfig["templates"],
     tools: record.tools as AdlProjectConfig["tools"],
     defaults: record.defaults as AdlProjectConfig["defaults"],
-    observers: record.observers as AdlProjectConfig["observers"],
-    stores: record.stores as AdlProjectConfig["stores"],
   };
 }
 

@@ -1,12 +1,13 @@
+import type { AdlRuntime } from "../../runtime/types";
 import { notImplemented } from "../../internal/not-implemented";
-import type { LoadedAdlProject } from "../../project/resolve";
 import type { CreateWorkflowRunContextOptions, WorkflowRunContext } from "./types";
 
+/** @see AdlRuntime.createWorkflowRunContext — preferred entrypoint. */
 export function createWorkflowRunContext(
-  project: LoadedAdlProject,
+  runtime: AdlRuntime,
   options?: CreateWorkflowRunContextOptions,
 ): WorkflowRunContext {
-  void project;
+  void runtime;
   void options;
   notImplemented("createWorkflowRunContext");
 }

@@ -10,7 +10,7 @@ export type CreateToolFromAgentOptions<Context> = {
   mapRun: (
     toolArgs: unknown,
     meta: { ctx: WorkflowContext },
-  ) => Pick<AgentRunInput<Context>, "memoryScope" | "user" | "context" | "messages">;
+  ) => Pick<AgentRunInput<Context>, "memoryScope" | "user" | "context" | "messages" | "workflow">;
 };
 
 /** Expose a single agent episode as an AI SDK tool. @see notes/workflow-api.md */
