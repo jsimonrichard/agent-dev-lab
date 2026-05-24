@@ -1,8 +1,12 @@
-import { createAgent } from "../agent/create";
+import { createAgentWithServices } from "../agent/create";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
-import { createWorkflow } from "../workflow/create";
+import { createWorkflowWithServices } from "../workflow/create";
 import type { AdlRuntime, AdlRuntimeConfig } from "./types";
-import { resolveRuntimeConfig, resolveRuntimeOverrides } from "./resolve-overrides";
+import {
+  pickAdlRuntimeOverrides,
+  resolveRuntimeConfig,
+  resolveRuntimeOverrides,
+} from "./resolve-overrides";
 
 export type { AdlRuntime } from "./types";
 
@@ -13,7 +17,7 @@ export function createAdlRuntime(config: AdlRuntimeConfig = {}): AdlRuntime {
     services,
 
     createAgent(definition, overrides) {
-      return createAgent({
+      return createAgentWithServices({
         ...definition,
         runtime,
         services: resolveRuntimeOverrides(services, overrides),
@@ -21,10 +25,11 @@ export function createAdlRuntime(config: AdlRuntimeConfig = {}): AdlRuntime {
     },
 
     createWorkflow(definition, overrides) {
-      return createWorkflow({
+      return createWorkflowWithServices({
         ...definition,
         runtime,
         services: resolveRuntimeOverrides(services, overrides),
+        contextOverrides: pickAdlRuntimeOverrides(overrides ?? {}),
       });
     },
 

@@ -1,3 +1,8 @@
 export { createAdlRuntime } from "./create";
-export { resolveRuntimeConfig, resolveRuntimeOverrides } from "./resolve-overrides";
+export {
+  pickAdlRuntimeOverrides,
+  resolveRuntimeConfig,
+  resolveRuntimeOverrides,
+  splitFactoryParams,
+} from "./resolve-overrides";
 export type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";

@@ -14,6 +14,7 @@ import type { Workflow, WorkflowDefinition } from "../workflow/types";
  */
 export type RuntimeServices = {
   messageStore: MessageStore;
+  /** Same pattern as {@link AgentObservers}: array type alias over {@link WorkflowObserver}. */
   workflowObservers: WorkflowObservers;
   agentObservers: AgentObservers;
   workflowStore?: WorkflowStore;
