@@ -309,6 +309,6 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 ## Open questions
 
 - Require at least one workflow in config, or allow agent-only projects.
-- Whether `templates` registry is v1 or agents-only references suffice.
+- `adl templates list` / preview by `template.name` (post-v1 UI).
 - Global `defaults.messageStore` vs per-agent override precedence.
 - `adl.config.ts` vs `adl.config/index.ts` (support only root filenames already listed in `ADL_CONFIG_FILENAMES`).

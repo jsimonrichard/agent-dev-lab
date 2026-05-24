@@ -17,8 +17,7 @@ import { z } from "zod";
 import { createTemplate } from "@agent-dev-lab/runtime";
 
 export const findPapersPrompt = createTemplate({
-  id: "find-papers",
-  path: "./prompts/find-papers.md",
+  path: "./prompts/find-papers.md", // registry name: "find-papers" (filename without extension)
   data: z.object({
     topic: z.string(),
     maxResults: z.number().int().positive(),
@@ -119,7 +118,8 @@ No `ctx.render` — pass data explicitly ([`workflow-api.md`](./workflow-api.md)
 
 ## v1 checklist
 
-- [ ] `createTemplate({ path, data, demo?, id? })` + `Template.render`
+- [ ] `createTemplate({ path, data, demo? })` + `name` from filename + `Template.render`
+- [ ] `templates: []` in config + `getTemplate(name)` / `listTemplateNames()`
 - [ ] Zod validation before Handlebars
 - [ ] `from` / `import.meta.url` resolution (same as `resolvePromptPath`)
 - [ ] Wire agent runner: `instructions` as `Template` or string

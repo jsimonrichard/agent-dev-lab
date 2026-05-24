@@ -344,7 +344,7 @@ The runner should emit events (for SQLite / UI) such as:
 - `model_request` / `model_response` — message counts, usage
 - `messages_committed` — `newMessages` appended
 
-Template metadata (`templateId`, `data` snapshot) can attach to events for debugging without re-rendering.
+Template metadata (`template.name`, `data` snapshot) can attach to events for debugging without re-rendering.
 
 ---
 
