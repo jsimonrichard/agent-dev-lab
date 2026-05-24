@@ -51,10 +51,7 @@ export default {
 
   workflows: [literatureReview, quickSummary],
 
-  templates: {
-    findPapers: findPapersPrompt,
-    outline: outlinePrompt,
-  },
+  templates: [findPapersPrompt, outlinePrompt],
 
   tools: {
     search: searchTool,
@@ -100,8 +97,11 @@ export interface AdlProjectConfig {
   /** Workflows — `id` on each `createWorkflow` is the sole registry key */
   workflows?: Workflow<unknown, unknown>[];
 
-  /** Named templates for listing / docs; optional if only used inside agents */
-  templates?: Record<string, Template<unknown>>;
+  /**
+   * Templates — registry `name` is the template file basename (see templates-api.md).
+   * e.g. `./prompts/find-papers.md` → `getTemplate("find-papers")`
+   */
+  templates?: Template<unknown>[];
 
   /** Shared AI SDK tools (optional registry) */
   tools?: ToolSet;
@@ -128,12 +128,13 @@ export interface AdlProjectConfig {
 }
 ```
 
-`createAgent` / `createWorkflow` must include a non-empty string **`id`** (used by CLI, UI, `recordRunStart`, etc.). `createTemplate()` registry optional (array + `id` or defer to v1.1) — see [`templates-api.md`](./templates-api.md).
+`createAgent` / `createWorkflow` must include a non-empty string **`id`**. **`createTemplate`** uses **`name`** from the template **filename** (no separate id field) — see [`templates-api.md`](./templates-api.md).
 
 **Validation at load time (v1):**
 
 - `name` required (already enforced).
-- Each workflow/agent in the arrays has a unique **`id`** (throw on duplicate).
+- Each workflow/agent: unique **`id`** (throw on duplicate).
+- Each template in `templates[]`: unique **`name`** from filename (throw on duplicate).
 - Values are the correct branded types (lightweight runtime checks or `satisfies` in userland).
 
 ---
@@ -153,6 +154,8 @@ export interface LoadedAdlProject {
   getAgent(id: string): Agent<unknown, ToolSet> | undefined;
   listWorkflowIds(): string[];
   listAgentIds(): string[];
+  getTemplate(name: string): Template<unknown> | undefined;
+  listTemplateNames(): string[];
 }
 ```
 

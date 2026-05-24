@@ -36,13 +36,27 @@ const text = findPapersPrompt.render({
 }); // Zod parse → Handlebars (noEscape) → string
 ```
 
+### Template `name` (registry key)
+
+Derived from the template **file name**, not a separate config field:
+
+| `path` | `name` |
+|--------|--------|
+| `./prompts/find-papers.md` | `find-papers` |
+| `./researcher.md` | `researcher` |
+
+Rule: basename of `path` with extension stripped (`.md`, `.markdown`, etc.). Exposed as **`template.name`** (readonly). Used by `adl.config` listing, `getTemplate("find-papers")`, and `adl templates preview find-papers` (future).
+
+**v1:** no explicit `id` on `createTemplate` — rename the file if you need a different registry name. Two templates in different folders with the same basename would collide at load time (error).
+
 ### Factory behavior (`createTemplate`)
 
 At call time (module load):
 
 1. Resolve `path` relative to **`import.meta.url`** of the calling module (or explicit `from: import.meta.url`).
-2. Read UTF-8 markdown (no MDX / frontmatter v1).
-3. `Handlebars.compile(template, { noEscape: true })` once — reuse on every `render`.
+2. Set **`name`** from filename (see above).
+3. Read UTF-8 markdown (no MDX / frontmatter v1).
+4. `Handlebars.compile(template, { noEscape: true })` once — reuse on every `render`.
 
 At `render(data)`:
 
@@ -54,7 +68,6 @@ At `render(data)`:
 
 ```ts
 export function createTemplate<T extends z.ZodType>(config: {
-  id?: string;
   path: string;
   from?: string; // import.meta.url of caller
   data: T;
@@ -62,9 +75,10 @@ export function createTemplate<T extends z.ZodType>(config: {
 }): Template<z.infer<T>>;
 
 export interface Template<T> {
-  readonly id?: string;
+  /** Basename of `path` without extension — registry / CLI name */
+  readonly name: string;
+  readonly path: string;
   render(data: T): string;
-  /** Parsed demo data for playground / tests */
   readonly demo?: T;
 }
 ```
@@ -73,18 +87,21 @@ Sugar: `createTemplate.fromFile("./foo.md", z.object({...}))` if we want a short
 
 ---
 
-## Config registry (optional)
+## Config registry (list, like workflows / agents)
 
-Templates are **not** required in `adl.config` for execution (agents embed `createTemplate` results in `instructions` or workflows call `.render()` directly).
-
-Optional listing for UI/docs:
+Templates are **not** required in `adl.config` for execution (agents embed templates in `instructions` or call `.render()` inline). For UI/docs/CLI listing, use an **array** — same pattern as workflows and agents:
 
 ```ts
-templates: [findPapersPrompt, outlinePrompt], // if each has `id`
-// or Record for now — TBD; workflows/agents use arrays, templates less critical
+// adl.config.ts
+import { findPapersPrompt, outlinePrompt } from "./src/prompts";
+
+export default {
+  templates: [findPapersPrompt, outlinePrompt],
+  // lookup: getTemplate("find-papers") — name from find-papers.md
+};
 ```
 
-Prefer **array + `id`** on `createTemplate` when we add registry parity.
+`loadAdlProject` builds an index by **`template.name`** (filename); throws on duplicate names across the array.
 
 ---
 

@@ -69,7 +69,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 | **Model / provider setup** | 🔲 thin | Where `LanguageModel` comes from: `adl.config.defaults`, env, per-agent field |
 | **Workflow `run` input validation** | 🔲 implied | Zod on `createWorkflow`; who calls `.parse` — runner at `run()` boundary |
 | **Shared `tools` in config** | 🔲 | `ToolSet` on config vs only on agents |
-| **Templates registry** | 🔲 | array + `id` vs omit from config v1 |
+| **Templates registry** | ✅ | array; `name` = filename basename |
 | **Error types** | 🔲 | `AdlError`, step failure propagation, user-facing CLI messages |
 | **Testing helpers** | 🔲 | `createTestRunContext`, in-memory store/observers bundle |
 | **Workflow tool-loop helper** | 🔲 | Optional `runAgentToolLoop` in runtime vs raw TS in workflow |
@@ -102,7 +102,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 **Ship path:** config load → `createRunContext` → `workflow.run` → steps → `agent.run` → `MessageStore` + `WorkflowStore` → `adl run` + minimal UI waterfall.
 
-**Cut if needed:** `agent.stream`, SQLite (in-memory only first), custom `ctx.emit` in UI, templates registry in config.
+**Cut if needed:** `agent.stream`, SQLite (in-memory only first), custom `ctx.emit` in UI, template playground UI.
 
 ---
 
@@ -110,5 +110,5 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 1. Default **model** wiring in `adl.config`?
 2. Is **`agent.stream`** required for v1 or fast-follow?
-3. **Templates** in config array for v1 or only inline in agents/workflows?
+3. ~~Templates in config~~ — **yes**, `templates: []` with filename `name` (see [`templates-api.md`](./templates-api.md)).
 4. **Workflow input validation** — fail at `run()` or trust TS?
