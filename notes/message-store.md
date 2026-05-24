@@ -117,7 +117,7 @@ Tool calls and results are **messages**, not a separate column or table in the s
 | `inMemoryMessageStore()` | Tests, local scripts; `Map<string, CoreMessage[]>` |
 | `sqliteMessageStore(...)` (later) | Inspection UI, durable runs; likely shares SQLite with run events in `@agent-dev-lab/common` |
 
-Default store: set on `defineAgent({ memory: { store } })` or project/runtime default when omitted.
+Default store: `adl.config` **`stores.memory`**, or per-agent override on `defineAgent({ memory: { store } })` when omitted uses project default.
 
 ---
 

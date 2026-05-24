@@ -54,8 +54,6 @@ export default {
   workflows: {
     literatureReview,
     quickSummary,
-    /** Run persistence + UI query — see observability-api.md */
-    store: createSqliteWorkflowStore({ db }),
   },
 
   templates: {
@@ -70,7 +68,17 @@ export default {
 
   /** Optional project-wide defaults (TBD) */
   defaults: {
-    // messageStore, model, …
+    // model router, …
+  },
+
+  observers: {
+    workflows: [/* WorkflowObserver */],
+    agents: [/* AgentObserver */],
+  },
+
+  stores: {
+    workflows: createSqliteWorkflowStore({ db }),
+    memory: createSqliteMessageStore({ db }),
   },
 } satisfies AdlProjectConfig;
 ```
@@ -94,11 +102,8 @@ export interface AdlProjectConfig {
   /** Named agents addressable as config.agents.researcher */
   agents?: Record<string, Agent<unknown, ToolSet>>;
 
-  /**
-   * Named workflows + optional `store` (reserved key).
-   * `config.workflows.literatureReview` — definitions only; not `config.workflows.store`.
-   */
-  workflows?: WorkflowRegistry;
+  /** Named workflows — plain record, no reserved keys */
+  workflows?: Record<string, Workflow<unknown, unknown>>;
 
   /** Named templates for listing / docs; optional if only used inside agents */
   templates?: Record<string, Template<unknown>>;
@@ -106,28 +111,26 @@ export interface AdlProjectConfig {
   /** Shared AI SDK tools (optional registry) */
   tools?: ToolSet;
 
-  /** Optional defaults: message store factory, model router, etc. */
+  /** Optional defaults: model router, etc. */
   defaults?: AdlProjectDefaults;
 
   /**
    * Push-only observers (stdout, OTEL) — no retrieval. See observability-api.md.
-   * Plural keys parallel `workflows` / `agents`.
    */
   observers?: {
     workflows?: WorkflowObserver[];
     agents?: AgentObserver[];
   };
 
-  /** Conversation transcripts for agents — separate from workflows.store */
-  memory?: {
-    store?: MessageStore;
+  /**
+   * Optional persistence — workflow run history + agent conversation memory.
+   * See observability-api.md and message-store.md.
+   */
+  stores?: {
+    workflows?: WorkflowStore;
+    memory?: MessageStore;
   };
 }
-
-/** Workflow definitions plus optional run store on the same block. */
-type WorkflowRegistry = Record<string, Workflow<unknown, unknown>> & {
-  store?: WorkflowStore;
-};
 ```
 
 `defineAgent` / `defineWorkflow` / `template()` return values that satisfy these types. Registry keys are **stable string ids** chosen by the project (object keys), in addition to any `id` field on the definition.
@@ -136,7 +139,7 @@ type WorkflowRegistry = Record<string, Workflow<unknown, unknown>> & {
 
 - `name` required (already enforced).
 - Registry values are the correct branded types (lightweight runtime checks or `satisfies` only in userland).
-- Reserved workflow registry key: **`store`** (not a workflow id). Loaders skip it when listing workflows.
+- `workflows` / `agents` registries are plain records (any string id, including `"store"` if you really want—avoid for clarity).
 - Duplicate keys impossible in a single object literal; no dynamic key enumeration required.
 
 ---

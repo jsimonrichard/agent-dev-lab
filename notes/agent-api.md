@@ -41,12 +41,11 @@ export const researcher = defineAgent({
   },
 
   /**
-   * Optional. When omitted, the project/runtime default store is used.
-   * See message-store.md (interface not implemented in runtime yet).
-   * Pipeline / lastMessages presets are deferred — see memory-pipeline.md.
+   * Optional per-agent override. When omitted, uses `adl.config` `stores.memory`.
+   * See message-store.md (not implemented in runtime yet).
    */
-  memory: {
-    store: defaultMessageStore(),
+  memory?: {
+    store?: MessageStore;
   },
 });
 ```
