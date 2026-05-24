@@ -8,7 +8,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 
 - **TypeScript-first**, headless, AI SDK–native (`ModelMessage` / `CoreMessage`, `generateText`, `tool()`).
 - **Agents** = one model episode per `run()` (no multi-step tool loop config on the agent; workflows own loops in plain TS).
-- **Templates** stay pure (`createTemplate().render(data) → string`); usable outside workflows — see [`templates-api.md`](./templates-api.md).
+- **Templates** stay pure (`createTemplate().render(inputData) → string`); usable outside workflows — see [`templates-api.md`](./templates-api.md).
 - **Memory** = scoped message lists; tool calls and results live **in** the list as messages, not in a parallel store.
 
 ## Related docs
@@ -35,7 +35,7 @@ export const researcher = createAgent({
   /** Rendered once per new conversation scope; persisted as a system message. */
   instructions: createTemplate({
     path: "./researcher.md",
-    data: z.object({}), // or project-specific schema
+    inputData: z.object({}), // or project-specific schema
   }),
 
   model: openai("gpt-4o"),
@@ -83,7 +83,7 @@ Templates do not read or write the store. Only the **agent runner** connects the
 | When | Role | Source |
 |------|------|--------|
 | New `memoryScope` (empty store) | `system` | Agent `instructions` template → render once → **persist** |
-| Each `run()` | `user` (typical) | Caller `user` string or workflow `render(stepTemplate, data)` → append → persist after call |
+| Each `run()` | `user` (typical) | Caller `user` string or `stepTemplate.render(inputData)` → append → persist after call |
 
 Workflows should not re-bootstrap system prompts. They pass turn input; the agent owns standing instructions.
 
@@ -344,7 +344,7 @@ The runner should emit events (for SQLite / UI) such as:
 - `model_request` / `model_response` — message counts, usage
 - `messages_committed` — `newMessages` appended
 
-Template metadata (`template.name`, `data` snapshot) can attach to events for debugging without re-rendering.
+Template metadata (`template.name`, `inputData` snapshot) can attach to events for debugging without re-rendering.
 
 ---
 

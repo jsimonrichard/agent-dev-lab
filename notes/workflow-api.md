@@ -210,7 +210,7 @@ Templates are **standalone values** with validation and `.render()`:
 ```ts
 export const findPapersPrompt = createTemplate({
   path: "./prompts/find-papers.md",
-  data: z.object({ topic: z.string(), maxResults: z.number().int().positive() }),
+  inputData: z.object({ topic: z.string(), maxResults: z.number().int().positive() }),
 });
 
 const text = findPapersPrompt.render({ topic: "CRISPR", maxResults: 10 });
@@ -310,7 +310,7 @@ flowchart TB
 
 ## v1 checklist
 
-- [ ] `createTemplate({ path, data })` with `.render()` (Zod)
+- [ ] `createTemplate({ path, inputData })` with `.render()` (Zod)
 - [ ] `createWorkflow` + typed `run(input, ctx)`
 - [ ] `ctx.step(name, async ({ ctx }) => …, options?)` with child `ctx`
 - [ ] Key rules: require `key` on repeat; throw on duplicate `(parent, name, key)`

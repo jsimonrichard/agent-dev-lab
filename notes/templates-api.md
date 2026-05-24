@@ -18,7 +18,7 @@ import { createTemplate } from "@agent-dev-lab/runtime";
 
 export const findPapersPrompt = createTemplate({
   path: "./prompts/find-papers.md", // registry name: "find-papers" (filename without extension)
-  data: z.object({
+  inputData: z.object({
     topic: z.string(),
     maxResults: z.number().int().positive(),
   }),
@@ -58,9 +58,9 @@ At call time (module load):
 3. Read UTF-8 markdown (no MDX / frontmatter v1).
 4. `Handlebars.compile(template, { noEscape: true })` once — reuse on every `render`.
 
-At `render(data)`:
+At `render(inputData)`:
 
-1. **`dataSchema.parse(data)`** (Zod) — throw with clear error before touching Handlebars.
+1. **`inputDataSchema.parse(inputData)`** (Zod) — throw with clear error before touching Handlebars.
 2. Run compiled template with parsed object.
 3. Return string.
 
@@ -70,7 +70,7 @@ At `render(data)`:
 export function createTemplate<T extends z.ZodType>(config: {
   path: string;
   from?: string; // import.meta.url of caller
-  data: T;
+  inputData: T;
   demo?: z.infer<T>;
 }): Template<z.infer<T>>;
 
@@ -78,7 +78,7 @@ export interface Template<T> {
   /** Basename of `path` without extension — registry / CLI name */
   readonly name: string;
   readonly path: string;
-  render(data: T): string;
+  render(inputData: T): string;
   readonly demo?: T;
 }
 ```
@@ -135,7 +135,7 @@ No `ctx.render` — pass data explicitly ([`workflow-api.md`](./workflow-api.md)
 
 ## v1 checklist
 
-- [ ] `createTemplate({ path, data, demo? })` + `name` from filename + `Template.render`
+- [ ] `createTemplate({ path, inputData, demo? })` + `name` from filename + `Template.render`
 - [ ] `templates: []` in config + `getTemplate(name)` / `listTemplateNames()`
 - [ ] Zod validation before Handlebars
 - [ ] `from` / `import.meta.url` resolution (same as `resolvePromptPath`)
