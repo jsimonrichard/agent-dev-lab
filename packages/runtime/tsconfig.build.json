@@ -1,8 +1,6 @@
 {
   "extends": "@agent-dev-lab/common/tsconfig/node.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
     "declaration": true,
     "declarationMap": true,
     "outDir": "dist",

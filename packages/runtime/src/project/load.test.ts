@@ -18,7 +18,7 @@ describe("loadAdlProject", () => {
 
 describe("findAdlProjectRootFromCwd", () => {
   it("finds apps/playground when cwd is inside it", async () => {
-    const { findAdlProjectRootFromCwd } = await import("./resolve.js");
+    const { findAdlProjectRootFromCwd } = await import("./resolve");
     const root = findAdlProjectRootFromCwd(path.join(playgroundRoot, "src"));
     expect(root).toBe(playgroundRoot);
   });
