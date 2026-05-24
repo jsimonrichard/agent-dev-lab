@@ -100,7 +100,7 @@ observers.onMessagesCommitted(...)     ← UI / audit
 | Capability | v1 |
 |------------|-----|
 | Multi-turn agent via `memoryScope` | Yes — **MessageStore** |
-| List / inspect past runs | Yes — **Observability** / `RunReader` |
+| List / inspect past runs | Yes — **`WorkflowStore`** (not observers) |
 | Manual retry with new run + same input | Yes — user/CLI |
 | Auto resume workflow mid-execution | **No** — document patterns (idempotent steps, read prior events) |
 | Checkpoints / `ctx.checkpoint` | **Deferred** |

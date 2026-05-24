@@ -57,9 +57,9 @@ Union of versioned events, all include `runId` and monotonic `seq` (or timestamp
 
 Events are **JSON-serializable** for SQLite + SSE.
 
-### `RunEventSink`
+### `RunEvent` and storage
 
-Not a `RunHandle`. A small **transport** interface (append-only events for SSE/replay). Prefer **`WorkflowObserver` / `AgentObserver`** for application hooks—see [`observability-api.md`](./observability-api.md). The default stack adapts observers → `RunEvent` → SQLite.
+Not a `RunHandle`. **`RunEvent`** is the SSE/replay shape. **Observers** push to stdout/OTEL (no reads). **`WorkflowStore.record*`** persists events for `getRunEvents` — see [`observability-api.md`](./observability-api.md).
 
 ```ts
 interface RunEventSink {

@@ -105,13 +105,23 @@ export interface AdlProjectConfig {
   defaults?: AdlProjectDefaults;
 
   /**
-   * Optional observers + run reader — see observability-api.md.
-   * Projects are not required to use @agent-dev-lab/common SQLite.
+   * Push-only observers (stdout, OTEL) — no retrieval. See observability-api.md.
    */
-  observability?: {
+  observers?: {
     workflow?: WorkflowObserver[];
     agent?: AgentObserver[];
-    reader?: RunReader;
+  };
+
+  /**
+   * Optional persistence + query for UI / resume. Separate from observers.
+   */
+  stores?: {
+    workflow?: WorkflowStore;
+  };
+
+  /** Conversation transcripts for agents — separate from workflow store. */
+  memory?: {
+    store?: MessageStore;
   };
 }
 ```

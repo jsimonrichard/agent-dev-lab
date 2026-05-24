@@ -1,343 +1,256 @@
-# Observability & persistence interfaces (draft)
+# Observability & run storage (draft)
 
-Decouple ADL execution from **how** runs are recorded. Projects implement **observer** interfaces (push) and optional **store** interfaces (pull); the framework ships defaults (SQLite, SSE) but end code does not have to use them.
+**Observers** = push-only hooks (stdout, OTEL, custom loggers). **No retrieval.**
+
+**Stores** = optional persistence + query for UI and resumability. **Entirely separate** from observers.
+
+**Message store** = model conversation state ([`message-store.md`](./message-store.md)) — third interface.
 
 **Status:** Design only.
 
-Related: [`streaming-api.md`](./streaming-api.md), [`workflow-api.md`](./workflow-api.md), [`agent-api.md`](./agent-api.md), [`message-store.md`](./message-store.md), [`project-api.md`](./project-api.md).
+Related: [`streaming-api.md`](./streaming-api.md), [`workflow-api.md`](./workflow-api.md), [`resumability.md`](./resumability.md), [`project-api.md`](./project-api.md).
 
 ---
 
-## Push vs pull
+## Why separate observer vs store
 
-| Pattern | Role | Examples |
-|---------|------|----------|
-| **Observers** | Callbacks during execution | Log to console, OTEL spans, custom DB, bridge to UI |
-| **Stores / readers** | Query after the fact | `getRun`, `listRuns`, `getEvents`, `MessageStore.load` |
+| | **`WorkflowObserver`** | **`WorkflowStore`** |
+|---|------------------------|---------------------|
+| **Direction** | Push only | Write during run + **read** later |
+| **Implementations** | `console`, OTEL, Datadog | SQLite, Postgres, in-memory (tests) |
+| **Required?** | No | No (skip if you only need logs) |
+| **Used by** | Telemetry pipelines | `apps/web`, CLI history, **resumers** |
+| **Retrieval** | **None** — no `getRuns` | `getRun`, `listRuns`, `getEvents`, … |
 
-Do **not** put `getRuns` on an observer class—observers are **write/listen** hooks. Query APIs belong on a **`RunReader`** (or your own DB layer).
+Same event at runtime, two optional sinks:
+
+```ts
+// Inside ctx.step (conceptual)
+await Promise.all([
+  fanOut(observers.workflow, "onStepStart", payload),
+  workflowStore?.recordStepStart(payload),
+]);
+```
+
+Observers stay thin so OTEL/stdout adapters never pretend to be databases.
 
 ```mermaid
 flowchart TB
   RUN["workflow.run / agent.run"]
-  WO["WorkflowObserver"]
-  AO["AgentObserver"]
-  ADAPTER["CompositeObserver optional"]
-  RE["RunEvent log"]
-  RR["RunReader"]
+  OBS["WorkflowObserver / AgentObserver"]
+  STORE["WorkflowStore"]
+  MEM["MessageStore"]
   UI["apps/web"]
+  OTEL["OTEL / stdout"]
 
-  RUN --> WO
-  RUN --> AO
-  WO --> ADAPTER
-  AO --> ADAPTER
-  ADAPTER --> RE
-  RE --> RR
-  RR --> UI
-  ADAPTER -.->|"or skip RE"| CUSTOM["User backend"]
+  RUN --> OBS
+  RUN --> STORE
+  RUN --> MEM
+  OBS --> OTEL
+  STORE --> UI
+  MEM -.->|"model only"| RUN
 ```
 
 ---
 
-## `WorkflowObserver`
+## `WorkflowObserver` (push only)
 
-One instance per **workflow run** (root). Registered on the project or passed into `createRunContext({ observers })`.
-
-All methods optional. Receives stable ids from the runtime (`runId`, `stepId`, etc.).
+All methods optional. **No getters.**
 
 ```ts
 interface WorkflowObserver {
-  /** Run lifecycle */
-  onRunStart?(e: {
-    runId: string;
-    workflowId: string;
-    input: unknown;
-    startedAt: Date;
-  }): void | Promise<void>;
+  onRunStart?(e: RunStartPayload): void | Promise<void>;
+  onRunComplete?(e: RunCompletePayload): void | Promise<void>;
+  onRunCancel?(e: RunCancelPayload): void | Promise<void>;
+  onRunError?(e: RunErrorPayload): void | Promise<void>;
 
-  onRunComplete?(e: {
-    runId: string;
-    workflowId: string;
-    output: unknown;
-    durationMs: number;
-  }): void | Promise<void>;
+  onStepStart?(e: StepStartPayload): void | Promise<void>;
+  onStepComplete?(e: StepCompletePayload): void | Promise<void>;
+  onStepError?(e: StepErrorPayload): void | Promise<void>;
 
-  onRunCancel?(e: {
-    runId: string;
-    workflowId: string;
-    reason?: string;
-  }): void | Promise<void>;
-
-  onRunError?(e: {
-    runId: string;
-    workflowId: string;
-    error: unknown;
-  }): void | Promise<void>;
-
-  /** Step spans — see workflow-api step keys */
-  onStepStart?(e: {
-    runId: string;
-    stepId: string;
-    parentStepId: string | null;
-    name: string;
-    key?: string;
-    path: string[];
-  }): void | Promise<void>;
-
-  onStepComplete?(e: {
-    runId: string;
-    stepId: string;
-    name: string;
-    key?: string;
-    durationMs: number;
-    output?: unknown;
-  }): void | Promise<void>;
-
-  onStepError?(e: {
-    runId: string;
-    stepId: string;
-    name: string;
-    key?: string;
-    error: unknown;
-  }): void | Promise<void>;
-
-  /**
-   * Application events from ctx.emit — see streaming-api.md.
-   * Prefer this over abusing onStepComplete metadata.
-   */
-  onCustomEvent?(e: {
-    runId: string;
-    stepId: string;
-    name: string;
-    payload: unknown;
-  }): void | Promise<void>;
+  onCustomEvent?(e: CustomEventPayload): void | Promise<void>;
 }
 ```
 
-**Naming:** `onStep*` maps to `step_started` / `step_finished` / `step_failed` in [`streaming-api.md`](./streaming-api.md). `onRunCancel` covers `AbortSignal` abort.
+Payload shapes match [`streaming-api.md`](./streaming-api.md) / [`workflow-api.md`](./workflow-api.md) (`runId`, `stepId`, `name`, `key`, `path`, …).
+
+**Examples:** `ConsoleWorkflowObserver`, `OtelWorkflowObserver`.
 
 ---
 
-## `AgentObserver`
+## `AgentObserver` (push only)
 
-One logical observer type per **agent invocation** (`agent.run` / `agent.stream` episode), scoped to a parent `runId` + `stepId`.
+Same rule: callbacks only, no reads.
 
 ```ts
 interface AgentObserver {
-  onAgentStart?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    agentId: string;
-    memoryScope: string;
-  }): void | Promise<void>;
-
-  /** Messages sent to the model for this episode (after load, bootstrap, user append). */
-  onMessages?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    messages: CoreMessage[];
-  }): void | Promise<void>;
-
-  /**
-   * Token / part streaming — fired for both agent.run and agent.stream
-   * (runner always uses streamText internally; run drains without exposing the stream).
-   */
-  onStream?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    delta: string;
-    /** Optional SDK chunk type if needed */
-  }): void | Promise<void>;
-
-  onToolCall?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    toolCallId: string;
-    toolName: string;
-    args: unknown;
-  }): void | Promise<void>;
-
-  onToolResult?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    toolCallId: string;
-    toolName: string;
-    result: unknown;
-  }): void | Promise<void>;
-
-  /** After persistence — committed assistant/tool messages for this episode */
-  onMessagesCommitted?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    memoryScope: string;
-    newMessages: CoreMessage[];
-  }): void | Promise<void>;
-
-  onAgentComplete?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    text: string;
-    usage?: LanguageModelUsage;
-    durationMs: number;
-  }): void | Promise<void>;
-
-  onAgentError?(e: {
-    runId: string;
-    stepId: string;
-    agentCallId: string;
-    error: unknown;
-  }): void | Promise<void>;
+  onAgentStart?(e: AgentStartPayload): void | Promise<void>;
+  onMessages?(e: AgentMessagesPayload): void | Promise<void>;
+  onStream?(e: AgentStreamPayload): void | Promise<void>;
+  onToolCall?(e: ToolCallPayload): void | Promise<void>;
+  onToolResult?(e: ToolResultPayload): void | Promise<void>;
+  onMessagesCommitted?(e: MessagesCommittedPayload): void | Promise<void>;
+  onAgentComplete?(e: AgentCompletePayload): void | Promise<void>;
+  onAgentError?(e: AgentErrorPayload): void | Promise<void>;
 }
 ```
 
-**`onMessage` vs `onMessages`:** use **`onMessages`** for the full list sent to the model; **`onMessagesCommitted`** for what was appended to [`MessageStore`](./message-store.md). Avoid a separate `onMessage` per row unless a consumer needs it—can add later.
-
-**`onToolCall` / `onToolResult`:** fire when tools execute (SDK auto-execute or workflow loop). Align with AI SDK tool-call / tool-result messages.
+`onMessagesCommitted` notifies telemetry that memory was updated; it does **not** replace [`MessageStore`](./message-store.md).
 
 ---
 
-## Query APIs (`RunReader`, not observers)
+## `WorkflowStore` (write + read)
+
+Persistence for **runs, steps, and run events** (waterfall, SSE, resume). Optional in `adl.config`.
+
+### Write side (runtime calls — mirror observer moments)
+
+Use **`record*`** names to distinguish from `on*` and from `ctx.step`:
 
 ```ts
-interface RunReader {
+interface WorkflowStore {
+  recordRunStart(e: RunStartPayload): Promise<void>;
+  recordRunComplete(e: RunCompletePayload): Promise<void>;
+  recordRunCancel(e: RunCancelPayload): Promise<void>;
+  recordRunError(e: RunErrorPayload): Promise<void>;
+
+  recordStepStart(e: StepStartPayload): Promise<void>;
+  recordStepComplete(e: StepCompletePayload): Promise<void>;
+  recordStepError(e: StepErrorPayload): Promise<void>;
+
+  recordCustomEvent(e: CustomEventPayload): Promise<void>;
+
+  /** Optional: agent episodes under a step (if not only in MessageStore) */
+  recordAgentEvent?(e: AgentRunEventPayload): Promise<void>;
+}
+```
+
+Default SQLite impl in `@agent-dev-lab/common` can append a unified `run_events` table **or** normalized `runs` + `steps` tables—implementation detail, same interface.
+
+### Read side
+
+```ts
+interface WorkflowStore {
   getRun(runId: string): Promise<RunSummary | null>;
   listRuns(filter?: { workflowId?: string; limit?: number }): Promise<RunSummary[]>;
   getRunEvents(runId: string, afterSeq?: number): Promise<RunEvent[]>;
 }
-
-interface RunSummary {
-  runId: string;
-  workflowId: string;
-  status: "running" | "completed" | "failed" | "cancelled";
-  startedAt: string;
-  finishedAt?: string;
-}
 ```
 
-`apps/web` SSE route can tail **`getRunEvents`** or subscribe to an in-process bus fed by observers.
+`RunEvent` = transport-friendly union for SSE ([`streaming-api.md`](./streaming-api.md)). The store may derive events from `record*` calls internally.
 
-**`MessageStore`** remains a **separate** interface ([`message-store.md`](./message-store.md))—not a subset of observability.
-
-### Memory vs observability
-
-| Observability | Message store |
-|---------------|---------------|
-| Run events, steps, streams, custom `ctx.emit` | `CoreMessage[]` for the model |
-| Optional; swappable backends | Required for multi-turn agent memory (can be `inMemory`) |
-| Optimized for tailing / waterfall / search | Optimized for `load(scope)` → prompt |
-
-`onMessagesCommitted` / `messages_committed` **mirror** a memory write but do not replace it: the store holds the canonical transcript; events exist for inspection (and may redact or truncate). Do not use `RunReader` to assemble the next agent prompt.
-
-Projects may use **one SQLite file** with separate tables; they should still implement **two interfaces** at the API level.
+**`apps/web`:** depends on **`WorkflowStore`**, not on observers.
 
 ---
 
-## Wiring in a project
+## `WorkflowResumer` (optional, later)
+
+Higher-level helper for [`resumability.md`](./resumability.md)—**reads** `WorkflowStore` (+ optionally `MessageStore`), not an observer.
+
+```ts
+interface WorkflowResumer {
+  /** Steps that finished successfully with stored outputs */
+  getCompletedSteps(runId: string): Promise<
+    Array<{ stepId: string; name: string; key?: string; output: unknown }>
+  >;
+
+  /** Whether a run failed mid-flight and might be retried */
+  getRunStatus(runId: string): Promise<RunSummary | null>;
+}
+```
+
+Resume **logic** (skip steps, re-enter workflow) stays in user TypeScript or a future `workflow.resume(input, { continueFrom: runId })` that uses `WorkflowResumer` internally—v1 can ship **store + resumer** without automatic re-execution.
+
+Do **not** extend `WorkflowObserver` with getters—keeps OTEL adapters honest.
+
+---
+
+## Three storage roles (summary)
+
+| Interface | Push | Pull | Purpose |
+|-----------|------|------|---------|
+| `WorkflowObserver` / `AgentObserver` | Yes | **No** | Logs, traces |
+| `WorkflowStore` | Yes (record) | Yes | UI, SSE, workflow resume metadata |
+| `MessageStore` | Yes (save) | Yes (load) | Model conversation |
+
+---
+
+## Project wiring
 
 ```ts
 // adl.config.ts
-import { createSqliteRunReader, createPersistingObservers } from "@agent-dev-lab/common"; // default impl
-import { myWorkflowObserver } from "./observability";
-
 export default {
   name: "my-research",
   workflows: { /* ... */ },
 
-  observability: {
-    workflow: [
-      myWorkflowObserver,
-      createPersistingObservers({ db }).workflow,
-    ],
-    agent: [
-      createPersistingObservers({ db }).agent,
-    ],
-    /** Optional: single RunReader for UI / CLI */
-    reader: createSqliteRunReader({ db }),
+  /** Push-only — zero retrieval */
+  observers: {
+    workflow: [new OtelWorkflowObserver()],
+    agent: [new OtelAgentObserver()],
+  },
+
+  /** Optional — inspection UI + resume */
+  stores: {
+    workflow: createSqliteWorkflowStore({ db }),
+  },
+
+  memory: {
+    store: createSqliteMessageStore({ db }), // separate; see message-store.md
   },
 } satisfies AdlProjectConfig;
 ```
 
-Or pass per run:
+Per-run override:
 
 ```ts
-const ctx = createRunContext(project, {
-  workflowObservers: [new OtelWorkflowObserver()],
-  agentObservers: [new OtelAgentObserver()],
+createRunContext(project, {
+  workflowObservers: [stdoutWorkflowObserver],
+  workflowStore: project.config.stores?.workflow,
 });
-await workflow.run(input, ctx);
 ```
 
-Runtime **fans out** each hook to all registered observers (like `CompositeWorkflowObserver`).
+**Observers-only project:** `stores` omitted — full ADL execution works; no built-in run history in UI unless you add a custom store.
+
+---
+
+## Runtime fan-out
+
+1. **`ctx.step`:** `onStepStart` → all workflow observers; `recordStepStart` → store if present. Same for complete/error.
+2. **`ctx.emit`:** `onCustomEvent` + `recordCustomEvent`.
+3. **`agent.run`:** agent observers + `MessageStore` commit; optionally `workflowStore.recordAgentEvent` for UI (deltas, tool calls).
+4. Errors in observers: log and continue (configurable); errors in store: likely throw or retry (data integrity).
 
 ---
 
 ## Relationship to `RunEvent` / SSE
 
-Two layers, one direction:
+- **Observers** do not need to speak `RunEvent`.
+- **WorkflowStore** is the natural place to persist `RunEvent[]` for `getRunEvents` + SSE tail.
 
-1. **Ergonomic:** `WorkflowObserver` + `AgentObserver` (your sketch).
-2. **Transport-friendly:** append-only **`RunEvent`** union for SSE and replay ([`streaming-api.md`](./streaming-api.md)).
-
-Provide a default adapter in `@agent-dev-lab/common` (or runtime):
-
-```ts
-function observersToEventSink(observers: {
-  workflow: WorkflowObserver[];
-  agent: AgentObserver[];
-}): RunEventSink;
-
-function createEventBusReader(bus: RunEventSink): RunReader;
-```
-
-Projects may:
-
-- Implement **only** observers (custom backend, no SQLite).
-- Implement **only** `RunEventSink` / `RunReader` (event-sourced UI).
-- Use **both** via the bundled adapter.
-
-Execution code depends on **`WorkflowObserver` / `AgentObserver` interfaces**, not on Drizzle.
+Optional adapter: `createWorkflowStoreFromObserver()` is **not** the default pattern—prefer explicit `record*` on the store.
 
 ---
 
-## OpenTelemetry
+## Memory vs store vs observer
 
-`OtelWorkflowObserver` / `OtelAgentObserver` implement the same interfaces: spans for run, step, agent call; attributes from `runId`, `stepId`, `agentCallId`. No separate OTEL API surface required.
-
----
-
-## What the framework does internally
-
-1. `createRunContext` builds `runId`, registers observers from config/options.
-2. `ctx.step` → `onStepStart` / `onStepComplete` / `onStepError`.
-3. `agent.run` / `agent.stream` → agent observer hooks + `MessageStore` commit.
-4. Default persisting observer writes `RunEvent`s + run row for `RunReader`.
-5. `apps/web` uses **`RunReader`** + SSE; does not import user workflow code.
-
-**No `RunHandle`:** `runId` on `ctx`; observers + reader for everything else ([`project-api.md`](./project-api.md)).
+See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer). Observability **observers** are not memory. **WorkflowStore** overlaps *audit* data with observers but not *model* transcripts—use **MessageStore** for prompts.
 
 ---
 
 ## v1 checklist
 
-- [ ] `WorkflowObserver` + `AgentObserver` types in runtime (interfaces only)
-- [ ] Fan-out composite + invoke from step runner / agent runner
-- [ ] `RunReader` + default SQLite impl in `@agent-dev-lab/common` (optional dep)
-- [ ] Adapter: observers → `RunEvent` append log
-- [ ] `adl.config` `observability` block (optional)
-- [ ] `apps/web` SSE uses `RunReader.getRunEvents`
+- [ ] `WorkflowObserver` + `AgentObserver` (no getters) in runtime
+- [ ] `WorkflowStore` with `record*` + `getRun` / `listRuns` / `getRunEvents`
+- [ ] Runtime fan-out: observers + store in parallel
+- [ ] Default SQLite `WorkflowStore` in `@agent-dev-lab/common`
+- [ ] `adl.config`: `observers` vs `stores` blocks
+- [ ] `apps/web` SSE uses `WorkflowStore` only
+- [ ] `WorkflowResumer` (optional, can defer)
 
 ---
 
 ## Open questions
 
-- Single `Observability` namespace vs split workflow/agent interfaces (keep split).
-- Whether `onMessages` should redact system prompt by default.
-- Sync vs async observers (await all in runner vs fire-and-forget with error logging).
-- Per-project vs per-run observer lists only.
+- Single `WorkflowStore` vs split `RunEventStore` + `StepStore` (keep one interface until pain).
+- Whether agent stream deltas go to store only, observer only, or both (default: both when configured).
+- Sync vs async observers vs store write ordering (store after observer? parallel?).
