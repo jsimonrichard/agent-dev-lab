@@ -4,7 +4,7 @@ Design notes for **workflows**, **steps**, **templates**, and run observability 
 
 **Status:** Design for v1 planning. **Not implemented** in `@agent-dev-lab/runtime`.
 
-Project discovery & `runWorkflow`: [`project-api.md`](./project-api.md).
+Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live UI: [`streaming-api.md`](./streaming-api.md).
 
 ---
 

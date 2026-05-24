@@ -195,7 +195,7 @@ Early sketches mentioned a **`RunHandle`** (`id`, `status`, `cancel()`, `subscri
 - **Output** is the resolved value of `await workflow.run(...)`.
 - **Status / history** for the inspection UI come from the **append-only run event log** (keyed by `runId`), not from an in-memory handle object.
 - **Cancel** → pass **`AbortSignal`** into `workflow.run` options; workflow and agent code cooperatively check `signal.aborted` (and forward to `generateText` / `streamText`).
-- **Subscribe / live updates** → `apps/web` (or the user’s app) polls or streams events from SQLite by `runId`, or wraps the run promise in application code.
+- **Subscribe / live updates** → run **event log** + SSE by `runId` ([`streaming-api.md`](./streaming-api.md)); not a core `RunHandle`.
 
 `workflow.run` should be a normal **`Promise<Output>`** (plus typed rejection on failure). Background execution is `void workflow.run(...)` or storing the promise in a variable—standard async TS.
 
