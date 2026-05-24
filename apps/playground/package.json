@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-dev-lab/runtime": "workspace:*"
+    "@agent-dev-lab/core": "workspace:*"
   },
   "devDependencies": {
     "@agent-dev-lab/common": "workspace:*",

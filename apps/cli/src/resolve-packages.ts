@@ -120,10 +120,11 @@ export interface ProjectRuntimeProjectModule {
   }>;
 }
 
-/** Load `@agent-dev-lab/runtime/project` from the target project's dependency tree. */
-export async function importProjectRuntimeProject(
-  projectRoot: string,
-): Promise<ProjectRuntimeProjectModule> {
-  const entry = resolveFromProjectRoot(projectRoot, "@agent-dev-lab/runtime/project");
+/** Load `@agent-dev-lab/core/project` from the target project's dependency tree. */
+export async function importProjectCore(projectRoot: string): Promise<ProjectRuntimeProjectModule> {
+  const entry = resolveFromProjectRoot(projectRoot, "@agent-dev-lab/core/project");
   return import(pathToFileURL(entry).href) as Promise<ProjectRuntimeProjectModule>;
 }
+
+/** @deprecated Use {@link importProjectCore}. */
+export const importProjectRuntimeProject = importProjectCore;

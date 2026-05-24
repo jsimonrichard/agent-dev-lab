@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadAdlProject } from "@agent-dev-lab/runtime";
+import { loadAdlProject } from "@agent-dev-lab/core";
 
 const playgroundRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const project = await loadAdlProject({ root: playgroundRoot });

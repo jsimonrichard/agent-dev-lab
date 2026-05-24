@@ -24,13 +24,13 @@ const config = defineConfig({
   envPrefix: "ADL_",
   resolve: { tsconfigPaths: true },
   ssr: {
-    external: ["@agent-dev-lab/runtime", "@agent-dev-lab/runtime/project"],
+    external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project"],
   },
   plugins: [
     devtools(),
     nitro({
       rollupConfig: {
-        external: [/^@agent-dev-lab\/runtime(\/.*)?$/],
+        external: [/^@agent-dev-lab\/core(\/.*)?$/],
       },
     }),
     tailwindcss(),

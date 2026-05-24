@@ -7,7 +7,7 @@ import {
   findAdlProjectRootFromCwd,
   loadAdlProject,
   type LoadedAdlProject,
-} from "@agent-dev-lab/runtime/project";
+} from "@agent-dev-lab/core/project";
 
 const webPackageRoot = path.dirname(fileURLToPath(new URL("../../", import.meta.url)));
 

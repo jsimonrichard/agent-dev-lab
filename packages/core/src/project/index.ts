@@ -3,6 +3,7 @@ export {
   ADL_FRAMEWORK_DEV_ENV,
   type AdlConfigFilename,
   type AdlProjectConfig,
+  type AdlProjectDefaults,
 } from "./config";
 export {
   ADL_PROJECT_ROOT_ENV,
