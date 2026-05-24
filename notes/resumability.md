@@ -6,13 +6,13 @@ What “resume” means in ADL, and which stores participate. **Not implemented*
 
 ## “Resume” is not one feature
 
-| Scenario | What the user wants | Primary store | Observability role |
-|----------|---------------------|---------------|-------------------|
-| **A. Continue a conversation** | Same chat, next message | **`MessageStore`** | Optional history in UI |
-| **B. Retry a failed workflow** | Run again from start or from a step | **`WorkflowStore`** (+ workflow code) | Step outputs, run input |
-| **C. Durable workflow (crash mid-run)** | Pick up after process death | **`WorkflowStore` + checkpoints** (future) | Source of truth for progress |
-| **D. Inspection replay** | Watch past run in UI | **`WorkflowStore`** only | Full event log |
-| **E. Time-travel debugging** | Re-execute from step N | Observability + explicit APIs | Not automatic in v1 |
+| Scenario                                | What the user wants                 | Primary store                              | Observability role           |
+| --------------------------------------- | ----------------------------------- | ------------------------------------------ | ---------------------------- |
+| **A. Continue a conversation**          | Same chat, next message             | **`MessageStore`**                         | Optional history in UI       |
+| **B. Retry a failed workflow**          | Run again from start or from a step | **`WorkflowStore`** (+ workflow code)      | Step outputs, run input      |
+| **C. Durable workflow (crash mid-run)** | Pick up after process death         | **`WorkflowStore` + checkpoints** (future) | Source of truth for progress |
+| **D. Inspection replay**                | Watch past run in UI                | **`WorkflowStore`** only                   | Full event log               |
+| **E. Time-travel debugging**            | Re-execute from step N              | Observability + explicit APIs              | Not automatic in v1          |
 
 Do not assume one store solves all of these.
 
@@ -47,21 +47,21 @@ There is **no** safe way to resume “halfway through” a step body—e.g. cust
 
 ```ts
 await ctx.step("search", async ({ ctx }) => {
-  const files = await listFiles();        // runs again on step retry
-  const prompt = buildPrompt(files);      // runs again
+  const files = await listFiles(); // runs again on step retry
+  const prompt = buildPrompt(files); // runs again
   const out = await agent.run({ user: prompt });
-  await uploadSummary(out);               // might run again — dangerous if not idempotent
+  await uploadSummary(out); // might run again — dangerous if not idempotent
 });
 ```
 
 **Implications:**
 
-| Practice | Why |
-|----------|-----|
-| Put **side effects** in their own steps | So retry can skip or target them |
-| Put **non-idempotent** work behind explicit guards | Or accept that retry duplicates it |
-| Pass prior step outputs as **arguments** | Resume = new run with stored JSON, not magic replay |
-| Treat **one agent call per step** when retry matters | Clear boundary for store + memory |
+| Practice                                             | Why                                                 |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| Put **side effects** in their own steps              | So retry can skip or target them                    |
+| Put **non-idempotent** work behind explicit guards   | Or accept that retry duplicates it                  |
+| Pass prior step outputs as **arguments**             | Resume = new run with stored JSON, not magic replay |
+| Treat **one agent call per step** when retry matters | Clear boundary for store + memory                   |
 
 **Mid-conversation inside a workflow** usually means: same **`memoryScope`** across a retry, not “resume the same step halfway.” Conversation continuity is **`MessageStore`**; step retry is **`WorkflowStore`** step outputs.
 
@@ -87,15 +87,15 @@ The **memory store** does not know about workflow steps. It only knows **agent**
 
 After a crash, nothing in-process survives. You need **persisted** data:
 
-| Data | Where |
-|------|--------|
-| Run id, workflow id, input | `recordRunStart` / `getRun` |
-| Completed steps + outputs | `step_finished` events |
-| Active step at failure | Last `step_started` without matching finish |
+| Data                          | Where                                                             |
+| ----------------------------- | ----------------------------------------------------------------- |
+| Run id, workflow id, input    | `recordRunStart` / `getRun`                                       |
+| Completed steps + outputs     | `step_finished` events                                            |
+| Active step at failure        | Last `step_started` without matching finish                       |
 | Agent conversations in flight | **`MessageStore`** per `memoryScope` (if agents ran before crash) |
-| Arbitrary workflow variables | **Not in v1** — closures are not persisted |
+| Arbitrary workflow variables  | **Not in v1** — closures are not persisted                        |
 
-**WorkflowStore alone** is enough to *inspect* where a run stopped and to *manually* or *programmatically* start a compensating run. **Automatic** resume (re-enter workflow mid-function) needs one of:
+**WorkflowStore alone** is enough to _inspect_ where a run stopped and to _manually_ or _programmatically_ start a compensating run. **Automatic** resume (re-enter workflow mid-function) needs one of:
 
 - **Deterministic re-execution** from the top with **skip** logic driven by observability (idempotent steps + read prior `step_finished`), or
 - **Explicit checkpoints** (future API): `ctx.checkpoint({ ... })` writing workflow state to a store, or
@@ -128,15 +128,15 @@ observers.onMessagesCommitted(...)     ← UI / audit
 
 ## Recommended v1 stance
 
-| Capability | v1 |
-|------------|-----|
-| Multi-turn agent via `memoryScope` | Yes — **MessageStore** |
-| List / inspect past runs | Yes — **`WorkflowStore`** (not observers) |
-| Manual retry with new run + same input | Yes — user/CLI |
-| Auto resume workflow mid-execution | **No** — step-level skip only; steps are atomic |
+| Capability                                       | v1                                                       |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| Multi-turn agent via `memoryScope`               | Yes — **MessageStore**                                   |
+| List / inspect past runs                         | Yes — **`WorkflowStore`** (not observers)                |
+| Manual retry with new run + same input           | Yes — user/CLI                                           |
+| Auto resume workflow mid-execution               | **No** — step-level skip only; steps are atomic          |
 | Agent episode cache (`cacheable` on `agent.run`) | **Future** — opt-in; skip LLM only when fingerprint hits |
-| Mid-stream token resume | **No** — not v1 |
-| Checkpoints / `ctx.checkpoint` | **Deferred** |
+| Mid-stream token resume                          | **No** — not v1                                          |
+| Checkpoints / `ctx.checkpoint`                   | **Deferred**                                             |
 
 ---
 
@@ -153,17 +153,17 @@ That is **conversation resume** (model sees prior turns), not **skipping** the L
 
 **Policy choices** (project-defined, not automatic):
 
-| Policy | Behavior on step retry |
-|--------|-------------------------|
-| **Continue scope** | Same `memoryScope`; load existing transcript |
-| **Fork scope** | New `memoryScope` suffix per attempt (`:retry-1`) |
-| **Clear scope** | Wipe store for that scope before `agent.run` |
+| Policy             | Behavior on step retry                            |
+| ------------------ | ------------------------------------------------- |
+| **Continue scope** | Same `memoryScope`; load existing transcript      |
+| **Fork scope**     | New `memoryScope` suffix per attempt (`:retry-1`) |
+| **Clear scope**    | Wipe store for that scope before `agent.run`      |
 
 ### Mid-agent resume (same step, same generation)
 
 **True** mid-stream resume (stop after 500 tokens, later continue the same completion) is **fragile** (provider/SDK support, partial assistant message in store) and **not** a v1 ADL goal.
 
-What *does* make sense as an **optional optimization**:
+What _does_ make sense as an **optional optimization**:
 
 ### Agent episode cache (future — not v1)
 
@@ -213,7 +213,7 @@ await agentEpisodeCache.set(fingerprint, result);
 
 **Not the same as `MessageStore`:** memory holds the canonical transcript; cache holds **optional** `(fingerprint → last result)` for deduplication. On cache hit you may still append to memory if the failed run never committed.
 
-**“Exactly the same input messages”** is the right key for *skip model call*. It does **not** fix re-running custom TS before `agent.run`—only **finer steps** or **idempotent** precall do.
+**“Exactly the same input messages”** is the right key for _skip model call_. It does **not** fix re-running custom TS before `agent.run`—only **finer steps** or **idempotent** precall do.
 
 ---
 

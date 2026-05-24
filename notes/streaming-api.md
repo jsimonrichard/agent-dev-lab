@@ -10,10 +10,10 @@ Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md
 
 ## Two channels (do not conflate)
 
-| Channel | What moves | When needed |
-|---------|------------|-------------|
-| **Run events** | Step tree, agent episodes, errors, committed messages, optional metadata | **Always** for waterfall / tracing UI—even when the model is non-streaming (`generateText`) |
-| **Model stream** | Token (or part) deltas from `streamText` | When the user wants live text preview during an agent call |
+| Channel          | What moves                                                               | When needed                                                                                 |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **Run events**   | Step tree, agent episodes, errors, committed messages, optional metadata | **Always** for waterfall / tracing UI—even when the model is non-streaming (`generateText`) |
+| **Model stream** | Token (or part) deltas from `streamText`                                 | When the user wants live text preview during an agent call                                  |
 
 The UI needs **run events** on every execution path. **Model stream** is optional and only exists when something calls `streamText` (usually `agent.stream`).
 
@@ -46,14 +46,14 @@ flowchart LR
 
 Union of versioned events, all include `runId` and monotonic `seq` (or timestamp + tie-break):
 
-| `type` | Purpose |
-|--------|---------|
-| `run_started` | Workflow id, input snapshot (redacted), root `runId` |
-| `step_started` / `step_finished` / `step_failed` | See [`workflow-api.md`](./workflow-api.md) |
-| `agent_started` / `agent_finished` | `stepId`, `memoryScope`, agent `id` |
-| `text_delta` | `stepId`, `agentCallId?`, `delta: string` — only when streaming model output |
-| `messages_committed` | `stepId`, `memoryScope`, count / refs — after persistence |
-| `run_finished` / `run_failed` | Workflow output or error |
+| `type`                                           | Purpose                                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `run_started`                                    | Workflow id, input snapshot (redacted), root `runId`                         |
+| `step_started` / `step_finished` / `step_failed` | See [`workflow-api.md`](./workflow-api.md)                                   |
+| `agent_started` / `agent_finished`               | `stepId`, `memoryScope`, agent `id`                                          |
+| `text_delta`                                     | `stepId`, `agentCallId?`, `delta: string` — only when streaming model output |
+| `messages_committed`                             | `stepId`, `memoryScope`, count / refs — after persistence                    |
+| `run_finished` / `run_failed`                    | Workflow output or error                                                     |
 
 Events are **JSON-serializable** for SQLite + SSE.
 
@@ -65,7 +65,7 @@ Not a `RunHandle`. **`RunEvent`** is the SSE/replay shape. **Observers** push to
 function createRunContext(project: LoadedAdlProject): WorkflowContext {
   const runId = generateId();
   // fan-out: observers.onStepStart + workflowStore?.recordStepStart
-  return { runId, /* step, emit, ... */ };
+  return { runId /* step, emit, ... */ };
 }
 ```
 
@@ -77,10 +77,10 @@ function createRunContext(project: LoadedAdlProject): WorkflowContext {
 
 **Yes** — implement both `agent.run` and `agent.stream` on top of **`streamText`**, not `generateText` + a separate path.
 
-| Public API | Caller sees | Runner behavior |
-|------------|-------------|-----------------|
-| **`agent.run`** | `Promise<AgentRunResult>` only | `streamText` + **drain** stream internally; resolve when generation finishes |
-| **`agent.stream`** | `AgentStreamResult` (SDK streams + `finished` promise) | Same `streamText` call; **expose** `textStream` / `fullStream` to caller |
+| Public API         | Caller sees                                            | Runner behavior                                                              |
+| ------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **`agent.run`**    | `Promise<AgentRunResult>` only                         | `streamText` + **drain** stream internally; resolve when generation finishes |
+| **`agent.stream`** | `AgentStreamResult` (SDK streams + `finished` promise) | Same `streamText` call; **expose** `textStream` / `fullStream` to caller     |
 
 Reasons:
 
@@ -200,12 +200,12 @@ Maps to [`WorkflowObserver`](./observability-api.md) via adapter: `onCustomEvent
 
 ### `workflow.run` vs `workflow.stream`
 
-| | **`workflow.run`** | **`workflow.stream`** |
-|---|-------------------|----------------------|
-| Return | `Promise<Output>` | Same (stream is observability-side, not a second return type) |
-| Steps | Same `ctx.step` | Same |
+|        | **`workflow.run`**                 | **`workflow.stream`**                                                           |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------- |
+| Return | `Promise<Output>`                  | Same (stream is observability-side, not a second return type)                   |
+| Steps  | Same `ctx.step`                    | Same                                                                            |
 | Agents | `agent.run` (drained `streamText`) | Often `agent.stream` when caller wants token access; still same observer events |
-| Custom | `ctx.emit` | `ctx.emit` |
+| Custom | `ctx.emit`                         | `ctx.emit`                                                                      |
 
 We likely **do not** need a separate `workflow.stream()` unless we later expose a merged readable stream of all run events. For v1: **`workflow.run` + event tail** is enough; “workflow streaming” = run event SSE + optional `agent.stream` inside steps.
 
@@ -236,11 +236,11 @@ const output = await outputPromise;
 
 ### HTTP (planned)
 
-| Route | Behavior |
-|-------|----------|
-| `POST /api/runs` | Body: `{ workflowId, input }` → `createRunContext`, start `workflow.run` **without blocking response** (or block until `run_started`), return **`{ runId }`** |
-| `GET /api/runs/:runId/events` | **SSE** (or WebSocket) of persisted run events; live tail until `run_finished` |
-| `GET /api/runs/:runId` | Snapshot: status derived from events, final output when done |
+| Route                         | Behavior                                                                                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/runs`              | Body: `{ workflowId, input }` → `createRunContext`, start `workflow.run` **without blocking response** (or block until `run_started`), return **`{ runId }`** |
+| `GET /api/runs/:runId/events` | **SSE** (or WebSocket) of persisted run events; live tail until `run_finished`                                                                                |
+| `GET /api/runs/:runId`        | Snapshot: status derived from events, final output when done                                                                                                  |
 
 Implementation backs **`RunEventSink`** with append to SQLite (same DB family as [`message-store.md`](./message-store.md) / `@agent-dev-lab/common`) plus optional in-process fan-out for same-process dev.
 
@@ -273,13 +273,13 @@ Same type parameters as non-streaming paths:
 
 ## v1 phasing
 
-| Phase | Deliverable |
-|-------|-------------|
-| **1** | Observers + `createRunContext` + step/run events + `ctx.emit` custom |
-| **2** | SSE route in `apps/web` + waterfall from events |
+| Phase | Deliverable                                                                    |
+| ----- | ------------------------------------------------------------------------------ |
+| **1** | Observers + `createRunContext` + step/run events + `ctx.emit` custom           |
+| **2** | SSE route in `apps/web` + waterfall from events                                |
 | **3** | `executeAgentEpisode` via `streamText` for both `agent.run` and `agent.stream` |
-| **4** | `agent.stream` exposes SDK streams; `agent.run` drains |
-| **5** | `executeStreamTextWithObservers` helper for raw SDK in steps |
+| **4** | `agent.stream` exposes SDK streams; `agent.run` drains                         |
+| **5** | `executeStreamTextWithObservers` helper for raw SDK in steps                   |
 
 ---
 

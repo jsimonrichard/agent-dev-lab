@@ -20,13 +20,13 @@ Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live U
 
 ## Two composition primitives
 
-| | **`ctx.step`** | **Nested workflow** (`createWorkflow` + `run`) |
-|---|----------------|--------------------------------------------------|
-| **Purpose** | Observability + logical span boundary | Reusable unit with typed **input → output** |
-| **Contract** | None enforced; callback closure captures anything | `input` / `output` schemas (e.g. Zod) on the workflow |
-| **Reuse** | Copy-paste or extract plain TS functions yourself | Call `otherWorkflow.run(input, childCtx)` |
-| **Tracing** | Always creates a step node (with stable path + invocation id) | Outer step can wrap inner `run`; inner workflow may define its own steps |
-| **Best for** | “Do this chunk of work under a span” | “This sub-process is a named, testable module” |
+|              | **`ctx.step`**                                                | **Nested workflow** (`createWorkflow` + `run`)                           |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Purpose**  | Observability + logical span boundary                         | Reusable unit with typed **input → output**                              |
+| **Contract** | None enforced; callback closure captures anything             | `input` / `output` schemas (e.g. Zod) on the workflow                    |
+| **Reuse**    | Copy-paste or extract plain TS functions yourself             | Call `otherWorkflow.run(input, childCtx)`                                |
+| **Tracing**  | Always creates a step node (with stable path + invocation id) | Outer step can wrap inner `run`; inner workflow may define its own steps |
+| **Best for** | “Do this chunk of work under a span”                          | “This sub-process is a named, testable module”                           |
 
 **Recommendation: include both.** They solve different problems. Nesting workflows does not replace steps: you typically **`step` around a nested `run`** if you want the sub-workflow visible as one bar in a waterfall, and use **inner steps** inside that workflow for detail.
 
@@ -86,20 +86,20 @@ Nested workflow `run(input, ctx)` accepts that same child `ctx`.
 
 ### Identity fields
 
-| Field | Meaning |
-|-------|---------|
-| **`stepId`** | Unique per invocation (UUID). Never reused in a run. |
-| **`name`** | Human label: first argument to `step("…", …)`. |
-| **`key`** | Optional disambiguator (React-style). See below. |
-| **`stepPath`** | Stable logical path: segments derived from `(name, key)` ancestry, not auto-increment counters. |
-| **`parentStepId`** | Parent invocation, or `null` at run root. |
+| Field              | Meaning                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
+| **`stepId`**       | Unique per invocation (UUID). Never reused in a run.                                            |
+| **`name`**         | Human label: first argument to `step("…", …)`.                                                  |
+| **`key`**          | Optional disambiguator (React-style). See below.                                                |
+| **`stepPath`**     | Stable logical path: segments derived from `(name, key)` ancestry, not auto-increment counters. |
+| **`parentStepId`** | Parent invocation, or `null` at run root.                                                       |
 
 ```ts
 type StepIdentity = {
   stepId: string;
   name: string;
   key: string | undefined;
-  path: string[];              // e.g. ["literature-review", "search:crispr"]
+  path: string[]; // e.g. ["literature-review", "search:crispr"]
   parentStepId: string | null;
 };
 ```
@@ -112,12 +112,12 @@ We intentionally **do not** use auto-increment attempt indices (`search/1` vs `s
 
 Under a given **parent step**, the pair **`(name, key)`** identifies a logical step slot for the whole run:
 
-| Rule | Behavior |
-|------|----------|
-| **First** `step("foo", …)` under a parent with no `key` | Allowed. Treat as `(name, key = undefined)` — the single default slot for that name. |
-| **Second+** `step("foo", …)` under the same parent | **`key` is required** in `options`. If omitted → **throw** (forces explicit disambiguation). |
-| **Duplicate `(name, key)`** under the same parent | **Throw** — slot already used (whether still active or completed). Keys must be unique per `(parentStepId, name)`. |
-| **Parallel** `step("foo", …)` with the same `name` | **Must** use distinct `keys` (same as repeating in a loop). |
+| Rule                                                    | Behavior                                                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **First** `step("foo", …)` under a parent with no `key` | Allowed. Treat as `(name, key = undefined)` — the single default slot for that name.                               |
+| **Second+** `step("foo", …)` under the same parent      | **`key` is required** in `options`. If omitted → **throw** (forces explicit disambiguation).                       |
+| **Duplicate `(name, key)`** under the same parent       | **Throw** — slot already used (whether still active or completed). Keys must be unique per `(parentStepId, name)`. |
+| **Parallel** `step("foo", …)` with the same `name`      | **Must** use distinct `keys` (same as repeating in a loop).                                                        |
 
 Loops:
 
@@ -154,7 +154,13 @@ Even if execution “works,” sibling ordering in the waterfall and event log m
 ```ts
 await Promise.all(
   topics.map((topic) =>
-    ctx.step("search", async ({ ctx }) => { /* ... */ }, { key: topic }),
+    ctx.step(
+      "search",
+      async ({ ctx }) => {
+        /* ... */
+      },
+      { key: topic },
+    ),
   ),
 );
 ```
@@ -163,11 +169,11 @@ await Promise.all(
 
 ### Events (for UI + tracing)
 
-| Event | Payload (minimal) |
-|-------|-------------------|
-| `step_started` | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt` |
+| Event           | Payload (minimal)                                                                       |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                            |
 | `step_finished` | `stepId`, `status: "ok" \| "error"`, `durationMs`, optional serialized **return value** |
-| `step_failed` | `stepId`, `error` |
+| `step_failed`   | `stepId`, `error`                                                                       |
 
 **Active steps** = `step_started` without a terminal event. Optional `ctx.activeSteps()` can project this in-process.
 
@@ -298,12 +304,12 @@ flowchart TB
 
 ## Implementation status
 
-| Piece | Status |
-|-------|--------|
-| `createWorkflow` | Not implemented |
-| `WorkflowContext` / `step` | Not implemented |
-| Step key registry + errors | Not implemented |
-| Run event log / step tree | Not implemented |
+| Piece                                   | Status                                                  |
+| --------------------------------------- | ------------------------------------------------------- |
+| `createWorkflow`                        | Not implemented                                         |
+| `WorkflowContext` / `step`              | Not implemented                                         |
+| Step key registry + errors              | Not implemented                                         |
+| Run event log / step tree               | Not implemented                                         |
 | `createTemplate()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
 
 ---

@@ -40,10 +40,10 @@ const text = findPapersPrompt.render({
 
 Derived from the template **file name**, not a separate config field:
 
-| `path` | `name` |
-|--------|--------|
+| `path`                     | `name`        |
+| -------------------------- | ------------- |
 | `./prompts/find-papers.md` | `find-papers` |
-| `./researcher.md` | `researcher` |
+| `./researcher.md`          | `researcher`  |
 
 Rule: basename of `path` with extension stripped (`.md`, `.markdown`, etc.). Exposed as **`template.name`** (readonly). Used by `adl.config` listing, `getTemplate("find-papers")`, and `adl templates preview find-papers` (future).
 
@@ -107,11 +107,11 @@ export default {
 
 ## Agent / workflow usage
 
-| Site | Pattern |
-|------|---------|
+| Site                 | Pattern                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
 | Agent `instructions` | `instructions: findPapersPrompt` or `createTemplate` ref; runner renders once at system bootstrap |
-| Workflow turn | `user: outlinePrompt.render({ ... })` passed to `agent.run` |
-| Tests | `expect(tpl.render({ ... })).toMatch(...)` |
+| Workflow turn        | `user: outlinePrompt.render({ ... })` passed to `agent.run`                                       |
+| Tests                | `expect(tpl.render({ ... })).toMatch(...)`                                                        |
 
 No `ctx.render` — pass data explicitly ([`workflow-api.md`](./workflow-api.md)).
 

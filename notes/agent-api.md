@@ -69,7 +69,7 @@ Volatile context for a turn belongs in a **user** message (workflow template or 
 - Standard AI SDK `tool()` definitions on the agent.
 - **Execution** for v1: either the SDK `execute` on the tool, or the workflow runs a tool loop and appends results—TBD in workflow doc. Regardless, **persistence** is always via messages (below).
 
-### What agents do *not* carry
+### What agents do _not_ carry
 
 - **`stopWhen` / step limits** — workflow concern (TypeScript loops, conditions, cost caps).
 - **Memory pipeline** — deferred ([`memory-pipeline.md`](./memory-pipeline.md)); v1 may use a fixed policy (e.g. pass-through or simple last-N in the runner without a public pipeline API).
@@ -80,10 +80,10 @@ Volatile context for a turn belongs in a **user** message (workflow template or 
 
 Templates do not read or write the store. Only the **agent runner** connects them:
 
-| When | Role | Source |
-|------|------|--------|
-| New `memoryScope` (empty store) | `system` | Agent `instructions` template → render once → **persist** |
-| Each `run()` | `user` (typical) | Caller `user` string or `stepTemplate.render(inputData)` → append → persist after call |
+| When                            | Role             | Source                                                                                 |
+| ------------------------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| New `memoryScope` (empty store) | `system`         | Agent `instructions` template → render once → **persist**                              |
+| Each `run()`                    | `user` (typical) | Caller `user` string or `stepTemplate.render(inputData)` → append → persist after call |
 
 Workflows should not re-bootstrap system prompts. They pass turn input; the agent owns standing instructions.
 
@@ -97,14 +97,12 @@ A single opaque key selects the **conversation message list** in the store. The 
 
 ```ts
 // Examples — conventions are project-defined, not enforced by ADL
-`run:${runId}:step:outline`
-`user:${userId}:chat:${chatId}`
-`${runId}:researcher`
+`run:${runId}:step:outline``user:${userId}:chat:${chatId}``${runId}:researcher`;
 ```
 
 Same agent + same `memoryScope` → shared history. New scope → new conversation (new system bootstrap when store is empty).
 
-This replaces Mastra-style **`thread`** ids for *chat history*. It intentionally does **not** encode resource/user scope—that belongs in **`context`** (below) and in tools that choose their own storage keys.
+This replaces Mastra-style **`thread`** ids for _chat history_. It intentionally does **not** encode resource/user scope—that belongs in **`context`** (below) and in tools that choose their own storage keys.
 
 ---
 
@@ -114,12 +112,12 @@ This replaces Mastra-style **`thread`** ids for *chat history*. It intentionally
 
 Pass an optional, arbitrary **`context`** on `agent.run()`. The agent runner forwards it to tool `execute` functions (via AI SDK `experimental_context`). Tools that need cross-conversation state, working memory, or RAG use **fields from `context`** (e.g. `resourceId`, `userId`, `db`, `runId`) to read/write—**not** the message store API baked into ADL.
 
-| Concern | Mechanism |
-|---------|-----------|
-| What the model reads (turn-by-turn chat) | `memoryScope` → `MessageStore` of `CoreMessage[]` |
-| What tools / side logic use (identity, DB, shared prefs) | `context` on each `run()` |
-| Mastra “thread” | Your `memoryScope` string convention |
-| Mastra “resource” | A key inside `context` that **your tools** use (e.g. `context.resourceId`) |
+| Concern                                                  | Mechanism                                                                  |
+| -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| What the model reads (turn-by-turn chat)                 | `memoryScope` → `MessageStore` of `CoreMessage[]`                          |
+| What tools / side logic use (identity, DB, shared prefs) | `context` on each `run()`                                                  |
+| Mastra “thread”                                          | Your `memoryScope` string convention                                       |
+| Mastra “resource”                                        | A key inside `context` that **your tools** use (e.g. `context.resourceId`) |
 
 ADL does not need a first-class `resource` parameter if tools and optional core helpers are parameterized by `context`.
 
@@ -212,11 +210,11 @@ export function createTool<Context, Input, Output>(def: {
 
 ### Compared to encoding everything in `memoryScope`
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| Only `memoryScope` strings | Minimal API | Awkward for “same user, new thread, shared profile”; string parsing as protocol |
-| `thread` + `resource` first-class | Familiar to Mastra users | Two IDs on every call; ADL must define merge semantics |
-| `memoryScope` + `context` | Simple history key; flexible resource semantics via tools | Projects must define conventions; core library may ship helpers |
+| Approach                          | Pros                                                      | Cons                                                                            |
+| --------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Only `memoryScope` strings        | Minimal API                                               | Awkward for “same user, new thread, shared profile”; string parsing as protocol |
+| `thread` + `resource` first-class | Familiar to Mastra users                                  | Two IDs on every call; ADL must define merge semantics                          |
+| `memoryScope` + `context`         | Simple history key; flexible resource semantics via tools | Projects must define conventions; core library may ship helpers                 |
 
 **Recommendation:** adopt `memoryScope` + optional typed `context`; defer first-class `resource` until a clear pattern emerges from real tools.
 
@@ -280,7 +278,7 @@ Parameter name is **`memoryScope`**, not `memory`, to avoid confusion with a fut
 1. `store.load(memoryScope)`
 2. If empty → render `instructions` → append and persist **system** message
 3. If `user` → append **user** message (persist with commit or as part of final save)
-4. *(Future)* memory pipeline shapes the list — deferred
+4. _(Future)_ memory pipeline shapes the list — deferred
 5. **`streamText`** internally (even for `agent.run`) — drain stream, forward chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
 6. Append `newMessages` from SDK response to store
 7. Return `AgentRunResult`
@@ -302,12 +300,12 @@ These are valid `CoreMessage` variants (`CoreAssistantMessage`, `CoreToolMessage
 
 For a single `generateText` call (v1 agent episode):
 
-| SDK field | Use in ADL |
-|-----------|------------|
-| `result.response.messages` | **`newMessages`** to append to the store. Assistant + tool messages from this episode, already in model shape. |
-| `result.toolCalls` | **Convenience only** — flat list of tool calls from the **last** step. Do not treat as the source of truth for persistence. |
-| `result.toolResults` | **Convenience only** — parallel to last-step tool calls. |
-| `result.steps` | Populated when the workflow runs multiple SDK steps; agent v1 may expose via `sdk` for events, not duplicate in `toolCalls` on `AgentRunResult`. |
+| SDK field                  | Use in ADL                                                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `result.response.messages` | **`newMessages`** to append to the store. Assistant + tool messages from this episode, already in model shape.                                   |
+| `result.toolCalls`         | **Convenience only** — flat list of tool calls from the **last** step. Do not treat as the source of truth for persistence.                      |
+| `result.toolResults`       | **Convenience only** — parallel to last-step tool calls.                                                                                         |
+| `result.steps`             | Populated when the workflow runs multiple SDK steps; agent v1 may expose via `sdk` for events, not duplicate in `toolCalls` on `AgentRunResult`. |
 
 **Rule:** After `run()`, extend the store with `newMessages` (from `response.messages`). Reconstructing history from `toolCalls` alone is insufficient (misses message structure, ids, text alongside calls).
 
