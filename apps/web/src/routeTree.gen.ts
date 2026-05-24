@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiRuntimeRouteImport } from './routes/api.runtime'
+import { Route as ApiProjectRouteImport } from './routes/api.project'
 
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
@@ -28,34 +29,43 @@ const ApiRuntimeRoute = ApiRuntimeRouteImport.update({
   path: '/api/runtime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectRoute = ApiProjectRouteImport.update({
+  id: '/api/project',
+  path: '/api/project',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/api/runtime'
+  fullPaths: '/' | '/about' | '/api/project' | '/api/runtime'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/api/runtime'
-  id: '__root__' | '/' | '/about' | '/api/runtime'
+  to: '/' | '/about' | '/api/project' | '/api/runtime'
+  id: '__root__' | '/' | '/about' | '/api/project' | '/api/runtime'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  ApiProjectRoute: typeof ApiProjectRoute
   ApiRuntimeRoute: typeof ApiRuntimeRoute
 }
 
@@ -82,12 +92,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRuntimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/project': {
+      id: '/api/project'
+      path: '/api/project'
+      fullPath: '/api/project'
+      preLoaderRoute: typeof ApiProjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ApiProjectRoute: ApiProjectRoute,
   ApiRuntimeRoute: ApiRuntimeRoute,
 }
 export const routeTree = rootRouteImport

@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./eslint": "./eslint.config.js",
+    "./tsconfig/node.json": "./tsconfig.node.json",
     "./db": "./src/db/index.ts",
     "./logging": "./src/logging/index.ts"
   },

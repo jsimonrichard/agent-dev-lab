@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@agent-dev-lab/web",
+    "dev:cli": "turbo run dev --filter=@agent-dev-lab/cli",
     "dev:docs": "turbo run dev --filter=@agent-dev-lab/docs",
     "build": "turbo run build",
     "format": "prettier --write .",
