@@ -26,7 +26,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 An agent is a reusable configuration: identity (instructions), model, tools, memory store binding, and optional defaults.
 
 ```ts
-import { createAgent, template } from "@agent-dev-lab/runtime";
+import { createAgent, createTemplate } from "@agent-dev-lab/runtime";
 
 /** `id` is the registry key (CLI, UI, stores) — listed in adl.config `agents` array */
 export const researcher = createAgent({

@@ -48,6 +48,9 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 | [`resumability.md`](./resumability.md) | Conversation vs workflow resume; which store when |
 | [`message-store.md`](./message-store.md) | `MessageStore` contract (planned; not in code yet) |
 | [`memory-pipeline.md`](./memory-pipeline.md) | Deferred message-list shaping |
+| [`templates-api.md`](./templates-api.md) | `createTemplate` + Zod + Handlebars |
+| [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) | AI SDK alignment checklist |
+| [`v1-scope.md`](./v1-scope.md) | v1 inventory & gaps |
 
 ## Open questions (unchanged)
 
