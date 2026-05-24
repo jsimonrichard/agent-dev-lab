@@ -38,9 +38,6 @@ export interface WorkflowStore {
     type: T,
   ): Promise<RunEventOfType<T> | null>;
 
-  /** @deprecated Use {@link listEvents}. */
-  getRunEvents?(workflowRunId: string, afterSeq?: number): Promise<RunEvent[]>;
-
   getRun(workflowRunId: string): Promise<WorkflowRunSummary | null>;
   listRuns(filter?: { workflowId?: string; limit?: number }): Promise<WorkflowRunSummary[]>;
   getRunInput(workflowRunId: string): Promise<unknown | null>;

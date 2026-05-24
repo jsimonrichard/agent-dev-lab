@@ -15,9 +15,3 @@ export type CreateWorkflowRunContextOptions = {
 export type WorkflowRunContext = WorkflowContext & {
   readonly project: LoadedAdlProject;
 };
-
-/** @deprecated Use {@link CreateWorkflowRunContextOptions}. */
-export type CreateRunContextOptions = CreateWorkflowRunContextOptions;
-
-/** @deprecated Use {@link WorkflowRunContext}. */
-export type RunContext = WorkflowRunContext;

@@ -125,6 +125,3 @@ export async function importProjectCore(projectRoot: string): Promise<ProjectRun
   const entry = resolveFromProjectRoot(projectRoot, "@agent-dev-lab/core/project");
   return import(pathToFileURL(entry).href) as Promise<ProjectRuntimeProjectModule>;
 }
-
-/** @deprecated Use {@link importProjectCore}. */
-export const importProjectRuntimeProject = importProjectCore;

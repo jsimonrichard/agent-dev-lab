@@ -16,12 +16,10 @@ export type {
   AgentStreamResult,
 } from "./agent";
 
-export { createRunContext, createWorkflow, createWorkflowRunContext } from "./workflow";
+export { createWorkflow, createWorkflowRunContext } from "./workflow";
 export type {
-  CreateRunContextOptions,
   CreateWorkflowRunContextOptions,
   CustomWorkflowEvent,
-  RunContext,
   StepFn,
   StepIdentity,
   StepOptions,
@@ -52,10 +50,8 @@ export type {
   ListEventsFilter,
   ListEventsScope,
   RunEvent,
-  RunEventBase,
   RunEventOfType,
   RunEventType,
-  RunSummary,
   StepRecord,
   StepSlot,
   WorkflowObserver,
@@ -104,6 +100,3 @@ export function createCoreShell() {
     ],
   };
 }
-
-/** @deprecated Use {@link createCoreShell}. */
-export const createRuntimeShell = createCoreShell;

@@ -124,9 +124,6 @@ export type AgentMessagesCommittedEvent = AgentEventBase & {
   count: number;
 };
 
-/** @deprecated Use {@link WorkflowRunEventBase}. */
-export type RunEventBase = WorkflowRunEventBase;
-
 export type RunEvent =
   | WorkflowStartedEvent
   | WorkflowFinishedEvent
@@ -176,18 +173,6 @@ export type WorkflowRunSummary = {
   startedAt: string;
   finishedAt?: string;
 };
-
-/** @deprecated Use {@link WorkflowRunSummary}. */
-export type RunSummary = WorkflowRunSummary;
-
-/** @deprecated Use {@link WorkflowStartedEvent}. */
-export type WorkflowRunStartedEvent = WorkflowStartedEvent;
-/** @deprecated Use {@link WorkflowFinishedEvent}. */
-export type WorkflowRunFinishedEvent = WorkflowFinishedEvent;
-/** @deprecated Use {@link WorkflowFailedEvent}. */
-export type WorkflowRunFailedEvent = WorkflowFailedEvent;
-/** @deprecated Use {@link WorkflowCancelledEvent}. */
-export type WorkflowRunCancelledEvent = WorkflowCancelledEvent;
 
 export type StepRecord = {
   stepId: string;

@@ -10,6 +10,3 @@ export function createWorkflowRunContext(
   void options;
   notImplemented("createWorkflowRunContext");
 }
-
-/** @deprecated Use {@link createWorkflowRunContext}. */
-export const createRunContext = createWorkflowRunContext;
