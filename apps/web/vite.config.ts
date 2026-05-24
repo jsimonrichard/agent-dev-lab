@@ -30,7 +30,7 @@ const config = defineConfig({
     devtools(),
     nitro({
       rollupConfig: {
-        external: [/^@sentry\//, /^@agent-dev-lab\/runtime(\/.*)?$/],
+        external: [/^@agent-dev-lab\/runtime(\/.*)?$/],
       },
     }),
     tailwindcss(),
