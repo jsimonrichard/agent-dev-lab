@@ -6,12 +6,10 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "ADL_FRAMEWORK_DEV=1 ADL_PROJECT_ROOT=../playground vite dev --port 3000",
+    "dev": "vite dev --port 3000",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "dev:project": "vite dev --port 3000"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@agent-dev-lab/runtime": "workspace:*",
@@ -29,6 +27,7 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
+    "@agent-dev-lab/common": "workspace:*",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@testing-library/dom": "^10.4.1",
