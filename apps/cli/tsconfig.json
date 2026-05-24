@@ -1,20 +1,9 @@
 {
+  "extends": "@agent-dev-lab/common/tsconfig/node.json",
   "compilerOptions": {
     "noEmit": true,
     "rootDir": "src",
-    "types": ["node", "bun"],
-    "resolveJsonModule": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "skipLibCheck": true,
-    "strict": true,
-    "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
-    "verbatimModuleSyntax": true
+    "types": ["node", "bun"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["**/*.test.ts"]
