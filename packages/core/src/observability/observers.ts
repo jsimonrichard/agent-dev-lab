@@ -37,6 +37,7 @@ import type { AgentObserverEvent, WorkflowObserverEvent } from "./events";
  * — without changing the core interface.
  *
  * @see notes/observability-api.md
+ * @see notes/tracing.md — OpenTelemetry (native API, no core wrapper)
  */
 
 /** Push-only workflow telemetry (workflow + step + custom events). */
@@ -44,7 +45,7 @@ export interface WorkflowObserver {
   onEvent?(event: WorkflowObserverEvent): void | Promise<void>;
 }
 
-/** Push-only agent telemetry. */
+/** Push-only agent telemetry. @see notes/tracing.md */
 export interface AgentObserver {
   onEvent?(event: AgentObserverEvent): void | Promise<void>;
 }

@@ -37,5 +37,4 @@ export type {
   WorkflowObserver,
   WorkflowObservers,
 } from "./observers";
-export { ADL_TRACING_MODE } from "./tracing";
 export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";

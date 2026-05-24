@@ -44,6 +44,7 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 | [`project-api.md`](./project-api.md)                   | `adl.config` registries, `workflow.run`, CLI entrypoints                                                                      |
 | [`streaming-api.md`](./streaming-api.md)               | Run events, `agent.stream`, UI SSE                                                                                            |
 | [`observability-api.md`](./observability-api.md)       | Observers (push only) vs `WorkflowStore` (run/step I/O + events)                                                              |
+| [`tracing.md`](./tracing.md)                           | OpenTelemetry — native API, ADL context at workflow/step/agent boundaries (no core wrapper)                                   |
 | (memory vs observability)                              | [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer) — separate concerns, dual write on commit |
 | [`resumability.md`](./resumability.md)                 | Conversation vs workflow resume; which store when                                                                             |
 | [`message-store.md`](./message-store.md)               | `MessageStore` contract (planned; not in code yet)                                                                            |
