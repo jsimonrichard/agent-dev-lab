@@ -35,6 +35,14 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 
 `apps/docs` gitignores `src/content/docs/api/`; that folder is produced by `astro build`, `astro check`, or `astro dev`.
 
+## API design notes (draft)
+
+| Doc | Topic |
+|-----|--------|
+| [`agent-api.md`](./agent-api.md) | Agents, `run()`, templates, context → AI SDK |
+| [`message-store.md`](./message-store.md) | `MessageStore` contract (planned; not in code yet) |
+| [`memory-pipeline.md`](./memory-pipeline.md) | Deferred message-list shaping |
+
 ## Open questions (unchanged)
 
 Workflow context API, DB schema, conversation storage, replay/substeps, prompt templating API details, observability event model — documented as deferred, not decided in scaffold.

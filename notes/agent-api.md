@@ -14,6 +14,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 ## Related docs
 
 - Project principles: [`design-overview.md`](./design-overview.md)
+- Message persistence (`MessageStore`): [`message-store.md`](./message-store.md) — **planned**; not in runtime yet
 - Deferred memory shaping: [`memory-pipeline.md`](./memory-pipeline.md)
 
 ---
@@ -39,6 +40,7 @@ export const researcher = defineAgent({
 
   /**
    * Optional. When omitted, the project/runtime default store is used.
+   * See message-store.md (interface not implemented in runtime yet).
    * Pipeline / lastMessages presets are deferred — see memory-pipeline.md.
    */
   memory: {
@@ -116,39 +118,85 @@ Pass an optional, arbitrary **`context`** on `agent.run()`. The agent runner for
 
 ADL does not need a first-class `resource` parameter if tools and optional core helpers are parameterized by `context`.
 
-### AI SDK alignment
+### How `agent.run` passes `context` to tools
 
-`generateText` / `streamText` accept `experimental_context`. Tool `execute(input, options)` receives `options.experimental_context`. The agent runner sets:
+ADL does **not** add a separate “agent completion” API beyond what the AI SDK already exposes. There is no extra field on a model or on `tool()` for context.
 
-```ts
-generateText({
-  // ...
-  experimental_context: runInput.context,
-});
-```
+Flow:
 
-No parallel context system inside ADL unless we add typed sugar on top.
-
-### Typing (recommended)
+1. Caller: `agent.run({ memoryScope, user, context })`
+2. Runner: `messages = await messageStore.load(memoryScope)` (+ bootstrap, user append)
+3. Runner calls **`generateText`** (or `streamText`) with:
+   - `model`, `tools`, `messages` — standard AI SDK
+   - **`experimental_context: context`** — the only wire from `run()` into tool execution
+4. When the model invokes a tool, the SDK runs `execute(input, options)` where **`options.experimental_context`** is that same object (plus `toolCallId`, `messages`, `abortSignal`, …)
 
 ```ts
-defineAgent<{ Context: ResearchContext }>({
-  id: "researcher",
-  // ...
+// Inside the ADL agent runner (conceptual)
+const result = await generateText({
+  model: agent.model,
+  tools: agent.tools,
+  messages: preparedMessages,
+  experimental_context: input.context,
 });
 
-await researcher.run({
-  memoryScope: `run:${runId}:researcher`,
-  user: "...",
-  context: {
-    resourceId: userId,       // convention, not framework-enforced
-    runId,
-    subjectId,
-  },
-});
+// Inside a tool you defined with `tool()` from `ai`
+execute: async (input, { experimental_context }) => {
+  const ctx = experimental_context as ResearchContext;
+  // ...
+},
 ```
 
-Tools defined beside the agent close over types or read `options.experimental_context as ResearchContext`. Avoid an untyped bag in application code; the framework can default `context` to `undefined` or `{}`.
+So: **`context` on `run()` → `experimental_context` on `generateText` → `experimental_context` in `execute`**. Not injected into the prompt unless a tool or workflow copies it into a message.
+
+Note: the AI SDK also ships an experimental **`Agent`** class (`Experimental_Agent` in v5 exports). ADL **`defineAgent` is our own** wrapper; it should still delegate to `generateText` / `streamText` for v1, not a separate completion shape.
+
+### Generics (planned)
+
+Use type parameters where they catch real mistakes at compile time:
+
+```ts
+import type { ToolSet } from "ai";
+
+// Context = per-run bag for tools; Tools = agent tool set (for inference)
+export function defineAgent<
+  Context = undefined,
+  Tools extends ToolSet = ToolSet,
+>(config: AgentDefinition<Context, Tools>): Agent<Context, Tools> { ... }
+
+export interface AgentRunInput<Context> {
+  memoryScope: string;
+  context?: Context;
+  user?: string;
+  messages?: CoreMessage[];
+}
+
+export interface Agent<Context, Tools extends ToolSet> {
+  run(
+    input: AgentRunInput<Context>,
+  ): Promise<AgentRunResult<Tools>>;
+}
+```
+
+**`Context`**: when `undefined` or omitted, `context` on `run()` is optional. When set, `run({ context: ... })` must satisfy `Context`.
+
+**`Tools`**: enables typed `AgentRunResult` / SDK result (`GenerateTextResult<Tools>`) and lets helpers infer tool names from the agent definition.
+
+**Tools and context typing:** the SDK does not yet thread `Context` into `tool()`’s `execute` callback automatically (v5 uses `experimental_context?: unknown`). Options:
+
+- Assert/narrow in `execute`: `experimental_context as Context` (document the convention).
+- When upgrading SDK, adopt **`contextSchema`** on `tool()` if available so `execute` is typed from the schema.
+
+Optional helper (later, not required for v1):
+
+```ts
+export function defineTool<Context, Input, Output>(def: {
+  /* ... */
+  execute: (input: Input, options: ToolCallOptions & { context: Context }) => Promise<Output>;
+}): Tool<...>;
+```
+
+`defineAgent` would still only forward `context` via `generateText`; the helper documents the expected shape.
 
 ### Guidelines
 
@@ -221,7 +269,7 @@ Parameter name is **`memoryScope`**, not `memory`, to avoid confusion with a fut
 2. If empty → render `instructions` → append and persist **system** message
 3. If `user` → append **user** message (persist with commit or as part of final save)
 4. *(Future)* memory pipeline shapes the list — deferred
-5. `generateText({ model, tools, messages })` (and `system` only if not already in `messages`—prefer messages-only for one source of truth)
+5. `generateText({ model, tools, messages, experimental_context: context })` (prefer messages-only for one source of truth; do not duplicate `system` if already in `messages`)
 6. Append `newMessages` from SDK response to store
 7. Return `AgentRunResult`
 
