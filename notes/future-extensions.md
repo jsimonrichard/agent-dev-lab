@@ -12,11 +12,11 @@ Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md
 
 Today ADL splits concerns cleanly:
 
-| Layer | Role |
-|-------|------|
-| **`MessageStore`** | Model conversation state |
+| Layer               | Role                                       |
+| ------------------- | ------------------------------------------ |
+| **`MessageStore`**  | Model conversation state                   |
 | **`WorkflowStore`** | Run/step I/O + events for UI and step skip |
-| **Observers** | Push-only telemetry |
+| **Observers**       | Push-only telemetry                        |
 
 Several cross-cutting features want the **same** integration points (messages in/out, run context, optional persist boundaries):
 
@@ -42,7 +42,7 @@ interface AdlExtension {
 
 `PersistHookContext` would expose: `memoryScope`, `newMessages`, store handle (or forbid direct store access and only allow return value replacement).
 
-**v1:** no extension registry — only design notes. [`memory-pipeline.md`](./memory-pipeline.md) remains the placeholder for *one* pre-model pipeline until extensions exist.
+**v1:** no extension registry — only design notes. [`memory-pipeline.md`](./memory-pipeline.md) remains the placeholder for _one_ pre-model pipeline until extensions exist.
 
 ---
 

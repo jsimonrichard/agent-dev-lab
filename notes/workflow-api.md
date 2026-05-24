@@ -220,12 +220,12 @@ return output;
 
 Implications:
 
-| Topic | Behavior |
-|-------|----------|
-| **Idempotency** | Skipped steps do **not** re-run closure body (no duplicate side effects inside the step) |
-| **Nested workflows** | Inner `workflow.run` on retry may need its **own** `runId` or inherit parent policy — document per call site |
+| Topic                 | Behavior                                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Idempotency**       | Skipped steps do **not** re-run closure body (no duplicate side effects inside the step)                                                             |
+| **Nested workflows**  | Inner `workflow.run` on retry may need its **own** `runId` or inherit parent policy — document per call site                                         |
 | **Agent inside step** | If step is skipped, **`agent.run` is not called** — conversation for that attempt may be absent unless a prior attempt committed to **MessageStore** |
-| **Force re-run** | Future option: `ctx.step(..., { force: true })` to ignore cache |
+| **Force re-run**      | Future option: `ctx.step(..., { force: true })` to ignore cache                                                                                      |
 
 See [`resumability.md`](./resumability.md).
 

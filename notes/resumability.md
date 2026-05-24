@@ -76,7 +76,7 @@ To retry “from step `search`” without re-running `outline`:
    - Per-step **`output`** (and optional `input` snapshot) for completed steps
    - `step_failed` at the failure point
 2. **Runtime skip:** on retry with the same `runId`, **`ctx.step`** calls `getStepOutput` and **returns the stored output without running the callback** (see [`workflow-api.md`](./workflow-api.md)). No per-step manual early-return boilerplate in user TS for the common case.
-3. **Workflow code** still must be **idempotent** for work *outside* `ctx.step` (top-level `run` body, code between steps).
+3. **Workflow code** still must be **idempotent** for work _outside_ `ctx.step` (top-level `run` body, code between steps).
 
 The **memory store** does not know about workflow steps. It only knows **agent** transcripts per `memoryScope`.
 
@@ -129,15 +129,15 @@ observers.onMessagesCommitted(...)     ← UI / audit
 
 ## Recommended v1 stance
 
-| Capability                         | v1                                                                                      |
-| ---------------------------------- | --------------------------------------------------------------------------------------- |
-| Multi-turn agent via `memoryScope` | Yes — **MessageStore**                                                                  |
-| List / inspect past runs           | Yes — **`WorkflowStore`** (not observers)                                               |
-| Manual retry with new run + same input | Yes — user/CLI                                                                      |
-| Auto resume workflow mid-execution | **Partial** — same-`runId` **step skip** via stored output; no mid-step callback resume |
-| Agent episode cache (`cacheable` on `agent.run`) | **Future** — opt-in; skip LLM only when fingerprint hits |
-| Mid-stream token resume                          | **No** — not v1                                          |
-| Checkpoints / `ctx.checkpoint`                   | **Deferred**                                             |
+| Capability                                       | v1                                                                                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Multi-turn agent via `memoryScope`               | Yes — **MessageStore**                                                                  |
+| List / inspect past runs                         | Yes — **`WorkflowStore`** (not observers)                                               |
+| Manual retry with new run + same input           | Yes — user/CLI                                                                          |
+| Auto resume workflow mid-execution               | **Partial** — same-`runId` **step skip** via stored output; no mid-step callback resume |
+| Agent episode cache (`cacheable` on `agent.run`) | **Future** — opt-in; skip LLM only when fingerprint hits                                |
+| Mid-stream token resume                          | **No** — not v1                                                                         |
+| Checkpoints / `ctx.checkpoint`                   | **Deferred**                                                                            |
 
 ---
 

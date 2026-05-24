@@ -81,10 +81,10 @@ Volatile context for a turn belongs in a **user** message (workflow template or 
 
 Agents support **typed model output** in addition to free-form text:
 
-| Level            | Field                              | Behavior                                                         |
-| ---------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| Level             | Field                             | Behavior                                                        |
+| ----------------- | --------------------------------- | --------------------------------------------------------------- |
 | **Agent default** | `createAgent({ output: schema })` | Every `run` / `stream` uses structured output unless overridden |
-| **Per call**      | `agent.run({ output: schema })`   | Overrides agent default for one episode                          |
+| **Per call**      | `agent.run({ output: schema })`   | Overrides agent default for one episode                         |
 
 Implementation (AI SDK v5):
 

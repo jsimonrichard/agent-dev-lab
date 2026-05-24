@@ -107,11 +107,11 @@ Persistence for **workflow and step inputs/outputs**, plus **run events** (water
 
 ### What gets stored
 
-| Entity | Written when | Stored fields (JSON-safe) |
-|--------|--------------|---------------------------|
-| **Run** | `workflow.run` start / end | `workflowId`, **`input`**, **`output`**, status, timestamps |
-| **Step** | `ctx.step` complete / fail | `stepId`, `parentStepId`, `name`, `key`, `path`, optional **`input` snapshot**, **`output`** (return value), error |
-| **Events** | Same lifecycle + `ctx.emit` | Append-only `RunEvent[]` for SSE / waterfall |
+| Entity     | Written when                | Stored fields (JSON-safe)                                                                                          |
+| ---------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Run**    | `workflow.run` start / end  | `workflowId`, **`input`**, **`output`**, status, timestamps                                                        |
+| **Step**   | `ctx.step` complete / fail  | `stepId`, `parentStepId`, `name`, `key`, `path`, optional **`input` snapshot**, **`output`** (return value), error |
+| **Events** | Same lifecycle + `ctx.emit` | Append-only `RunEvent[]` for SSE / waterfall                                                                       |
 
 Step **inputs** are optional metadata (e.g. logged by nested `workflow.run` with declared Zod input). Step **outputs** are **required** on successful completion — they power skip-on-retry.
 
@@ -127,9 +127,7 @@ interface WorkflowStore {
   recordRunError(e: RunErrorPayload): Promise<void>;
 
   recordStepStart(e: StepStartPayload): Promise<void>;
-  recordStepComplete(
-    e: StepCompletePayload & { output: unknown; input?: unknown },
-  ): Promise<void>;
+  recordStepComplete(e: StepCompletePayload & { output: unknown; input?: unknown }): Promise<void>;
   recordStepError(e: StepErrorPayload): Promise<void>;
 
   recordCustomEvent(e: CustomEventPayload): Promise<void>;
