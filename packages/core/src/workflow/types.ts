@@ -1,5 +1,6 @@
 import type { z } from "zod";
 
+import type { TraceContext } from "../observability/tracing";
 import type { LoadedAdlProject } from "../project/resolve";
 
 export type CustomWorkflowEvent = {
@@ -23,7 +24,8 @@ export type StepIdentity = {
 };
 
 export type WorkflowContext = {
-  readonly runId: string;
+  /** Id of this workflow invocation (shared by all steps/agents in the run). */
+  readonly workflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -31,6 +33,9 @@ export type WorkflowContext = {
   step: StepFn;
 
   readonly memoryScope: (suffix: string) => string;
+
+  /** Active trace context — use for custom spans; OTel observers nest spans from run events. */
+  readonly trace: TraceContext;
 
   emit(event: CustomWorkflowEvent): void;
 };
@@ -45,7 +50,6 @@ export type WorkflowRunOptions =
   | WorkflowContext
   | {
       project: LoadedAdlProject;
-      signal?: AbortSignal;
     };
 
 export type WorkflowDefinition<TInput, TOutput> = {
@@ -55,7 +59,12 @@ export type WorkflowDefinition<TInput, TOutput> = {
   run: (input: TInput, ctx: WorkflowContext) => Promise<TOutput>;
 };
 
+export type WorkflowRunHandle<TOutput> = {
+  result: Promise<TOutput>;
+  cancel: () => void;
+};
+
 export interface Workflow<TInput, TOutput> {
   readonly id: string;
-  run(input: TInput, options: WorkflowRunOptions): Promise<TOutput>;
+  run(input: TInput, options: WorkflowRunOptions): WorkflowRunHandle<TOutput>;
 }

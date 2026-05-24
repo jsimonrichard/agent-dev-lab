@@ -8,8 +8,10 @@ export type {
   AgentDefinition,
   AgentInstructions,
   AgentMemoryConfig,
+  AgentRunHandle,
   AgentRunInput,
   AgentRunResult,
+  AgentStreamHandle,
   AgentStreamInput,
   AgentStreamResult,
 } from "./agent";
@@ -23,31 +25,46 @@ export type {
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
+  WorkflowRunHandle,
   WorkflowRunOptions,
 } from "./workflow";
 
 export { createTemplate } from "./template";
-export type { Template, TemplateConfig } from "./template";
+export type {
+  Template,
+  TemplateConfig,
+  TemplateFromPathConfig,
+  TemplateFromSourceConfig,
+} from "./template";
 
 export { inMemoryMessageStore } from "./memory";
 export type { MessageStore } from "./memory";
 
 export type {
   AgentObserver,
+  AgentObserverEvent,
   AgentObservers,
-  CustomEventPayload,
-  CustomRunEvent,
   RunEvent,
+  RunEventBase,
   RunSummary,
   StepRecord,
   StepSlot,
   WorkflowObserver,
+  WorkflowObserverEvent,
   WorkflowObservers,
+  WorkflowRunSummary,
   WorkflowStore,
 } from "./observability";
+export type { AdlSpan, StartSpanOptions, TraceContext } from "./observability";
+export { noopTraceContext } from "./observability";
 
-export { createRunContext } from "./run";
-export type { CreateRunContextOptions, RunContext } from "./run";
+export { createRunContext, createWorkflowRunContext } from "./workflow-run";
+export type {
+  CreateRunContextOptions,
+  CreateWorkflowRunContextOptions,
+  RunContext,
+  WorkflowRunContext,
+} from "./workflow-run";
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
 export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
@@ -81,7 +98,7 @@ export function createCoreShell() {
     capabilities: [
       "v1 API surface (draft)",
       "project config load + registry indexing",
-      "createTemplate (Handlebars + Zod)",
+      "createTemplate (path or inline source)",
       "agent/workflow execution (planned)",
     ],
   };

@@ -15,7 +15,8 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> 
   instructions: AgentInstructions;
   model: LanguageModel;
   tools?: Tools;
-  output?: z.ZodType<TOutput>;
+  /** Default Zod schema for structured output on every episode. */
+  outputSchema?: z.ZodType<TOutput>;
   memory?: AgentMemoryConfig;
 };
 
@@ -24,12 +25,19 @@ export type AgentRunInput<Context = unknown> = {
   context?: Context;
   user?: string;
   messages?: CoreMessage[];
-  output?: z.ZodType<unknown>;
-  /** Future: episode cache when fingerprint matches. Default false. */
-  cacheable?: boolean;
-  signal?: AbortSignal;
+  /** Per-episode override of the agent's `outputSchema`. */
+  outputSchema?: z.ZodType<unknown>;
+  // cacheable?: boolean; // deferred — episode cache (see notes/resumability.md)
 };
 
+/**
+ * Result of one agent episode (`agent.run` / `agent.stream`'s `finished` promise).
+ *
+ * **`text`:** convenience mirror of the AI SDK's aggregated text for this episode
+ * (`GenerateTextResult.text` / drained `streamText`). When the model returns tool calls,
+ * assistant text may be empty or partial; use `messages` / `newMessages` for the full
+ * transcript and `sdk` for raw SDK fields.
+ */
 export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
   text: string;
   output?: TOutput;
@@ -46,8 +54,21 @@ export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = unknown
   finished: Promise<AgentRunResult<Tools, TOutput>>;
 };
 
+/** Handle returned from `agent.run` — await `result` or call `cancel()` without passing AbortSignal in input. */
+export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+  result: Promise<AgentRunResult<Tools, TOutput>>;
+  cancel: () => void;
+};
+
+export type AgentStreamHandle<
+  Tools extends ToolSet = ToolSet,
+  TOutput = unknown,
+> = AgentStreamResult<Tools, TOutput> & {
+  cancel: () => void;
+};
+
 export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
   readonly id: string;
-  run(input: AgentRunInput<Context>): Promise<AgentRunResult<Tools>>;
-  stream(input: AgentStreamInput<Context>): Promise<AgentStreamResult<Tools>>;
+  run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
+  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
 }

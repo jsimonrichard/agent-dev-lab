@@ -4,14 +4,20 @@ import type { MessageStore } from "../memory/types";
 import type { LoadedAdlProject } from "../project/resolve";
 import type { WorkflowContext } from "../workflow/types";
 
-export type CreateRunContextOptions = {
+export type CreateWorkflowRunContextOptions = {
   workflowObservers?: WorkflowObserver[];
   agentObservers?: AgentObservers;
   workflowStore?: WorkflowStore;
   messageStore?: MessageStore;
-  signal?: AbortSignal;
 };
 
-export type RunContext = WorkflowContext & {
+/** Root {@link WorkflowContext} for a workflow invocation, including project defaults. */
+export type WorkflowRunContext = WorkflowContext & {
   readonly project: LoadedAdlProject;
 };
+
+/** @deprecated Use {@link CreateWorkflowRunContextOptions}. */
+export type CreateRunContextOptions = CreateWorkflowRunContextOptions;
+
+/** @deprecated Use {@link WorkflowRunContext}. */
+export type RunContext = WorkflowRunContext;

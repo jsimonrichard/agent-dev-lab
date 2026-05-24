@@ -4,8 +4,10 @@ export type {
   AgentDefinition,
   AgentInstructions,
   AgentMemoryConfig,
+  AgentRunHandle,
   AgentRunInput,
   AgentRunResult,
+  AgentStreamHandle,
   AgentStreamInput,
   AgentStreamResult,
 } from "./types";

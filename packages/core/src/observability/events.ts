@@ -1,43 +1,38 @@
-/** Append-only run event union for SSE / waterfall UI. @see notes/streaming-api.md */
-export type RunEvent =
-  | RunStartedEvent
-  | RunFinishedEvent
-  | RunFailedEvent
-  | RunCancelledEvent
-  | StepStartedEvent
-  | StepFinishedEvent
-  | StepSkippedEvent
-  | StepFailedEvent
-  | AgentStartedEvent
-  | AgentFinishedEvent
-  | TextDeltaEvent
-  | MessagesCommittedEvent
-  | CustomRunEvent;
+/**
+ * Append-only run event union for SSE / waterfall UI.
+ *
+ * Every event shares `workflowRunId` — the id for one top-level workflow invocation.
+ * Steps are addressed with `stepId`; agent episodes with `agentCallId` (when applicable).
+ *
+ * @see notes/streaming-api.md
+ */
 
+/** Shared envelope for persisted / streamed run events. */
 export type RunEventBase = {
-  runId: string;
+  /** Id of the workflow invocation (not a step or agent episode). */
+  workflowRunId: string;
   seq: number;
   at: string;
 };
 
-export type RunStartedEvent = RunEventBase & {
-  type: "run_started";
+export type WorkflowRunStartedEvent = RunEventBase & {
+  type: "workflow_run_started";
   workflowId: string;
   input: unknown;
 };
 
-export type RunFinishedEvent = RunEventBase & {
-  type: "run_finished";
+export type WorkflowRunFinishedEvent = RunEventBase & {
+  type: "workflow_run_finished";
   output: unknown;
 };
 
-export type RunFailedEvent = RunEventBase & {
-  type: "run_failed";
+export type WorkflowRunFailedEvent = RunEventBase & {
+  type: "workflow_run_failed";
   error: unknown;
 };
 
-export type RunCancelledEvent = RunEventBase & {
-  type: "run_cancelled";
+export type WorkflowRunCancelledEvent = RunEventBase & {
+  type: "workflow_run_cancelled";
 };
 
 export type StepStartedEvent = RunEventBase & {
@@ -73,6 +68,7 @@ export type StepFailedEvent = RunEventBase & {
 
 export type AgentStartedEvent = RunEventBase & {
   type: "agent_started";
+  agentCallId: string;
   stepId: string | null;
   agentId: string;
   memoryScope: string;
@@ -80,37 +76,101 @@ export type AgentStartedEvent = RunEventBase & {
 
 export type AgentFinishedEvent = RunEventBase & {
   type: "agent_finished";
+  agentCallId: string;
   stepId: string | null;
   agentId: string;
 };
 
-export type TextDeltaEvent = RunEventBase & {
-  type: "text_delta";
+export type AgentToolCallEvent = RunEventBase & {
+  type: "agent_tool_call";
+  agentCallId: string;
   stepId: string | null;
-  agentCallId?: string;
+  agentId: string;
+  toolCallId: string;
+  toolName: string;
+};
+
+export type AgentToolResultEvent = RunEventBase & {
+  type: "agent_tool_result";
+  agentCallId: string;
+  stepId: string | null;
+  agentId: string;
+  toolCallId: string;
+  toolName: string;
+  result: unknown;
+};
+
+export type AgentTextDeltaEvent = RunEventBase & {
+  type: "agent_text_delta";
+  agentCallId: string;
+  stepId: string | null;
   delta: string;
 };
 
-export type MessagesCommittedEvent = RunEventBase & {
-  type: "messages_committed";
+export type AgentMessagesCommittedEvent = RunEventBase & {
+  type: "agent_messages_committed";
+  agentCallId: string;
   stepId: string | null;
   memoryScope: string;
   count: number;
 };
 
-export type CustomRunEvent = RunEventBase & {
-  type: "custom";
+export type WorkflowCustomEvent = RunEventBase & {
+  type: "workflow_custom";
+  stepId: string;
   name: string;
   payload: unknown;
 };
 
-export type RunSummary = {
-  runId: string;
+/** All workflow + step + agent events emitted during a workflow run. */
+export type RunEvent =
+  | WorkflowRunStartedEvent
+  | WorkflowRunFinishedEvent
+  | WorkflowRunFailedEvent
+  | WorkflowRunCancelledEvent
+  | StepStartedEvent
+  | StepFinishedEvent
+  | StepSkippedEvent
+  | StepFailedEvent
+  | AgentStartedEvent
+  | AgentFinishedEvent
+  | AgentToolCallEvent
+  | AgentToolResultEvent
+  | AgentTextDeltaEvent
+  | AgentMessagesCommittedEvent
+  | WorkflowCustomEvent;
+
+/** Events a {@link WorkflowObserver} typically handles (workflow + steps + custom). */
+export type WorkflowObserverEvent =
+  | WorkflowRunStartedEvent
+  | WorkflowRunFinishedEvent
+  | WorkflowRunFailedEvent
+  | WorkflowRunCancelledEvent
+  | StepStartedEvent
+  | StepFinishedEvent
+  | StepSkippedEvent
+  | StepFailedEvent
+  | WorkflowCustomEvent;
+
+/** Events an {@link AgentObserver} typically handles. */
+export type AgentObserverEvent =
+  | AgentStartedEvent
+  | AgentFinishedEvent
+  | AgentToolCallEvent
+  | AgentToolResultEvent
+  | AgentTextDeltaEvent
+  | AgentMessagesCommittedEvent;
+
+export type WorkflowRunSummary = {
+  workflowRunId: string;
   workflowId: string;
   status: "running" | "ok" | "error" | "cancelled";
   startedAt: string;
   finishedAt?: string;
 };
+
+/** @deprecated Use {@link WorkflowRunSummary}. */
+export type RunSummary = WorkflowRunSummary;
 
 export type StepRecord = {
   stepId: string;
@@ -127,74 +187,4 @@ export type StepSlot = {
   parentStepId: string | null;
   name: string;
   key?: string;
-};
-
-export type RunStartPayload = {
-  runId: string;
-  workflowId: string;
-};
-
-export type RunCompletePayload = RunStartPayload & { output: unknown };
-export type RunCancelPayload = RunStartPayload;
-export type RunErrorPayload = RunStartPayload & { error: unknown };
-
-export type StepStartPayload = {
-  runId: string;
-  stepId: string;
-  parentStepId: string | null;
-  name: string;
-  key?: string;
-  path: string[];
-  startedAt: string;
-};
-
-export type StepCompletePayload = StepStartPayload & {
-  durationMs: number;
-  output: unknown;
-  input?: unknown;
-};
-
-export type StepErrorPayload = StepStartPayload & { error: unknown };
-export type CustomEventPayload = {
-  runId: string;
-  stepId: string;
-  name: string;
-  payload: unknown;
-};
-
-export type AgentStartPayload = {
-  runId: string;
-  stepId: string | null;
-  agentId: string;
-  memoryScope: string;
-};
-
-export type AgentMessagesPayload = AgentStartPayload & {
-  messageCount: number;
-};
-
-export type AgentStreamPayload = AgentStartPayload & {
-  delta: string;
-  agentCallId?: string;
-};
-
-export type ToolCallPayload = AgentStartPayload & {
-  toolCallId: string;
-  toolName: string;
-};
-
-export type ToolResultPayload = ToolCallPayload & {
-  result: unknown;
-};
-
-export type MessagesCommittedPayload = AgentStartPayload & {
-  count: number;
-};
-
-export type AgentCompletePayload = AgentStartPayload;
-export type AgentErrorPayload = AgentStartPayload & { error: unknown };
-
-export type AgentRunEventPayload = AgentStartPayload & {
-  type: string;
-  data?: unknown;
 };

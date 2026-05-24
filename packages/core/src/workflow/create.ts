@@ -1,5 +1,5 @@
-import { notImplemented } from "../internal/not-implemented";
-import type { Workflow, WorkflowDefinition } from "./types";
+import { AdlNotImplementedError } from "../internal/not-implemented";
+import type { Workflow, WorkflowDefinition, WorkflowRunHandle } from "./types";
 
 export function createWorkflow<TInput, TOutput>(
   config: WorkflowDefinition<TInput, TOutput>,
@@ -11,8 +11,12 @@ export function createWorkflow<TInput, TOutput>(
 
   return {
     id,
-    run() {
-      notImplemented(`workflow.run (${id})`);
+    run(): WorkflowRunHandle<TOutput> {
+      const error = new AdlNotImplementedError(`workflow.run (${id})`);
+      return {
+        result: Promise.reject(error),
+        cancel: () => {},
+      };
     },
   };
 }

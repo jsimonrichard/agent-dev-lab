@@ -1,2 +1,7 @@
 export { createTemplate } from "./create";
-export type { Template, TemplateConfig } from "./types";
+export type {
+  Template,
+  TemplateConfig,
+  TemplateFromPathConfig,
+  TemplateFromSourceConfig,
+} from "./types";

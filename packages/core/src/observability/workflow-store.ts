@@ -1,43 +1,21 @@
-import type {
-  AgentRunEventPayload,
-  CustomEventPayload,
-  RunCancelPayload,
-  RunCompletePayload,
-  RunErrorPayload,
-  RunEvent,
-  RunStartPayload,
-  RunSummary,
-  StepCompletePayload,
-  StepErrorPayload,
-  StepRecord,
-  StepSlot,
-  StepStartPayload,
-} from "./events";
+import type { RunEvent, StepRecord, StepSlot, WorkflowRunSummary } from "./events";
 
 /**
  * Workflow run persistence: run/step I/O, events, and resume lookups.
+ *
+ * Writes use {@link recordEvent} with the same discriminated union as observers / SSE.
+ *
  * @see notes/observability-api.md
  */
 export interface WorkflowStore {
-  recordRunStart(event: RunStartPayload & { input: unknown }): Promise<void>;
-  recordRunComplete(event: RunCompletePayload): Promise<void>;
-  recordRunCancel(event: RunCancelPayload): Promise<void>;
-  recordRunError(event: RunErrorPayload): Promise<void>;
+  /** Persist one append-only run event (and derived I/O when applicable). */
+  recordEvent(event: RunEvent): Promise<void>;
 
-  recordStepStart(event: StepStartPayload): Promise<void>;
-  recordStepComplete(
-    event: StepCompletePayload & { output: unknown; input?: unknown },
-  ): Promise<void>;
-  recordStepError(event: StepErrorPayload): Promise<void>;
-
-  recordCustomEvent(event: CustomEventPayload): Promise<void>;
-  recordAgentEvent?(event: AgentRunEventPayload): Promise<void>;
-
-  getRun(runId: string): Promise<RunSummary | null>;
-  listRuns(filter?: { workflowId?: string; limit?: number }): Promise<RunSummary[]>;
-  getRunInput(runId: string): Promise<unknown | null>;
-  getRunOutput(runId: string): Promise<unknown | null>;
-  getStepOutput(runId: string, slot: StepSlot): Promise<unknown | null>;
-  getStepById(runId: string, stepId: string): Promise<StepRecord | null>;
-  getRunEvents(runId: string, afterSeq?: number): Promise<RunEvent[]>;
+  getRun(workflowRunId: string): Promise<WorkflowRunSummary | null>;
+  listRuns(filter?: { workflowId?: string; limit?: number }): Promise<WorkflowRunSummary[]>;
+  getRunInput(workflowRunId: string): Promise<unknown | null>;
+  getRunOutput(workflowRunId: string): Promise<unknown | null>;
+  getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null>;
+  getStepById(workflowRunId: string, stepId: string): Promise<StepRecord | null>;
+  getRunEvents(workflowRunId: string, afterSeq?: number): Promise<RunEvent[]>;
 }
