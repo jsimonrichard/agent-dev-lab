@@ -9,9 +9,9 @@ What “resume” means in ADL, and which stores participate. **Not implemented*
 | Scenario | What the user wants | Primary store | Observability role |
 |----------|---------------------|---------------|-------------------|
 | **A. Continue a conversation** | Same chat, next message | **`MessageStore`** | Optional history in UI |
-| **B. Retry a failed workflow** | Run again from start or from a step | **Observability** (+ workflow code) | Step outputs, run input |
-| **C. Durable workflow (crash mid-run)** | Pick up after process death | **Observability + checkpoints** (future) | Source of truth for progress |
-| **D. Inspection replay** | Watch past run in UI | **Observability** only | Full event log |
+| **B. Retry a failed workflow** | Run again from start or from a step | **`WorkflowStore`** (+ workflow code) | Step outputs, run input |
+| **C. Durable workflow (crash mid-run)** | Pick up after process death | **`WorkflowStore` + checkpoints** (future) | Source of truth for progress |
+| **D. Inspection replay** | Watch past run in UI | **`WorkflowStore`** only | Full event log |
 | **E. Time-travel debugging** | Re-execute from step N | Observability + explicit APIs | Not automatic in v1 |
 
 Do not assume one store solves all of these.
@@ -36,11 +36,42 @@ await researcher.run({
 
 ---
 
-## B. Retry / logical resume → **mostly observability**
+## Step atomicity (why mid-workflow resume is hard)
+
+A **`ctx.step` callback is one atomic unit** from the framework’s point of view. On retry or resume, ADL can only:
+
+- **Skip** a step entirely (if a prior `recordStepComplete` exists and your workflow reads that output), or
+- **Re-run** the whole callback from the first line.
+
+There is **no** safe way to resume “halfway through” a step body—e.g. custom logic → `agent.run` → more logic—without re-executing the preamble.
+
+```ts
+await ctx.step("search", async ({ ctx }) => {
+  const files = await listFiles();        // runs again on step retry
+  const prompt = buildPrompt(files);      // runs again
+  const out = await agent.run({ user: prompt });
+  await uploadSummary(out);               // might run again — dangerous if not idempotent
+});
+```
+
+**Implications:**
+
+| Practice | Why |
+|----------|-----|
+| Put **side effects** in their own steps | So retry can skip or target them |
+| Put **non-idempotent** work behind explicit guards | Or accept that retry duplicates it |
+| Pass prior step outputs as **arguments** | Resume = new run with stored JSON, not magic replay |
+| Treat **one agent call per step** when retry matters | Clear boundary for store + memory |
+
+**Mid-conversation inside a workflow** usually means: same **`memoryScope`** across a retry, not “resume the same step halfway.” Conversation continuity is **`MessageStore`**; step retry is **`WorkflowStore`** step outputs.
+
+---
+
+## B. Retry / logical resume → **`WorkflowStore`**
 
 To retry “from step `search`” without re-running `outline`:
 
-1. **Observability** must have recorded:
+1. **`WorkflowStore`** must have recorded:
    - `run_started` with workflow **input**
    - `step_finished` for completed steps with **serialized outputs** (JSON-safe return values)
    - `step_failed` at the failure point
@@ -58,13 +89,13 @@ After a crash, nothing in-process survives. You need **persisted** data:
 
 | Data | Where |
 |------|--------|
-| Run id, workflow id, input | `run_started` event / `RunReader` |
+| Run id, workflow id, input | `recordRunStart` / `getRun` |
 | Completed steps + outputs | `step_finished` events |
 | Active step at failure | Last `step_started` without matching finish |
 | Agent conversations in flight | **`MessageStore`** per `memoryScope` (if agents ran before crash) |
 | Arbitrary workflow variables | **Not in v1** — closures are not persisted |
 
-**Observability alone** is enough to *inspect* where a run stopped and to *manually* or *programmatically* start a compensating run. **Automatic** resume (re-enter workflow mid-function) needs one of:
+**WorkflowStore alone** is enough to *inspect* where a run stopped and to *manually* or *programmatically* start a compensating run. **Automatic** resume (re-enter workflow mid-function) needs one of:
 
 - **Deterministic re-execution** from the top with **skip** logic driven by observability (idempotent steps + read prior `step_finished`), or
 - **Explicit checkpoints** (future API): `ctx.checkpoint({ ... })` writing workflow state to a store, or
@@ -102,7 +133,9 @@ observers.onMessagesCommitted(...)     ← UI / audit
 | Multi-turn agent via `memoryScope` | Yes — **MessageStore** |
 | List / inspect past runs | Yes — **`WorkflowStore`** (not observers) |
 | Manual retry with new run + same input | Yes — user/CLI |
-| Auto resume workflow mid-execution | **No** — document patterns (idempotent steps, read prior events) |
+| Auto resume workflow mid-execution | **No** — step-level skip only; steps are atomic |
+| Agent episode cache (same message fingerprint) | **Optional** later — skip LLM only |
+| Mid-stream token resume | **No** — not v1 |
 | Checkpoints / `ctx.checkpoint` | **Deferred** |
 
 ---
@@ -129,4 +162,6 @@ interface WorkflowCheckpointStore {
 - **Both** matter when a crashed run had already committed agent messages and finished steps.
 - Neither alone gives **transparent** resume of arbitrary TypeScript workflow state — that needs idempotent design, explicit inputs, and eventually checkpoints.
 
-Cross-links: [`message-store.md`](./message-store.md), [`observability-api.md`](./observability-api.md), [`workflow-api.md`](./workflow-api.md).
+Optional **`WorkflowResumer`** reads the store — see [`observability-api.md`](./observability-api.md). Observers alone are insufficient for resume.
+
+Cross-links: [`memory-store.md`](./message-store.md), [`observability-api.md`](./observability-api.md), [`workflow-api.md`](./workflow-api.md).
