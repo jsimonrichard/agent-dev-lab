@@ -9,7 +9,7 @@ export type {
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
+  NestedWorkflowRunOptions,
   WorkflowRunHandle,
-  WorkflowRunOptions,
 } from "./types";
 export type { CreateWorkflowRunContextOptions, WorkflowRunContext } from "./run";

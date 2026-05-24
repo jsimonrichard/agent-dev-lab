@@ -55,10 +55,10 @@ export type StepFn = <T>(
 ) => Promise<T>;
 
 /**
- * Options for {@link Workflow.run}. Use the root context from
- * {@link AdlRuntime.createWorkflowRunContext} or a child context from `ctx.step`.
+ * Internal: run a workflow nested inside a parent {@link WorkflowContext} (subworkflow).
+ * End users call {@link Workflow.run} with the root context from `createWorkflowRunContext`.
  */
-export type WorkflowRunOptions = {
+export type NestedWorkflowRunOptions = {
   parentCtx: WorkflowContext;
 };
 
@@ -76,5 +76,9 @@ export type WorkflowRunHandle<TOutput> = {
 
 export interface Workflow<TInput, TOutput> {
   readonly id: string;
-  run(input: TInput, options: WorkflowRunOptions): WorkflowRunHandle<TOutput>;
+  /**
+   * Start a workflow run. Pass the root context from {@link AdlRuntime.createWorkflowRunContext}.
+   * Nested runs inside `ctx.step` use {@link NestedWorkflowRunOptions} internally — not this signature.
+   */
+  run(input: TInput, ctx: WorkflowContext): WorkflowRunHandle<TOutput>;
 }

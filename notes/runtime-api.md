@@ -67,7 +67,7 @@ const review = adl.createWorkflow({
 });
 
 const ctx = adl.createWorkflowRunContext();
-const handle = review.run(input, { parentCtx: ctx });
+const handle = review.run(input, ctx);
 ```
 
 `adl.createAgent` / `adl.createWorkflow` delegate to the functional factories with `runtime` injected.
@@ -155,13 +155,17 @@ Tools: `createToolFromAgent(…, { mapRun: (args, { ctx }) => ({ …, workflow: 
 ## `workflow.run`
 
 ```ts
-workflow.run(input, { parentCtx: ctx });
+const ctx = adl.createWorkflowRunContext();
+workflow.run(input, ctx);
 ```
 
-- **`WorkflowRunOptions`** is `{ parentCtx: WorkflowContext }` (room for more fields later).
-- `parentCtx` is the root from `adl.createWorkflowRunContext()` or a child from `ctx.step`.
+- End users pass the **root** `WorkflowContext` from `createWorkflowRunContext` — not `{ parentCtx: … }`.
 - No `{ project }` on the execution path.
-- CLI: `loadAdlProject()` → `project.config.adl` → `adl.createWorkflowRunContext()` → `workflow.run`.
+- CLI: `loadAdlProject()` → `project.config.adl` → `adl.createWorkflowRunContext()` → `workflow.run(input, ctx)`.
+
+### Nested / subworkflows (internal)
+
+When a workflow runs **inside** a parent step (subworkflow, `createToolFromWorkflow`), the runtime uses **`NestedWorkflowRunOptions`** (`{ parentCtx }`) — not part of the public `workflow.run` signature.
 
 ---
 

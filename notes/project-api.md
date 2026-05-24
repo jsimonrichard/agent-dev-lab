@@ -194,7 +194,7 @@ The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The 
 `workflow.run(input, ctx)` needs a context for steps and events. Options:
 
 1. **Caller passes `ctx`** — nested workflow, tests with a fake context.
-2. **`workflow.run(input, { parentCtx: ctx })`** — `ctx` from `project.config.adl.createWorkflowRunContext()` (see [`runtime-api.md`](./runtime-api.md)).
+2. **`workflow.run(input, ctx)`** — `ctx` from `project.config.adl.createWorkflowRunContext()` (see [`runtime-api.md`](./runtime-api.md)).
 
 So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI / `getWorkflow`) vs **invoke** (always `.run`).
 
@@ -202,7 +202,7 @@ So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI
 | -------------------- | ----------------------------------------------------- |
 | **`adl.config.ts`**  | Arrays of definitions (`workflows`, `agents`)         |
 | **`loadAdlProject`** | Load config + index by `id`                           |
-| **CLI / UI**         | List ids; `getWorkflow(id).run(input, { project })`   |
+| **CLI / UI**         | List ids; `getWorkflow(id).run(input, ctx)`           |
 | **`workflow.run`**   | Execute with step tree; returns **`Promise<Output>`** |
 
 ### No `RunHandle` in the core API
@@ -296,7 +296,7 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 
 - [ ] Extend `AdlProjectConfig` + `normalizeConfig` (optional registries, passthrough unknown keys or strict)
 - [ ] Type exports for `Agent`, `Workflow`, `Template` registries
-- [ ] `createAdlRuntime` + `workflow.run(input, { parentCtx })` + `config.adl` on project
+- [ ] `createAdlRuntime` + `workflow.run(input, ctx)` + `config.adl` on project
 - [ ] Playground lists sample agent + workflow in config arrays
 - [ ] `loadAdlProject` builds id index; duplicate id errors
 - [ ] CLI `adl run` → `getWorkflow(id).run`

@@ -1,6 +1,6 @@
 import type { AdlRuntime, AdlRuntimeOverrides, RuntimeServices } from "../runtime/types";
 import { AdlNotImplementedError } from "../internal/not-implemented";
-import type { Workflow, WorkflowDefinition, WorkflowRunHandle, WorkflowRunOptions } from "./types";
+import type { Workflow, WorkflowContext, WorkflowDefinition, WorkflowRunHandle } from "./types";
 
 /** Functional factory: workflow definition plus explicit {@link AdlRuntime}. */
 export type CreateWorkflowParams<TInput, TOutput> = WorkflowDefinition<TInput, TOutput> & {
@@ -22,9 +22,9 @@ export function createWorkflow<TInput, TOutput>(
 
   return {
     id,
-    run(input: TInput, options: WorkflowRunOptions): WorkflowRunHandle<TOutput> {
+    run(input: TInput, ctx: WorkflowContext): WorkflowRunHandle<TOutput> {
       void input;
-      void options.parentCtx;
+      void ctx;
       const error = new AdlNotImplementedError(`workflow.run (${id})`);
       return {
         result: Promise.reject(error),

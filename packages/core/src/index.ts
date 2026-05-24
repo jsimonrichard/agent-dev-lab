@@ -30,8 +30,8 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunContext,
+  NestedWorkflowRunOptions,
   WorkflowRunHandle,
-  WorkflowRunOptions,
 } from "./workflow";
 
 export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
