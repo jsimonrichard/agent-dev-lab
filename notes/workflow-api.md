@@ -314,7 +314,7 @@ flowchart TB
 - [ ] Document parallel same-`name` requires distinct keys
 - [ ] Run events: `step_started`, `step_finished`, `step_failed` (`name`, `key`, `path`)
 - [ ] `Promise.all` patterns in docs/examples
-- [ ] `runWorkflow` + `runId`
+- [ ] `createRunContext(project)` + `runId` on `ctx`
 - [ ] Agent events linked to `stepId`
 
 ---
