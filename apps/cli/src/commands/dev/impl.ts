@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import type { AdlCliContext } from "../../context";
-import { importProjectRuntimeProject } from "../../resolve-packages";
+import { importProjectCore } from "../../resolve-packages";
 import { resolveUiLaunchMode, spawnInspectionUi } from "../../ui-launch";
 
 interface DevFlags {
@@ -11,11 +11,11 @@ interface DevFlags {
 }
 
 export default async function dev(this: AdlCliContext, flags: DevFlags): Promise<void> {
-  const runtime = await importProjectRuntimeProject(this.process.cwd());
+  const core = await importProjectCore(this.process.cwd());
   const projectRoot = path.resolve(
-    flags.project ?? runtime.findAdlProjectRootFromCwd(this.process.cwd()),
+    flags.project ?? core.findAdlProjectRootFromCwd(this.process.cwd()),
   );
-  const loaded = await runtime.loadAdlProject({ root: projectRoot });
+  const loaded = await core.loadAdlProject({ root: projectRoot });
   const mode = resolveUiLaunchMode({ serve: flags.serve, frameworkDev: false });
 
   this.process.stdout.write(
@@ -27,7 +27,7 @@ export default async function dev(this: AdlCliContext, flags: DevFlags): Promise
     port: flags.port,
     env: {
       ...this.process.env,
-      [runtime.ADL_PROJECT_ROOT_ENV]: loaded.root,
+      [core.ADL_PROJECT_ROOT_ENV]: loaded.root,
     },
   });
 

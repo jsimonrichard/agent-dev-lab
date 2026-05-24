@@ -27,8 +27,8 @@ describe("resolveWorkspacePackageRoot", () => {
 });
 
 describe("resolveFromProjectRoot", () => {
-  it("resolves runtime from the playground project tree", () => {
-    const entry = resolveFromProjectRoot(playgroundRoot, "@agent-dev-lab/runtime/project");
-    expect(entry).toContain(`${path.sep}runtime${path.sep}`);
+  it("resolves core from the playground project tree", () => {
+    const entry = resolveFromProjectRoot(playgroundRoot, "@agent-dev-lab/core/project");
+    expect(entry).toContain(`${path.sep}core${path.sep}`);
   });
 });

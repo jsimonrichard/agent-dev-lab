@@ -1,4 +1,4 @@
-import type { AdlProjectConfig } from "@agent-dev-lab/runtime";
+import type { AdlProjectConfig } from "@agent-dev-lab/core";
 
 /**
  * Monorepo dev target for the inspection UI and CLI.

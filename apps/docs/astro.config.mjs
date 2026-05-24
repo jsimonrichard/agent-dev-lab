@@ -18,9 +18,9 @@ export default defineConfig({
       ],
       plugins: [
         starlightTypeDoc({
-          entryPoints: ["../../packages/runtime/src/index.ts"],
-          tsconfig: "../../packages/runtime/tsconfig.json",
-          sidebar: { label: "Runtime API", collapsed: false },
+          entryPoints: ["../../packages/core/src/index.ts"],
+          tsconfig: "../../packages/core/tsconfig.json",
+          sidebar: { label: "Core API", collapsed: false },
         }),
       ],
       sidebar: [
