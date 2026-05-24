@@ -21,6 +21,33 @@ This document describes the **planned** store contract used by [`agent-api.md`](
 
 ---
 
+## Memory vs observability (not the same layer)
+
+They feel similar (both persist bytes about runs) but serve **different consumers and contracts**. Memory is **not** a subset of observability, and observability is **not** a superset you can use instead of a message store.
+
+| | **`MessageStore`** | **Observability** ([`observability-api.md`](./observability-api.md)) |
+|---|-------------------|------------------------------------------------------------------------|
+| **Consumer** | The **model** on the next `agent.run` | **Humans**, inspection UI, OTEL, analytics |
+| **Question answered** | “What should the next prompt contain?” | “What happened, in what order?” |
+| **Shape** | `CoreMessage[]` per `memoryScope` (AI SDK–valid) | Append-only **run events** + optional observer hooks |
+| **Lifecycle** | Spans **many invocations** on one `memoryScope` (conversation) | Tied to **runs** / steps; historical log, not loaded into the model |
+| **Mutability** | **Read–merge–write** transcript (load all, append, save) | Mostly **append-only** events |
+| **Required?** | Yes, for multi-turn agents with memory | Optional; project can no-op observers |
+| **Typical content** | Full system + user + assistant + tool messages | Steps, deltas, custom events; message **snapshots** optional/redacted |
+
+**Overlap:** when messages are committed, the agent runner should do **both**:
+
+1. **`MessageStore.save`** — authoritative transcript for the next call.
+2. **`AgentObserver.onMessagesCommitted`** / `messages_committed` run event — for UI/replay (may be redacted or omit large system bodies).
+
+Do **not** rebuild agent memory by replaying observability events in v1. If they stay in sync, it is because the **runner writes both**, not because one derives the other.
+
+**Same database?** Fine (different tables: `messages` vs `run_events`). **Same interface?** No — keeps execution paths clear and lets projects plug a custom observer without implementing `MessageStore`, or use in-memory memory with full SQLite observability.
+
+See also: [`streaming-api.md`](./streaming-api.md) (events vs `text_delta`), [`agent-api.md`](./agent-api.md) (`memoryScope` vs `context`).
+
+---
+
 ## Role in the system
 
 - **`memoryScope`** (string) → selects one message list in a store.

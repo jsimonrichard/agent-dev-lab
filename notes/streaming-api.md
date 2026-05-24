@@ -279,11 +279,11 @@ Same type parameters as non-streaming paths:
 
 | Phase | Deliverable |
 |-------|-------------|
-| **1** | `RunEventSink` + step events + `createRunContext` + persist events |
+| **1** | Observers + `createRunContext` + step/run events + `ctx.emit` custom |
 | **2** | SSE route in `apps/web` + waterfall from events |
-| **3** | `agent.stream` + `text_delta` + `onFinish` persistence parity with `run` |
-| **4** | `workflow.stream` (or document “use `run` + `agent.stream` in steps”) |
-| **5** | `pipeStreamTextToSink` helper for raw SDK callers |
+| **3** | `executeAgentEpisode` via `streamText` for both `agent.run` and `agent.stream` |
+| **4** | `agent.stream` exposes SDK streams; `agent.run` drains |
+| **5** | `executeStreamTextWithObservers` helper for raw SDK in steps |
 
 ---
 

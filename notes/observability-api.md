@@ -140,7 +140,10 @@ interface AgentObserver {
     messages: CoreMessage[];
   }): void | Promise<void>;
 
-  /** Token / part streaming — only for agent.stream */
+  /**
+   * Token / part streaming — fired for both agent.run and agent.stream
+   * (runner always uses streamText internally; run drains without exposing the stream).
+   */
   onStream?(e: {
     runId: string;
     stepId: string;
@@ -220,7 +223,19 @@ interface RunSummary {
 
 `apps/web` SSE route can tail **`getRunEvents`** or subscribe to an in-process bus fed by observers.
 
-**`MessageStore`** remains a separate interface ([`message-store.md`](./message-store.md))—conversation transcripts, not run metadata.
+**`MessageStore`** remains a **separate** interface ([`message-store.md`](./message-store.md))—not a subset of observability.
+
+### Memory vs observability
+
+| Observability | Message store |
+|---------------|---------------|
+| Run events, steps, streams, custom `ctx.emit` | `CoreMessage[]` for the model |
+| Optional; swappable backends | Required for multi-turn agent memory (can be `inMemory`) |
+| Optimized for tailing / waterfall / search | Optimized for `load(scope)` → prompt |
+
+`onMessagesCommitted` / `messages_committed` **mirror** a memory write but do not replace it: the store holds the canonical transcript; events exist for inspection (and may redact or truncate). Do not use `RunReader` to assemble the next agent prompt.
+
+Projects may use **one SQLite file** with separate tables; they should still implement **two interfaces** at the API level.
 
 ---
 

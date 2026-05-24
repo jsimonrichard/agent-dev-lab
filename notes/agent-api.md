@@ -321,7 +321,7 @@ If exposed, it should be derived from the last step or from `newMessages` for er
 
 - Re-export / use `CoreMessage` (alias of `ModelMessage` in v5) and `LanguageModel` from `ai`.
 - Re-export `generateText`, `streamText`, `tool` for workflows and advanced use.
-- **`agent.stream`**: mirrors `run()` via `streamText`; emits `text_delta` run events; same persistence on finish — see [`streaming-api.md`](./streaming-api.md).
+- **`agent.run`** and **`agent.stream`**: same `streamText` implementation; `run` drains without exposing streams; observers still get `onStream` / tool hooks — [`streaming-api.md`](./streaming-api.md).
 
 ---
 
