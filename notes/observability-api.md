@@ -14,13 +14,13 @@ Related: [`streaming-api.md`](./streaming-api.md), [`workflow-api.md`](./workflo
 
 ## Why separate observer vs store
 
-| | **`WorkflowObserver`** | **`WorkflowStore`** |
-|---|------------------------|---------------------|
-| **Direction** | Push only | Write during run + **read** later |
-| **Implementations** | `console`, OTEL, Datadog | SQLite, Postgres, in-memory (tests) |
-| **Required?** | No | No (skip if you only need logs) |
-| **Used by** | Telemetry pipelines | `apps/web`, CLI history, **resumers** |
-| **Retrieval** | **None** — no `getRuns` | `getRun`, `listRuns`, `getEvents`, … |
+|                     | **`WorkflowObserver`**   | **`WorkflowStore`**                   |
+| ------------------- | ------------------------ | ------------------------------------- |
+| **Direction**       | Push only                | Write during run + **read** later     |
+| **Implementations** | `console`, OTEL, Datadog | SQLite, Postgres, in-memory (tests)   |
+| **Required?**       | No                       | No (skip if you only need logs)       |
+| **Used by**         | Telemetry pipelines      | `apps/web`, CLI history, **resumers** |
+| **Retrieval**       | **None** — no `getRuns`  | `getRun`, `listRuns`, `getEvents`, …  |
 
 Same event at runtime, two optional sinks:
 
@@ -150,9 +150,9 @@ Higher-level helper for [`resumability.md`](./resumability.md)—**reads** `Work
 ```ts
 interface WorkflowResumer {
   /** Steps that finished successfully with stored outputs */
-  getCompletedSteps(runId: string): Promise<
-    Array<{ stepId: string; name: string; key?: string; output: unknown }>
-  >;
+  getCompletedSteps(
+    runId: string,
+  ): Promise<Array<{ stepId: string; name: string; key?: string; output: unknown }>>;
 
   /** Whether a run failed mid-flight and might be retried */
   getRunStatus(runId: string): Promise<RunSummary | null>;
@@ -167,11 +167,11 @@ Do **not** extend `WorkflowObserver` with getters—keeps OTEL adapters honest.
 
 ## Three storage roles (summary)
 
-| Interface | Push | Pull | Purpose |
-|-----------|------|------|---------|
-| `WorkflowObserver` / `AgentObserver` | Yes | **No** | Logs, traces |
-| `WorkflowStore` | Yes (record) | Yes | UI, SSE, workflow resume metadata |
-| `MessageStore` | Yes (save) | Yes (load) | Model conversation |
+| Interface                            | Push         | Pull       | Purpose                           |
+| ------------------------------------ | ------------ | ---------- | --------------------------------- |
+| `WorkflowObserver` / `AgentObserver` | Yes          | **No**     | Logs, traces                      |
+| `WorkflowStore`                      | Yes (record) | Yes        | UI, SSE, workflow resume metadata |
+| `MessageStore`                       | Yes (save)   | Yes (load) | Model conversation                |
 
 ---
 
@@ -232,7 +232,7 @@ Optional adapter: `createWorkflowStoreFromObserver()` is **not** the default pat
 
 ## Memory vs store vs observer
 
-See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer). Observability **observers** are not memory. **WorkflowStore** overlaps *audit* data with observers but not *model* transcripts—use **MessageStore** for prompts.
+See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer). Observability **observers** are not memory. **WorkflowStore** overlaps _audit_ data with observers but not _model_ transcripts—use **MessageStore** for prompts.
 
 ---
 

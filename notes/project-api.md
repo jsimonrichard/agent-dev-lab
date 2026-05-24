@@ -64,8 +64,12 @@ export default {
   },
 
   observers: {
-    workflows: [/* WorkflowObserver */],
-    agents: [/* AgentObserver */],
+    workflows: [
+      /* WorkflowObserver */
+    ],
+    agents: [
+      /* AgentObserver */
+    ],
   },
 
   stores: {
@@ -82,7 +86,7 @@ Agents may already embed tools; the top-level **`tools`** map is for **shared** 
 ## `AdlProjectConfig` shape (planned)
 
 ```ts
-import type { Agent } from "./agent";           // conceptual
+import type { Agent } from "./agent"; // conceptual
 import type { Workflow } from "./workflow";
 import type { Template } from "./template";
 import type { ToolSet } from "ai";
@@ -203,12 +207,12 @@ The CLI resolves the string argument → `getWorkflow(id)` → `.run(...)`. The 
 
 So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI / `getWorkflow`) vs **invoke** (always `.run`).
 
-| Layer | Responsibility |
-|-------|----------------|
-| **`adl.config.ts`** | Arrays of definitions (`workflows`, `agents`) |
-| **`loadAdlProject`** | Load config + index by `id` |
-| **CLI / UI** | List ids; `getWorkflow(id).run(input, { project })` |
-| **`workflow.run`** | Execute with step tree; returns **`Promise<Output>`** |
+| Layer                | Responsibility                                        |
+| -------------------- | ----------------------------------------------------- |
+| **`adl.config.ts`**  | Arrays of definitions (`workflows`, `agents`)         |
+| **`loadAdlProject`** | Load config + index by `id`                           |
+| **CLI / UI**         | List ids; `getWorkflow(id).run(input, { project })`   |
+| **`workflow.run`**   | Execute with step tree; returns **`Promise<Output>`** |
 
 ### No `RunHandle` in the core API
 
@@ -237,12 +241,12 @@ const runPromise = literatureReview.run(input, { project });
 
 ### Entrypoints (no duplicate runtime API)
 
-| Entry | What it does |
-|-------|----------------|
-| **`workflow.run(input, ctx \| { project })`** | The execution primitive |
-| **`adl run <id>`** | Load project → `getWorkflow(id).run(...)` |
-| **`adl dev` / UI** | `listWorkflowIds()` + trigger by `id` |
-| **Import workflow directly** | Skip registry; still use `.run` |
+| Entry                                         | What it does                              |
+| --------------------------------------------- | ----------------------------------------- |
+| **`workflow.run(input, ctx \| { project })`** | The execution primitive                   |
+| **`adl run <id>`**                            | Load project → `getWorkflow(id).run(...)` |
+| **`adl dev` / UI**                            | `listWorkflowIds()` + trigger by `id`     |
+| **Import workflow directly**                  | Skip registry; still use `.run`           |
 
 Optional tiny helper (internal or exported, low priority):
 
@@ -267,12 +271,12 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 
 ## Why registries stay static
 
-| Scenario | Approach |
-|----------|----------|
+| Scenario                         | Approach                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------- |
 | Different models per environment | `defaults` in config or env in `adl.config.ts`, not runtime registry mutation |
-| A/B two workflows | List both; choose at CLI or `getWorkflow(id).run(...)` |
-| “Dynamic” agent count | Not supported; use one agent + `context` / tool data instead |
-| Monorepo multiple projects | Multiple `adl.config.*` roots; each `loadAdlProject({ root })` |
+| A/B two workflows                | List both; choose at CLI or `getWorkflow(id).run(...)`                        |
+| “Dynamic” agent count            | Not supported; use one agent + `context` / tool data instead                  |
+| Monorepo multiple projects       | Multiple `adl.config.*` roots; each `loadAdlProject({ root })`                |
 
 ---
 
@@ -286,13 +290,13 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 
 ## Implementation status
 
-| Piece | Status |
-|-------|--------|
-| `AdlProjectConfig.name` | Implemented |
-| Registry fields on config | Not implemented |
-| `normalizeConfig` beyond `name` | Not implemented |
-| `runWorkflow` | Not implemented |
-| CLI `run` / list | Not implemented |
+| Piece                                 | Status          |
+| ------------------------------------- | --------------- |
+| `AdlProjectConfig.name`               | Implemented     |
+| Registry fields on config             | Not implemented |
+| `normalizeConfig` beyond `name`       | Not implemented |
+| `runWorkflow`                         | Not implemented |
+| CLI `run` / list                      | Not implemented |
 | Playground `adl.config.ts` registries | Not implemented |
 
 ---
