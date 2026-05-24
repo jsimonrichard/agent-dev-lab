@@ -40,6 +40,7 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 | Doc | Topic |
 |-----|--------|
 | [`agent-api.md`](./agent-api.md) | Agents, `run()`, templates, context → AI SDK |
+| [`workflow-api.md`](./workflow-api.md) | Steps, nesting, tracing, templates, nested workflows |
 | [`message-store.md`](./message-store.md) | `MessageStore` contract (planned; not in code yet) |
 | [`memory-pipeline.md`](./memory-pipeline.md) | Deferred message-list shaping |
 

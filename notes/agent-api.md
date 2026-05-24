@@ -8,7 +8,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 
 - **TypeScript-first**, headless, AI SDK–native (`ModelMessage` / `CoreMessage`, `generateText`, `tool()`).
 - **Agents** = one model episode per `run()` (no multi-step tool loop config on the agent; workflows own loops in plain TS).
-- **Templates** stay pure (`render → string`); the agent runner decides role and persistence.
+- **Templates** stay pure (`template().render(data) → string`); usable outside workflows — see [`workflow-api.md`](./workflow-api.md).
 - **Memory** = scoped message lists; tool calls and results live **in** the list as messages, not in a parallel store.
 
 ## Related docs
