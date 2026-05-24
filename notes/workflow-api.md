@@ -232,7 +232,9 @@ type WorkflowContext = {
   step: StepFn;
 
   readonly memoryScope: (suffix: string) => string;
-  emit?: (event: string, payload: unknown) => void;
+
+  /** Custom run events for UI / observers — see streaming-api.md */
+  emit(event: { type: "custom"; name: string; payload: unknown }): void;
 };
 
 type StepOptions = {
