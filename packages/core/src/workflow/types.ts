@@ -54,8 +54,13 @@ export type StepFn = <T>(
   options?: StepOptions,
 ) => Promise<T>;
 
-/** Pass the root or child context from {@link AdlRuntime.createWorkflowRunContext}. */
-export type WorkflowRunOptions = WorkflowContext;
+/**
+ * Options for {@link Workflow.run}. Use the root context from
+ * {@link AdlRuntime.createWorkflowRunContext} or a child context from `ctx.step`.
+ */
+export type WorkflowRunOptions = {
+  parentCtx: WorkflowContext;
+};
 
 export type WorkflowDefinition<TInput, TOutput> = {
   id: string;

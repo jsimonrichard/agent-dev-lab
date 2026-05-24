@@ -20,10 +20,11 @@ Registry modules (`src/agents/researcher.ts`) import `adl` from `src/adl.ts` and
 // src/adl.ts
 import { createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
 
+// messageStore defaults to in-memory when omitted: createAdlRuntime()
 export const adl = createAdlRuntime({
   messageStore: inMemoryMessageStore(),
   // workflowStore: createSqliteWorkflowStore({ db }),
-  observers: { workflows: [], agents: [] },
+  observers: { workflows: [stdoutWorkflowObserver], agents: [] },
 });
 ```
 
@@ -66,10 +67,30 @@ const review = adl.createWorkflow({
 });
 
 const ctx = adl.createWorkflowRunContext();
-const handle = review.run(input, ctx);
+const handle = review.run(input, { parentCtx: ctx });
 ```
 
 `adl.createAgent` / `adl.createWorkflow` delegate to the functional factories with `runtime` injected.
+
+### Overrides (stores + extra observers)
+
+Second argument on `adl.createAgent` / `adl.createWorkflow` / `adl.createWorkflowRunContext`:
+
+```ts
+const researcher = adl.createAgent(
+  { id: "researcher", model, instructions },
+  {
+    observers: {
+      agents: [episodeLogger], // appended to runtime defaults
+    },
+  },
+);
+```
+
+- **`messageStore` / `workflowStore`**: replace the runtime default for this agent/workflow/run.
+- **`observers.workflows` / `observers.agents`**: **append** to the lists from `createAdlRuntime` (not replace).
+
+`RuntimeServices` uses `WorkflowObservers` and `AgentObservers` (both are observer arrays — same naming pattern).
 
 ---
 
@@ -95,7 +116,7 @@ await agent.run({
 });
 ```
 
-Optional per-agent overrides: second argument on `adl.createAgent(def, { messageStore })` or merged on `createAgent({ …, runtime, messageStore })`.
+Overrides (including extra observers) work the same on `createAgent({ …, runtime, observers: { agents: […] } })`.
 
 ---
 
@@ -134,10 +155,12 @@ Tools: `createToolFromAgent(…, { mapRun: (args, { ctx }) => ({ …, workflow: 
 ## `workflow.run`
 
 ```ts
-workflow.run(input, ctx); // ctx from adl.createWorkflowRunContext()
+workflow.run(input, { parentCtx: ctx });
 ```
 
-- **`WorkflowRunOptions`** is **`WorkflowContext`** only (no `{ project }` on the execution path).
+- **`WorkflowRunOptions`** is `{ parentCtx: WorkflowContext }` (room for more fields later).
+- `parentCtx` is the root from `adl.createWorkflowRunContext()` or a child from `ctx.step`.
+- No `{ project }` on the execution path.
 - CLI: `loadAdlProject()` → `project.config.adl` → `adl.createWorkflowRunContext()` → `workflow.run`.
 
 ---

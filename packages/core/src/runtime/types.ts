@@ -1,12 +1,12 @@
 import type { ToolSet } from "ai";
 
 import type { Agent, AgentDefinition } from "../agent/types";
+import type { MessageStore } from "../memory/types";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers";
+import type { WorkflowStore } from "../observability/workflow-store";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Workflow, WorkflowContext, WorkflowDefinition } from "../workflow/types";
-import type { AgentObservers, WorkflowObserver } from "../observability/observers";
-import type { WorkflowStore } from "../observability/workflow-store";
-import type { MessageStore } from "../memory/types";
 
 /**
  * Process-level services for agents and workflows (stores, observers).
@@ -14,26 +14,34 @@ import type { MessageStore } from "../memory/types";
  */
 export type RuntimeServices = {
   messageStore: MessageStore;
-  workflowObservers: WorkflowObserver[];
+  workflowObservers: WorkflowObservers;
   agentObservers: AgentObservers;
   workflowStore?: WorkflowStore;
 };
 
 /** Options for {@link createAdlRuntime}. */
 export type AdlRuntimeConfig = {
-  messageStore: MessageStore;
+  /** Defaults to an in-memory store when omitted. */
+  messageStore?: MessageStore;
   workflowStore?: WorkflowStore;
   observers?: {
-    workflows?: WorkflowObserver[];
+    workflows?: WorkflowObservers;
     agents?: AgentObservers;
   };
 };
 
-/** Per-call overrides when creating agents/workflows on a runtime instance. */
-export type AdlRuntimeOverrides = Partial<{
-  messageStore: MessageStore;
-  workflowStore: WorkflowStore;
-}>;
+/**
+ * Per-call overrides when creating agents, workflows, or run contexts on a runtime.
+ * Observer lists are **appended** to the runtime defaults (not replaced).
+ */
+export type AdlRuntimeOverrides = {
+  messageStore?: MessageStore;
+  workflowStore?: WorkflowStore;
+  observers?: {
+    workflows?: WorkflowObservers;
+    agents?: AgentObservers;
+  };
+};
 
 /**
  * Bound runtime (Drizzle/tRPC-style). Created via {@link createAdlRuntime} in `src/adl.ts`.

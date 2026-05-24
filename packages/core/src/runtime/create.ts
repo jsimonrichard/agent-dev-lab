@@ -1,14 +1,14 @@
 import { createAgent } from "../agent/create";
-import { inMemoryMessageStore } from "../memory/in-memory";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
 import { AdlNotImplementedError } from "../internal/not-implemented";
 import { createWorkflow } from "../workflow/create";
-import type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+import type { AdlRuntime, AdlRuntimeConfig } from "./types";
+import { resolveRuntimeConfig, resolveRuntimeOverrides } from "./resolve-overrides";
 
 export type { AdlRuntime } from "./types";
 
-export function createAdlRuntime(config: AdlRuntimeConfig): AdlRuntime {
-  const services = resolveServices(config);
+export function createAdlRuntime(config: AdlRuntimeConfig = {}): AdlRuntime {
+  const services = resolveRuntimeConfig(config);
 
   const runtime: AdlRuntime = {
     services,
@@ -17,7 +17,7 @@ export function createAdlRuntime(config: AdlRuntimeConfig): AdlRuntime {
       return createAgent({
         ...definition,
         runtime,
-        ...mergeOverrides(services, overrides),
+        services: resolveRuntimeOverrides(services, overrides),
       });
     },
 
@@ -25,12 +25,12 @@ export function createAdlRuntime(config: AdlRuntimeConfig): AdlRuntime {
       return createWorkflow({
         ...definition,
         runtime,
-        ...mergeOverrides(services, overrides),
+        services: resolveRuntimeOverrides(services, overrides),
       });
     },
 
     createWorkflowRunContext(overrides) {
-      void overrides;
+      void resolveRuntimeOverrides(services, overrides);
       throw new AdlNotImplementedError("adl.createWorkflowRunContext");
     },
 
@@ -44,35 +44,4 @@ export function createAdlRuntime(config: AdlRuntimeConfig): AdlRuntime {
   };
 
   return runtime;
-}
-
-function resolveServices(config: AdlRuntimeConfig): RuntimeServices {
-  return {
-    messageStore: config.messageStore,
-    workflowStore: config.workflowStore,
-    workflowObservers: config.observers?.workflows ?? [],
-    agentObservers: config.observers?.agents ?? [],
-  };
-}
-
-function mergeOverrides(
-  base: RuntimeServices,
-  overrides?: AdlRuntimeOverrides,
-): AdlRuntimeOverrides {
-  if (!overrides) {
-    return {};
-  }
-  return {
-    messageStore: overrides.messageStore ?? base.messageStore,
-    workflowStore: overrides.workflowStore ?? base.workflowStore,
-  };
-}
-
-/** In-memory runtime for tests and quick scripts. */
-export function createDefaultAdlRuntime(partial?: Partial<AdlRuntimeConfig>): AdlRuntime {
-  return createAdlRuntime({
-    messageStore: partial?.messageStore ?? inMemoryMessageStore(),
-    workflowStore: partial?.workflowStore,
-    observers: partial?.observers,
-  });
 }

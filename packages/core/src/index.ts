@@ -34,7 +34,7 @@ export type {
   WorkflowRunOptions,
 } from "./workflow";
 
-export { createAdlRuntime, createDefaultAdlRuntime } from "./runtime";
+export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
 export type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./runtime";
 
 export { createTemplate } from "./template";
