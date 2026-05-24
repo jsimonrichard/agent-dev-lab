@@ -23,7 +23,7 @@ Design notes for **workflows**, **steps**, **templates**, and run observability 
 | **Purpose** | Observability + logical span boundary | Reusable unit with typed **input → output** |
 | **Contract** | None enforced; callback closure captures anything | `input` / `output` schemas (e.g. Zod) on the workflow |
 | **Reuse** | Copy-paste or extract plain TS functions yourself | Call `otherWorkflow.run(input, childCtx)` |
-| **Tracing** | Always creates a step node (with path + invocation id) | Outer step can wrap inner `run`; inner workflow may define its own steps |
+| **Tracing** | Always creates a step node (with stable path + invocation id) | Outer step can wrap inner `run`; inner workflow may define its own steps |
 | **Best for** | “Do this chunk of work under a span” | “This sub-process is a named, testable module” |
 
 **Recommendation: include both.** They solve different problems. Nesting workflows does not replace steps: you typically **`step` around a nested `run`** if you want the sub-workflow visible as one bar in a waterfall, and use **inner steps** inside that workflow for detail.
@@ -42,8 +42,8 @@ export const searchPapers = defineWorkflow({
 });
 
 // Inside another workflow:
-await ctx.step("search", async (step) => {
-  const { papers } = await searchPapers.run({ topic }, step);
+await ctx.step("search", async ({ ctx: child }) => {
+  const { papers } = await searchPapers.run({ topic }, child);
   return papers;
 });
 ```
@@ -63,76 +63,112 @@ You can also call **`searchPapers.run` without `step`** when you do not need an 
 
 ### Requirements
 
-1. Steps can nest: `step` callbacks receive a **child context** whose `step` calls create deeper nodes.
+1. Steps can nest: the step callback receives a **child `ctx`** (same type, narrowed parent/step ids).
 2. The runtime knows **which steps are active** (stack) and **which completed** (events + ordering).
 3. UI can build a **waterfall / flame graph**: parent spans contain children; siblings ordered by start time; parallel branches overlap in time.
 
-### API updates needed (yes)
+### Step callback shape
 
-A single flat `ctx` is not enough. Use:
+Reuse the name **`ctx`** for the child context (destructured for clarity):
 
-- **`stepId`**: unique per **invocation** (UUID). Never reused in a run.
-- **`stepPath`**: logical location in the tree, e.g. `["literature-review", "search", "2"]` where `"2"` is the loop index segment.
-- **`name`**: human label passed to `step("search", ...)`.
-- **Child context**: nested `step` only on the child (or explicit `step` factory) so the runtime can push/pop the active stack.
+```ts
+await ctx.step("outline", async ({ ctx }) => {
+  await ctx.step("draft", async ({ ctx }) => {
+    // ...
+  });
+});
+```
+
+Nested workflow `run(input, ctx)` accepts that same child `ctx`.
+
+### Identity fields
+
+| Field | Meaning |
+|-------|---------|
+| **`stepId`** | Unique per invocation (UUID). Never reused in a run. |
+| **`name`** | Human label: first argument to `step("…", …)`. |
+| **`key`** | Optional disambiguator (React-style). See below. |
+| **`stepPath`** | Stable logical path: segments derived from `(name, key)` ancestry, not auto-increment counters. |
+| **`parentStepId`** | Parent invocation, or `null` at run root. |
 
 ```ts
 type StepIdentity = {
   stepId: string;
   name: string;
-  path: string[];       // segments for grouping / display
+  key: string | undefined;
+  path: string[];              // e.g. ["literature-review", "search:crispr"]
   parentStepId: string | null;
-  attempt: number;      // 0-based: same name+parent, Nth invocation
 };
-
-await ctx.step("outline", async (step) => {
-  await step.step("draft", async (draft) => {
-  });
-});
 ```
 
-### Events (for UI + tracing)
+**Path encoding:** each segment is `name` when `key` is omitted, or `` `${name}:${key}` `` when keyed (exact encoding TBD; must be stable and injective per parent).
 
-Emit on the run event log (SQLite later):
+We intentionally **do not** use auto-increment attempt indices (`search/1` vs `search`) — a loop that runs once would produce a different path shape than a direct call, which is confusing in the UI.
 
-| Event | Payload (minimal) |
-|-------|-------------------|
-| `step_started` | `stepId`, `parentStepId`, `name`, `path`, `attempt`, `startedAt` |
-| `step_finished` | `stepId`, `status: "ok" \| "error"`, `durationMs`, optional **serialized output** (see below) |
-| `step_failed` | `stepId`, `error` |
+### Step keys (required for repeats; React-like)
 
-**Active steps** at any time = nodes with `step_started` and no matching terminal event. No extra API on `ctx` required for the UI if events are complete; optional `ctx.activeSteps()` can read that projection in-process.
+Under a given **parent step**, the pair **`(name, key)`** identifies a logical step slot for the whole run:
 
-OpenTelemetry: one span per `stepId`, parent span id = parent step’s span.
+| Rule | Behavior |
+|------|----------|
+| **First** `step("foo", …)` under a parent with no `key` | Allowed. Treat as `(name, key = undefined)` — the single default slot for that name. |
+| **Second+** `step("foo", …)` under the same parent | **`key` is required** in `options`. If omitted → **throw** (forces explicit disambiguation). |
+| **Duplicate `(name, key)`** under the same parent | **Throw** — slot already used (whether still active or completed). Keys must be unique per `(parentStepId, name)`. |
+| **Parallel** `step("foo", …)` with the same `name` | **Must** use distinct `keys` (same as repeating in a loop). |
 
-### Repeated `step("same-name")` in loops
-
-The **name alone is not unique**. The runtime should assign:
-
-- **`attempt`**: increment per `(parentStepId, name)` — first call `0`, second `1`, …
-- **`path` segment**: include attempt or loop index, e.g. `search/2` or `search#2`
-
-Optional explicit disambiguation when auto-index is unclear:
+Loops:
 
 ```ts
 for (const topic of topics) {
-  await ctx.step("search", async (step) => {
-    // ...
-  }, { key: topic }); // path uses stable key instead of only attempt index
+  await ctx.step(
+    "search",
+    async ({ ctx }) => {
+      /* ... */
+    },
+    { key: topic },
+  );
 }
 ```
 
-**API shape (v1):**
+Single call (no repeat) — key omitted:
 
 ```ts
-step<T>(
-  name: string,
-  fn: (step: WorkflowContext) => Promise<T>,
-  options?: { key?: string },  // optional stable segment for path
-): Promise<T>;
+await ctx.step("outline", async ({ ctx }) => {
+  /* ... */
+});
 ```
 
-Closure captures loop variables; **do not** rely on the runtime to infer inputs from the closure.
+This matches the React mental model: list items need `key`; a single child does not.
+
+### Parallelism warning
+
+**Do not** run multiple `step("same-name", …)` in parallel (e.g. `Promise.all`) **without** distinct `key`s.
+
+If you do, the runtime will throw when registering the second slot (duplicate implicit `undefined` key), or you must opt into unsafe behavior (see escape hatch below).
+
+Even if execution “works,” sibling ordering in the waterfall and event log may be **non-deterministic** relative to wall-clock start order. For inspectable runs, use explicit keys:
+
+```ts
+await Promise.all(
+  topics.map((topic) =>
+    ctx.step("search", async ({ ctx }) => { /* ... */ }, { key: topic }),
+  ),
+);
+```
+
+**Escape hatch (optional, v1 or later):** `options.allowDuplicateName?: true` or `unsafeParallel?: true` disables key enforcement for that call only — documented as “waterfall order may be nondeterministic; not for production inspection.” Default remains strict.
+
+### Events (for UI + tracing)
+
+| Event | Payload (minimal) |
+|-------|-------------------|
+| `step_started` | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt` |
+| `step_finished` | `stepId`, `status: "ok" \| "error"`, `durationMs`, optional serialized **return value** |
+| `step_failed` | `stepId`, `error` |
+
+**Active steps** = `step_started` without a terminal event. Optional `ctx.activeSteps()` can project this in-process.
+
+OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 
 ---
 
@@ -140,41 +176,27 @@ Closure captures loop variables; **do not** rely on the runtime to infer inputs 
 
 ### Inputs
 
-Anything in the closure (including `ctx`, agents, prior results) can drive the step. The framework **does not** automatically capture “step inputs” from closure scope — that would require brittle static analysis or forced parameter objects.
+Anything in the closure (including `ctx`, agents, prior results) can drive the step. The framework **does not** capture “step inputs” from the closure.
 
-**Acceptable v1:**
-
-- **No declared step inputs** on the API.
-- Optional **manual** `step.setMetadata({ ... })` or return value only.
-- If you need auditable inputs, use a **nested workflow** with a Zod `input` object, or pass a plain object you log yourself at the start of the step.
+- **No declared step inputs** on the step API.
+- For auditable inputs → **nested workflow** with Zod `input`, or log metadata manually at step start.
 
 ### Outputs
 
-- **`return` value** from the step callback: serialized in `step_finished` when JSON-safe (size limits / redaction TBD).
-- **Errors**: propagate; emit `step_failed`; parent step fails unless caught in user TS.
+- **Return value** from the callback → optional JSON in `step_finished` (size limits / redaction TBD).
+- **Errors** propagate; `step_failed` on the step; parent fails unless caught in user TS.
 
-This is the main **semantic difference** from nested workflows: workflows **declare** inputs; steps **only** declare behavior via TypeScript closure.
+**Difference from nested workflows:** workflows **declare** inputs; steps **only** use closure + return.
 
 ---
 
 ## `Promise.all` and concurrency
 
-`ctx.step` returns a **`Promise`**. Use standard Promise APIs:
+`ctx.step` returns a **`Promise`**. Use standard APIs: `Promise.all`, `allSettled`, `race`, etc.
 
-```ts
-const [outline, seed] = await Promise.all([
-  ctx.step("outline", () => outlineWork()),
-  ctx.step("seed", () => seedWork()),
-]);
-```
+Each call gets its own **`stepId`**. Parallel siblings need **distinct `key`s** when they share a `name` (see above).
 
-**Runtime behavior:**
-
-- Each call allocates a **distinct `stepId`** before awaiting `fn`.
-- Siblings share the same `parentStepId` but different paths/attempts.
-- Active stack may hold **multiple** step ids simultaneously — required for correct parallel waterfall.
-
-No special `ctx.step.all` required for v1; document that **`Promise.all` / `Promise.allSettled` / `race`** are the supported patterns. Optional sugar later if needed.
+No `ctx.step.all` required for v1.
 
 ---
 
@@ -183,85 +205,61 @@ No special `ctx.step.all` required for v1; document that **`Promise.all` / `Prom
 Templates are **standalone values** with validation and `.render()`:
 
 ```ts
-import { template } from "@agent-dev-lab/runtime";
-import { z } from "zod";
-
 export const findPapersPrompt = template({
   path: "./prompts/find-papers.md",
-  data: z.object({
-    topic: z.string(),
-    maxResults: z.number().int().positive(),
-  }),
+  data: z.object({ topic: z.string(), maxResults: z.number().int().positive() }),
 });
 
-// Anywhere: workflow, agent runner, tests, CLI
-const text = findPapersPrompt.render({
-  topic: "CRISPR",
-  maxResults: 10,
-});
+const text = findPapersPrompt.render({ topic: "CRISPR", maxResults: 10 });
 ```
 
-- **No `ctx.render`** — context-specific values are passed as **render arguments** (or closed over in TS before calling `render`).
-- Agent `instructions` uses the same `template()` helper ([`agent-api.md`](./agent-api.md)).
-- Workflow steps pass rendered strings to `agent.run({ user: findPapersPrompt.render({...}) })`.
-
-If a template needs run metadata, the **caller** passes it explicitly:
-
-```ts
-findPapersPrompt.render({ topic, maxResults, runId: ctx.runId });
-```
-
-(Extend the Zod schema when those fields are real.)
+- **No `ctx.render`** — pass run-specific fields as render args: `findPapersPrompt.render({ ..., runId: ctx.runId })`.
+- See [`agent-api.md`](./agent-api.md) for agent `instructions`.
 
 ---
 
 ## `WorkflowContext` (sketch)
 
-Shared across a run; **child contexts** narrow scope for nesting.
-
 ```ts
 type WorkflowContext = {
   readonly runId: string;
-  readonly stepId: string | null;      // null only on root before first step
+  readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
 
   step: StepFn;
 
-  /** Invoke another workflow with explicit input; child ctx for inner steps. */
-  // Sugar: searchPapers.run(input, ctx) may accept WorkflowContext directly
+  readonly memoryScope: (suffix: string) => string;
+  emit?: (event: string, payload: unknown) => void;
+};
 
-  /** Helpers */
-  readonly memoryScope: (suffix: string) => string;  // convention helper
-  emit?: (event: string, payload: unknown) => void; // advanced
+type StepOptions = {
+  /** Required when invoking the same `name` again under the same parent; must be unique per (parent, name). */
+  key?: string;
+  /** Escape hatch: skip key enforcement (nondeterministic parallel ordering). */
+  allowDuplicateName?: boolean;
 };
 
 type StepFn = <T>(
   name: string,
-  fn: (step: WorkflowContext) => Promise<T>,
-  options?: { key?: string },
+  fn: (args: { ctx: WorkflowContext }) => Promise<T>,
+  options?: StepOptions,
 ) => Promise<T>;
 ```
 
-`defineWorkflow` attaches `id`, `input`, `output`, and exposes:
-
-```ts
-workflow.run(input, ctx?): Promise<Output>;
-```
-
-Top-level entry (`runWorkflow(workflow, input)`) creates root `ctx` with `runId`, empty path, event sink.
+`defineWorkflow` + `workflow.run(input, ctx?)` — top-level `runWorkflow` creates root `ctx` (`stepId: null`, empty path).
 
 ---
 
 ## Relationship to agents and memory
 
-- **`memoryScope`**: workflow chooses conventions, e.g. `` `${ctx.runId}:${ctx.stepPath.join("/")}` `` or `ctx.memoryScope("researcher")` helper — see [`agent-api.md`](./agent-api.md).
-- **`context`** on `agent.run`: set in workflow TS from `ctx` fields (run id, user id, etc.).
-- Agent calls usually happen **inside** a step so the waterfall shows model work under the right span; agent invocations emit their own child events (conversation nodes) under the current `stepId`.
+- **`memoryScope`**: derive from `runId` + `stepPath` / `stepId` conventions — see [`agent-api.md`](./agent-api.md).
+- **`context`** on `agent.run`: built from workflow `ctx` in plain TS.
+- Prefer agent calls **inside** `step` so the waterfall attributes work to the right span.
 
 ---
 
-## Nesting workflows vs nesting steps (summary)
+## Nesting workflows vs nesting steps
 
 ```mermaid
 flowchart TB
@@ -269,15 +267,15 @@ flowchart TB
     S1["step: literature-review"]
     subgraph inner["nested workflow.run"]
       S2["step: outline"]
-      S3["step: search"]
+      S3["step: search:topicA"]
     end
     S1 --> inner
   end
 ```
 
-- **Outer step** = one bar (optional).
-- **Inner steps** = detail inside that module.
-- **Workflow boundary** = typed I/O, registry, CLI listing — not a tracing primitive by itself.
+- **Outer step** = optional summary bar.
+- **Inner steps** = detail, keyed when repeated.
+- **Workflow** = typed I/O + reuse, not a tracing primitive by itself.
 
 ---
 
@@ -287,6 +285,7 @@ flowchart TB
 |-------|--------|
 | `defineWorkflow` | Not implemented |
 | `WorkflowContext` / `step` | Not implemented |
+| Step key registry + errors | Not implemented |
 | Run event log / step tree | Not implemented |
 | `template()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
 
@@ -294,20 +293,21 @@ flowchart TB
 
 ## v1 checklist
 
-- [ ] `template({ path, data })` with `.render()` (Zod validation)
+- [ ] `template({ path, data })` with `.render()` (Zod)
 - [ ] `defineWorkflow` + typed `run(input, ctx)`
-- [ ] `ctx.step(name, fn, options?)` with **child context** and `stepId` / `path` / `attempt`
-- [ ] Run events: `step_started`, `step_finished`, `step_failed`
-- [ ] Parallel steps via `Promise.all` (documented)
-- [ ] `runWorkflow` entry + `runId` generation
-- [ ] Helpers: `memoryScope(suffix)` (optional)
-- [ ] Link agent/run events to `parentStepId`
+- [ ] `ctx.step(name, async ({ ctx }) => …, options?)` with child `ctx`
+- [ ] Key rules: require `key` on repeat; throw on duplicate `(parent, name, key)`
+- [ ] Document parallel same-`name` requires distinct keys
+- [ ] Run events: `step_started`, `step_finished`, `step_failed` (`name`, `key`, `path`)
+- [ ] `Promise.all` patterns in docs/examples
+- [ ] `runWorkflow` + `runId`
+- [ ] Agent events linked to `stepId`
 
 ---
 
 ## Open questions
 
-- Max size / redaction for serialized step return values in events.
-- Whether `defineWorkflow.run` requires `ctx` or creates a child automatically when omitted.
-- Cancellation / `AbortSignal` propagation through `step` and nested workflows.
-- Idempotency / replay keys for steps (future).
+- Exact `path` segment encoding (`name:key` vs nested objects in events).
+- Whether completed steps release `(name, key)` slots for replay/idempotency (default: no — keys are run-scoped).
+- Max size / redaction for serialized step return values.
+- `AbortSignal` through `step` and nested workflows.

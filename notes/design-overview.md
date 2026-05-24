@@ -46,4 +46,4 @@ Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + d
 
 ## Open questions (unchanged)
 
-Workflow context API, DB schema, conversation storage, replay/substeps, prompt templating API details, observability event model — documented as deferred, not decided in scaffold.
+Workflow context API — see [`workflow-api.md`](./workflow-api.md). DB schema, conversation storage, replay/substeps, observability event model beyond step events — still deferred in code.
