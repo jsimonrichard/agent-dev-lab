@@ -249,7 +249,19 @@ type StepFn = <T>(
 ) => Promise<T>;
 ```
 
-`defineWorkflow` + `workflow.run(input, ctx?)` — top-level `runWorkflow` creates root `ctx` (`stepId: null`, empty path).
+`defineWorkflow` exposes:
+
+```ts
+workflow.run(
+  input: Input,
+  options: WorkflowContext | { project: LoadedAdlProject; signal?: AbortSignal },
+): Promise<Output>;
+```
+
+- Returns **`Promise<Output>`** only — no core **`RunHandle`** (see [`project-api.md`](./project-api.md)).
+- Root run: pass `{ project }` so the runtime creates `ctx` with a new `runId` and event sink.
+- Nested run: pass child `ctx` from `step(async ({ ctx }) => …)`.
+- **`signal`**: optional `AbortSignal` for cancellation (checked in steps / forwarded to agents).
 
 ---
 

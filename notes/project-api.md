@@ -183,7 +183,32 @@ So the split is not “`runWorkflow` vs `.run`”; it is **lookup** (config reco
 | **`adl.config.ts`** | `Record` of definitions |
 | **`loadAdlProject`** | Load config module |
 | **CLI / UI** | List keys; `workflows[id].run(input, { project })` |
-| **`workflow.run`** | Execute with step tree + return typed output |
+| **`workflow.run`** | Execute with step tree; returns **`Promise<Output>`** |
+
+### No `RunHandle` in the core API
+
+Early sketches mentioned a **`RunHandle`** (`id`, `status`, `cancel()`, `subscribe()`). That is **not** a framework primitive for v1.
+
+**Why skip it:**
+
+- **`runId`**, step state, and metadata already live on [`WorkflowContext`](./workflow-api.md) (`ctx.runId`, `ctx.stepId`, …).
+- **Output** is the resolved value of `await workflow.run(...)`.
+- **Status / history** for the inspection UI come from the **append-only run event log** (keyed by `runId`), not from an in-memory handle object.
+- **Cancel** → pass **`AbortSignal`** into `workflow.run` options; workflow and agent code cooperatively check `signal.aborted` (and forward to `generateText` / `streamText`).
+- **Subscribe / live updates** → `apps/web` (or the user’s app) polls or streams events from SQLite by `runId`, or wraps the run promise in application code.
+
+`workflow.run` should be a normal **`Promise<Output>`** (plus typed rejection on failure). Background execution is `void workflow.run(...)` or storing the promise in a variable—standard async TS.
+
+**Optional helpers (non-core):** a small utility in runtime or `apps/web`, e.g. `trackRun({ runId, promise, signal })`, that wires promise settlement to the event log or UI state. Helpful, not required for the execution model.
+
+```ts
+// Core (framework)
+const output = await literatureReview.run(input, { project, signal });
+
+// Application / web (userland or @agent-dev-lab/web helper)
+const runPromise = literatureReview.run(input, { project });
+// UI stores runId from createRunContext, subscribes to DB events, awaits runPromise for completion
+```
 
 ### Entrypoints (no duplicate runtime API)
 
@@ -223,7 +248,7 @@ Input via JSON flag or stdin; schema validation from workflow `input` Zod when p
 | Scenario | Approach |
 |----------|----------|
 | Different models per environment | `defaults` in config or env in `adl.config.ts`, not runtime registry mutation |
-| A/B two workflows | Register both; choose at CLI or `runWorkflow(id)` |
+| A/B two workflows | Register both; choose at CLI or `workflows[id].run(...)` |
 | “Dynamic” agent count | Not supported; use one agent + `context` / tool data instead |
 | Monorepo multiple projects | Multiple `adl.config.*` roots; each `loadAdlProject({ root })` |
 
