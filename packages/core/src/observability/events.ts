@@ -1,41 +1,54 @@
 /**
- * Append-only run event union for SSE / waterfall UI.
+ * Append-only event union for SSE / waterfall UI.
  *
- * Every event shares `workflowRunId` — the id for one top-level workflow invocation.
- * Steps use `stepId`; agent episodes use `agentCallId`.
+ * - **Workflow run events** require `workflowRunId` (workflow + step + in-workflow custom).
+ * - **Agent events** require `agentCallId`; `workflowRunId` and `stepId` are optional
+ *   (agents may run outside a workflow, or between steps at workflow root).
  *
  * @see notes/streaming-api.md
  */
 
-/** Shared envelope for persisted / streamed run events. */
-export type RunEventBase = {
-  /** Id of the workflow invocation (not a step or agent episode). */
+/** Workflow + step events (always tied to a workflow invocation). */
+export type WorkflowRunEventBase = {
   workflowRunId: string;
   seq: number;
   at: string;
 };
 
-export type WorkflowStartedEvent = RunEventBase & {
+/**
+ * Agent episode events. Agents may run standalone (`workflowRunId` omitted) or inside
+ * a workflow (`workflowRunId` set). `stepId` is set when the call runs inside `ctx.step`;
+ * omitted at workflow root or outside workflows.
+ */
+export type AgentEventBase = {
+  agentCallId: string;
+  workflowRunId?: string;
+  stepId?: string | null;
+  seq: number;
+  at: string;
+};
+
+export type WorkflowStartedEvent = WorkflowRunEventBase & {
   type: "workflow_started";
   workflowId: string;
   input: unknown;
 };
 
-export type WorkflowFinishedEvent = RunEventBase & {
+export type WorkflowFinishedEvent = WorkflowRunEventBase & {
   type: "workflow_finished";
   output: unknown;
 };
 
-export type WorkflowFailedEvent = RunEventBase & {
+export type WorkflowFailedEvent = WorkflowRunEventBase & {
   type: "workflow_failed";
   error: unknown;
 };
 
-export type WorkflowCancelledEvent = RunEventBase & {
+export type WorkflowCancelledEvent = WorkflowRunEventBase & {
   type: "workflow_cancelled";
 };
 
-export type StepStartedEvent = RunEventBase & {
+export type StepStartedEvent = WorkflowRunEventBase & {
   type: "step_started";
   stepId: string;
   parentStepId: string | null;
@@ -44,7 +57,7 @@ export type StepStartedEvent = RunEventBase & {
   path: string[];
 };
 
-export type StepFinishedEvent = RunEventBase & {
+export type StepFinishedEvent = WorkflowRunEventBase & {
   type: "step_finished";
   stepId: string;
   status: "ok";
@@ -52,7 +65,7 @@ export type StepFinishedEvent = RunEventBase & {
   output: unknown;
 };
 
-export type StepSkippedEvent = RunEventBase & {
+export type StepSkippedEvent = WorkflowRunEventBase & {
   type: "step_skipped";
   stepId: string;
   name: string;
@@ -60,69 +73,60 @@ export type StepSkippedEvent = RunEventBase & {
   output: unknown;
 };
 
-export type StepFailedEvent = RunEventBase & {
+export type StepFailedEvent = WorkflowRunEventBase & {
   type: "step_failed";
   stepId: string;
   error: unknown;
 };
 
-export type AgentStartedEvent = RunEventBase & {
+export type WorkflowCustomEvent = WorkflowRunEventBase & {
+  type: "custom";
+  /** Omitted when emitted at workflow root (no active step). */
+  stepId?: string | null;
+  name: string;
+  payload: unknown;
+};
+
+export type AgentStartedEvent = AgentEventBase & {
   type: "agent_started";
-  agentCallId: string;
-  stepId: string | null;
   agentId: string;
   memoryScope: string;
 };
 
-export type AgentFinishedEvent = RunEventBase & {
+export type AgentFinishedEvent = AgentEventBase & {
   type: "agent_finished";
-  agentCallId: string;
-  stepId: string | null;
   agentId: string;
 };
 
-export type AgentToolCallEvent = RunEventBase & {
+export type AgentToolCallEvent = AgentEventBase & {
   type: "agent_tool_call";
-  agentCallId: string;
-  stepId: string | null;
   agentId: string;
   toolCallId: string;
   toolName: string;
 };
 
-export type AgentToolResultEvent = RunEventBase & {
+export type AgentToolResultEvent = AgentEventBase & {
   type: "agent_tool_result";
-  agentCallId: string;
-  stepId: string | null;
   agentId: string;
   toolCallId: string;
   toolName: string;
   result: unknown;
 };
 
-export type AgentTextDeltaEvent = RunEventBase & {
+export type AgentTextDeltaEvent = AgentEventBase & {
   type: "agent_text_delta";
-  agentCallId: string;
-  stepId: string | null;
   delta: string;
 };
 
-export type AgentMessagesCommittedEvent = RunEventBase & {
+export type AgentMessagesCommittedEvent = AgentEventBase & {
   type: "agent_messages_committed";
-  agentCallId: string;
-  stepId: string | null;
   memoryScope: string;
   count: number;
 };
 
-export type WorkflowCustomEvent = RunEventBase & {
-  type: "custom";
-  stepId: string;
-  name: string;
-  payload: unknown;
-};
+/** @deprecated Use {@link WorkflowRunEventBase}. */
+export type RunEventBase = WorkflowRunEventBase;
 
-/** All events emitted during a workflow invocation. */
 export type RunEvent =
   | WorkflowStartedEvent
   | WorkflowFinishedEvent
@@ -132,20 +136,19 @@ export type RunEvent =
   | StepFinishedEvent
   | StepSkippedEvent
   | StepFailedEvent
+  | WorkflowCustomEvent
   | AgentStartedEvent
   | AgentFinishedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
-  | AgentMessagesCommittedEvent
-  | WorkflowCustomEvent;
+  | AgentMessagesCommittedEvent;
 
 export type RunEventType = RunEvent["type"];
 
-/** Narrow {@link RunEvent} by discriminant `type`. */
 export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
 
-/** Events a {@link WorkflowObserver} typically handles (workflow + steps + custom). */
+/** Workflow + step + in-workflow custom events. */
 export type WorkflowObserverEvent =
   | WorkflowStartedEvent
   | WorkflowFinishedEvent
@@ -157,7 +160,7 @@ export type WorkflowObserverEvent =
   | StepFailedEvent
   | WorkflowCustomEvent;
 
-/** Events an {@link AgentObserver} typically handles. */
+/** Agent episodes — may omit `workflowRunId` when not started from a workflow. */
 export type AgentObserverEvent =
   | AgentStartedEvent
   | AgentFinishedEvent

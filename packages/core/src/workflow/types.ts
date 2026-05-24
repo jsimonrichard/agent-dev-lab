@@ -1,6 +1,5 @@
 import type { z } from "zod";
 
-import type { TraceContext } from "../observability/tracing";
 import type { LoadedAdlProject } from "../project/resolve";
 
 export type CustomWorkflowEvent = {
@@ -34,9 +33,10 @@ export type WorkflowContext = {
 
   readonly memoryScope: (suffix: string) => string;
 
-  /** Active trace context — use for custom spans; OTel observers nest spans from run events. */
-  readonly trace: TraceContext;
-
+  /**
+   * Emit a custom run event. `stepId` on the persisted event is omitted at workflow root
+   * (when {@link stepId} is null).
+   */
   emit(event: CustomWorkflowEvent): void;
 };
 

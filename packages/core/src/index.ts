@@ -45,10 +45,12 @@ export { inMemoryMessageStore } from "./memory";
 export type { MessageStore } from "./memory";
 
 export type {
+  AgentEventBase,
   AgentObserver,
   AgentObserverEvent,
   AgentObservers,
   ListEventsFilter,
+  ListEventsScope,
   RunEvent,
   RunEventBase,
   RunEventOfType,
@@ -59,12 +61,11 @@ export type {
   WorkflowObserver,
   WorkflowObserverEvent,
   WorkflowObservers,
+  WorkflowRunEventBase,
   WorkflowRunSummary,
   WorkflowStartedEvent,
   WorkflowStore,
 } from "./observability";
-export type { AdlSpan, StartSpanOptions, TraceContext } from "./observability";
-export { noopTraceContext } from "./observability";
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
 export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";

@@ -1,4 +1,5 @@
 export type {
+  AgentEventBase,
   AgentFinishedEvent,
   AgentMessagesCommittedEvent,
   AgentObserverEvent,
@@ -23,6 +24,7 @@ export type {
   WorkflowFinishedEvent,
   WorkflowObserverEvent,
   WorkflowRunCancelledEvent,
+  WorkflowRunEventBase,
   WorkflowRunFailedEvent,
   WorkflowRunFinishedEvent,
   WorkflowRunStartedEvent,
@@ -35,6 +37,5 @@ export type {
   WorkflowObserver,
   WorkflowObservers,
 } from "./observers";
-export type { AdlSpan, StartSpanOptions, TraceContext } from "./tracing";
-export { noopTraceContext } from "./tracing";
-export type { ListEventsFilter, WorkflowStore } from "./workflow-store";
+export { ADL_TRACING_MODE } from "./tracing";
+export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
