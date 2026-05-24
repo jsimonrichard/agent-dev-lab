@@ -17,6 +17,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 | Message memory      | [`message-store.md`](./message-store.md)               | `MessageStore` load/save                                                 |
 | Run persistence     | [`observability-api.md`](./observability-api.md)       | observers vs `WorkflowStore` (run/step **I/O** + events)                 |
 | Streaming / UI feed | [`streaming-api.md`](./streaming-api.md)               | run events, SSE, `ctx.emit` custom                                       |
+| Inspection UI       | [`inspection-ui.md`](./inspection-ui.md)               | server fns + SSE wrappers, t3code / TanStack AI takeaways                |
 | Resumability        | [`resumability.md`](./resumability.md)                 | step atomicity; ⏸ episode cache                                          |
 | AI SDK              | [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) | checklist                                                                |
 | Memory pipeline     | [`memory-pipeline.md`](./memory-pipeline.md)           | ⏸ deferred                                                               |
@@ -47,11 +48,15 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 ## Inspection UI (`apps/web`) — implement for v1 (minimal)
 
+See [`inspection-ui.md`](./inspection-ui.md) for architecture, SSE format, and external takeaways.
+
 - [ ] Project banner (existing `/api/project`)
 - [ ] List runs (`WorkflowStore.listRuns` or equivalent)
-- [ ] SSE `/api/runs/:id/events` — waterfall from step events
+- [ ] Server fn: start inspection run → `{ runId }` (wrappers only)
+- [ ] SSE `GET /api/runs/:id/events` — waterfall from step events (`id:` / `afterSeq`)
 - [ ] ⏸ template playground ([`templates-api.md`](./templates-api.md))
 - [ ] ⏸ live token view (nice; `text_delta` events help)
+- [ ] ⏸ `@agent-dev-lab/hooks` — deferred
 
 ---
 

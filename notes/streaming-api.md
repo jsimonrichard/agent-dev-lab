@@ -4,7 +4,7 @@ How ADL exposes **streaming** to callers and how the **inspection UI** (`apps/we
 
 **Status:** Design only. Not implemented.
 
-Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md), [`project-api.md`](./project-api.md).
+Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md), [`project-api.md`](./project-api.md), [`inspection-ui.md`](./inspection-ui.md) (web wrappers, SSE wire format, t3code / TanStack AI takeaways).
 
 ---
 
@@ -236,10 +236,12 @@ const output = await outputPromise;
 
 ### HTTP (planned)
 
+Detail: [`inspection-ui.md`](./inspection-ui.md) (server fns + SSE, `id:` / `afterSeq`, external references).
+
 | Route                         | Behavior                                                                                                                                                      |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /api/runs`              | Body: `{ workflowId, input }` → `createRunContext`, start `workflow.run` **without blocking response** (or block until `run_started`), return **`{ runId }`** |
-| `GET /api/runs/:runId/events` | **SSE** (or WebSocket) of persisted run events; live tail until `run_finished`                                                                                |
+| `GET /api/runs/:runId/events` | **SSE** of persisted run events; live tail until `run_finished`; use SSE `id:` = `seq` and `?afterSeq=` for reconnect                                         |
 | `GET /api/runs/:runId`        | Snapshot: status derived from events, final output when done                                                                                                  |
 
 Implementation backs **`RunEventSink`** with append to SQLite (same DB family as [`message-store.md`](./message-store.md) / `@agent-dev-lab/common`) plus optional in-process fan-out for same-process dev.
