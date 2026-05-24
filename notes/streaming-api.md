@@ -10,10 +10,10 @@ Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md
 
 ## Two channels (do not conflate)
 
-| Channel          | What moves                                                               | When needed                                                                                 |
-| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| **Run events**   | Step tree, agent episodes, errors, committed messages, optional metadata | **Always** for waterfall / tracing UI—even when the model is non-streaming (`generateText`) |
-| **Model stream** | Token (or part) deltas from `streamText`                                 | When the user wants live text preview during an agent call                                  |
+| Channel          | What moves                                                               | When needed                                                                                           |
+| ---------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **Run events**   | Step tree, agent episodes, errors, committed messages, optional metadata | **Always** for waterfall / tracing UI—even when the model is non-streaming (`generateText`)           |
+| **Model stream** | Token (or part) deltas from `streamText`                                 | Live text / **reasoning** preview during an agent call; structured fields may finish at end of stream |
 
 The UI needs **run events** on every execution path. **Model stream** is optional and only exists when something calls `streamText` (usually `agent.stream`).
 

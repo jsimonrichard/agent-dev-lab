@@ -101,21 +101,33 @@ interface AgentObserver {
 
 ## `WorkflowStore` (write + read)
 
-Persistence for **runs, steps, and run events** (waterfall, SSE, resume). Optional in `adl.config`.
+Persistence for **workflow and step inputs/outputs**, plus **run events** (waterfall, SSE). This is the **source of truth for step skip / retry**, not just an audit log. Optional in `adl.config`.
 
-### Write side (runtime calls — mirror observer moments)
+**Design principle:** to avoid re-running a completed step, `ctx.step` **early-returns** the stored **output** for that step slot (see [`workflow-api.md`](./workflow-api.md)). Events remain useful for the UI timeline; **resume logic reads I/O tables**, not only `step_finished` event payloads.
 
-Use **`record*`** names to distinguish from `on*` and from `ctx.step`:
+### What gets stored
+
+| Entity     | Written when                | Stored fields (JSON-safe)                                                                                          |
+| ---------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Run**    | `workflow.run` start / end  | `workflowId`, **`input`**, **`output`**, status, timestamps                                                        |
+| **Step**   | `ctx.step` complete / fail  | `stepId`, `parentStepId`, `name`, `key`, `path`, optional **`input` snapshot**, **`output`** (return value), error |
+| **Events** | Same lifecycle + `ctx.emit` | Append-only `RunEvent[]` for SSE / waterfall                                                                       |
+
+Step **inputs** are optional metadata (e.g. logged by nested `workflow.run` with declared Zod input). Step **outputs** are **required** on successful completion — they power skip-on-retry.
+
+### Write side (runtime calls)
+
+Use **`record*`** names to distinguish from `on*` and from `ctx.step`. Run/step I/O writes happen **together with** (or immediately before) the matching observer callbacks.
 
 ```ts
 interface WorkflowStore {
-  recordRunStart(e: RunStartPayload): Promise<void>;
-  recordRunComplete(e: RunCompletePayload): Promise<void>;
+  recordRunStart(e: RunStartPayload & { input: unknown }): Promise<void>;
+  recordRunComplete(e: RunCompletePayload & { output: unknown }): Promise<void>;
   recordRunCancel(e: RunCancelPayload): Promise<void>;
   recordRunError(e: RunErrorPayload): Promise<void>;
 
   recordStepStart(e: StepStartPayload): Promise<void>;
-  recordStepComplete(e: StepCompletePayload): Promise<void>;
+  recordStepComplete(e: StepCompletePayload & { output: unknown; input?: unknown }): Promise<void>;
   recordStepError(e: StepErrorPayload): Promise<void>;
 
   recordCustomEvent(e: CustomEventPayload): Promise<void>;
@@ -125,7 +137,7 @@ interface WorkflowStore {
 }
 ```
 
-Default SQLite impl in `@agent-dev-lab/common` can append a unified `run_events` table **or** normalized `runs` + `steps` tables—implementation detail, same interface.
+Default SQLite impl in `@agent-dev-lab/common`: normalized **`runs`** + **`steps`** tables (I/O columns) **and** optional **`run_events`** append log. Same public interface either way.
 
 ### Read side
 
@@ -133,11 +145,39 @@ Default SQLite impl in `@agent-dev-lab/common` can append a unified `run_events`
 interface WorkflowStore {
   getRun(runId: string): Promise<RunSummary | null>;
   listRuns(filter?: { workflowId?: string; limit?: number }): Promise<RunSummary[]>;
+
+  /** Workflow-level I/O */
+  getRunInput(runId: string): Promise<unknown | null>;
+  getRunOutput(runId: string): Promise<unknown | null>;
+
+  /**
+   * Completed step by logical slot (parent + name + key).
+   * Used by ctx.step to skip re-execution on resume/retry.
+   */
+  getStepOutput(
+    runId: string,
+    slot: { parentStepId: string | null; name: string; key?: string },
+  ): Promise<unknown | null>;
+
+  /** By unique invocation id */
+  getStepById(runId: string, stepId: string): Promise<StepRecord | null>;
+
   getRunEvents(runId: string, afterSeq?: number): Promise<RunEvent[]>;
 }
+
+type StepRecord = {
+  stepId: string;
+  name: string;
+  key?: string;
+  path: string[];
+  parentStepId: string | null;
+  input?: unknown;
+  output?: unknown;
+  status: "ok" | "error";
+};
 ```
 
-`RunEvent` = transport-friendly union for SSE ([`streaming-api.md`](./streaming-api.md)). The store may derive events from `record*` calls internally.
+`RunEvent` = transport-friendly union for SSE ([`streaming-api.md`](./streaming-api.md)). Events may be **projections** of `record*` calls; **do not** rely on scraping events alone for resume — use `getStepOutput` / `getRunInput`.
 
 **`apps/web`:** depends on **`WorkflowStore`**, not on observers.
 
@@ -149,17 +189,21 @@ Higher-level helper for [`resumability.md`](./resumability.md)—**reads** `Work
 
 ```ts
 interface WorkflowResumer {
+  getRunInput(runId: string): Promise<unknown | null>;
+  getRunOutput(runId: string): Promise<unknown | null>;
+
   /** Steps that finished successfully with stored outputs */
   getCompletedSteps(
     runId: string,
   ): Promise<Array<{ stepId: string; name: string; key?: string; output: unknown }>>;
 
-  /** Whether a run failed mid-flight and might be retried */
   getRunStatus(runId: string): Promise<RunSummary | null>;
 }
 ```
 
-Resume **logic** (skip steps, re-enter workflow) stays in user TypeScript or a future `workflow.resume(input, { continueFrom: runId })` that uses `WorkflowResumer` internally—v1 can ship **store + resumer** without automatic re-execution.
+**Built-in skip (v1 target):** `ctx.step` consults `WorkflowStore.getStepOutput` when `continueFrom: runId` (or same run retry policy) **before** running the callback — returns cached output and emits a `step_skipped` event (optional). User TypeScript does not need manual “if completed, return prior” for every step.
+
+Higher-level **`workflow.resume(input, { continueFrom: runId })`** may wrap the same store reads — can ship after store + step skip.
 
 Do **not** extend `WorkflowObserver` with getters—keeps OTEL adapters honest.
 
@@ -232,14 +276,17 @@ Optional adapter: `createWorkflowStoreFromObserver()` is **not** the default pat
 
 ## Memory vs store vs observer
 
-See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer). Observability **observers** are not memory. **WorkflowStore** overlaps _audit_ data with observers but not _model_ transcripts—use **MessageStore** for prompts.
+See [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer). Observability **observers** are not memory. **WorkflowStore** holds **run/step I/O** and events; it does **not** replace **MessageStore** for model transcripts.
+
+Future **human approval** pauses may set run status on the store — see [`future-extensions.md`](./future-extensions.md).
 
 ---
 
 ## v1 checklist
 
 - [ ] `WorkflowObserver` + `AgentObserver` (no getters) in runtime
-- [ ] `WorkflowStore` with `record*` + `getRun` / `listRuns` / `getRunEvents`
+- [ ] `WorkflowStore` with `record*` + run/step **I/O** + `getStepOutput` + `getRunEvents`
+- [ ] `ctx.step` skip via stored step output when resuming same `runId`
 - [ ] Runtime fan-out: observers + store in parallel
 - [ ] Default SQLite `WorkflowStore` in `@agent-dev-lab/common`
 - [ ] `adl.config`: `observers.*`, `stores.workflows`, `stores.memory`

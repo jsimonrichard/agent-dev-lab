@@ -169,11 +169,12 @@ await Promise.all(
 
 ### Events (for UI + tracing)
 
-| Event           | Payload (minimal)                                                                       |
-| --------------- | --------------------------------------------------------------------------------------- |
-| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                            |
-| `step_finished` | `stepId`, `status: "ok" \| "error"`, `durationMs`, optional serialized **return value** |
-| `step_failed`   | `stepId`, `error`                                                                       |
+| Event           | Payload (minimal)                                                              |
+| --------------- | ------------------------------------------------------------------------------ |
+| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                   |
+| `step_finished` | `stepId`, `status: "ok"`, `durationMs`, **`output`** (serialized return value) |
+| `step_skipped`  | `stepId`, `name`, `key`, **`output`** (reused from store — no callback ran)    |
+| `step_failed`   | `stepId`, `error`                                                              |
 
 **Active steps** = `step_started` without a terminal event. Optional `ctx.activeSteps()` can project this in-process.
 
@@ -185,17 +186,48 @@ OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 
 ### Inputs
 
-Anything in the closure (including `ctx`, agents, prior results) can drive the step. The framework **does not** capture “step inputs” from the closure.
+Anything in the closure (including `ctx`, agents, prior results) can drive the step. The framework **does not** capture closure locals as step inputs.
 
-- **No declared step inputs** on the step API.
-- For auditable inputs → **nested workflow** with Zod `input`, or log metadata manually at step start.
+- **No declared step inputs** on the bare `step` API.
+- For auditable inputs → **nested workflow** with Zod `input` (stored on **`WorkflowStore`** at `run` start), or pass an optional `input` snapshot in `recordStepComplete` for debugging.
 
 ### Outputs
 
-- **Return value** from the callback → optional JSON in `step_finished` (size limits / redaction TBD).
+- **Return value** from the callback → **persisted** as the step **`output`** on [`WorkflowStore`](./observability-api.md) and mirrored in `step_finished` events.
 - **Errors** propagate; `step_failed` on the step; parent fails unless caught in user TS.
 
-**Difference from nested workflows:** workflows **declare** inputs; steps **only** use closure + return.
+**Difference from nested workflows:** workflows **declare** `input` / `output` schemas; steps **only** use closure + return unless wrapped around a nested `workflow.run`.
+
+### Skip completed steps (resume / retry)
+
+When executing under an existing **`runId`** (retry, crash recovery, or explicit `continueFrom`), **`ctx.step`** checks the store **before** invoking the callback:
+
+```ts
+// Conceptual — inside runtime ctx.step
+const cached = await workflowStore?.getStepOutput(runId, {
+  parentStepId: ctx.parentStepId,
+  name,
+  key: options?.key,
+});
+if (cached !== null) {
+  emitStepSkipped(/* ... */, cached);
+  return cached as T;
+}
+const output = await fn({ ctx: childCtx });
+await workflowStore?.recordStepComplete({ /* ... */, output });
+return output;
+```
+
+Implications:
+
+| Topic                 | Behavior                                                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Idempotency**       | Skipped steps do **not** re-run closure body (no duplicate side effects inside the step)                                                             |
+| **Nested workflows**  | Inner `workflow.run` on retry may need its **own** `runId` or inherit parent policy — document per call site                                         |
+| **Agent inside step** | If step is skipped, **`agent.run` is not called** — conversation for that attempt may be absent unless a prior attempt committed to **MessageStore** |
+| **Force re-run**      | Future option: `ctx.step(..., { force: true })` to ignore cache                                                                                      |
+
+See [`resumability.md`](./resumability.md).
 
 ---
 
@@ -242,6 +274,11 @@ type WorkflowContext = {
 
   /** Custom run events for UI / observers — see streaming-api.md */
   emit(event: { type: "custom"; name: string; payload: unknown }): void;
+
+  /**
+   * Future — human approval at step boundaries. See future-extensions.md.
+   * requestApproval({ message, metadata? }): Promise<void>;
+   */
 };
 
 type StepOptions = {
@@ -271,6 +308,50 @@ workflow.run(
 - Root run: pass `{ project }` so the runtime creates `ctx` with a new `runId` and event sink.
 - Nested run: pass child `ctx` from `step(async ({ ctx }) => …)`.
 - **`signal`**: optional `AbortSignal` for cancellation (checked in steps / forwarded to agents).
+
+---
+
+## Workflows and agents as tools
+
+Expose a workflow or agent as a standard AI SDK **`tool()`** so other agents can call them. Prefer explicit helper names over a generic wrapper:
+
+```ts
+import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/runtime";
+
+const literatureReviewTool = createToolFromWorkflow(literatureReview, {
+  /** Tool name seen by the model; defaults to workflow.id */
+  name?: "literature-review",
+  description: "Run the full literature review workflow",
+  /** Map tool args → workflow input (default: pass through if schemas match) */
+  mapInput?: (toolArgs) => toolArgs,
+});
+
+const researcherTool = createToolFromAgent(researcher, {
+  name?: "researcher",
+  description: "One model episode with the researcher agent",
+  /** Build memoryScope + user from tool args */
+  mapRun: (toolArgs, { ctx }) => ({
+    memoryScope: ctx.memoryScope(`tool:${toolArgs.threadId}`),
+    user: toolArgs.query,
+    context: { runId: ctx.runId, stepId: ctx.stepId },
+  }),
+});
+
+// On another agent:
+createAgent({
+  id: "coordinator",
+  tools: {
+    literatureReview: literatureReviewTool,
+    askResearcher: researcherTool,
+  },
+});
+```
+
+**`createToolFromWorkflow`** runs `workflow.run` inside `execute` (with child `ctx` from the calling run when available), returns JSON-serializable **workflow output** as the tool result, and records steps on the **same** or a **child** `runId` (policy TBD — default: child run linked via metadata for UI).
+
+**`createToolFromAgent`** wraps a single `agent.run` episode (not a multi-step tool loop unless the coordinator agent is configured for that separately).
+
+**v1:** design + implement helpers after core `createWorkflow` / `createAgent` exist; not blocking first waterfall.
 
 ---
 
@@ -317,11 +398,12 @@ flowchart TB
 ## v1 checklist
 
 - [ ] `createTemplate({ path, inputData })` with `.render()` (Zod)
-- [ ] `createWorkflow` + typed `run(input, ctx)`
-- [ ] `ctx.step(name, async ({ ctx }) => …, options?)` with child `ctx`
+- [ ] `createWorkflow` + typed `run(input, ctx)` — persist run **input** / **output** on store
+- [ ] `ctx.step` with child `ctx`, **store step output**, **skip** when `getStepOutput` hits
 - [ ] Key rules: require `key` on repeat; throw on duplicate `(parent, name, key)`
 - [ ] Document parallel same-`name` requires distinct keys
-- [ ] Run events: `step_started`, `step_finished`, `step_failed` (`name`, `key`, `path`)
+- [ ] Run events: `step_started`, `step_finished`, `step_skipped`, `step_failed`
+- [ ] `createToolFromWorkflow` / `createToolFromAgent` (after core run works)
 - [ ] `Promise.all` patterns in docs/examples
 - [ ] `createRunContext(project)` + `runId` on `ctx`
 - [ ] Agent events linked to `stepId`

@@ -129,7 +129,32 @@ export interface AdlProjectConfig {
     workflows?: WorkflowStore;
     memory?: MessageStore;
   };
+
+  /**
+   * Future — how human approval requests are delivered (UI, CLI, webhook).
+   * Used by AI SDK tool approval hooks and ctx.requestApproval. See future-extensions.md.
+   */
+  approvals?: {
+    dispatcher: ApprovalDispatcher;
+  };
 }
+```
+
+```ts
+/** Future — not v1 */
+interface ApprovalDispatcher {
+  request(req: ApprovalRequest): Promise<ApprovalDecision>;
+}
+
+type ApprovalRequest = {
+  runId: string;
+  stepId?: string;
+  kind: "tool" | "step";
+  message: string;
+  metadata?: Record<string, unknown>;
+};
+
+type ApprovalDecision = { approved: boolean; reason?: string };
 ```
 
 `createAgent` / `createWorkflow` must include a non-empty string **`id`**. **`createTemplate`** uses **`name`** from the template **filename** (no separate id field) — see [`templates-api.md`](./templates-api.md).
