@@ -1,4 +1,5 @@
 import { createId } from "../internal/ids";
+import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
@@ -146,11 +147,4 @@ export function executeNestedWorkflowRun<TInput, TOutput>(
   nested: NestedWorkflowRunOptions,
 ): Promise<TOutput> {
   return executeWorkflowRun(definition, input, services, { parentCtx: nested.parentCtx });
-}
-
-function serializeError(error: unknown): unknown {
-  if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
-  }
-  return error;
 }

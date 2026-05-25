@@ -1,4 +1,6 @@
+import { fireAndForget } from "../internal/fire-and-forget";
 import { createId } from "../internal/ids";
+import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { runWithActiveWorkflowContext } from "./active-workflow-context";
@@ -42,13 +44,15 @@ export class WorkflowContextImpl implements WorkflowContext {
   memoryScope = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
 
   emit = (event: CustomWorkflowEvent): void => {
-    void this.runRecorder.emit({
-      type: "custom",
-      workflowRunId: this.workflowRunId,
-      stepId: this.stepId,
-      name: event.name,
-      payload: event.payload,
-    });
+    fireAndForget(
+      this.runRecorder.emit({
+        type: "custom",
+        workflowRunId: this.workflowRunId,
+        stepId: this.stepId,
+        name: event.name,
+        payload: event.payload,
+      }),
+    );
   };
 
   step = async <T>(
@@ -177,11 +181,4 @@ export function refreshWorkflowContext(
 
 export function createWorkflowContext(options: WorkflowContextOptions): WorkflowContextImpl {
   return new WorkflowContextImpl(options);
-}
-
-function serializeError(error: unknown): unknown {
-  if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
-  }
-  return error;
 }

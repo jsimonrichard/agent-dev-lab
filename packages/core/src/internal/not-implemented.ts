@@ -8,7 +8,3 @@ export class AdlNotImplementedError extends Error {
     this.feature = feature;
   }
 }
-
-export function notImplemented(feature: string): never {
-  throw new AdlNotImplementedError(feature);
-}

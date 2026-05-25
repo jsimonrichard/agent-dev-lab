@@ -12,6 +12,18 @@ import type {
 /**
  * Default workflow implementation: definition plus resolved runtime services.
  */
+/** Resolves the concrete workflow binding created by {@link createWorkflow} / {@link AdlRuntime.createWorkflow}. */
+export function getWorkflowImpl<TInput, TOutput>(
+  workflow: Workflow<TInput, TOutput>,
+): WorkflowImpl<TInput, TOutput> {
+  if (!(workflow instanceof WorkflowImpl)) {
+    throw new Error(
+      "getWorkflowImpl: workflow was not created via createWorkflow / adl.createWorkflow",
+    );
+  }
+  return workflow;
+}
+
 export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> {
   readonly id: string;
 

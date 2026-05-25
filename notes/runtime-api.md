@@ -73,7 +73,7 @@ const handle = review.run(input);
 await handle.result;
 ```
 
-`adl.createWorkflow` binds the runtime on the returned workflow; **`workflow.run` creates `WorkflowContext` internally** via `createWorkflowRunContext` (package-internal). Callers never pass `ctx` or `parentCtx`.
+`adl.createWorkflow` binds the runtime on the returned workflow; **`workflow.run` creates `WorkflowContext` internally** in `executeWorkflowRun` (package-internal). Callers never pass `ctx` or `parentCtx`.
 
 `adl.createAgent` / `adl.createWorkflow` delegate to the functional factories with `runtime` injected.
 

@@ -1,8 +1,8 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import { WorkflowImpl } from "../workflow/workflow-impl";
 import { executeNestedWorkflowRun } from "../workflow/execute-run";
+import { getWorkflowImpl } from "../workflow/workflow-impl";
 import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import type { Workflow } from "../workflow/types";
 
@@ -17,12 +17,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
   workflow: Workflow<TInput, TOutput>,
   options: CreateToolFromWorkflowOptions<TInput>,
 ): ToolSet[string] {
-  const bound = workflow instanceof WorkflowImpl ? workflow : undefined;
-  if (!bound) {
-    throw new Error(
-      "createToolFromWorkflow: workflow was not created via createWorkflow / adl.createWorkflow",
-    );
-  }
+  const bound = getWorkflowImpl(workflow);
 
   return tool({
     description: options.description,

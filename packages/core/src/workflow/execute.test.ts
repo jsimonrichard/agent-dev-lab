@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
+import { createId } from "../internal/ids";
+import { RunRecorder } from "../runtime/run-recorder";
 import { createAdlRuntime, createWorkflow, inMemoryWorkflowStore } from "../index";
-import { createWorkflowRunContext } from "./run/create-context";
+import { createWorkflowContext } from "./context";
 import { executeWorkflowRun } from "./execute-run";
 
 describe("workflow.run", () => {
@@ -49,7 +51,16 @@ describe("workflow.run", () => {
       },
     };
 
-    const ctx = createWorkflowRunContext(runtime, runtime.services);
+    const workflowRunId = createId();
+    const ctx = createWorkflowContext({
+      workflowRunId,
+      services: runtime.services,
+      stepId: null,
+      parentStepId: null,
+      stepPath: [],
+      registryParentKey: workflowRunId,
+      runRecorder: new RunRecorder(runtime.services),
+    });
     await executeWorkflowRun(definition, null, runtime.services, { parentCtx: ctx });
     expect(computeCount).toBe(1);
 
