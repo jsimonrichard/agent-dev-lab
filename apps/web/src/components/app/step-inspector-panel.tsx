@@ -79,7 +79,8 @@ export function StepInspectorPanel({
               <ChatMessageList
                 messages={messages}
                 streamingText={streamingText}
-                className="gap-2 p-2 [&_article]:text-xs [&_article]:px-3 [&_article]:py-2"
+                compact
+                className="gap-2 p-2"
               />
             </ScrollArea>
             <div className="shrink-0 space-y-2 border-t border-border/40 p-2">

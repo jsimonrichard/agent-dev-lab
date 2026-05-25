@@ -299,8 +299,14 @@ export const mockConversations: Record<string, MockConversation> = {
       {
         id: "m3",
         role: "assistant",
-        content:
-          "Found 12 papers on lipid nanoparticle delivery. Key themes: liver targeting, extrahepatic delivery challenges, and formulation stability.",
+        content: `Found **12 papers** on lipid nanoparticle delivery.
+
+### Key themes
+- Liver targeting and biodistribution
+- Extrahepatic delivery challenges
+- Formulation stability under storage
+
+Top hit: [LNP-CRISPR review (2024)](https://example.org/lnp-crispr) — see \`delivery.assay\` metadata in the tool output tab.`,
       },
     ],
   },
@@ -321,7 +327,14 @@ export const mockConversations: Record<string, MockConversation> = {
       {
         id: "m3",
         role: "assistant",
-        content: "Scanning PubMed for base editor off-target studies…",
+        content: `Scanning PubMed for base editor off-target studies…
+
+| Metric | Early studies | Recent meta-analysis |
+| --- | --- | --- |
+| Off-target rate | ~2–5% | **<1%** with optimized editors |
+| Sample size | n < 50 | n > 200 |
+
+> Still streaming citations — check the **Tools** tab for live \`search_pubmed\` calls.`,
       },
     ],
   },
