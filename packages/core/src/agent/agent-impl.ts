@@ -12,7 +12,7 @@ import type { z } from "zod";
 import { createId } from "../internal/ids";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { WorkflowContextImpl } from "../workflow/context";
+import { peekWorkflowContext } from "../workflow/run-stack";
 import { bootstrapSystemMessage } from "./resolve-instructions";
 import type {
   Agent,
@@ -93,7 +93,7 @@ export class AgentImpl<
     const { input, abortSignal, exposeStream, onStreamReady } = options;
     const messageStore = this.services.stores.message;
 
-    const activeCtx = WorkflowContextImpl.peekActive();
+    const activeCtx = peekWorkflowContext();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
     const agentCallId = createId();

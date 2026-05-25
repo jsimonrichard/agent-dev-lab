@@ -6,8 +6,14 @@ import type { RuntimeServices } from "./types";
 const TRACER_NAME = "agent-dev-lab";
 
 /**
- * Records run events to the workflow store and the active OTel span (wide log).
- * Optional observers remain for push-only adapters; avoid console logging for normal events.
+ * ADL run-event sink: persists {@link RunEvent}s to {@link WorkflowStore} and mirrors
+ * them on the active OTel span (workflow runs, steps, and agent episodes linked to a run).
+ *
+ * - **Workflow / step events** — always go through `RunRecorder` when a workflow store is configured.
+ * - **Agent inside a workflow** — same path; events attach to the parent run for inspection UI.
+ * - **Standalone agent conversations** — boundary tracing uses {@link withActiveSpan}; application
+ *   code can use `@opentelemetry/api` directly. `RunRecorder` still persists agent episodes when a
+ *   workflow store is present (optional history); it does not replace custom OTel instrumentation.
  */
 export class RunRecorder {
   private workflowSeq = 0;

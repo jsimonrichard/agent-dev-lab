@@ -2,6 +2,7 @@ import { createId } from "../../internal/ids";
 import type { AdlRuntime } from "../../runtime/types";
 import type { RuntimeServices } from "../../runtime/types";
 import { createWorkflowContext } from "../context";
+import { WorkflowRunStack } from "../workflow-run-stack";
 import type { WorkflowRunContext } from "./types";
 
 /**
@@ -21,5 +22,6 @@ export function createWorkflowRunContext(
     parentStepId: null,
     stepPath: [],
     registryParentKey: workflowRunId,
+    runStack: new WorkflowRunStack(),
   });
 }
