@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Bot, GitBranch, MessageSquare } from "lucide-react";
 import { mockProject, mockRuns } from "@/lib/mock/data";
+import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
@@ -11,7 +11,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
@@ -24,7 +23,7 @@ const defaultWorkflowRun = mockRuns[0];
 
 export function HomeSidebar() {
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="border-r-0">
+    <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -80,7 +79,6 @@ export function HomeSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarRail />
-    </Sidebar>
+    </ContextSidebar>
   );
 }

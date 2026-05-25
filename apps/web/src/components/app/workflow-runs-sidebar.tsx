@@ -5,8 +5,8 @@ import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
 import type { RunStatus } from "@/lib/mock/types";
 import { cn } from "@/lib/utils";
+import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
@@ -15,7 +15,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
@@ -29,7 +28,7 @@ export function WorkflowRunsSidebar() {
   const activeRunId = pathname.match(/^\/workflows\/[^/]+\/run\/([^/]+)/)?.[1];
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="border-r-0">
+    <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -89,8 +88,7 @@ export function WorkflowRunsSidebar() {
       </SidebarContent>
 
       <SidebarBackFooter />
-      <SidebarRail />
-    </Sidebar>
+    </ContextSidebar>
   );
 }
 

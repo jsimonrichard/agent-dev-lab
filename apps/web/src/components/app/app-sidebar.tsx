@@ -4,14 +4,13 @@ import { AgentConversationsSidebar } from "@/components/app/agent-conversations-
 import { HomeSidebar } from "@/components/app/home-sidebar";
 import { WorkflowRunsSidebar } from "@/components/app/workflow-runs-sidebar";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
+import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
-  Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 import { mockProject } from "@/lib/mock/data";
 import { Settings2 } from "lucide-react";
@@ -37,7 +36,7 @@ export function AppSidebar() {
 
 function SettingsContextSidebar() {
   return (
-    <Sidebar collapsible="icon" variant="sidebar" className="border-r-0">
+    <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -57,7 +56,6 @@ function SettingsContextSidebar() {
         <p className="px-4 py-3 text-xs text-muted-foreground">Project settings and registry.</p>
       </SidebarContent>
       <SidebarBackFooter />
-      <SidebarRail />
-    </Sidebar>
+    </ContextSidebar>
   );
 }
