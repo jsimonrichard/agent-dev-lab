@@ -7,7 +7,8 @@ import type {
   MockMessage,
   ResolvedAgentConversation,
 } from "@/lib/mock/types";
-import { appendConversationMessage } from "@/lib/mock/agent-conversations";
+import { appendAgentRunMessage } from "@/lib/mock/agent-conversations";
+import { getMockRun } from "@/lib/mock/data";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
@@ -41,8 +42,8 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       content: `[Mock] ${agent.id} reply: ${text}`,
     };
 
-    appendConversationMessage(conversation.conversationId, userMsg);
-    const updated = appendConversationMessage(conversation.conversationId, assistantMsg);
+    appendAgentRunMessage(conversation.runId, userMsg);
+    const updated = appendAgentRunMessage(conversation.runId, assistantMsg);
     if (updated) {
       setMessages(updated.messages);
       return;
@@ -79,7 +80,15 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         </Button>
         {forkSession ? (
           <Button variant="outline" size="sm" asChild>
-            <Link to="/runs/$runId" params={{ runId: forkSession.sourceRunId }} className="gap-2">
+            <Link
+              to="/workflows/$workflowId/run/$runId"
+              params={{
+                workflowId:
+                  getMockRun(forkSession.sourceRunId)?.workflowId ?? "literature-review",
+                runId: forkSession.sourceRunId,
+              }}
+              className="gap-2"
+            >
               <ArrowLeft className="size-4" />
               Source run
             </Link>

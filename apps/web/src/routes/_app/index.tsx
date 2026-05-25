@@ -5,7 +5,10 @@ export const Route = createFileRoute("/_app/")({
   beforeLoad: () => {
     const first = mockRuns[0];
     if (first) {
-      throw redirect({ to: "/runs/$runId", params: { runId: first.runId } });
+      throw redirect({
+        to: "/workflows/$workflowId/run/$runId",
+        params: { workflowId: first.workflowId, runId: first.runId },
+      });
     }
   },
   component: () => null,

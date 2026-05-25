@@ -36,16 +36,16 @@ export function createForkedSession(options: {
 }
 
 export function createStandaloneConversation(agentId: string): MockAgentConversation {
-  const conversationId = `conv_${Date.now().toString(36)}`;
+  const runId = `conv_${Date.now().toString(36)}`;
   const createdAt = new Date().toISOString();
-  standalone.set(conversationId, { agentId, messages: [], createdAt });
+  standalone.set(runId, { agentId, messages: [], createdAt });
   return {
-    conversationId,
+    runId,
     agentId,
     title: `New ${agentId} chat`,
     preview: "No messages yet",
     updatedAt: createdAt,
-    memoryScope: `standalone:${conversationId}`,
+    memoryScope: `standalone:${runId}`,
   };
 }
 
@@ -53,26 +53,26 @@ export function getForkedSession(forkId: string): ForkedAgentSession | undefined
   return forks.get(forkId);
 }
 
-export function appendConversationMessage(
-  conversationId: string,
+export function appendAgentRunMessage(
+  runId: string,
   message: MockMessage,
 ): ResolvedAgentConversation | undefined {
-  const fork = forks.get(conversationId);
+  const fork = forks.get(runId);
   if (fork) {
     fork.messages.push(message);
-    return resolveAgentConversation(conversationId);
+    return resolveAgentConversation(runId);
   }
-  const session = standalone.get(conversationId);
+  const session = standalone.get(runId);
   if (session) {
     session.messages.push(message);
-    return resolveAgentConversation(conversationId);
+    return resolveAgentConversation(runId);
   }
   return undefined;
 }
 
 export function listAgentConversations(): MockAgentConversation[] {
   const forkItems: MockAgentConversation[] = Array.from(forks.values()).map((f) => ({
-    conversationId: f.forkId,
+    runId: f.forkId,
     agentId: f.agentId,
     title: `Fork · ${f.sourceEpisodeId}`,
     preview: lastMessagePreview(f.messages),
@@ -81,13 +81,13 @@ export function listAgentConversations(): MockAgentConversation[] {
   }));
 
   const dynamicStandalone: MockAgentConversation[] = Array.from(standalone.entries()).map(
-    ([conversationId, s]) => ({
-      conversationId,
+    ([runId, s]) => ({
+      runId,
       agentId: s.agentId,
       title: `New ${s.agentId} chat`,
       preview: lastMessagePreview(s.messages),
       updatedAt: s.createdAt,
-      memoryScope: `standalone:${conversationId}`,
+      memoryScope: `standalone:${runId}`,
     }),
   );
 
@@ -96,13 +96,11 @@ export function listAgentConversations(): MockAgentConversation[] {
   );
 }
 
-export function resolveAgentConversation(
-  conversationId: string,
-): ResolvedAgentConversation | undefined {
-  const fork = forks.get(conversationId);
+export function resolveAgentConversation(runId: string): ResolvedAgentConversation | undefined {
+  const fork = forks.get(runId);
   if (fork) {
     return {
-      conversationId: fork.forkId,
+      runId: fork.forkId,
       agentId: fork.agentId,
       title: `Fork · ${fork.sourceEpisodeId}`,
       messages: fork.messages,
@@ -110,10 +108,10 @@ export function resolveAgentConversation(
     };
   }
 
-  const dynamic = standalone.get(conversationId);
+  const dynamic = standalone.get(runId);
   if (dynamic) {
     return {
-      conversationId,
+      runId,
       agentId: dynamic.agentId,
       title: `New ${dynamic.agentId} chat`,
       messages: dynamic.messages,
@@ -121,12 +119,12 @@ export function resolveAgentConversation(
     };
   }
 
-  const summary = mockAgentConversations.find((c) => c.conversationId === conversationId);
+  const summary = mockAgentConversations.find((c) => c.runId === runId);
   if (!summary) return undefined;
 
   const transcript = mockConversations[summary.memoryScope];
   return {
-    conversationId: summary.conversationId,
+    runId: summary.runId,
     agentId: summary.agentId,
     title: summary.title,
     messages: transcript?.messages ?? [],
@@ -134,8 +132,8 @@ export function resolveAgentConversation(
   };
 }
 
-export function getDefaultAgentConversationId(): string | undefined {
-  return listAgentConversations()[0]?.conversationId;
+export function getDefaultAgentRun(): MockAgentConversation | undefined {
+  return listAgentConversations()[0];
 }
 
 function lastMessagePreview(messages: MockMessage[]): string {

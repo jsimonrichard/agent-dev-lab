@@ -25,7 +25,7 @@ const devModeLabel = {
 
 export function WorkflowRunsSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const activeRunId = pathname.match(/^\/runs\/([^/]+)/)?.[1];
+  const activeRunId = pathname.match(/^\/workflows\/[^/]+\/run\/([^/]+)/)?.[1];
 
   return (
     <Sidebar collapsible="icon" variant="sidebar" className="border-r-0">
@@ -65,7 +65,10 @@ export function WorkflowRunsSidebar() {
                     isActive={activeRunId === run.runId}
                     tooltip={run.runId}
                   >
-                    <Link to="/runs/$runId" params={{ runId: run.runId }}>
+                    <Link
+                      to="/workflows/$workflowId/run/$runId"
+                      params={{ workflowId: run.workflowId, runId: run.runId }}
+                    >
                       <GitBranch className="size-4 shrink-0" />
                       <div className="grid min-w-0 flex-1 gap-0.5 text-left">
                         <span className="truncate font-mono text-xs">{run.runId}</span>

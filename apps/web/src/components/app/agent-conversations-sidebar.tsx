@@ -28,15 +28,15 @@ const devModeLabel = {
 export function AgentConversationsSidebar() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const activeConversationId = pathname.match(/^\/agents\/([^/]+)/)?.[1];
+  const activeRunId = pathname.match(/^\/agent\/[^/]+\/run\/([^/]+)/)?.[1];
   const conversations = listAgentConversations();
 
   function handleNewConversation() {
     const agentId = mockAgents[0]?.id ?? "researcher";
     const created = createStandaloneConversation(agentId);
     void navigate({
-      to: "/agents/$conversationId",
-      params: { conversationId: created.conversationId },
+      to: "/agent/$agentId/run/$runId",
+      params: { agentId: created.agentId, runId: created.runId },
     });
   }
 
@@ -83,15 +83,15 @@ export function AgentConversationsSidebar() {
                 </p>
               ) : (
                 conversations.map((conv) => (
-                  <SidebarMenuItem key={conv.conversationId}>
+                  <SidebarMenuItem key={conv.runId}>
                     <SidebarMenuButton
                       asChild
-                      isActive={activeConversationId === conv.conversationId}
+                      isActive={activeRunId === conv.runId}
                       tooltip={conv.title}
                     >
                       <Link
-                        to="/agents/$conversationId"
-                        params={{ conversationId: conv.conversationId }}
+                        to="/agent/$agentId/run/$runId"
+                        params={{ agentId: conv.agentId, runId: conv.runId }}
                       >
                         <MessageSquare className="size-4 shrink-0" />
                         <div className="grid min-w-0 flex-1 gap-0.5 text-left">
@@ -103,7 +103,7 @@ export function AgentConversationsSidebar() {
                             {conv.preview}
                           </span>
                         </div>
-                        {conv.conversationId.startsWith("fork_") ? (
+                        {conv.runId.startsWith("fork_") ? (
                           <GitBranch className="size-3 shrink-0 text-muted-foreground" />
                         ) : null}
                       </Link>

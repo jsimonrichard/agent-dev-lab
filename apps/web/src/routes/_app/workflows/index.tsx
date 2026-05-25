@@ -25,8 +25,8 @@ function WorkflowsPage() {
             </CardHeader>
             <div className="px-6 pb-6">
               <Link
-                to="/runs/$runId"
-                params={{ runId: "run_01H9ZK" }}
+                to="/workflows/$workflowId/run/$runId"
+                params={{ workflowId: w.id, runId: "run_01H9ZK" }}
                 className="text-sm font-medium text-primary hover:underline"
               >
                 Open sample run →

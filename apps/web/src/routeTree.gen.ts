@@ -15,9 +15,9 @@ import { Route as ApiRuntimeRouteImport } from './routes/api.runtime'
 import { Route as ApiProjectRouteImport } from './routes/api.project'
 import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
-import { Route as AppAgentsIndexRouteImport } from './routes/_app/agents/index'
-import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs/$runId'
-import { Route as AppAgentsConversationIdRouteImport } from './routes/_app/agents/$conversationId'
+import { Route as AppAgentIndexRouteImport } from './routes/_app/agent/index'
+import { Route as AppWorkflowsWorkflowIdRunRunIdRouteImport } from './routes/_app/workflows/$workflowId/run/$runId'
+import { Route as AppAgentAgentIdRunRunIdRouteImport } from './routes/_app/agent/$agentId/run/$runId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -48,19 +48,20 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgentsIndexRoute = AppAgentsIndexRouteImport.update({
-  id: '/agents/',
-  path: '/agents/',
+const AppAgentIndexRoute = AppAgentIndexRouteImport.update({
+  id: '/agent/',
+  path: '/agent/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgentsConversationIdRoute = AppAgentsConversationIdRouteImport.update({
-  id: '/agents/$conversationId',
-  path: '/agents/$conversationId',
+const AppWorkflowsWorkflowIdRunRunIdRoute =
+  AppWorkflowsWorkflowIdRunRunIdRouteImport.update({
+    id: '/workflows/$workflowId/run/$runId',
+    path: '/workflows/$workflowId/run/$runId',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppAgentAgentIdRunRunIdRoute = AppAgentAgentIdRunRunIdRouteImport.update({
+  id: '/agent/$agentId/run/$runId',
+  path: '/agent/$agentId/run/$runId',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -68,21 +69,21 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
-  '/agents/$conversationId': typeof AppAgentsConversationIdRoute
-  '/runs/$runId': typeof AppRunsRunIdRoute
-  '/agents/': typeof AppAgentsIndexRoute
+  '/agent/': typeof AppAgentIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/workflows/': typeof AppWorkflowsIndexRoute
+  '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
+  '/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
 }
 export interface FileRoutesByTo {
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
   '/': typeof AppIndexRoute
-  '/agents/$conversationId': typeof AppAgentsConversationIdRoute
-  '/runs/$runId': typeof AppRunsRunIdRoute
-  '/agents': typeof AppAgentsIndexRoute
+  '/agent': typeof AppAgentIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/workflows': typeof AppWorkflowsIndexRoute
+  '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
+  '/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,11 +91,11 @@ export interface FileRoutesById {
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/agents/$conversationId': typeof AppAgentsConversationIdRoute
-  '/_app/runs/$runId': typeof AppRunsRunIdRoute
-  '/_app/agents/': typeof AppAgentsIndexRoute
+  '/_app/agent/': typeof AppAgentIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/workflows/': typeof AppWorkflowsIndexRoute
+  '/_app/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
+  '/_app/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -102,32 +103,32 @@ export interface FileRouteTypes {
     | '/'
     | '/api/project'
     | '/api/runtime'
-    | '/agents/$conversationId'
-    | '/runs/$runId'
-    | '/agents/'
+    | '/agent/'
     | '/settings/'
     | '/workflows/'
+    | '/agent/$agentId/run/$runId'
+    | '/workflows/$workflowId/run/$runId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/api/project'
     | '/api/runtime'
     | '/'
-    | '/agents/$conversationId'
-    | '/runs/$runId'
-    | '/agents'
+    | '/agent'
     | '/settings'
     | '/workflows'
+    | '/agent/$agentId/run/$runId'
+    | '/workflows/$workflowId/run/$runId'
   id:
     | '__root__'
     | '/_app'
     | '/api/project'
     | '/api/runtime'
     | '/_app/'
-    | '/_app/agents/$conversationId'
-    | '/_app/runs/$runId'
-    | '/_app/agents/'
+    | '/_app/agent/'
     | '/_app/settings/'
     | '/_app/workflows/'
+    | '/_app/agent/$agentId/run/$runId'
+    | '/_app/workflows/$workflowId/run/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -180,25 +181,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/agents/': {
-      id: '/_app/agents/'
-      path: '/agents'
-      fullPath: '/agents/'
-      preLoaderRoute: typeof AppAgentsIndexRouteImport
+    '/_app/agent/': {
+      id: '/_app/agent/'
+      path: '/agent'
+      fullPath: '/agent/'
+      preLoaderRoute: typeof AppAgentIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/runs/$runId': {
-      id: '/_app/runs/$runId'
-      path: '/runs/$runId'
-      fullPath: '/runs/$runId'
-      preLoaderRoute: typeof AppRunsRunIdRouteImport
+    '/_app/workflows/$workflowId/run/$runId': {
+      id: '/_app/workflows/$workflowId/run/$runId'
+      path: '/workflows/$workflowId/run/$runId'
+      fullPath: '/workflows/$workflowId/run/$runId'
+      preLoaderRoute: typeof AppWorkflowsWorkflowIdRunRunIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/agents/$conversationId': {
-      id: '/_app/agents/$conversationId'
-      path: '/agents/$conversationId'
-      fullPath: '/agents/$conversationId'
-      preLoaderRoute: typeof AppAgentsConversationIdRouteImport
+    '/_app/agent/$agentId/run/$runId': {
+      id: '/_app/agent/$agentId/run/$runId'
+      path: '/agent/$agentId/run/$runId'
+      fullPath: '/agent/$agentId/run/$runId'
+      preLoaderRoute: typeof AppAgentAgentIdRunRunIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -206,20 +207,20 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
-  AppAgentsConversationIdRoute: typeof AppAgentsConversationIdRoute
-  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
-  AppAgentsIndexRoute: typeof AppAgentsIndexRoute
+  AppAgentIndexRoute: typeof AppAgentIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
   AppWorkflowsIndexRoute: typeof AppWorkflowsIndexRoute
+  AppAgentAgentIdRunRunIdRoute: typeof AppAgentAgentIdRunRunIdRoute
+  AppWorkflowsWorkflowIdRunRunIdRoute: typeof AppWorkflowsWorkflowIdRunRunIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
-  AppAgentsConversationIdRoute: AppAgentsConversationIdRoute,
-  AppRunsRunIdRoute: AppRunsRunIdRoute,
-  AppAgentsIndexRoute: AppAgentsIndexRoute,
+  AppAgentIndexRoute: AppAgentIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppWorkflowsIndexRoute: AppWorkflowsIndexRoute,
+  AppAgentAgentIdRunRunIdRoute: AppAgentAgentIdRunRunIdRoute,
+  AppWorkflowsWorkflowIdRunRunIdRoute: AppWorkflowsWorkflowIdRunRunIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -93,7 +93,7 @@ export function getMockAgentSettings(agentId: string): MockAgentSettings | undef
 /** Standalone agent chats shown in the agent sidebar (not workflow runs). */
 export const mockAgentConversations: MockAgentConversation[] = [
   {
-    conversationId: "conv_playground_researcher",
+    runId: "conv_playground_researcher",
     agentId: "researcher",
     title: "Literature review prompts",
     preview: "What is a good starting prompt for literature review?",
@@ -101,7 +101,7 @@ export const mockAgentConversations: MockAgentConversation[] = [
     memoryScope: "playground:researcher:local",
   },
   {
-    conversationId: "conv_writer_draft",
+    runId: "conv_writer_draft",
     agentId: "writer",
     title: "Synthesis draft",
     preview: "Turn the CRISPR delivery notes into a short summary.",

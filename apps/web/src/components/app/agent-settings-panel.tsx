@@ -62,7 +62,7 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
               <SettingRow label="Mode" value={settings.memoryMode} />
               <SettingRow
                 label="Scope"
-                value={conversation.forkSession?.sourceMemoryScope ?? conversation.conversationId}
+                value={conversation.forkSession?.sourceMemoryScope ?? conversation.runId}
                 mono
               />
             </dl>

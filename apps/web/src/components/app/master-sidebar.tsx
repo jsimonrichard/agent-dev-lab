@@ -1,18 +1,18 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bot, GitBranch, MessageSquare, Settings2 } from "lucide-react";
 import { mockRuns } from "@/lib/mock/data";
-import { getDefaultAgentConversationId } from "@/lib/mock/agent-conversations";
+import { getDefaultAgentRun } from "@/lib/mock/agent-conversations";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const defaultRunId = mockRuns[0]?.runId;
+const defaultWorkflowRun = mockRuns[0];
 
 export function MasterSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const mode = inspectorModeFromPath(pathname);
-  const defaultConversationId = getDefaultAgentConversationId();
+  const defaultAgentRun = getDefaultAgentRun();
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -28,17 +28,32 @@ export function MasterSidebar() {
           <MasterNavItem
             label="Workflow runs"
             active={mode === "workflows"}
-            disabled={!defaultRunId}
-            to={defaultRunId ? "/runs/$runId" : "/workflows"}
-            params={defaultRunId ? { runId: defaultRunId } : undefined}
+            disabled={!defaultWorkflowRun}
+            to={
+              defaultWorkflowRun
+                ? "/workflows/$workflowId/run/$runId"
+                : "/workflows"
+            }
+            params={
+              defaultWorkflowRun
+                ? {
+                    workflowId: defaultWorkflowRun.workflowId,
+                    runId: defaultWorkflowRun.runId,
+                  }
+                : undefined
+            }
             icon={GitBranch}
           />
           <MasterNavItem
             label="Agent conversations"
             active={mode === "agents"}
-            disabled={!defaultConversationId}
-            to="/agents/$conversationId"
-            params={defaultConversationId ? { conversationId: defaultConversationId } : undefined}
+            disabled={!defaultAgentRun}
+            to="/agent/$agentId/run/$runId"
+            params={
+              defaultAgentRun
+                ? { agentId: defaultAgentRun.agentId, runId: defaultAgentRun.runId }
+                : undefined
+            }
             icon={MessageSquare}
           />
         </nav>

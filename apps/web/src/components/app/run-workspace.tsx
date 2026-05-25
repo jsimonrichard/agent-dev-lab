@@ -61,8 +61,8 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
       messages,
     });
     void navigate({
-      to: "/agents/$conversationId",
-      params: { conversationId: session.forkId },
+      to: "/agent/$agentId/run/$runId",
+      params: { agentId: activeEpisode.agentId, runId: session.forkId },
     });
   }
 
