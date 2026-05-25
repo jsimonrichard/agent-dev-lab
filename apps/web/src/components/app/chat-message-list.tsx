@@ -55,7 +55,7 @@ function ChatBubble({
   if (isSystem) {
     return (
       <div className="mx-auto max-w-lg rounded-md border border-dashed border-border/50 bg-muted/30 px-3 py-2 text-center">
-        <MarkdownContent content={content} compact className="text-muted-foreground" />
+        <MarkdownContent content={content} compact tone="muted" />
       </div>
     );
   }
@@ -74,11 +74,7 @@ function ChatBubble({
         <MarkdownContent
           content={content}
           compact={compact}
-          inverted={isUser}
-          className={cn(
-            isUser && "prose-a:text-primary-foreground",
-            !isUser && "text-card-foreground",
-          )}
+          tone={isUser ? "on-primary" : "default"}
         />
         {streaming ? (
           <span className="mt-1 inline-block text-xs text-muted-foreground">Streaming…</span>
