@@ -5,6 +5,7 @@ import {
   createStandaloneConversation,
   listAgentConversations,
 } from "@/lib/mock/agent-conversations";
+import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -60,9 +61,9 @@ export function AgentConversationsSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center justify-between">
+      <SidebarContent className="gap-0">
+        <SidebarGroup className="px-0 py-2">
+          <SidebarGroupLabel className="flex items-center justify-between px-2">
             <span>Conversations</span>
             <Button
               variant="ghost"
@@ -75,8 +76,8 @@ export function AgentConversationsSidebar() {
               <span className="sr-only">New conversation</span>
             </Button>
           </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
+          <SidebarGroupContent className="px-1">
+            <SidebarMenu className="gap-1.5">
               {conversations.length === 0 ? (
                 <p className="px-3 py-4 text-xs text-muted-foreground">
                   No conversations yet. Fork from a workflow step or start a new chat.
@@ -87,24 +88,28 @@ export function AgentConversationsSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={activeRunId === conv.runId}
-                      tooltip={conv.title}
+                      tooltip={`${conv.title}\n${conv.preview}`}
+                      className="h-auto min-h-14 items-start py-2.5"
                     >
                       <Link
                         to="/agent/$agentId/run/$runId"
                         params={{ agentId: conv.agentId, runId: conv.runId }}
                       >
-                        <MessageSquare className="size-4 shrink-0" />
-                        <div className="grid min-w-0 flex-1 gap-0.5 text-left">
-                          <span className="truncate text-xs font-medium">{conv.title}</span>
+                        <MessageSquare className="mt-0.5 size-4 shrink-0" />
+                        <div className="grid min-w-0 flex-1 gap-1 text-left leading-snug">
+                          <span className="line-clamp-2 text-xs font-medium leading-snug">
+                            {conv.title}
+                          </span>
                           <span className="truncate font-mono text-[10px] text-muted-foreground">
                             {conv.agentId}
-                          </span>
-                          <span className="truncate text-[10px] text-muted-foreground/80">
-                            {conv.preview}
+                            <span className="font-sans text-muted-foreground/70">
+                              {" · "}
+                              {conv.preview}
+                            </span>
                           </span>
                         </div>
                         {conv.runId.startsWith("fork_") ? (
-                          <GitBranch className="size-3 shrink-0 text-muted-foreground" />
+                          <GitBranch className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
                         ) : null}
                       </Link>
                     </SidebarMenuButton>
@@ -115,6 +120,8 @@ export function AgentConversationsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarBackFooter />
       <SidebarRail />
     </Sidebar>
   );

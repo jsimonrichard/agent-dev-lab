@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, GitBranch, MessageSquare, Settings2 } from "lucide-react";
+import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
 import { mockRuns } from "@/lib/mock/data";
 import { getDefaultAgentRun } from "@/lib/mock/agent-conversations";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
@@ -20,20 +20,20 @@ export function MasterSidebar() {
         className="flex h-svh w-14 shrink-0 flex-col items-center border-r border-border/40 bg-sidebar py-3"
         aria-label="Inspector mode"
       >
-        <div className="mb-4 flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Bot className="size-4" />
-        </div>
+        <MasterNavItem
+          label="Overview"
+          active={mode === "home"}
+          to="/"
+          icon={LayoutDashboard}
+          className="mb-2"
+        />
 
         <nav className="flex flex-1 flex-col items-center gap-2">
           <MasterNavItem
             label="Workflow runs"
             active={mode === "workflows"}
             disabled={!defaultWorkflowRun}
-            to={
-              defaultWorkflowRun
-                ? "/workflows/$workflowId/run/$runId"
-                : "/workflows"
-            }
+            to={defaultWorkflowRun ? "/workflows/$workflowId/run/$runId" : "/workflows"}
             params={
               defaultWorkflowRun
                 ? {
@@ -48,7 +48,7 @@ export function MasterSidebar() {
             label="Agent conversations"
             active={mode === "agents"}
             disabled={!defaultAgentRun}
-            to="/agent/$agentId/run/$runId"
+            to={defaultAgentRun ? "/agent/$agentId/run/$runId" : "/agent"}
             params={
               defaultAgentRun
                 ? { agentId: defaultAgentRun.agentId, runId: defaultAgentRun.runId }

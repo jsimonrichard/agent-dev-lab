@@ -1,7 +1,9 @@
 import { useRouterState } from "@tanstack/react-router";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import { AgentConversationsSidebar } from "@/components/app/agent-conversations-sidebar";
+import { HomeSidebar } from "@/components/app/home-sidebar";
 import { WorkflowRunsSidebar } from "@/components/app/workflow-runs-sidebar";
+import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +19,10 @@ import { Settings2 } from "lucide-react";
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const mode = inspectorModeFromPath(pathname);
+
+  if (mode === "home") {
+    return <HomeSidebar />;
+  }
 
   if (mode === "agents") {
     return <AgentConversationsSidebar />;
@@ -48,11 +54,9 @@ function SettingsContextSidebar() {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <p className="px-4 py-3 text-xs text-muted-foreground">
-          Project settings and registry. Use the rail on the left to switch back to workflow runs or
-          agent conversations.
-        </p>
+        <p className="px-4 py-3 text-xs text-muted-foreground">Project settings and registry.</p>
       </SidebarContent>
+      <SidebarBackFooter />
       <SidebarRail />
     </Sidebar>
   );

@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { GitBranch, Plus } from "lucide-react";
 import { mockProject, mockRuns } from "@/lib/mock/data";
+import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
 import type { RunStatus } from "@/lib/mock/types";
 import { cn } from "@/lib/utils";
@@ -57,13 +58,14 @@ export function WorkflowRunsSidebar() {
             </Button>
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1.5">
               {mockRuns.map((run) => (
                 <SidebarMenuItem key={run.runId}>
                   <SidebarMenuButton
                     asChild
                     isActive={activeRunId === run.runId}
-                    tooltip={run.runId}
+                    tooltip={`${run.runId} · ${run.workflowId}`}
+                    className="h-auto min-h-10 py-2"
                   >
                     <Link
                       to="/workflows/$workflowId/run/$runId"
@@ -85,6 +87,8 @@ export function WorkflowRunsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarBackFooter />
       <SidebarRail />
     </Sidebar>
   );

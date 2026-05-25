@@ -83,8 +83,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
             <Link
               to="/workflows/$workflowId/run/$runId"
               params={{
-                workflowId:
-                  getMockRun(forkSession.sourceRunId)?.workflowId ?? "literature-review",
+                workflowId: getMockRun(forkSession.sourceRunId)?.workflowId ?? "literature-review",
                 runId: forkSession.sourceRunId,
               }}
               className="gap-2"

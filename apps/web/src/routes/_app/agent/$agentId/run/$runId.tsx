@@ -18,7 +18,5 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
 
 function AgentRunPage() {
   const { agent, conversation, settings } = Route.useLoaderData();
-  return (
-    <AgentRunWorkspace agent={agent} conversation={conversation} settings={settings} />
-  );
+  return <AgentRunWorkspace agent={agent} conversation={conversation} settings={settings} />;
 }
