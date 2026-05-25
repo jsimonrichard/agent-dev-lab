@@ -21,8 +21,8 @@ export type StepIdentity = {
 };
 
 /**
- * Workflow execution scope. Implemented as a context host: `step` and `emit` are methods
- * that close over parent services and identity — **do not destructure** (`const { step } = ctx`).
+ * Workflow execution scope. Implemented by {@link WorkflowContextImpl} (class); prefer
+ * `ctx.step(...)` on the instance — do not destructure methods off a plain object host.
  *
  * Passed to the workflow author's `run` function only — not via the public `Workflow.run` API.
  *

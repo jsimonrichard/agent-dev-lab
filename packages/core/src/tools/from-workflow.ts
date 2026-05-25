@@ -1,9 +1,9 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import { peekWorkflowContext } from "../workflow/run-stack";
-import { getWorkflowBinding } from "../workflow/bindings";
+import { BoundWorkflow } from "../workflow/bound-workflow";
 import { executeNestedWorkflowRun } from "../workflow/execute-run";
+import { peekWorkflowContext } from "../workflow/run-stack";
 import type { Workflow } from "../workflow/types";
 
 export type CreateToolFromWorkflowOptions<TInput> = {
@@ -17,9 +17,11 @@ export function createToolFromWorkflow<TInput, TOutput>(
   workflow: Workflow<TInput, TOutput>,
   options: CreateToolFromWorkflowOptions<TInput>,
 ): ToolSet[string] {
-  const binding = getWorkflowBinding(workflow);
-  if (!binding) {
-    throw new Error("createToolFromWorkflow: workflow was not created via createWorkflow / adl");
+  const bound = workflow instanceof BoundWorkflow ? workflow : undefined;
+  if (!bound) {
+    throw new Error(
+      "createToolFromWorkflow: workflow was not created via createWorkflow / adl.createWorkflow",
+    );
   }
 
   return tool({
@@ -33,7 +35,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
         );
       }
       const input = options.mapInput ? options.mapInput(toolArgs) : (toolArgs as TInput);
-      const output = await executeNestedWorkflowRun(binding.definition, input, binding.services, {
+      const output = await executeNestedWorkflowRun(bound.definition, input, bound.services, {
         parentCtx,
       });
       return output as unknown;

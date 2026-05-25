@@ -1,7 +1,7 @@
 import { createId } from "../internal/ids";
 import { EventLog } from "../runtime/event-log";
 import type { RuntimeServices } from "../runtime/types";
-import { buildWorkflowContext, refreshWorkflowContext } from "./build-context";
+import { createWorkflowContext, refreshWorkflowContext } from "./context";
 import { enterWorkflowContext, exitWorkflowContext } from "./run-stack";
 import type { NestedWorkflowRunOptions } from "./types";
 import type { WorkflowContext, WorkflowDefinition } from "./types";
@@ -35,9 +35,9 @@ export async function executeWorkflowRun<TInput, TOutput>(
     at: "",
   });
 
-  const rootCtx: WorkflowContext = parentCtx
+  const rootCtx = parentCtx
     ? refreshWorkflowContext(parentCtx, services)
-    : buildWorkflowContext({
+    : createWorkflowContext({
         workflowRunId,
         services,
         stepId: null,
@@ -105,7 +105,7 @@ export function executeWorkflowRunWithCancel<TInput, TOutput>(
     ...options,
     parentCtx:
       options?.parentCtx ??
-      buildWorkflowContext({
+      createWorkflowContext({
         workflowRunId,
         services,
         stepId: null,

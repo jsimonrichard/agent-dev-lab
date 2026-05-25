@@ -1,7 +1,7 @@
 import { createId } from "../../internal/ids";
 import type { AdlRuntime } from "../../runtime/types";
 import type { RuntimeServices } from "../../runtime/types";
-import { buildWorkflowContext } from "../build-context";
+import { createWorkflowContext } from "../context";
 import type { WorkflowRunContext } from "./types";
 
 /**
@@ -14,7 +14,7 @@ export function createWorkflowRunContext(
   services: RuntimeServices,
 ): WorkflowRunContext {
   const workflowRunId = createId();
-  return buildWorkflowContext({
+  return createWorkflowContext({
     workflowRunId,
     services,
     stepId: null,
