@@ -1,6 +1,8 @@
+import { createId } from "../../internal/ids";
 import type { AdlRuntime } from "../../runtime/types";
-import { notImplemented } from "../../internal/not-implemented";
-import type { CreateWorkflowRunContextOptions, WorkflowRunContext } from "./types";
+import type { RuntimeServices } from "../../runtime/types";
+import { buildWorkflowContext } from "../build-context";
+import type { WorkflowRunContext } from "./types";
 
 /**
  * Creates root run context for a workflow invocation.
@@ -8,10 +10,16 @@ import type { CreateWorkflowRunContextOptions, WorkflowRunContext } from "./type
  * @internal Called by bound {@link Workflow.run} (and nested-run helpers), not by end users.
  */
 export function createWorkflowRunContext(
-  runtime: AdlRuntime,
-  options?: CreateWorkflowRunContextOptions,
+  _runtime: AdlRuntime,
+  services: RuntimeServices,
 ): WorkflowRunContext {
-  void runtime;
-  void options;
-  notImplemented("createWorkflowRunContext");
+  const workflowRunId = createId();
+  return buildWorkflowContext({
+    workflowRunId,
+    services,
+    stepId: null,
+    parentStepId: null,
+    stepPath: [],
+    registryParentKey: workflowRunId,
+  });
 }

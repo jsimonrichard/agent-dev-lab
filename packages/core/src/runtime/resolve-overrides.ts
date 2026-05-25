@@ -1,4 +1,5 @@
 import { inMemoryMessageStore } from "../memory/in-memory";
+import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import type { AdlRuntime } from "./types";
 import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
 
@@ -29,7 +30,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
   return {
     stores: {
       message: config.stores?.message ?? inMemoryMessageStore(),
-      workflow: config.stores?.workflow,
+      workflow: config.stores?.workflow ?? inMemoryWorkflowStore(),
     },
     observers: {
       workflows: config.observers?.workflows ?? [],

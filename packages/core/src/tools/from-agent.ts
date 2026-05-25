@@ -1,7 +1,8 @@
-import type { ToolSet } from "ai";
+import { tool, zodSchema, type ToolSet } from "ai";
+import { z } from "zod";
 
-import { notImplemented } from "../internal/not-implemented";
 import type { Agent, AgentRunInput } from "../agent/types";
+import { peekWorkflowContext } from "../workflow/run-stack";
 import type { WorkflowContext } from "../workflow/types";
 
 export type CreateToolFromAgentOptions<Context> = {
@@ -18,7 +19,23 @@ export function createToolFromAgent<Context>(
   agent: Agent<Context>,
   options: CreateToolFromAgentOptions<Context>,
 ): ToolSet[string] {
-  void agent;
-  void options;
-  notImplemented("createToolFromAgent");
+  return tool({
+    description: options.description,
+    inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
+    execute: async (toolArgs) => {
+      const workflowCtx = peekWorkflowContext();
+      if (!workflowCtx) {
+        throw new Error(
+          "createToolFromAgent: no WorkflowContext — call from within a workflow run or step",
+        );
+      }
+      const runInput = options.mapRun(toolArgs, { ctx: workflowCtx });
+      const handle = agent.run(runInput);
+      const result = await handle.result;
+      if (result.output !== undefined) {
+        return result.output;
+      }
+      return { text: result.text, messages: result.newMessages };
+    },
+  }) as ToolSet[string];
 }

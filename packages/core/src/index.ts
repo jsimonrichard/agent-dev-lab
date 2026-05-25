@@ -51,6 +51,7 @@ export type {
 } from "./template";
 
 export { inMemoryMessageStore } from "./memory";
+export { inMemoryWorkflowStore } from "./observability";
 export type { MessageStore } from "./memory";
 
 export type {
@@ -108,7 +109,8 @@ export function createCoreShell() {
       "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
       "createTemplate (path or inline source)",
-      "agent/workflow execution (planned)",
+      "agent.run / agent.stream",
+      "workflow.run with WorkflowStore + observers",
     ],
   };
 }

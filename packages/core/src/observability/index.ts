@@ -31,4 +31,5 @@ export type {
   WorkflowObserver,
   WorkflowObservers,
 } from "./observers";
+export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
 export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
