@@ -1,8 +1,7 @@
 import { createId } from "../internal/ids";
-import { EventLog } from "../runtime/event-log";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { createWorkflowContext, refreshWorkflowContext } from "./context";
-import { enterWorkflowContext, exitWorkflowContext } from "./run-stack";
+import { createWorkflowContext, refreshWorkflowContext, WorkflowContextImpl } from "./context";
 import type { NestedWorkflowRunOptions } from "./types";
 import type { WorkflowContext, WorkflowDefinition } from "./types";
 
@@ -24,16 +23,7 @@ export async function executeWorkflowRun<TInput, TOutput>(
   const parsedInput = definition.input ? definition.input.parse(input) : input;
   const controller = abortController ?? new AbortController();
 
-  const eventLog = new EventLog(services, { workflowRunId });
-
-  await eventLog.emit({
-    type: "workflow_started",
-    workflowRunId,
-    workflowId: definition.id,
-    input: parsedInput,
-    seq: 0,
-    at: "",
-  });
+  const runRecorder = new RunRecorder(services);
 
   const rootCtx = parentCtx
     ? refreshWorkflowContext(parentCtx, services)
@@ -46,51 +36,69 @@ export async function executeWorkflowRun<TInput, TOutput>(
         registryParentKey: workflowRunId,
       });
 
-  enterWorkflowContext(rootCtx);
-  try {
-    const output = await definition.run(parsedInput, rootCtx);
-    const parsedOutput = definition.output ? definition.output.parse(output) : output;
-
-    if (controller.signal.aborted) {
-      await eventLog.emit({
-        type: "workflow_cancelled",
+  return withActiveSpan(
+    "workflow.run",
+    {
+      "adl.workflow_run_id": workflowRunId,
+      "adl.workflow_id": definition.id,
+    },
+    async () => {
+      await runRecorder.emit({
+        type: "workflow_started",
         workflowRunId,
+        workflowId: definition.id,
+        input: parsedInput,
         seq: 0,
         at: "",
       });
-      throw controller.signal.reason ?? new Error("Workflow run cancelled");
-    }
 
-    await eventLog.emit({
-      type: "workflow_finished",
-      workflowRunId,
-      output: parsedOutput,
-      seq: 0,
-      at: "",
-    });
+      WorkflowContextImpl.pushActive(rootCtx);
+      try {
+        const output = await definition.run(parsedInput, rootCtx);
+        const parsedOutput = definition.output ? definition.output.parse(output) : output;
 
-    return parsedOutput;
-  } catch (error) {
-    if (controller.signal.aborted) {
-      await eventLog.emit({
-        type: "workflow_cancelled",
-        workflowRunId,
-        seq: 0,
-        at: "",
-      });
-    } else {
-      await eventLog.emit({
-        type: "workflow_failed",
-        workflowRunId,
-        error: serializeError(error),
-        seq: 0,
-        at: "",
-      });
-    }
-    throw error;
-  } finally {
-    exitWorkflowContext();
-  }
+        if (controller.signal.aborted) {
+          await runRecorder.emit({
+            type: "workflow_cancelled",
+            workflowRunId,
+            seq: 0,
+            at: "",
+          });
+          throw controller.signal.reason ?? new Error("Workflow run cancelled");
+        }
+
+        await runRecorder.emit({
+          type: "workflow_finished",
+          workflowRunId,
+          output: parsedOutput,
+          seq: 0,
+          at: "",
+        });
+
+        return parsedOutput;
+      } catch (error) {
+        if (controller.signal.aborted) {
+          await runRecorder.emit({
+            type: "workflow_cancelled",
+            workflowRunId,
+            seq: 0,
+            at: "",
+          });
+        } else {
+          await runRecorder.emit({
+            type: "workflow_failed",
+            workflowRunId,
+            error: serializeError(error),
+            seq: 0,
+            at: "",
+          });
+        }
+        throw error;
+      } finally {
+        WorkflowContextImpl.popActive();
+      }
+    },
+  );
 }
 
 export function executeWorkflowRunWithCancel<TInput, TOutput>(

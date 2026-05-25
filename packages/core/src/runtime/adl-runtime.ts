@@ -7,7 +7,11 @@ import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
-import { resolveRuntimeConfig, resolveRuntimeOverrides } from "./resolve-overrides";
+import {
+  resolveDefinitionServices,
+  resolveRuntimeConfig,
+  resolveRuntimeOverrides,
+} from "./resolve-overrides";
 import type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
 
 /** Process-level ADL runtime: owns {@link RuntimeServices} and binds agents/workflows. */
@@ -24,7 +28,7 @@ export class AdlRuntimeImpl implements AdlRuntime {
   ): Agent<Context, Tools> {
     return new AgentImpl<Context, Tools, TOutput>(
       definition,
-      resolveRuntimeOverrides(this.services, overrides),
+      resolveDefinitionServices(definition, resolveRuntimeOverrides(this.services, overrides)),
     );
   }
 

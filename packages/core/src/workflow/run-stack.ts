@@ -1,21 +1,17 @@
 import type { WorkflowContext } from "./types";
+import { WorkflowContextImpl } from "./context";
 
-/**
- * Synchronous stack for the active workflow context during a run (tools, nested steps).
- * Not AsyncLocalStorage — only valid while workflow/step closures execute on the same stack.
- *
- * @internal
- */
-const stack: WorkflowContext[] = [];
-
-export function enterWorkflowContext(ctx: WorkflowContext): void {
-  stack.push(ctx);
-}
-
-export function exitWorkflowContext(): void {
-  stack.pop();
-}
-
+/** @internal Active workflow context during nested steps and tool execution. */
 export function peekWorkflowContext(): WorkflowContext | undefined {
-  return stack.at(-1);
+  return WorkflowContextImpl.peekActive();
+}
+
+/** @internal @deprecated Use {@link WorkflowContextImpl.pushActive}. */
+export function enterWorkflowContext(ctx: WorkflowContext): void {
+  WorkflowContextImpl.pushActive(ctx as WorkflowContextImpl);
+}
+
+/** @internal @deprecated Use {@link WorkflowContextImpl.popActive}. */
+export function exitWorkflowContext(): void {
+  WorkflowContextImpl.popActive();
 }

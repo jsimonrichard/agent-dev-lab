@@ -10,9 +10,9 @@ import {
 import type { z } from "zod";
 
 import { createId } from "../internal/ids";
-import { EventLog } from "../runtime/event-log";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { peekWorkflowContext } from "../workflow/run-stack";
+import { WorkflowContextImpl } from "../workflow/context";
 import { bootstrapSystemMessage } from "./resolve-instructions";
 import type {
   Agent,
@@ -84,19 +84,6 @@ export class AgentImpl<
     } satisfies AgentStreamHandle<Tools>;
   }
 
-  private resolveServices(): RuntimeServices {
-    if (!this.definition.memory?.store) {
-      return this.services;
-    }
-    return {
-      ...this.services,
-      stores: {
-        ...this.services.stores,
-        message: this.definition.memory.store,
-      },
-    };
-  }
-
   private async executeEpisode(options: {
     input: AgentRunInput<unknown>;
     abortSignal: AbortSignal;
@@ -104,139 +91,147 @@ export class AgentImpl<
     onStreamReady?: (stream: StreamTextResult<Tools, unknown>) => void;
   }): Promise<AgentRunResult<Tools>> {
     const { input, abortSignal, exposeStream, onStreamReady } = options;
-    const effectiveServices = this.resolveServices();
-    const messageStore = effectiveServices.stores.message;
+    const messageStore = this.services.stores.message;
 
-    const activeCtx = peekWorkflowContext();
+    const activeCtx = WorkflowContextImpl.peekActive();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
-
     const agentCallId = createId();
 
-    const eventLog = new EventLog(effectiveServices, {
-      workflowRunId,
-      agentCallId,
-    });
+    return withActiveSpan(
+      "agent.episode",
+      {
+        "adl.agent_id": this.definition.id,
+        "adl.agent_call_id": agentCallId,
+        "adl.memory_scope": input.memoryScope,
+        ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+        ...(stepId ? { "adl.step_id": stepId } : {}),
+      },
+      async () => {
+        const runRecorder = new RunRecorder(this.services);
 
-    await eventLog.emit({
-      type: "agent_started",
-      agentCallId,
-      workflowRunId,
-      stepId,
-      agentId: this.definition.id,
-      memoryScope: input.memoryScope,
-      seq: 0,
-      at: "",
-    });
+        await runRecorder.emit({
+          type: "agent_started",
+          agentCallId,
+          workflowRunId,
+          stepId,
+          agentId: this.definition.id,
+          memoryScope: input.memoryScope,
+          seq: 0,
+          at: "",
+        });
 
-    try {
-      let messages = await messageStore.load(input.memoryScope);
-      messages = await bootstrapSystemMessage(this.definition.instructions, messages);
+        try {
+          let messages = await messageStore.load(input.memoryScope);
+          messages = await bootstrapSystemMessage(this.definition.instructions, messages);
 
-      const turnMessages: CoreMessage[] = [];
-      if (input.user) {
-        turnMessages.push({ role: "user", content: input.user });
-      }
-      if (input.messages?.length) {
-        turnMessages.push(...input.messages);
-      }
-      if (turnMessages.length > 0) {
-        messages = [...messages, ...turnMessages];
-      }
-
-      const outputSchema = input.outputSchema ?? this.definition.outputSchema;
-      const streamResult = streamText({
-        model: this.definition.model,
-        tools: this.definition.tools,
-        messages,
-        experimental_context: input.context,
-        abortSignal,
-        stopWhen: stepCountIs(1),
-        ...(outputSchema
-          ? {
-              experimental_output: Output.object({
-                schema: outputSchema as z.ZodType,
-              }),
-            }
-          : {}),
-        onChunk: ({ chunk }) => {
-          if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
-            void eventLog.emit({
-              type: "agent_text_delta",
-              agentCallId,
-              workflowRunId,
-              stepId,
-              delta: chunk.text,
-              seq: 0,
-              at: "",
-            });
+          const turnMessages: CoreMessage[] = [];
+          if (input.user) {
+            turnMessages.push({ role: "user", content: input.user });
           }
-        },
-      }) as unknown as StreamTextResult<Tools, unknown>;
+          if (input.messages?.length) {
+            turnMessages.push(...input.messages);
+          }
+          if (turnMessages.length > 0) {
+            messages = [...messages, ...turnMessages];
+          }
 
-      onStreamReady?.(streamResult);
+          const outputSchema = input.outputSchema ?? this.definition.outputSchema;
+          const streamResult = streamText({
+            model: this.definition.model,
+            tools: this.definition.tools,
+            messages,
+            experimental_context: input.context,
+            abortSignal,
+            stopWhen: stepCountIs(1),
+            ...(outputSchema
+              ? {
+                  experimental_output: Output.object({
+                    schema: outputSchema as z.ZodType,
+                  }),
+                }
+              : {}),
+            onChunk: ({ chunk }) => {
+              if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
+                void runRecorder.emit({
+                  type: "agent_text_delta",
+                  agentCallId,
+                  workflowRunId,
+                  stepId,
+                  delta: chunk.text,
+                  seq: 0,
+                  at: "",
+                });
+              }
+            },
+          }) as unknown as StreamTextResult<Tools, unknown>;
 
-      const structuredPromise = outputSchema
-        ? readFinalStructuredOutput(streamResult as unknown as StreamTextResult<ToolSet, unknown>)
-        : undefined;
+          onStreamReady?.(streamResult);
 
-      if (!exposeStream) {
-        await streamResult.text;
-      }
+          const structuredPromise = outputSchema
+            ? readStructuredOutputFromStream(
+                streamResult as unknown as StreamTextResult<ToolSet, unknown>,
+              )
+            : undefined;
 
-      const responseMessages = (await streamResult.response).messages as CoreMessage[];
-      const newMessages = responseMessages.length > 0 ? responseMessages : [];
-      const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
+          if (!exposeStream) {
+            await streamResult.text;
+          }
 
-      if (newMessages.length > 0) {
-        await messageStore.save(input.memoryScope, allMessages);
-      }
+          const responseMessages = (await streamResult.response).messages as CoreMessage[];
+          const newMessages = responseMessages.length > 0 ? responseMessages : [];
+          const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
 
-      await eventLog.emit({
-        type: "agent_messages_committed",
-        agentCallId,
-        workflowRunId,
-        stepId,
-        memoryScope: input.memoryScope,
-        count: newMessages.length,
-        seq: 0,
-        at: "",
-      });
+          if (newMessages.length > 0) {
+            await messageStore.save(input.memoryScope, allMessages);
+          }
 
-      const text = await streamResult.text;
-      const structuredOutput = structuredPromise ? await structuredPromise : undefined;
-      const sdk = await toGenerateTextResult(streamResult, structuredOutput);
-      const output = structuredOutput;
+          await runRecorder.emit({
+            type: "agent_messages_committed",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            memoryScope: input.memoryScope,
+            count: newMessages.length,
+            seq: 0,
+            at: "",
+          });
 
-      await eventLog.emit({
-        type: "agent_finished",
-        agentCallId,
-        workflowRunId,
-        stepId,
-        agentId: this.definition.id,
-        seq: 0,
-        at: "",
-      });
+          const text = await streamResult.text;
+          const structuredOutput = structuredPromise ? await structuredPromise : undefined;
+          const sdk = streamResult as unknown as GenerateTextResult<Tools, unknown>;
 
-      return {
-        text,
-        output: output as never,
-        messages: allMessages,
-        newMessages,
-        sdk: sdk as GenerateTextResult<Tools, unknown>,
-      };
-    } catch (error) {
-      await eventLog.emit({
-        type: "agent_finished",
-        agentCallId,
-        workflowRunId,
-        stepId,
-        agentId: this.definition.id,
-        seq: 0,
-        at: "",
-      });
-      throw error;
-    }
+          await runRecorder.emit({
+            type: "agent_finished",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+            seq: 0,
+            at: "",
+          });
+
+          return {
+            text,
+            output: structuredOutput as never,
+            messages: allMessages,
+            newMessages,
+            sdk,
+          };
+        } catch (error) {
+          await runRecorder.emit({
+            type: "agent_finished",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+            seq: 0,
+            at: "",
+          });
+          throw error;
+        }
+      },
+    );
   }
 }
 
@@ -266,7 +261,8 @@ function lazyFullStream(
   } as unknown as StreamTextResult<ToolSet, unknown>["fullStream"];
 }
 
-async function readFinalStructuredOutput(
+/** AI SDK exposes structured stream output only via partialOutputStream on streamText. */
+async function readStructuredOutputFromStream(
   stream: StreamTextResult<ToolSet, unknown>,
 ): Promise<unknown> {
   let last: unknown;
@@ -278,33 +274,4 @@ async function readFinalStructuredOutput(
     return undefined;
   }
   return last;
-}
-
-async function toGenerateTextResult<Tools extends ToolSet>(
-  stream: StreamTextResult<Tools, unknown>,
-  structuredOutput?: unknown,
-): Promise<GenerateTextResult<Tools, unknown>> {
-  return {
-    content: await stream.content,
-    text: await stream.text,
-    reasoning: await stream.reasoning,
-    reasoningText: await stream.reasoningText,
-    files: await stream.files,
-    sources: await stream.sources,
-    toolCalls: await stream.toolCalls,
-    toolResults: await stream.toolResults,
-    staticToolCalls: await stream.staticToolCalls,
-    dynamicToolCalls: await stream.dynamicToolCalls,
-    staticToolResults: await stream.staticToolResults,
-    dynamicToolResults: await stream.dynamicToolResults,
-    finishReason: await stream.finishReason,
-    usage: await stream.usage,
-    totalUsage: await stream.totalUsage,
-    warnings: await stream.warnings,
-    steps: await stream.steps,
-    request: await stream.request,
-    response: await stream.response,
-    providerMetadata: await stream.providerMetadata,
-    experimental_output: structuredOutput as never,
-  } as unknown as GenerateTextResult<Tools, unknown>;
 }

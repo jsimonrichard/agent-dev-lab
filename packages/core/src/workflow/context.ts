@@ -1,7 +1,6 @@
 import { createId } from "../internal/ids";
-import { EventLog } from "../runtime/event-log";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { enterWorkflowContext, exitWorkflowContext } from "./run-stack";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { CustomWorkflowEvent, StepOptions, WorkflowContext } from "./types";
 
@@ -16,6 +15,8 @@ export type WorkflowContextOptions = {
 
 /** Stateful workflow execution host (implements {@link WorkflowContext}). */
 export class WorkflowContextImpl implements WorkflowContext {
+  private static readonly activeStack: WorkflowContextImpl[] = [];
+
   readonly workflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
@@ -23,8 +24,20 @@ export class WorkflowContextImpl implements WorkflowContext {
 
   private readonly services: RuntimeServices;
   private readonly registry: StepRegistry;
-  private readonly eventLog: EventLog;
+  private readonly runRecorder: RunRecorder;
   private readonly registryParentKey: string;
+
+  static pushActive(ctx: WorkflowContextImpl): void {
+    WorkflowContextImpl.activeStack.push(ctx);
+  }
+
+  static popActive(): void {
+    WorkflowContextImpl.activeStack.pop();
+  }
+
+  static peekActive(): WorkflowContextImpl | undefined {
+    return WorkflowContextImpl.activeStack.at(-1);
+  }
 
   constructor(options: WorkflowContextOptions) {
     this.workflowRunId = options.workflowRunId;
@@ -34,13 +47,13 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.stepPath = [...options.stepPath];
     this.registryParentKey = options.registryParentKey;
     this.registry = new StepRegistry(this.registryParentKey);
-    this.eventLog = new EventLog(this.services, { workflowRunId: this.workflowRunId });
+    this.runRecorder = new RunRecorder(this.services);
   }
 
   memoryScope = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
 
   emit = (event: CustomWorkflowEvent): void => {
-    void this.eventLog.emit({
+    void this.runRecorder.emit({
       type: "custom",
       workflowRunId: this.workflowRunId,
       stepId: this.stepId,
@@ -69,7 +82,7 @@ export class WorkflowContextImpl implements WorkflowContext {
       });
       if (cached !== null) {
         const skippedStepId = createId();
-        await this.eventLog.emit({
+        await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
           stepId: skippedStepId,
@@ -88,7 +101,7 @@ export class WorkflowContextImpl implements WorkflowContext {
     const path = [...this.stepPath, pathSegment];
     const startedAt = Date.now();
 
-    await this.eventLog.emit({
+    await this.runRecorder.emit({
       type: "step_started",
       workflowRunId: this.workflowRunId,
       stepId,
@@ -109,11 +122,19 @@ export class WorkflowContextImpl implements WorkflowContext {
       registryParentKey: `${this.workflowRunId}|${stepId}`,
     });
 
-    enterWorkflowContext(childCtx);
+    WorkflowContextImpl.pushActive(childCtx);
     try {
-      const output = await fn({ ctx: childCtx });
+      const output = await withActiveSpan(
+        "workflow.step",
+        {
+          "adl.workflow_run_id": this.workflowRunId,
+          "adl.step_id": stepId,
+          "adl.step.name": name,
+        },
+        async () => fn({ ctx: childCtx }),
+      );
       const durationMs = Date.now() - startedAt;
-      await this.eventLog.emit({
+      await this.runRecorder.emit({
         type: "step_finished",
         workflowRunId: this.workflowRunId,
         stepId,
@@ -125,7 +146,7 @@ export class WorkflowContextImpl implements WorkflowContext {
       });
       return output;
     } catch (error) {
-      await this.eventLog.emit({
+      await this.runRecorder.emit({
         type: "step_failed",
         workflowRunId: this.workflowRunId,
         stepId,
@@ -135,7 +156,7 @@ export class WorkflowContextImpl implements WorkflowContext {
       });
       throw error;
     } finally {
-      exitWorkflowContext();
+      WorkflowContextImpl.popActive();
     }
   };
 }
