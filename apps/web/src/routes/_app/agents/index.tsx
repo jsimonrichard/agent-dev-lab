@@ -23,13 +23,20 @@ function AgentsPage() {
               <CardTitle className="font-mono text-base">{a.id}</CardTitle>
               <CardDescription>{a.description}</CardDescription>
             </CardHeader>
-            <div className="px-6 pb-6">
+            <div className="flex flex-col gap-2 px-6 pb-6">
+              <Link
+                to="/agents/$agentId"
+                params={{ agentId: a.id }}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Open agent run →
+              </Link>
               <Link
                 to="/runs/$runId"
                 params={{ runId: "run_01H9ZL" }}
-                className="text-sm font-medium text-primary hover:underline"
+                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
               >
-                Open run with agent activity →
+                View in workflow run
               </Link>
             </div>
           </Card>

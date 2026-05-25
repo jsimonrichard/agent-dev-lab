@@ -1,4 +1,5 @@
 import type {
+  EpisodeArtifacts,
   MockAgentSummary,
   MockConversation,
   MockProject,
@@ -352,4 +353,65 @@ export function getMockAgent(id: string): MockAgentSummary | undefined {
 
 export function getMockRun(runId: string): MockRunSummary | undefined {
   return mockRuns.find((r) => r.runId === runId);
+}
+
+/** Mock tool + structured output per agent episode. */
+export const mockEpisodeArtifacts: Record<string, EpisodeArtifacts> = {
+  ep_1: {
+    episodeId: "ep_1",
+    toolCalls: [
+      {
+        id: "tc_1",
+        name: "search_pubmed",
+        args: { query: "CRISPR lipid nanoparticle delivery", maxResults: 12 },
+      },
+      {
+        id: "tc_2",
+        name: "fetch_abstracts",
+        args: { pmids: ["12345678", "23456789"] },
+      },
+    ],
+    toolResults: [
+      {
+        toolCallId: "tc_1",
+        result: {
+          papers: [
+            { pmid: "12345678", title: "LNP-mediated CRISPR delivery to liver" },
+            { pmid: "23456789", title: "Extrahepatic LNP formulations" },
+          ],
+        },
+      },
+      {
+        toolCallId: "tc_2",
+        result: { abstractsLoaded: 2 },
+      },
+    ],
+    structuredOutput: {
+      schemaName: "PaperSearchResult",
+      value: {
+        papers: ["pmid:12345678", "pmid:23456789"],
+        themes: ["liver targeting", "formulation stability"],
+      },
+    },
+  },
+  ep_z1: {
+    episodeId: "ep_z1",
+    toolCalls: [
+      {
+        id: "tc_z1",
+        name: "search_pubmed",
+        args: { query: "base editor off-target", maxResults: 8 },
+      },
+    ],
+    toolResults: [
+      {
+        toolCallId: "tc_z1",
+        result: { papers: [{ pmid: "99887766", title: "Off-target rates in BE3" }] },
+      },
+    ],
+  },
+};
+
+export function getEpisodeArtifacts(episodeId: string): EpisodeArtifacts | undefined {
+  return mockEpisodeArtifacts[episodeId];
 }

@@ -133,6 +133,31 @@ export interface StepNode {
   agentEpisodes: AgentEpisode[];
 }
 
+export interface MockToolCall {
+  id: string;
+  name: string;
+  args: unknown;
+}
+
+export interface MockToolResult {
+  toolCallId: string;
+  result: unknown;
+  isError?: boolean;
+}
+
+export interface MockStructuredOutput {
+  schemaName: string;
+  value: unknown;
+}
+
+/** Per-episode artifacts for tools / structured output UI (mock). */
+export interface EpisodeArtifacts {
+  episodeId: string;
+  toolCalls: MockToolCall[];
+  toolResults: MockToolResult[];
+  structuredOutput?: MockStructuredOutput;
+}
+
 export interface AgentEpisode {
   episodeId: string;
   agentId: string;
@@ -140,6 +165,17 @@ export interface AgentEpisode {
   status: "running" | "completed";
   durationMs?: number;
   streamingText: string;
+}
+
+export interface ForkedAgentSession {
+  forkId: string;
+  agentId: string;
+  sourceRunId: string;
+  sourceStepId: string;
+  sourceEpisodeId: string;
+  sourceMemoryScope: string;
+  createdAt: string;
+  messages: MockMessage[];
 }
 
 export interface RunViewState {
