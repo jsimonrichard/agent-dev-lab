@@ -29,6 +29,8 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
+  WorkflowRunStartOptions,
+  WorkflowStreamHandle,
 } from "./workflow";
 
 export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
@@ -51,10 +53,12 @@ export type {
 } from "./template";
 
 export { inMemoryMessageStore } from "./memory";
+export { inMemoryWorkflowStore } from "./observability";
 export type { MessageStore } from "./memory";
 
 export type {
   AgentEventBase,
+  AgentFailedEvent,
   AgentObserver,
   AgentObserverEvent,
   AgentObservers,
@@ -76,8 +80,6 @@ export type {
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
 export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
-
-export { AdlNotImplementedError } from "./internal/not-implemented";
 
 export { loadPromptFile, resolvePromptPath } from "./prompt/load";
 export { renderPromptTemplate } from "./prompt/render";
@@ -108,7 +110,8 @@ export function createCoreShell() {
       "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
       "createTemplate (path or inline source)",
-      "agent/workflow execution (planned)",
+      "agent.run / agent.stream",
+      "workflow.run / workflow.stream with WorkflowStore + observers",
     ],
   };
 }

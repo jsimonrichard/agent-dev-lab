@@ -9,4 +9,6 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
+  WorkflowRunStartOptions,
+  WorkflowStreamHandle,
 } from "./types";

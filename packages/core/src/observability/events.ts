@@ -98,6 +98,12 @@ export type AgentFinishedEvent = AgentEventBase & {
   agentId: string;
 };
 
+export type AgentFailedEvent = AgentEventBase & {
+  type: "agent_failed";
+  agentId: string;
+  error: unknown;
+};
+
 export type AgentToolCallEvent = AgentEventBase & {
   type: "agent_tool_call";
   agentId: string;
@@ -136,6 +142,7 @@ export type RunEvent =
   | WorkflowCustomEvent
   | AgentStartedEvent
   | AgentFinishedEvent
+  | AgentFailedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
@@ -144,6 +151,11 @@ export type RunEvent =
 export type RunEventType = RunEvent["type"];
 
 export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
+
+/** Event payload before {@link RunRecorder} assigns `seq` / `at` for store persistence. */
+export type RunEventEmit = {
+  [T in RunEvent as T["type"]]: Omit<T, "seq" | "at">;
+}[RunEventType];
 
 /** Workflow + step + in-workflow custom events. */
 export type WorkflowObserverEvent =
@@ -161,6 +173,7 @@ export type WorkflowObserverEvent =
 export type AgentObserverEvent =
   | AgentStartedEvent
   | AgentFinishedEvent
+  | AgentFailedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent

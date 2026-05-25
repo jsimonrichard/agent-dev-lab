@@ -1,6 +1,26 @@
+import type { AgentMemoryConfig } from "../agent/types";
 import { inMemoryMessageStore } from "../memory/in-memory";
+import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import type { AdlRuntime } from "./types";
 import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+
+/** Applies definition-level store overrides once at bind time (agent/workflow factories). */
+export function resolveDefinitionServices(
+  definition: { memory?: AgentMemoryConfig },
+  services: RuntimeServices,
+): RuntimeServices {
+  const messageStore = definition.memory?.store;
+  if (!messageStore) {
+    return services;
+  }
+  return {
+    ...services,
+    stores: {
+      ...services.stores,
+      message: messageStore,
+    },
+  };
+}
 
 /** Splits factory params into definition fields, runtime, and optional overrides. */
 export function splitFactoryParams<T extends AdlRuntimeOverrides & { runtime: AdlRuntime }>(
@@ -29,7 +49,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
   return {
     stores: {
       message: config.stores?.message ?? inMemoryMessageStore(),
-      workflow: config.stores?.workflow,
+      workflow: config.stores?.workflow ?? inMemoryWorkflowStore(),
     },
     observers: {
       workflows: config.observers?.workflows ?? [],

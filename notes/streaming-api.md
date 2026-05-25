@@ -46,14 +46,14 @@ flowchart LR
 
 Union of versioned events, all include `runId` and monotonic `seq` (or timestamp + tie-break):
 
-| `type`                                           | Purpose                                                                      |
-| ------------------------------------------------ | ---------------------------------------------------------------------------- |
-| `run_started`                                    | Workflow id, input snapshot (redacted), root `runId`                         |
-| `step_started` / `step_finished` / `step_failed` | See [`workflow-api.md`](./workflow-api.md)                                   |
-| `agent_started` / `agent_finished`               | `stepId`, `memoryScope`, agent `id`                                          |
-| `text_delta`                                     | `stepId`, `agentCallId?`, `delta: string` — only when streaming model output |
-| `messages_committed`                             | `stepId`, `memoryScope`, count / refs — after persistence                    |
-| `run_finished` / `run_failed`                    | Workflow output or error                                                     |
+| `type`                                              | Purpose                                                                      |
+| --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `run_started`                                       | Workflow id, input snapshot (redacted), root `runId`                         |
+| `step_started` / `step_finished` / `step_failed`    | See [`workflow-api.md`](./workflow-api.md)                                   |
+| `agent_started` / `agent_finished` / `agent_failed` | `stepId`, `memoryScope`, agent `id`; `agent_failed` includes `error`         |
+| `text_delta`                                        | `stepId`, `agentCallId?`, `delta: string` — only when streaming model output |
+| `messages_committed`                                | `stepId`, `memoryScope`, count / refs — after persistence                    |
+| `run_finished` / `run_failed`                       | Workflow output or error                                                     |
 
 Events are **JSON-serializable** for SQLite + SSE.
 
@@ -166,7 +166,7 @@ Be **intentional** about built-in [`RunEvent`](./streaming-api.md) types—only 
 
 - Run: `run_started`, `run_finished`, `run_failed`, `run_cancelled`
 - Step: `step_started`, `step_finished`, `step_failed`
-- Agent: `agent_started`, `agent_finished`, `text_delta`, `tool_call`, `tool_result`, `messages_committed`
+- Agent: `agent_started`, `agent_finished`, `agent_failed`, `text_delta`, `tool_call`, `tool_result`, `messages_committed`
 
 Do not overload this union with ad-hoc domain events.
 

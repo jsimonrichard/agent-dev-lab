@@ -1,3 +1,5 @@
+import type { RunEvent } from "../observability/events";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { z } from "zod";
 
 export type CustomWorkflowEvent = {
@@ -21,8 +23,8 @@ export type StepIdentity = {
 };
 
 /**
- * Workflow execution scope. Implemented as a context host: `step` and `emit` are methods
- * that close over parent services and identity — **do not destructure** (`const { step } = ctx`).
+ * Workflow execution scope. Implemented by {@link WorkflowContextImpl} (class); prefer
+ * `ctx.step(...)` on the instance — do not destructure methods off a plain object host.
  *
  * Passed to the workflow author's `run` function only — not via the public `Workflow.run` API.
  *
@@ -37,7 +39,7 @@ export interface WorkflowContext {
 
   /**
    * Run a named, cacheable unit of work. Child contexts are built from the parent host
-   * (`this`) — no ambient AsyncLocalStorage.
+   * (`this`). Agent/tool bridge uses scoped ALS only inside step bodies and the workflow body.
    */
   step: StepFn;
 
@@ -56,14 +58,6 @@ export type StepFn = <T>(
   options?: StepOptions,
 ) => Promise<T>;
 
-/**
- * @internal Nested workflow invocation inside a parent step (subworkflow / tool).
- * Not part of the public API.
- */
-export type NestedWorkflowRunOptions = {
-  parentCtx: WorkflowContext;
-};
-
 export type WorkflowDefinition<TInput, TOutput> = {
   id: string;
   input?: z.ZodType<TInput>;
@@ -79,11 +73,37 @@ export type WorkflowRunHandle<TOutput> = {
   cancel: () => void;
 };
 
+/** Same execution as {@link Workflow.run} plus a live in-process tail of {@link RunEvent}s. */
+export type WorkflowStreamHandle<TOutput> = WorkflowRunHandle<TOutput> & {
+  events: AsyncIterable<RunEvent>;
+};
+
+/**
+ * Optional start parameters for {@link Workflow.run}.
+ * Hosts (e.g. inspection UI) may attach per-run observers for in-process event tails;
+ * persisted history still goes through {@link WorkflowStore} on the runtime.
+ */
+export type WorkflowRunStartOptions = {
+  /** Pre-allocate a run id so subscribers can connect before execution finishes. */
+  workflowRunId?: string;
+  /** Merged with runtime observers for this invocation only. */
+  extraObservers?: {
+    workflows?: WorkflowObservers;
+    agents?: AgentObservers;
+  };
+};
+
 export interface Workflow<TInput, TOutput> {
   readonly id: string;
   /**
    * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    */
-  run(input: TInput): WorkflowRunHandle<TOutput>;
+  run(input: TInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
+  /**
+   * Start a run and expose live run events (steps, agents, lifecycle) for in-process consumers.
+   * Persisted history still goes through {@link WorkflowStore}; production UI may use
+   * `run` + SSE instead.
+   */
+  stream(input: TInput): WorkflowStreamHandle<TOutput>;
 }
