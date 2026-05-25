@@ -1,9 +1,9 @@
 import { createId } from "../internal/ids";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { CustomWorkflowEvent, StepOptions, WorkflowContext } from "./types";
-import type { WorkflowRunStack } from "./workflow-run-stack";
 
 export type WorkflowContextOptions = {
   workflowRunId: string;
@@ -12,8 +12,6 @@ export type WorkflowContextOptions = {
   parentStepId: string | null;
   stepPath: string[];
   registryParentKey: string;
-  /** Per-run context stack; shared by root and nested step contexts for this workflow run. */
-  runStack: WorkflowRunStack;
 };
 
 /** Stateful workflow execution host (implements {@link WorkflowContext}). */
@@ -22,9 +20,8 @@ export class WorkflowContextImpl implements WorkflowContext {
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
-  readonly runStack: WorkflowRunStack;
 
-  private readonly services: RuntimeServices;
+  readonly services: RuntimeServices;
   private readonly registry: StepRegistry;
   private readonly runRecorder: RunRecorder;
   private readonly registryParentKey: string;
@@ -36,7 +33,6 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.parentStepId = options.parentStepId;
     this.stepPath = [...options.stepPath];
     this.registryParentKey = options.registryParentKey;
-    this.runStack = options.runStack;
     this.registry = new StepRegistry(this.registryParentKey);
     this.runRecorder = new RunRecorder(this.services);
   }
@@ -104,17 +100,12 @@ export class WorkflowContextImpl implements WorkflowContext {
       at: "",
     });
 
-    const childCtx = new WorkflowContextImpl({
-      workflowRunId: this.workflowRunId,
-      services: this.services,
+    const childCtx = createChildWorkflowContext(this, {
       stepId,
       parentStepId: parentId,
       stepPath: path,
-      registryParentKey: `${this.workflowRunId}|${stepId}`,
-      runStack: this.runStack,
     });
 
-    this.runStack.push(childCtx);
     try {
       const output = await withActiveSpan(
         "workflow.step",
@@ -123,7 +114,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           "adl.step_id": stepId,
           "adl.step.name": name,
         },
-        async () => fn({ ctx: childCtx }),
+        () => runWithActiveWorkflowContext(childCtx, () => fn({ ctx: childCtx })),
       );
       const durationMs = Date.now() - startedAt;
       await this.runRecorder.emit({
@@ -147,10 +138,27 @@ export class WorkflowContextImpl implements WorkflowContext {
         at: "",
       });
       throw error;
-    } finally {
-      this.runStack.pop();
     }
   };
+}
+
+/** Builds a step context from its parent (functional; no shared stack). */
+export function createChildWorkflowContext(
+  parent: WorkflowContextImpl,
+  step: {
+    stepId: string;
+    parentStepId: string | null;
+    stepPath: string[];
+  },
+): WorkflowContextImpl {
+  return new WorkflowContextImpl({
+    workflowRunId: parent.workflowRunId,
+    services: parent.services,
+    stepId: step.stepId,
+    parentStepId: step.parentStepId,
+    stepPath: step.stepPath,
+    registryParentKey: `${parent.workflowRunId}|${step.stepId}`,
+  });
 }
 
 export function asWorkflowContextImpl(ctx: WorkflowContext): WorkflowContextImpl {
@@ -169,7 +177,6 @@ export function refreshWorkflowContext(
     parentStepId: impl.parentStepId,
     stepPath: impl.stepPath,
     registryParentKey: impl.stepId ?? impl.workflowRunId,
-    runStack: impl.runStack,
   });
 }
 

@@ -1,1 +1,1 @@
-export { peekWorkflowContext, runWithWorkflowRunStack, WorkflowRunStack } from "./workflow-run-stack";
+export { peekWorkflowContext, runWithActiveWorkflowContext } from "./active-workflow-context";

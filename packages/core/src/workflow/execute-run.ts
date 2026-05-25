@@ -1,14 +1,10 @@
 import { createId } from "../internal/ids";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import {
-  asWorkflowContextImpl,
-  createWorkflowContext,
-  refreshWorkflowContext,
-} from "./context";
+import { runWithActiveWorkflowContext } from "./active-workflow-context";
+import { createWorkflowContext, refreshWorkflowContext } from "./context";
 import type { NestedWorkflowRunOptions } from "./types";
 import type { WorkflowContext, WorkflowDefinition } from "./types";
-import { runWithWorkflowRunStack, WorkflowRunStack } from "./workflow-run-stack";
 
 export type ExecuteWorkflowRunOptions = {
   /** Reuse an existing root or nested context (same `workflowRunId` for step cache). */
@@ -29,8 +25,6 @@ export async function executeWorkflowRun<TInput, TOutput>(
   const controller = abortController ?? new AbortController();
 
   const runRecorder = new RunRecorder(services);
-  const inheritedRunStack = parentCtx ? asWorkflowContextImpl(parentCtx).runStack : undefined;
-  const runStack = inheritedRunStack ?? new WorkflowRunStack();
 
   const rootCtx = parentCtx
     ? refreshWorkflowContext(parentCtx, services)
@@ -41,78 +35,70 @@ export async function executeWorkflowRun<TInput, TOutput>(
         parentStepId: null,
         stepPath: [],
         registryParentKey: workflowRunId,
-        runStack,
       });
 
-  const runBody = async (): Promise<TOutput> =>
-    withActiveSpan(
-      "workflow.run",
-      {
-        "adl.workflow_run_id": workflowRunId,
-        "adl.workflow_id": definition.id,
-      },
-      async () => {
+  return withActiveSpan(
+    "workflow.run",
+    {
+      "adl.workflow_run_id": workflowRunId,
+      "adl.workflow_id": definition.id,
+    },
+    async () => {
+      await runRecorder.emit({
+        type: "workflow_started",
+        workflowRunId,
+        workflowId: definition.id,
+        input: parsedInput,
+        seq: 0,
+        at: "",
+      });
+
+      try {
+        const output = await runWithActiveWorkflowContext(rootCtx, () =>
+          definition.run(parsedInput, rootCtx),
+        );
+        const parsedOutput = definition.output ? definition.output.parse(output) : output;
+
+        if (controller.signal.aborted) {
+          await runRecorder.emit({
+            type: "workflow_cancelled",
+            workflowRunId,
+            seq: 0,
+            at: "",
+          });
+          throw controller.signal.reason ?? new Error("Workflow run cancelled");
+        }
+
         await runRecorder.emit({
-          type: "workflow_started",
+          type: "workflow_finished",
           workflowRunId,
-          workflowId: definition.id,
-          input: parsedInput,
+          output: parsedOutput,
           seq: 0,
           at: "",
         });
 
-        runStack.push(rootCtx);
-        try {
-          const output = await definition.run(parsedInput, rootCtx);
-          const parsedOutput = definition.output ? definition.output.parse(output) : output;
-
-          if (controller.signal.aborted) {
-            await runRecorder.emit({
-              type: "workflow_cancelled",
-              workflowRunId,
-              seq: 0,
-              at: "",
-            });
-            throw controller.signal.reason ?? new Error("Workflow run cancelled");
-          }
-
+        return parsedOutput;
+      } catch (error) {
+        if (controller.signal.aborted) {
           await runRecorder.emit({
-            type: "workflow_finished",
+            type: "workflow_cancelled",
             workflowRunId,
-            output: parsedOutput,
             seq: 0,
             at: "",
           });
-
-          return parsedOutput;
-        } catch (error) {
-          if (controller.signal.aborted) {
-            await runRecorder.emit({
-              type: "workflow_cancelled",
-              workflowRunId,
-              seq: 0,
-              at: "",
-            });
-          } else {
-            await runRecorder.emit({
-              type: "workflow_failed",
-              workflowRunId,
-              error: serializeError(error),
-              seq: 0,
-              at: "",
-            });
-          }
-          throw error;
-        } finally {
-          runStack.pop();
+        } else {
+          await runRecorder.emit({
+            type: "workflow_failed",
+            workflowRunId,
+            error: serializeError(error),
+            seq: 0,
+            at: "",
+          });
         }
-      },
-    );
-
-  if (inheritedRunStack) {
-    return runBody();
-  }
-  return runWithWorkflowRunStack(runStack, runBody);
+        throw error;
+      }
+    },
+  );
 }
 
 export function executeWorkflowRunWithCancel<TInput, TOutput>(
@@ -123,9 +109,6 @@ export function executeWorkflowRunWithCancel<TInput, TOutput>(
 ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
   const workflowRunId = options?.parentCtx?.workflowRunId ?? createId();
   const abortController = new AbortController();
-  const runStack = options?.parentCtx
-    ? asWorkflowContextImpl(options.parentCtx).runStack
-    : new WorkflowRunStack();
   const runOptions: ExecuteWorkflowRunOptions = {
     ...options,
     parentCtx:
@@ -137,17 +120,11 @@ export function executeWorkflowRunWithCancel<TInput, TOutput>(
         parentStepId: null,
         stepPath: [],
         registryParentKey: workflowRunId,
-        runStack,
       }),
   };
-  const runPromise = options?.parentCtx
-    ? executeWorkflowRun(definition, input, services, runOptions, abortController)
-    : runWithWorkflowRunStack(runStack, () =>
-        executeWorkflowRun(definition, input, services, runOptions, abortController),
-      );
   return {
     workflowRunId,
-    result: runPromise,
+    result: executeWorkflowRun(definition, input, services, runOptions, abortController),
     cancel: () => abortController.abort(),
   };
 }
