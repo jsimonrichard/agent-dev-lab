@@ -14,7 +14,7 @@ import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -57,7 +57,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
-        <SidebarTrigger className="-ml-1" />
+        <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

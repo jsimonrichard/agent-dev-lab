@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
+import { useCallback } from "react";
+import { usePanelRef } from "react-resizable-panels";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AppSidebar } from "@/components/app/app-sidebar";
+import { InspectorShellProvider } from "@/components/app/inspector-shell-context";
 import { MasterSidebar } from "@/components/app/master-sidebar";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -24,38 +28,60 @@ export function ResizableAppShell({ children }: ResizableAppShellProps) {
     );
   }
 
+  return <DesktopAppShell>{children}</DesktopAppShell>;
+}
+
+function DesktopAppShell({ children }: { children: ReactNode }) {
+  const contextPanelRef = usePanelRef();
+
+  const toggleContextSidebar = useCallback(() => {
+    const panel = contextPanelRef.current;
+    if (!panel) {
+      return;
+    }
+    if (panel.isCollapsed()) {
+      panel.expand();
+    } else {
+      panel.collapse();
+    }
+  }, [contextPanelRef]);
+
   return (
     <div className="flex h-svh w-full overflow-hidden">
       <MasterSidebar />
-      <SidebarProvider
-        defaultOpen
-        className="flex min-h-0 min-w-0 flex-1 flex-row"
-        style={
-          {
-            "--sidebar-width": "100%",
-          } as React.CSSProperties
-        }
-      >
-        <ResizablePanelGroup
-          orientation="horizontal"
-          id="inspector-context-sidebar"
-          className="min-h-0 min-w-0 flex-1"
+      <InspectorShellProvider toggleContextSidebar={toggleContextSidebar}>
+        <SidebarProvider
+          defaultOpen
+          className="flex min-h-0 min-w-0 flex-1 flex-row"
+          style={
+            {
+              "--sidebar-width": "100%",
+            } as React.CSSProperties
+          }
         >
-          <ResizablePanel
-            id="context-sidebar"
-            defaultSize="20%"
-            minSize="14%"
-            maxSize="40%"
-            className="min-w-0"
+          <ResizablePanelGroup
+            orientation="horizontal"
+            id="inspector-context-sidebar"
+            className="min-h-0 min-w-0 flex-1"
           >
-            <AppSidebar />
-          </ResizablePanel>
-          <ResizableHandle withHandle className="z-20 bg-border/50" />
-          <ResizablePanel id="main-content" minSize="50%" defaultSize="80%" className="min-w-0">
-            <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </SidebarProvider>
+            <ResizablePanel
+              id="context-sidebar"
+              panelRef={contextPanelRef}
+              collapsible
+              defaultSize="20%"
+              minSize="14%"
+              maxSize="40%"
+              className="min-w-0"
+            >
+              <AppSidebar />
+            </ResizablePanel>
+            <ResizableHandle withHandle className="z-20 bg-border/50" />
+            <ResizablePanel id="main-content" minSize="50%" defaultSize="80%" className="min-w-0">
+              <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </SidebarProvider>
+      </InspectorShellProvider>
     </div>
   );
 }

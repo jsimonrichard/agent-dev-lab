@@ -3,7 +3,7 @@ import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
 
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export function InspectorDashboard() {
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-auto">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 px-4">
-        <SidebarTrigger className="-ml-1" />
+        <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <h1 className="text-sm font-semibold">{project.name}</h1>
