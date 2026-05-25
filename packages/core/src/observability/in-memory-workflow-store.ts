@@ -15,150 +15,155 @@ function stepSlotKey(slot: StepSlot): StepKey {
   return `${slot.parentStepId ?? "root"}:${slot.name}:${keyPart}`;
 }
 
-export function inMemoryWorkflowStore(): WorkflowStore {
-  const eventsByWorkflowRun = new Map<string, RunEvent[]>();
-  const eventsByAgentCall = new Map<string, RunEvent[]>();
-  const runs = new Map<string, WorkflowRunSummary>();
-  const runInputs = new Map<string, unknown>();
-  const runOutputs = new Map<string, unknown>();
-  const stepOutputs = new Map<string, Map<StepKey, unknown>>();
-  const stepRecords = new Map<string, Map<string, StepRecord>>();
+export class InMemoryWorkflowStore implements WorkflowStore {
+  private readonly eventsByWorkflowRun = new Map<string, RunEvent[]>();
+  private readonly eventsByAgentCall = new Map<string, RunEvent[]>();
+  private readonly runs = new Map<string, WorkflowRunSummary>();
+  private readonly runInputs = new Map<string, unknown>();
+  private readonly runOutputs = new Map<string, unknown>();
+  private readonly stepOutputs = new Map<string, Map<StepKey, unknown>>();
+  private readonly stepRecords = new Map<string, Map<string, StepRecord>>();
 
-  return {
-    async recordEvent(event: RunEvent) {
-      if ("workflowRunId" in event && event.workflowRunId) {
-        const wfId = event.workflowRunId;
-        const list = eventsByWorkflowRun.get(wfId) ?? [];
-        list.push(event);
-        eventsByWorkflowRun.set(wfId, list);
+  async recordEvent(event: RunEvent): Promise<void> {
+    if ("workflowRunId" in event && event.workflowRunId) {
+      const wfId = event.workflowRunId;
+      const list = this.eventsByWorkflowRun.get(wfId) ?? [];
+      list.push(event);
+      this.eventsByWorkflowRun.set(wfId, list);
 
-        if (event.type === "workflow_started") {
-          runs.set(wfId, {
-            workflowRunId: wfId,
-            workflowId: event.workflowId,
-            status: "running",
-            startedAt: event.at,
+      if (event.type === "workflow_started") {
+        this.runs.set(wfId, {
+          workflowRunId: wfId,
+          workflowId: event.workflowId,
+          status: "running",
+          startedAt: event.at,
+        });
+        this.runInputs.set(wfId, event.input);
+      }
+      if (event.type === "workflow_finished") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, { ...run, status: "ok", finishedAt: event.at });
+        }
+        this.runOutputs.set(wfId, event.output);
+      }
+      if (event.type === "workflow_failed") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, { ...run, status: "error", finishedAt: event.at });
+        }
+      }
+      if (event.type === "workflow_cancelled") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, { ...run, status: "cancelled", finishedAt: event.at });
+        }
+      }
+      if (event.type === "step_finished") {
+        const started = findStepStarted(list, event.stepId);
+        if (started) {
+          const slot: StepSlot = {
+            parentStepId: started.parentStepId,
+            name: started.name,
+            key: started.key,
+          };
+          const map = this.stepOutputs.get(wfId) ?? new Map();
+          map.set(stepSlotKey(slot), event.output);
+          this.stepOutputs.set(wfId, map);
+
+          const records = this.stepRecords.get(wfId) ?? new Map();
+          records.set(event.stepId, {
+            stepId: event.stepId,
+            name: started.name,
+            key: started.key,
+            path: started.path,
+            parentStepId: started.parentStepId,
+            output: event.output,
+            status: "ok",
           });
-          runInputs.set(wfId, event.input);
-        }
-        if (event.type === "workflow_finished") {
-          const run = runs.get(wfId);
-          if (run) {
-            runs.set(wfId, { ...run, status: "ok", finishedAt: event.at });
-          }
-          runOutputs.set(wfId, event.output);
-        }
-        if (event.type === "workflow_failed") {
-          const run = runs.get(wfId);
-          if (run) {
-            runs.set(wfId, { ...run, status: "error", finishedAt: event.at });
-          }
-        }
-        if (event.type === "workflow_cancelled") {
-          const run = runs.get(wfId);
-          if (run) {
-            runs.set(wfId, { ...run, status: "cancelled", finishedAt: event.at });
-          }
-        }
-        if (event.type === "step_finished") {
-          const started = findStepStarted(list, event.stepId);
-          if (started) {
-            const slot: StepSlot = {
-              parentStepId: started.parentStepId,
-              name: started.name,
-              key: started.key,
-            };
-            const map = stepOutputs.get(wfId) ?? new Map();
-            map.set(stepSlotKey(slot), event.output);
-            stepOutputs.set(wfId, map);
-
-            const records = stepRecords.get(wfId) ?? new Map();
-            records.set(event.stepId, {
-              stepId: event.stepId,
-              name: started.name,
-              key: started.key,
-              path: started.path,
-              parentStepId: started.parentStepId,
-              output: event.output,
-              status: "ok",
-            });
-            stepRecords.set(wfId, records);
-          }
-        }
-        if (event.type === "step_failed") {
-          const started = findStepStarted(list, event.stepId);
-          if (started) {
-            const records = stepRecords.get(wfId) ?? new Map();
-            records.set(event.stepId, {
-              stepId: event.stepId,
-              name: started.name,
-              key: started.key,
-              path: started.path,
-              parentStepId: started.parentStepId,
-              status: "error",
-            });
-            stepRecords.set(wfId, records);
-          }
+          this.stepRecords.set(wfId, records);
         }
       }
-
-      if ("agentCallId" in event) {
-        const list = eventsByAgentCall.get(event.agentCallId) ?? [];
-        list.push(event);
-        eventsByAgentCall.set(event.agentCallId, list);
+      if (event.type === "step_failed") {
+        const started = findStepStarted(list, event.stepId);
+        if (started) {
+          const records = this.stepRecords.get(wfId) ?? new Map();
+          records.set(event.stepId, {
+            stepId: event.stepId,
+            name: started.name,
+            key: started.key,
+            path: started.path,
+            parentStepId: started.parentStepId,
+            status: "error",
+          });
+          this.stepRecords.set(wfId, records);
+        }
       }
-    },
+    }
 
-    async listEvents(scope: ListEventsScope, filter?: ListEventsFilter) {
-      const list =
-        "workflowRunId" in scope
-          ? [...(eventsByWorkflowRun.get(scope.workflowRunId) ?? [])]
-          : [...(eventsByAgentCall.get(scope.agentCallId) ?? [])];
-      return applyEventFilter(list, filter);
-    },
+    if ("agentCallId" in event) {
+      const list = this.eventsByAgentCall.get(event.agentCallId) ?? [];
+      list.push(event);
+      this.eventsByAgentCall.set(event.agentCallId, list);
+    }
+  }
 
-    async getLatestEvent<T extends RunEventType>(scope: ListEventsScope, type: T) {
-      const list = await this.listEvents(scope, { type });
-      const last = list.at(-1);
-      return (last as RunEventOfType<T> | undefined) ?? null;
-    },
+  async listEvents(scope: ListEventsScope, filter?: ListEventsFilter): Promise<RunEvent[]> {
+    const list =
+      "workflowRunId" in scope
+        ? [...(this.eventsByWorkflowRun.get(scope.workflowRunId) ?? [])]
+        : [...(this.eventsByAgentCall.get(scope.agentCallId) ?? [])];
+    return applyEventFilter(list, filter);
+  }
 
-    async getRun(workflowRunId) {
-      return runs.get(workflowRunId) ?? null;
-    },
+  async getLatestEvent<T extends RunEventType>(
+    scope: ListEventsScope,
+    type: T,
+  ): Promise<RunEventOfType<T> | null> {
+    const list = await this.listEvents(scope, { type });
+    const last = list.at(-1);
+    return (last as RunEventOfType<T> | undefined) ?? null;
+  }
 
-    async listRuns(filter) {
-      let list = [...runs.values()];
-      if (filter?.workflowId) {
-        list = list.filter((r) => r.workflowId === filter.workflowId);
-      }
-      if (filter?.limit) {
-        list = list.slice(-filter.limit);
-      }
-      return list;
-    },
+  async getRun(workflowRunId: string): Promise<WorkflowRunSummary | null> {
+    return this.runs.get(workflowRunId) ?? null;
+  }
 
-    async getRunInput(workflowRunId) {
-      return runInputs.get(workflowRunId) ?? null;
-    },
+  async listRuns(filter?: { workflowId?: string; limit?: number }): Promise<WorkflowRunSummary[]> {
+    let list = [...this.runs.values()];
+    if (filter?.workflowId) {
+      list = list.filter((r) => r.workflowId === filter.workflowId);
+    }
+    if (filter?.limit) {
+      list = list.slice(-filter.limit);
+    }
+    return list;
+  }
 
-    async getRunOutput(workflowRunId) {
-      return runOutputs.get(workflowRunId) ?? null;
-    },
+  async getRunInput(workflowRunId: string): Promise<unknown | null> {
+    return this.runInputs.get(workflowRunId) ?? null;
+  }
 
-    async getStepOutput(workflowRunId, slot) {
-      const map = stepOutputs.get(workflowRunId);
-      if (!map) {
-        return null;
-      }
-      const value = map.get(stepSlotKey(slot));
-      return value === undefined ? null : value;
-    },
+  async getRunOutput(workflowRunId: string): Promise<unknown | null> {
+    return this.runOutputs.get(workflowRunId) ?? null;
+  }
 
-    async getStepById(workflowRunId, stepId) {
-      return stepRecords.get(workflowRunId)?.get(stepId) ?? null;
-    },
-  };
+  async getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null> {
+    const map = this.stepOutputs.get(workflowRunId);
+    if (!map) {
+      return null;
+    }
+    const value = map.get(stepSlotKey(slot));
+    return value === undefined ? null : value;
+  }
+
+  async getStepById(workflowRunId: string, stepId: string): Promise<StepRecord | null> {
+    return this.stepRecords.get(workflowRunId)?.get(stepId) ?? null;
+  }
+}
+
+export function inMemoryWorkflowStore(): WorkflowStore {
+  return new InMemoryWorkflowStore();
 }
 
 function findStepStarted(

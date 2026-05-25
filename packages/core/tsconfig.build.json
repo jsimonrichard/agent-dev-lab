@@ -1,6 +1,7 @@
 {
   "extends": "@agent-dev-lab/common/tsconfig/node.json",
   "compilerOptions": {
+    "lib": ["ES2022", "ES2024.Promise"],
     "declaration": true,
     "declarationMap": true,
     "outDir": "dist",

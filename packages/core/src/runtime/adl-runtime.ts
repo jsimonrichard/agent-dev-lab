@@ -1,9 +1,9 @@
 import type { ToolSet } from "ai";
 
-import { BoundAgent } from "../agent/bound-agent";
+import { AgentImpl } from "../agent/agent-impl";
 import type { Agent, AgentDefinition } from "../agent/types";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
-import { BoundWorkflow } from "../workflow/bound-workflow";
+import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
@@ -22,20 +22,20 @@ export class AdlRuntimeImpl implements AdlRuntime {
     definition: AgentDefinition<Tools, TOutput>,
     overrides?: AdlRuntimeOverrides,
   ): Agent<Context, Tools> {
-    return new BoundAgent<Context, Tools, TOutput>({
+    return new AgentImpl<Context, Tools, TOutput>(
       definition,
-      services: resolveRuntimeOverrides(this.services, overrides),
-    });
+      resolveRuntimeOverrides(this.services, overrides),
+    );
   }
 
   createWorkflow<TInput, TOutput>(
     definition: WorkflowDefinition<TInput, TOutput>,
     overrides?: AdlRuntimeOverrides,
   ): Workflow<TInput, TOutput> {
-    return new BoundWorkflow<TInput, TOutput>({
+    return new WorkflowImpl<TInput, TOutput>(
       definition,
-      services: resolveRuntimeOverrides(this.services, overrides),
-    });
+      resolveRuntimeOverrides(this.services, overrides),
+    );
   }
 
   createToolFromAgent<Context>(
