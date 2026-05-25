@@ -1,4 +1,5 @@
 import { createId } from "../../internal/ids";
+import { RunRecorder } from "../../runtime/run-recorder";
 import type { AdlRuntime } from "../../runtime/types";
 import type { RuntimeServices } from "../../runtime/types";
 import { createWorkflowContext } from "../context";
@@ -21,5 +22,6 @@ export function createWorkflowRunContext(
     parentStepId: null,
     stepPath: [],
     registryParentKey: workflowRunId,
+    runRecorder: new RunRecorder(services),
   });
 }

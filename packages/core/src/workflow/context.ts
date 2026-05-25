@@ -12,6 +12,7 @@ export type WorkflowContextOptions = {
   parentStepId: string | null;
   stepPath: string[];
   registryParentKey: string;
+  runRecorder: RunRecorder;
 };
 
 /** Stateful workflow execution host (implements {@link WorkflowContext}). */
@@ -20,10 +21,11 @@ export class WorkflowContextImpl implements WorkflowContext {
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
+  readonly runRecorder: RunRecorder;
 
   readonly services: RuntimeServices;
+
   private readonly registry: StepRegistry;
-  private readonly runRecorder: RunRecorder;
   private readonly registryParentKey: string;
 
   constructor(options: WorkflowContextOptions) {
@@ -33,8 +35,8 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.parentStepId = options.parentStepId;
     this.stepPath = [...options.stepPath];
     this.registryParentKey = options.registryParentKey;
+    this.runRecorder = options.runRecorder;
     this.registry = new StepRegistry(this.registryParentKey);
-    this.runRecorder = new RunRecorder(this.services);
   }
 
   memoryScope = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
@@ -46,8 +48,6 @@ export class WorkflowContextImpl implements WorkflowContext {
       stepId: this.stepId,
       name: event.name,
       payload: event.payload,
-      seq: 0,
-      at: "",
     });
   };
 
@@ -76,8 +76,6 @@ export class WorkflowContextImpl implements WorkflowContext {
           name,
           key,
           output: cached,
-          seq: 0,
-          at: "",
         });
         return cached as T;
       }
@@ -96,8 +94,6 @@ export class WorkflowContextImpl implements WorkflowContext {
       name,
       key,
       path,
-      seq: 0,
-      at: "",
     });
 
     const childCtx = createChildWorkflowContext(this, {
@@ -124,8 +120,6 @@ export class WorkflowContextImpl implements WorkflowContext {
         status: "ok",
         durationMs,
         output,
-        seq: 0,
-        at: "",
       });
       return output;
     } catch (error) {
@@ -134,8 +128,6 @@ export class WorkflowContextImpl implements WorkflowContext {
         workflowRunId: this.workflowRunId,
         stepId,
         error: serializeError(error),
-        seq: 0,
-        at: "",
       });
       throw error;
     }
@@ -158,6 +150,7 @@ export function createChildWorkflowContext(
     parentStepId: step.parentStepId,
     stepPath: step.stepPath,
     registryParentKey: `${parent.workflowRunId}|${step.stepId}`,
+    runRecorder: parent.runRecorder,
   });
 }
 
@@ -168,6 +161,7 @@ export function asWorkflowContextImpl(ctx: WorkflowContext): WorkflowContextImpl
 export function refreshWorkflowContext(
   ctx: WorkflowContext,
   services: RuntimeServices,
+  runRecorder: RunRecorder,
 ): WorkflowContextImpl {
   const impl = asWorkflowContextImpl(ctx);
   return new WorkflowContextImpl({
@@ -177,6 +171,7 @@ export function refreshWorkflowContext(
     parentStepId: impl.parentStepId,
     stepPath: impl.stepPath,
     registryParentKey: impl.stepId ?? impl.workflowRunId,
+    runRecorder,
   });
 }
 

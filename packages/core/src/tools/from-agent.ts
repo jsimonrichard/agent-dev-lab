@@ -2,7 +2,7 @@ import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
 import type { Agent, AgentRunInput } from "../agent/types";
-import { peekWorkflowContext } from "../workflow/run-stack";
+import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import type { WorkflowContext } from "../workflow/types";
 
 export type CreateToolFromAgentOptions<Context> = {

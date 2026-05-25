@@ -1,6 +1,7 @@
 import { createId } from "../internal/ids";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { createWorkflowContext, refreshWorkflowContext } from "./context";
 import type { NestedWorkflowRunOptions } from "./types";
@@ -9,7 +10,30 @@ import type { WorkflowContext, WorkflowDefinition } from "./types";
 export type ExecuteWorkflowRunOptions = {
   /** Reuse an existing root or nested context (same `workflowRunId` for step cache). */
   parentCtx?: WorkflowContext;
+  /** Pre-allocated run id (e.g. for workflow.stream subscription before execution). */
+  workflowRunId?: string;
+  /** Observers merged for this run only (e.g. in-process event stream). */
+  extraObservers?: {
+    workflows?: WorkflowObservers;
+    agents?: AgentObservers;
+  };
 };
+
+function mergeServicesForRun(
+  services: RuntimeServices,
+  extra?: ExecuteWorkflowRunOptions["extraObservers"],
+): RuntimeServices {
+  if (!extra) {
+    return services;
+  }
+  return {
+    ...services,
+    observers: {
+      workflows: [...services.observers.workflows, ...(extra.workflows ?? [])],
+      agents: [...services.observers.agents, ...(extra.agents ?? [])],
+    },
+  };
+}
 
 export async function executeWorkflowRun<TInput, TOutput>(
   definition: WorkflowDefinition<TInput, TOutput>,
@@ -19,22 +43,24 @@ export async function executeWorkflowRun<TInput, TOutput>(
   abortController?: AbortController,
 ): Promise<TOutput> {
   const parentCtx = options?.parentCtx;
-  const workflowRunId = parentCtx?.workflowRunId ?? createId();
+  const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
 
   const parsedInput = definition.input ? definition.input.parse(input) : input;
   const controller = abortController ?? new AbortController();
 
-  const runRecorder = new RunRecorder(services);
+  const effectiveServices = mergeServicesForRun(services, options?.extraObservers);
+  const runRecorder = new RunRecorder(effectiveServices);
 
   const rootCtx = parentCtx
-    ? refreshWorkflowContext(parentCtx, services)
+    ? refreshWorkflowContext(parentCtx, effectiveServices, runRecorder)
     : createWorkflowContext({
         workflowRunId,
-        services,
+        services: effectiveServices,
         stepId: null,
         parentStepId: null,
         stepPath: [],
         registryParentKey: workflowRunId,
+        runRecorder,
       });
 
   return withActiveSpan(
@@ -49,8 +75,6 @@ export async function executeWorkflowRun<TInput, TOutput>(
         workflowRunId,
         workflowId: definition.id,
         input: parsedInput,
-        seq: 0,
-        at: "",
       });
 
       try {
@@ -63,8 +87,6 @@ export async function executeWorkflowRun<TInput, TOutput>(
           await runRecorder.emit({
             type: "workflow_cancelled",
             workflowRunId,
-            seq: 0,
-            at: "",
           });
           throw controller.signal.reason ?? new Error("Workflow run cancelled");
         }
@@ -73,8 +95,6 @@ export async function executeWorkflowRun<TInput, TOutput>(
           type: "workflow_finished",
           workflowRunId,
           output: parsedOutput,
-          seq: 0,
-          at: "",
         });
 
         return parsedOutput;
@@ -83,16 +103,12 @@ export async function executeWorkflowRun<TInput, TOutput>(
           await runRecorder.emit({
             type: "workflow_cancelled",
             workflowRunId,
-            seq: 0,
-            at: "",
           });
         } else {
           await runRecorder.emit({
             type: "workflow_failed",
             workflowRunId,
             error: serializeError(error),
-            seq: 0,
-            at: "",
           });
         }
         throw error;
@@ -107,24 +123,17 @@ export function executeWorkflowRunWithCancel<TInput, TOutput>(
   services: RuntimeServices,
   options?: ExecuteWorkflowRunOptions,
 ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
-  const workflowRunId = options?.parentCtx?.workflowRunId ?? createId();
+  const workflowRunId = options?.workflowRunId ?? options?.parentCtx?.workflowRunId ?? createId();
   const abortController = new AbortController();
-  const runOptions: ExecuteWorkflowRunOptions = {
-    ...options,
-    parentCtx:
-      options?.parentCtx ??
-      createWorkflowContext({
-        workflowRunId,
-        services,
-        stepId: null,
-        parentStepId: null,
-        stepPath: [],
-        registryParentKey: workflowRunId,
-      }),
-  };
   return {
     workflowRunId,
-    result: executeWorkflowRun(definition, input, services, runOptions, abortController),
+    result: executeWorkflowRun(
+      definition,
+      input,
+      services,
+      { ...options, workflowRunId },
+      abortController,
+    ),
     cancel: () => abortController.abort(),
   };
 }

@@ -1,3 +1,4 @@
+import type { RunEvent } from "../observability/events";
 import type { z } from "zod";
 
 export type CustomWorkflowEvent = {
@@ -79,6 +80,11 @@ export type WorkflowRunHandle<TOutput> = {
   cancel: () => void;
 };
 
+/** Same execution as {@link Workflow.run} plus a live tail of {@link RunEvent}s for this run. */
+export type WorkflowStreamHandle<TOutput> = WorkflowRunHandle<TOutput> & {
+  events: AsyncIterable<RunEvent>;
+};
+
 export interface Workflow<TInput, TOutput> {
   readonly id: string;
   /**
@@ -86,4 +92,6 @@ export interface Workflow<TInput, TOutput> {
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    */
   run(input: TInput): WorkflowRunHandle<TOutput>;
+  /** Start a run and stream persisted run events (steps, agents, workflow lifecycle) for the UI. */
+  stream(input: TInput): WorkflowStreamHandle<TOutput>;
 }

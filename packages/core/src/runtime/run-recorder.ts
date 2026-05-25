@@ -1,6 +1,11 @@
 import { SpanStatusCode, trace, type Attributes } from "@opentelemetry/api";
 
-import type { AgentObserverEvent, RunEvent, WorkflowObserverEvent } from "../observability/events";
+import type {
+  AgentObserverEvent,
+  RunEvent,
+  RunEventEmit,
+  WorkflowObserverEvent,
+} from "../observability/events";
 import type { RuntimeServices } from "./types";
 
 const TRACER_NAME = "agent-dev-lab";
@@ -14,6 +19,9 @@ const TRACER_NAME = "agent-dev-lab";
  * - **Standalone agent conversations** — boundary tracing uses {@link withActiveSpan}; application
  *   code can use `@opentelemetry/api` directly. `RunRecorder` still persists agent episodes when a
  *   workflow store is present (optional history); it does not replace custom OTel instrumentation.
+ *
+ * `seq` is assigned only for store/SSE tailing (append order per recorder). OTel span events use
+ * `at` and attributes only — span event order is already chronological per span.
  */
 export class RunRecorder {
   private workflowSeq = 0;
@@ -25,29 +33,29 @@ export class RunRecorder {
     return new Date().toISOString();
   }
 
-  async emit(event: RunEvent): Promise<void> {
+  async emit(event: RunEventEmit): Promise<void> {
     const withMeta = this.attachMeta(event);
     this.recordOnActiveSpan(withMeta);
     await this.persist(withMeta);
     await this.notifyObservers(withMeta);
   }
 
-  private attachMeta(event: RunEvent): RunEvent {
+  private attachMeta(event: RunEventEmit): RunEvent {
     if ("workflowRunId" in event && event.workflowRunId) {
       return {
         ...event,
         seq: ++this.workflowSeq,
         at: this.now(),
-      };
+      } as RunEvent;
     }
     if ("agentCallId" in event) {
       return {
         ...event,
         seq: ++this.agentSeq,
         at: this.now(),
-      };
+      } as RunEvent;
     }
-    return event;
+    return event as RunEvent;
   }
 
   private recordOnActiveSpan(event: RunEvent): void {
@@ -155,7 +163,6 @@ export function recordSpanError(error: unknown): void {
 function runEventAttributes(event: RunEvent): Attributes {
   const attrs: Attributes = {
     "adl.event.type": event.type,
-    "adl.event.seq": event.seq,
     "adl.event.at": event.at,
   };
   if ("workflowRunId" in event && event.workflowRunId) {

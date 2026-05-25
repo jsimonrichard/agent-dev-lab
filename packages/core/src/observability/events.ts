@@ -145,6 +145,11 @@ export type RunEventType = RunEvent["type"];
 
 export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
 
+/** Event payload before {@link RunRecorder} assigns `seq` / `at` for store persistence. */
+export type RunEventEmit = {
+  [T in RunEvent as T["type"]]: Omit<T, "seq" | "at">;
+}[RunEventType];
+
 /** Workflow + step + in-workflow custom events. */
 export type WorkflowObserverEvent =
   | WorkflowStartedEvent

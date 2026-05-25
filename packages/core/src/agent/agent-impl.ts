@@ -12,7 +12,7 @@ import type { z } from "zod";
 import { createId } from "../internal/ids";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { peekWorkflowContext } from "../workflow/run-stack";
+import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import { bootstrapSystemMessage } from "./resolve-instructions";
 import type {
   Agent,
@@ -117,8 +117,6 @@ export class AgentImpl<
           stepId,
           agentId: this.definition.id,
           memoryScope: input.memoryScope,
-          seq: 0,
-          at: "",
         });
 
         try {
@@ -159,8 +157,6 @@ export class AgentImpl<
                   workflowRunId,
                   stepId,
                   delta: chunk.text,
-                  seq: 0,
-                  at: "",
                 });
               }
             },
@@ -193,8 +189,6 @@ export class AgentImpl<
             stepId,
             memoryScope: input.memoryScope,
             count: newMessages.length,
-            seq: 0,
-            at: "",
           });
 
           const text = await streamResult.text;
@@ -207,8 +201,6 @@ export class AgentImpl<
             workflowRunId,
             stepId,
             agentId: this.definition.id,
-            seq: 0,
-            at: "",
           });
 
           return {
@@ -225,8 +217,6 @@ export class AgentImpl<
             workflowRunId,
             stepId,
             agentId: this.definition.id,
-            seq: 0,
-            at: "",
           });
           throw error;
         }

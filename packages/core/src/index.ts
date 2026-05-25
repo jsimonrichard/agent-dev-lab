@@ -29,6 +29,7 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
+  WorkflowStreamHandle,
 } from "./workflow";
 
 export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";

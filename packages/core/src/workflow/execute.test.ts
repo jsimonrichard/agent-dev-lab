@@ -76,4 +76,29 @@ describe("workflow.run", () => {
 
     await expect(workflow.run(null).result).rejects.toThrow(/key is required/);
   });
+
+  it("stream yields run events for the workflow run", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const workflow = createWorkflow({
+      id: "stream-demo",
+      runtime,
+      run: async (_input, ctx) => {
+        await ctx.step("only", async () => "ok");
+        return { done: true };
+      },
+    });
+
+    const handle = workflow.stream({});
+    const collected: string[] = [];
+    for await (const event of handle.events) {
+      collected.push(event.type);
+    }
+    const output = await handle.result;
+
+    expect(output).toEqual({ done: true });
+    expect(collected).toContain("workflow_started");
+    expect(collected).toContain("step_started");
+    expect(collected).toContain("workflow_finished");
+  });
 });

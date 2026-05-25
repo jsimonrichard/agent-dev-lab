@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { WorkflowImpl } from "../workflow/workflow-impl";
 import { executeNestedWorkflowRun } from "../workflow/execute-run";
-import { peekWorkflowContext } from "../workflow/run-stack";
+import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import type { Workflow } from "../workflow/types";
 
 export type CreateToolFromWorkflowOptions<TInput> = {
