@@ -6,10 +6,10 @@ How ADL persists **conversation history** (`CoreMessage` / `ModelMessage` lists)
 
 | Item                                              | Status                                                                                 |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `MessageStore` interface in `@agent-dev-lab/core` | **Not implemented**                                                                    |
-| `inMemoryMessageStore()`                          | **Not implemented**                                                                    |
+| `MessageStore` interface in `@agent-dev-lab/core` | ✅ Implemented                                                                         |
+| `inMemoryMessageStore()`                          | ✅ Implemented                                                                         |
 | SQLite / Drizzle-backed store                     | **Not implemented** (placeholder `runs` table in `@agent-dev-lab/common` is unrelated) |
-| Agent runner `load` / `save`                      | **Not implemented**                                                                    |
+| Agent runner `load` / `save`                      | ✅ Implemented                                                                         |
 
 **What exists today in the runtime package:**
 

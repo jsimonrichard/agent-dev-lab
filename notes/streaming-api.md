@@ -2,7 +2,7 @@
 
 How ADL exposes **streaming** to callers and how the **inspection UI** (`apps/web`) receives live updates—whether or not the app uses `agent.stream` / `workflow.stream`.
 
-**Status:** Design only. Not implemented.
+**Status:** Core run events and `RunRecorder` implemented. SSE routes not yet built.
 
 Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md), [`project-api.md`](./project-api.md), [`inspection-ui.md`](./inspection-ui.md) (web wrappers, SSE wire format, t3code / TanStack AI takeaways).
 
@@ -46,14 +46,14 @@ flowchart LR
 
 Union of versioned events, all include `runId` and monotonic `seq` (or timestamp + tie-break):
 
-| `type`                                              | Purpose                                                                      |
-| --------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `run_started`                                       | Workflow id, input snapshot (redacted), root `runId`                         |
-| `step_started` / `step_finished` / `step_failed`    | See [`workflow-api.md`](./workflow-api.md)                                   |
-| `agent_started` / `agent_finished` / `agent_failed` | `stepId`, `memoryScope`, agent `id`; `agent_failed` includes `error`         |
-| `text_delta`                                        | `stepId`, `agentCallId?`, `delta: string` — only when streaming model output |
-| `messages_committed`                                | `stepId`, `memoryScope`, count / refs — after persistence                    |
-| `run_finished` / `run_failed`                       | Workflow output or error                                                     |
+| `type`                                                         | Purpose                                                                 |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `workflow_started`                                             | Workflow id, input snapshot, root `workflowRunId`                       |
+| `step_started` / `step_finished` / `step_failed`               | See [`workflow-api.md`](./workflow-api.md); all carry full slot context |
+| `agent_started` / `agent_finished` / `agent_failed`            | `stepId`, `memoryScope`, agent `id`; `agent_failed` includes `error`    |
+| `agent_text_delta`                                             | `agentCallId`, `delta: string` — only when streaming model output       |
+| `agent_messages_committed`                                     | `agentCallId`, `memoryScope`, count — after persistence                 |
+| `workflow_finished` / `workflow_failed` / `workflow_cancelled` | Workflow output or error                                                |
 
 Events are **JSON-serializable** for SQLite + SSE.
 
@@ -79,7 +79,7 @@ function createRunContext(project: LoadedAdlProject): WorkflowContext {
 
 | Public API         | Caller sees                                            | Runner behavior                                                              |
 | ------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| **`agent.run`**    | `Promise<AgentRunResult>` only                         | `streamText` + **drain** stream internally; resolve when generation finishes |
+| **`agent.run`**    | `AgentRunHandle` (`result` + `cancel`)                 | `streamText` + **drain** stream internally; resolve when generation finishes |
 | **`agent.stream`** | `AgentStreamResult` (SDK streams + `finished` promise) | Same `streamText` call; **expose** `textStream` / `fullStream` to caller     |
 
 Reasons:
@@ -164,9 +164,9 @@ No duplicate persistence logic; no missing tool/stream events compared to `agent
 
 Be **intentional** about built-in [`RunEvent`](./streaming-api.md) types—only what the UI and `RunReader` rely on:
 
-- Run: `run_started`, `run_finished`, `run_failed`, `run_cancelled`
-- Step: `step_started`, `step_finished`, `step_failed`
-- Agent: `agent_started`, `agent_finished`, `agent_failed`, `text_delta`, `tool_call`, `tool_result`, `messages_committed`
+- Workflow: `workflow_started`, `workflow_finished`, `workflow_failed`, `workflow_cancelled`
+- Step: `step_started`, `step_finished`, `step_skipped`, `step_failed`
+- Agent: `agent_started`, `agent_finished`, `agent_failed`, `agent_text_delta`, `agent_tool_call`, `agent_tool_result`, `agent_messages_committed`
 
 Do not overload this union with ad-hoc domain events.
 

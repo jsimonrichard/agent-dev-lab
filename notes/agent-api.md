@@ -2,7 +2,7 @@
 
 Design notes for the first ADL **agent** surface in `@agent-dev-lab/core`. Workflows, project registry, and the memory pipeline are separate; this doc focuses on agents, templates, and message persistence.
 
-**Status:** Agreed direction for v1 implementation planning. Not yet implemented in code.
+**Status:** Agreed direction for v1. Core implementation in `@agent-dev-lab/core` (`agent-impl.ts`, `resolve-instructions.ts`).
 
 ## Goals
 
@@ -48,9 +48,9 @@ export const researcher = createAgent({
    * Optional structured output schema (Zod / AI SDK `Output` helper).
    * When set, the runner uses AI SDK structured output for this agent
    * (generateObject or streamText + `output` — same internal path as `run`).
-   * Override per call via `agent.run({ output })`.
+   * Override per call via `agent.run({ outputSchema })`.
    */
-  output?: z.ZodType<SomeStructuredType>,
+  outputSchema?: z.ZodType<SomeStructuredType>,
 
   /**
    * Optional per-agent override. When omitted, uses `adl.config` `stores.memory`.
@@ -81,10 +81,10 @@ Volatile context for a turn belongs in a **user** message (workflow template or 
 
 Agents support **typed model output** in addition to free-form text:
 
-| Level             | Field                             | Behavior                                                        |
-| ----------------- | --------------------------------- | --------------------------------------------------------------- |
-| **Agent default** | `createAgent({ output: schema })` | Every `run` / `stream` uses structured output unless overridden |
-| **Per call**      | `agent.run({ output: schema })`   | Overrides agent default for one episode                         |
+| Level             | Field                                   | Behavior                                                        |
+| ----------------- | --------------------------------------- | --------------------------------------------------------------- |
+| **Agent default** | `createAgent({ outputSchema: schema })` | Every `run` / `stream` uses structured output unless overridden |
+| **Per call**      | `agent.run({ outputSchema: schema })`   | Overrides agent default for one episode                         |
 
 Implementation (AI SDK v5):
 
@@ -205,10 +205,15 @@ export interface AgentRunInput<Context> {
 }
 
 export interface Agent<Context, Tools extends ToolSet> {
-  run(
-    input: AgentRunInput<Context>,
-  ): Promise<AgentRunResult<Tools>>;
+  run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
+  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
 }
+
+/** Handle returned from agent.run — await `result` or call `cancel()`. */
+export type AgentRunHandle<Tools> = {
+  result: Promise<AgentRunResult<Tools>>;
+  cancel: () => void;
+};
 ```
 
 **`Context`**: when `undefined` or omitted, `context` on `run()` is optional. When set, `run({ context: ... })` must satisfy `Context`.
@@ -276,10 +281,10 @@ type AgentRunInput<Context = unknown> = {
   messages?: CoreMessage[];
 
   /**
-   * Override agent-level structured output schema for this episode.
-   * Omit to use `createAgent({ output })` default; omit both for plain text.
+   * Override agent-level outputSchema for this episode.
+   * Omit to use `createAgent({ outputSchema })` default; omit both for plain text.
    */
-  output?: z.ZodType<unknown>;
+  outputSchema?: z.ZodType<unknown>;
 
   /**
    * Future (not v1): allow episode cache lookup when message fingerprint matches.
@@ -305,8 +310,8 @@ type AgentRunResult<TOutput = unknown> = {
    */
   newMessages: CoreMessage[];
 
-  /** Raw AI SDK result for advanced callers / events. */
-  sdk: GenerateTextResult<...>;
+  /** Raw AI SDK stream result (agent runner uses streamText internally for both run and stream). */
+  sdk: StreamTextResult<...>;
 };
 ```
 
@@ -318,7 +323,7 @@ Parameter name is **`memoryScope`**, not `memory`, to avoid confusion with a fut
 2. If empty → render `instructions` → append and persist **system** message
 3. If `user` → append **user** message (persist with commit or as part of final save)
 4. _(Future)_ memory pipeline shapes the list — deferred
-5. **`streamText`** internally (even for `agent.run`) — with `output` when schema set; drain stream, forward **text/reasoning** chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
+5. **`streamText`** internally (even for `agent.run`) — with `outputSchema` when schema set; drain stream, forward **text/reasoning** chunks to observers; resolve when complete — see [`streaming-api.md`](./streaming-api.md)
 6. Append `newMessages` from SDK response to store
 7. Return `AgentRunResult` (`text`, optional `output`, `newMessages`, `sdk`)
 
@@ -389,8 +394,8 @@ Template metadata (`template.name`, `inputData` snapshot) can attach to events f
 
 - [ ] `createAgent` + agent registry metadata (`id`)
 - [ ] `MessageStore` interface + `inMemory` (+ optional SQLite later)
-- [ ] `agent.run({ memoryScope, user?, messages?, output? })` with system bootstrap + persist
-- [ ] Structured `output` on agent + per-run override (`streamText` + `output`)
+- [x] `agent.run({ memoryScope, user?, messages?, outputSchema? })` with system bootstrap + persist
+- [x] Structured `outputSchema` on agent + per-run override (`streamText` + `output`)
 - [ ] Commit `result.response.messages` to store
 - [ ] `createToolFromAgent` — [`workflow-api.md`](./workflow-api.md)
 - [ ] Template ref + `renderPromptTemplate` integration in runner

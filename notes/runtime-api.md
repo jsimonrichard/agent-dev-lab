@@ -125,9 +125,13 @@ Overrides (including extra observers) work the same on `createAgent({ …, runti
 
 ---
 
-## No AsyncLocalStorage
+## AsyncLocalStorage: scoped context only
 
-Previous sketch used ALS for `RuntimeServices` and `WorkflowContext`. **v1 design removes ALS.**
+ALS is **not** used for runtime services wiring (stores, observers) — those are passed explicitly via `createAdlRuntime` and factory params.
+
+ALS **is** used narrowly for **workflow context propagation**: when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available via ALS so agents and tools can automatically attach to the correct `workflowRunId` / `stepId`. This avoids requiring every `agent.run` call to manually pass `workflow: { workflowRunId, stepId }`.
+
+Callers can still pass `workflow: { workflowRunId, stepId }` explicitly on `agent.run` — the explicit value takes priority over ALS.
 
 ### Workflow context host
 
@@ -138,22 +142,32 @@ Previous sketch used ALS for `RuntimeServices` and `WorkflowContext`. **v1 desig
 
 ### Agent ↔ workflow linkage
 
-Pass scope explicitly on `agent.run`:
+Inside a workflow step, agents automatically inherit workflow context via ALS:
 
 ```ts
 await ctx.step("research", async ({ ctx: child }) => {
+  // workflowRunId and stepId are picked up automatically from ALS
   await researcher.run({
     memoryScope: child.memoryScope("notes"),
     user: query,
-    workflow: {
-      workflowRunId: child.workflowRunId,
-      stepId: child.stepId,
-    },
   });
 });
 ```
 
-Tools: `createToolFromAgent(…, { mapRun: (args, { ctx }) => ({ …, workflow: { … } }) })`.
+For explicit control (or outside workflows), pass `workflow` manually:
+
+```ts
+await researcher.run({
+  memoryScope: "standalone",
+  user: query,
+  workflow: {
+    workflowRunId: child.workflowRunId,
+    stepId: child.stepId,
+  },
+});
+```
+
+Tools created via `createToolFromAgent` / `createToolFromWorkflow` **require** ALS — they must be called from within a workflow run.
 
 ---
 
@@ -178,15 +192,15 @@ Subworkflows and `createToolFromWorkflow` call **`WorkflowImpl.runNested`** with
 
 ## Implementation status
 
-| Piece                                   | Status                             |
-| --------------------------------------- | ---------------------------------- |
-| `createAdlRuntime` / `AdlRuntime` types | ✅ API draft                       |
-| `createAgent({ …, runtime })`           | ✅ signature; run/stream stub      |
-| `createWorkflow({ …, runtime })`        | ✅ signature; run stub             |
-| `adl` on `AdlProjectConfig`             | ✅ type                            |
-| `src/adl.ts` convention                 | ✅ documented + playground example |
-| Context host (`step` without ALS)       | 🔲 implementation (follow-up PR)   |
-| Remove ALS from implementation PR #9    | 🔲 rebase after merge              |
+| Piece                                   | Status                                        |
+| --------------------------------------- | --------------------------------------------- |
+| `createAdlRuntime` / `AdlRuntime` types | ✅ Implemented (`adl-runtime.ts`)             |
+| `createAgent({ …, runtime })`           | ✅ Implemented (`agent-impl.ts`)              |
+| `createWorkflow({ …, runtime })`        | ✅ Implemented (`workflow-impl.ts`)           |
+| `adl` on `AdlProjectConfig`             | ✅ Implemented                                |
+| `src/adl.ts` convention                 | ✅ Documented + playground example            |
+| Context host (scoped ALS)               | ✅ Implemented (`active-workflow-context.ts`) |
+| Runtime services wiring (no ALS)        | ✅ Explicit via factory params                |
 
 ---
 

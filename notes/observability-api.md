@@ -6,7 +6,7 @@
 
 **Message store** = model conversation state ([`message-store.md`](./message-store.md)) — third interface.
 
-**Status:** Design only.
+**Status:** Core implementation in `@agent-dev-lab/core` (observers, in-memory store, `RunRecorder`).
 
 Related: [`streaming-api.md`](./streaming-api.md), [`workflow-api.md`](./workflow-api.md), [`resumability.md`](./resumability.md), [`project-api.md`](./project-api.md), [`tracing.md`](./tracing.md).
 
@@ -59,18 +59,11 @@ All methods optional. **No getters.**
 
 ```ts
 interface WorkflowObserver {
-  onRunStart?(e: RunStartPayload): void | Promise<void>;
-  onRunComplete?(e: RunCompletePayload): void | Promise<void>;
-  onRunCancel?(e: RunCancelPayload): void | Promise<void>;
-  onRunError?(e: RunErrorPayload): void | Promise<void>;
-
-  onStepStart?(e: StepStartPayload): void | Promise<void>;
-  onStepComplete?(e: StepCompletePayload): void | Promise<void>;
-  onStepError?(e: StepErrorPayload): void | Promise<void>;
-
-  onCustomEvent?(e: CustomEventPayload): void | Promise<void>;
+  onEvent?(event: WorkflowObserverEvent): void | Promise<void>;
 }
 ```
+
+Single `onEvent` method with a discriminated union. Adding new event types does not require interface changes — consumers `switch (event.type)`. Optional helper `createWorkflowObserver({ onStepStart, ... })` can provide per-event-type ergonomics on top.
 
 Payload shapes match [`streaming-api.md`](./streaming-api.md) / [`workflow-api.md`](./workflow-api.md) (`runId`, `stepId`, `name`, `key`, `path`, …).
 
@@ -84,16 +77,11 @@ Same rule: callbacks only, no reads.
 
 ```ts
 interface AgentObserver {
-  onAgentStart?(e: AgentStartPayload): void | Promise<void>;
-  onMessages?(e: AgentMessagesPayload): void | Promise<void>;
-  onStream?(e: AgentStreamPayload): void | Promise<void>;
-  onToolCall?(e: ToolCallPayload): void | Promise<void>;
-  onToolResult?(e: ToolResultPayload): void | Promise<void>;
-  onMessagesCommitted?(e: MessagesCommittedPayload): void | Promise<void>;
-  onAgentComplete?(e: AgentCompletePayload): void | Promise<void>;
-  onAgentError?(e: AgentErrorPayload): void | Promise<void>;
+  onEvent?(event: AgentObserverEvent): void | Promise<void>;
 }
 ```
+
+Same single-method pattern as `WorkflowObserver`.
 
 `onMessagesCommitted` notifies telemetry that memory was updated; it does **not** replace [`MessageStore`](./message-store.md).
 
@@ -117,25 +105,15 @@ Step **inputs** are optional metadata (e.g. logged by nested `workflow.run` with
 
 ### Write side (runtime calls)
 
-Use **`record*`** names to distinguish from `on*` and from `ctx.step`. Run/step I/O writes happen **together with** (or immediately before) the matching observer callbacks.
+Single `recordEvent(event)` method — consistent with the observer `onEvent` pattern. The `RunRecorder` calls this alongside observer fan-out.
 
 ```ts
 interface WorkflowStore {
-  recordRunStart(e: RunStartPayload & { input: unknown }): Promise<void>;
-  recordRunComplete(e: RunCompletePayload & { output: unknown }): Promise<void>;
-  recordRunCancel(e: RunCancelPayload): Promise<void>;
-  recordRunError(e: RunErrorPayload): Promise<void>;
-
-  recordStepStart(e: StepStartPayload): Promise<void>;
-  recordStepComplete(e: StepCompletePayload & { output: unknown; input?: unknown }): Promise<void>;
-  recordStepError(e: StepErrorPayload): Promise<void>;
-
-  recordCustomEvent(e: CustomEventPayload): Promise<void>;
-
-  /** Optional: agent episodes under a step (if not only in MessageStore) */
-  recordAgentEvent?(e: AgentRunEventPayload): Promise<void>;
+  recordEvent(event: RunEvent): Promise<void>;
 }
 ```
+
+Single `recordEvent` method — consistent with the observer `onEvent` pattern. The store internally dispatches by event type to update run/step tables and the append-only event log.
 
 Default SQLite impl in `@agent-dev-lab/common`: normalized **`runs`** + **`steps`** tables (I/O columns) **and** optional **`run_events`** append log. Same public interface either way.
 
@@ -162,7 +140,7 @@ interface WorkflowStore {
   /** By unique invocation id */
   getStepById(runId: string, stepId: string): Promise<StepRecord | null>;
 
-  getRunEvents(runId: string, afterSeq?: number): Promise<RunEvent[]>;
+  listEvents(scope: ListEventsScope, filter?: ListEventsFilter): Promise<RunEvent[]>;
 }
 
 type StepRecord = {
@@ -221,47 +199,44 @@ Do **not** extend `WorkflowObserver` with getters—keeps OTEL adapters honest.
 
 ## Project wiring
 
-```ts
-// adl.config.ts
-export default {
-  name: "my-research",
-
-  workflows: {
-    literatureReview,
-  },
-
-  observers: {
-    workflows: [new OtelWorkflowObserver()],
-    agents: [new OtelAgentObserver()],
-  },
-
-  stores: {
-    workflows: createSqliteWorkflowStore({ db }),
-    memory: createSqliteMessageStore({ db }),
-  },
-} satisfies AdlProjectConfig;
-```
-
-Per-run override:
+Stores and observers are configured in **`src/adl.ts`** via `createAdlRuntime`, not in `adl.config.ts` (avoids import cycles with registry modules). The config keeps an `adl` reference for CLI execution:
 
 ```ts
-createRunContext(project, {
-  workflowObservers: [stdoutWorkflowObserver],
-  workflowStore: project.config.stores?.workflows,
-  messageStore: project.config.stores?.memory,
+// src/adl.ts
+import { createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
+
+export const adl = createAdlRuntime({
+  stores: { message: inMemoryMessageStore() },
+  observers: { workflows: [consoleObserver], agents: [] },
 });
 ```
 
-**Observers-only project:** omit `stores` (or omit individual keys) — execution works; no built-in run history without `stores.workflows`.
+```ts
+// adl.config.ts
+import { adl } from "./src/adl";
+
+export default {
+  name: "my-research",
+  adl,
+  agents: [...],
+  workflows: [...],
+} satisfies AdlProjectConfig;
+```
+
+See [`runtime-api.md`](./runtime-api.md) for details on the runtime/config split.
 
 ---
 
 ## Runtime fan-out
 
-1. **`ctx.step`:** `onStepStart` → all workflow observers; `recordStepStart` → store if present. Same for complete/error.
-2. **`ctx.emit`:** `onCustomEvent` + `recordCustomEvent`.
-3. **`agent.run`:** agent observers + `MessageStore` commit; optionally `workflowStore.recordAgentEvent` for UI (deltas, tool calls).
-4. Errors in observers: log and continue (configurable); errors in store: likely throw or retry (data integrity).
+The `RunRecorder` is the central event sink. For each event it:
+
+1. Assigns `seq` + `at` metadata
+2. Records on the active OTel span (if any)
+3. Persists via `WorkflowStore.recordEvent` (if configured)
+4. Notifies observers via `onEvent` (workflow observers for workflow/step/custom events; agent observers for agent events)
+
+Errors in observers: log and continue. Errors in store: log on span, do not throw (event emission is best-effort).
 
 ---
 

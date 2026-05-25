@@ -80,7 +80,7 @@ See [`inspection-ui.md`](./inspection-ui.md) for architecture, SSE format, and e
 | **Templates registry**              | ✅         | array; `name` = filename basename                                                                 |
 | **Error types**                     | 🔲         | `AdlError`, step failure propagation, user-facing CLI messages                                    |
 | **Testing helpers**                 | 🔲         | `createTestRunContext`, in-memory store/observers bundle                                          |
-| **Structured output**               | ✅         | `output` on `createAgent` + `run`; `streamText` + reasoning deltas                                |
+| **Structured output**               | ✅         | `outputSchema` on `createAgent` + `run`; `streamText` + reasoning deltas                          |
 | **Workflow/agent as tool**          | 🔲         | `createToolFromWorkflow`, `createToolFromAgent` — [`workflow-api.md`](./workflow-api.md)          |
 | **Workflow tool-loop helper**       | 🔲         | Optional `runAgentToolLoop` in runtime vs raw TS in workflow                                      |
 | **Human approval**                  | ⏸          | `ctx.requestApproval` + `approvals.dispatcher` — [`future-extensions.md`](./future-extensions.md) |

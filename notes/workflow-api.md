@@ -2,7 +2,7 @@
 
 Design notes for **workflows**, **steps**, **templates**, and run observability (waterfall / tracing). Complements [`agent-api.md`](./agent-api.md) and [`message-store.md`](./message-store.md).
 
-**Status:** Design for v1 planning. **Not implemented** in `@agent-dev-lab/core`.
+**Status:** Core implementation in `@agent-dev-lab/core` (`workflow-impl.ts`, `context.ts`, `step-registry.ts`).
 
 Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live UI: [`streaming-api.md`](./streaming-api.md).
 
@@ -169,12 +169,12 @@ await Promise.all(
 
 ### Events (for UI + tracing)
 
-| Event           | Payload (minimal)                                                              |
-| --------------- | ------------------------------------------------------------------------------ |
-| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                   |
-| `step_finished` | `stepId`, `status: "ok"`, `durationMs`, **`output`** (serialized return value) |
-| `step_skipped`  | `stepId`, `name`, `key`, **`output`** (reused from store — no callback ran)    |
-| `step_failed`   | `stepId`, `error`                                                              |
+| Event           | Payload (minimal)                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                                |
+| `step_finished` | `stepId`, `parentStepId`, `name`, `key`, `path`, `status: "ok"`, `durationMs`, **`output`** |
+| `step_skipped`  | `stepId`, `parentStepId`, `name`, `key`, `path`, **`output`** (reused from store)           |
+| `step_failed`   | `stepId`, `parentStepId`, `name`, `key`, `path`, `error`                                    |
 
 **Active steps** = `step_started` without a terminal event. Optional `ctx.activeSteps()` can project this in-process.
 
@@ -298,16 +298,12 @@ type StepFn = <T>(
 `createWorkflow` exposes:
 
 ```ts
-workflow.run(
-  input: Input,
-  options: WorkflowContext | { project: LoadedAdlProject; signal?: AbortSignal },
-): Promise<Output>;
+workflow.run(input: Input, options?: WorkflowRunStartOptions): WorkflowRunHandle<Output>;
 ```
 
-- Returns **`Promise<Output>`** only — no core **`RunHandle`** (see [`project-api.md`](./project-api.md)).
-- Root run: pass `{ project }` so the runtime creates `ctx` with a new `runId` and event sink.
-- Nested run: pass child `ctx` from `step(async ({ ctx }) => …)`.
-- **`signal`**: optional `AbortSignal` for cancellation (checked in steps / forwarded to agents).
+- Returns **`WorkflowRunHandle`** with `workflowRunId` (available immediately), `result: Promise<Output>`, and `cancel()`.
+- `WorkflowContext` is created internally by the runtime — callers never pass `ctx`.
+- Nested workflows use `WorkflowImpl.runNested(input, parentCtx)` (package-internal, used by `createToolFromWorkflow`).
 
 ---
 
@@ -385,13 +381,13 @@ flowchart TB
 
 ## Implementation status
 
-| Piece                                   | Status                                                  |
-| --------------------------------------- | ------------------------------------------------------- |
-| `createWorkflow`                        | Not implemented                                         |
-| `WorkflowContext` / `step`              | Not implemented                                         |
-| Step key registry + errors              | Not implemented                                         |
-| Run event log / step tree               | Not implemented                                         |
-| `createTemplate()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
+| Piece                                   | Status                                                           |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `createWorkflow`                        | ✅ Implemented (`workflow-impl.ts`)                              |
+| `WorkflowContext` / `step`              | ✅ Implemented (`context.ts`, `active-workflow-context.ts`)      |
+| Step key registry + errors              | ✅ Implemented (`step-registry.ts`)                              |
+| Run event log / step tree               | ✅ Implemented (events emitted via `RunRecorder`)                |
+| `createTemplate()` with Zod `.render()` | ✅ Implemented (`template/create.ts`, Handlebars compile cached) |
 
 ---
 
