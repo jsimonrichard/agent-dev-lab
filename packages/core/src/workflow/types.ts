@@ -57,14 +57,6 @@ export type StepFn = <T>(
   options?: StepOptions,
 ) => Promise<T>;
 
-/**
- * @internal Nested workflow invocation inside a parent step (subworkflow / tool).
- * Not part of the public API.
- */
-export type NestedWorkflowRunOptions = {
-  parentCtx: WorkflowContext;
-};
-
 export type WorkflowDefinition<TInput, TOutput> = {
   id: string;
   input?: z.ZodType<TInput>;

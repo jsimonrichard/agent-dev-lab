@@ -1,7 +1,6 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import { executeNestedWorkflowRun } from "../workflow/execute-run";
 import { getWorkflowImpl } from "../workflow/workflow-impl";
 import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import type { Workflow } from "../workflow/types";
@@ -30,9 +29,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
         );
       }
       const input = options.mapInput ? options.mapInput(toolArgs) : (toolArgs as TInput);
-      const output = await executeNestedWorkflowRun(bound.definition, input, bound.services, {
-        parentCtx,
-      });
+      const output = await bound.runNested(input, parentCtx);
       return output as unknown;
     },
   }) as ToolSet[string];

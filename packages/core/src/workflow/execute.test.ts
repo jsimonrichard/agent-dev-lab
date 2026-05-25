@@ -4,7 +4,7 @@ import { createId } from "../internal/ids";
 import { RunRecorder } from "../runtime/run-recorder";
 import { createAdlRuntime, createWorkflow, inMemoryWorkflowStore } from "../index";
 import { createWorkflowContext } from "./context";
-import { executeWorkflowRun } from "./execute-run";
+import { getWorkflowImpl } from "./workflow-impl";
 
 describe("workflow.run", () => {
   it("runs steps and records events in the workflow store", async () => {
@@ -40,16 +40,18 @@ describe("workflow.run", () => {
     const runtime = createAdlRuntime({ stores: { workflow: store } });
     let computeCount = 0;
 
-    const definition = {
+    const workflow = createWorkflow({
       id: "cacheable",
-      run: async (_input: null, ctx: import("./types").WorkflowContext) => {
+      runtime,
+      run: async (_input, ctx) => {
         await ctx.step("work", async () => {
           computeCount += 1;
           return "done";
         });
         return null;
       },
-    };
+    });
+    const impl = getWorkflowImpl(workflow);
 
     const workflowRunId = createId();
     const ctx = createWorkflowContext({
@@ -61,10 +63,10 @@ describe("workflow.run", () => {
       registryParentKey: workflowRunId,
       runRecorder: new RunRecorder(runtime.services),
     });
-    await executeWorkflowRun(definition, null, runtime.services, { parentCtx: ctx });
+    await impl.executeRun(null, { parentCtx: ctx });
     expect(computeCount).toBe(1);
 
-    await executeWorkflowRun(definition, null, runtime.services, { parentCtx: ctx });
+    await impl.executeRun(null, { parentCtx: ctx });
     expect(computeCount).toBe(1);
 
     const skipped = await store.listEvents(
