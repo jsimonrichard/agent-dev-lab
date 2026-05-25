@@ -11,6 +11,7 @@ import type { z } from "zod";
 
 import { fireAndForget } from "../internal/fire-and-forget";
 import { createId } from "../internal/ids";
+import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { peekWorkflowContext } from "../workflow/active-workflow-context";
@@ -120,98 +121,110 @@ export class AgentImpl<
           memoryScope: input.memoryScope,
         });
 
-        let messages = await messageStore.load(input.memoryScope);
-        messages = await bootstrapSystemMessage(this.definition.instructions, messages);
+        try {
+          let messages = await messageStore.load(input.memoryScope);
+          messages = await bootstrapSystemMessage(this.definition.instructions, messages);
 
-        const turnMessages: CoreMessage[] = [];
-        if (input.user) {
-          turnMessages.push({ role: "user", content: input.user });
-        }
-        if (input.messages?.length) {
-          turnMessages.push(...input.messages);
-        }
-        if (turnMessages.length > 0) {
-          messages = [...messages, ...turnMessages];
-        }
+          const turnMessages: CoreMessage[] = [];
+          if (input.user) {
+            turnMessages.push({ role: "user", content: input.user });
+          }
+          if (input.messages?.length) {
+            turnMessages.push(...input.messages);
+          }
+          if (turnMessages.length > 0) {
+            messages = [...messages, ...turnMessages];
+          }
 
-        const outputSchema = input.outputSchema ?? this.definition.outputSchema;
-        const streamResult = streamText({
-          model: this.definition.model,
-          tools: this.definition.tools,
-          messages,
-          experimental_context: input.context,
-          abortSignal,
-          stopWhen: stepCountIs(1),
-          ...(outputSchema
-            ? {
-                experimental_output: Output.object({
-                  schema: outputSchema as z.ZodType,
-                }),
+          const outputSchema = input.outputSchema ?? this.definition.outputSchema;
+          const streamResult = streamText({
+            model: this.definition.model,
+            tools: this.definition.tools,
+            messages,
+            experimental_context: input.context,
+            abortSignal,
+            stopWhen: stepCountIs(1),
+            ...(outputSchema
+              ? {
+                  experimental_output: Output.object({
+                    schema: outputSchema as z.ZodType,
+                  }),
+                }
+              : {}),
+            onChunk: ({ chunk }) => {
+              if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
+                fireAndForget(
+                  runRecorder.emit({
+                    type: "agent_text_delta",
+                    agentCallId,
+                    workflowRunId,
+                    stepId,
+                    delta: chunk.text,
+                  }),
+                );
               }
-            : {}),
-          onChunk: ({ chunk }) => {
-            if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
-              fireAndForget(
-                runRecorder.emit({
-                  type: "agent_text_delta",
-                  agentCallId,
-                  workflowRunId,
-                  stepId,
-                  delta: chunk.text,
-                }),
-              );
-            }
-          },
-        }) as unknown as StreamTextResult<Tools, unknown>;
+            },
+          }) as unknown as StreamTextResult<Tools, unknown>;
 
-        onStreamReady?.(streamResult);
+          onStreamReady?.(streamResult);
 
-        const structuredPromise = outputSchema
-          ? readStructuredOutputFromStream(
-              streamResult as unknown as StreamTextResult<ToolSet, unknown>,
-            )
-          : undefined;
+          const structuredPromise = outputSchema
+            ? readStructuredOutputFromStream(
+                streamResult as unknown as StreamTextResult<ToolSet, unknown>,
+              )
+            : undefined;
 
-        if (!exposeStream) {
-          await streamResult.text;
+          if (!exposeStream) {
+            await streamResult.text;
+          }
+
+          const responseMessages = (await streamResult.response).messages as CoreMessage[];
+          const newMessages = responseMessages.length > 0 ? responseMessages : [];
+          const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
+
+          if (newMessages.length > 0) {
+            await messageStore.save(input.memoryScope, allMessages);
+          }
+
+          await runRecorder.emit({
+            type: "agent_messages_committed",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            memoryScope: input.memoryScope,
+            count: newMessages.length,
+          });
+
+          const text = await streamResult.text;
+          const structuredOutput = structuredPromise ? await structuredPromise : undefined;
+          const sdk = streamResult as unknown as GenerateTextResult<Tools, unknown>;
+
+          await runRecorder.emit({
+            type: "agent_finished",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+          });
+
+          return {
+            text,
+            output: structuredOutput as never,
+            messages: allMessages,
+            newMessages,
+            sdk,
+          };
+        } catch (error) {
+          await runRecorder.emit({
+            type: "agent_failed",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+            error: serializeError(error),
+          });
+          throw error;
         }
-
-        const responseMessages = (await streamResult.response).messages as CoreMessage[];
-        const newMessages = responseMessages.length > 0 ? responseMessages : [];
-        const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
-
-        if (newMessages.length > 0) {
-          await messageStore.save(input.memoryScope, allMessages);
-        }
-
-        await runRecorder.emit({
-          type: "agent_messages_committed",
-          agentCallId,
-          workflowRunId,
-          stepId,
-          memoryScope: input.memoryScope,
-          count: newMessages.length,
-        });
-
-        const text = await streamResult.text;
-        const structuredOutput = structuredPromise ? await structuredPromise : undefined;
-        const sdk = streamResult as unknown as GenerateTextResult<Tools, unknown>;
-
-        await runRecorder.emit({
-          type: "agent_finished",
-          agentCallId,
-          workflowRunId,
-          stepId,
-          agentId: this.definition.id,
-        });
-
-        return {
-          text,
-          output: structuredOutput as never,
-          messages: allMessages,
-          newMessages,
-          sdk,
-        };
       },
     );
   }

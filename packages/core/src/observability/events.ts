@@ -98,6 +98,12 @@ export type AgentFinishedEvent = AgentEventBase & {
   agentId: string;
 };
 
+export type AgentFailedEvent = AgentEventBase & {
+  type: "agent_failed";
+  agentId: string;
+  error: unknown;
+};
+
 export type AgentToolCallEvent = AgentEventBase & {
   type: "agent_tool_call";
   agentId: string;
@@ -136,6 +142,7 @@ export type RunEvent =
   | WorkflowCustomEvent
   | AgentStartedEvent
   | AgentFinishedEvent
+  | AgentFailedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
@@ -166,6 +173,7 @@ export type WorkflowObserverEvent =
 export type AgentObserverEvent =
   | AgentStartedEvent
   | AgentFinishedEvent
+  | AgentFailedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent

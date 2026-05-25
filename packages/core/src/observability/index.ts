@@ -1,5 +1,6 @@
 export type {
   AgentEventBase,
+  AgentFailedEvent,
   AgentFinishedEvent,
   AgentMessagesCommittedEvent,
   AgentObserverEvent,
