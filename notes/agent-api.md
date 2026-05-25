@@ -1,6 +1,6 @@
 # Agent API (draft)
 
-Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Workflows, project registry, and the memory pipeline are separate; this doc focuses on agents, templates, and message persistence.
+Design notes for the first ADL **agent** surface in `@agent-dev-lab/core`. Workflows, project registry, and the memory pipeline are separate; this doc focuses on agents, templates, and message persistence.
 
 **Status:** Agreed direction for v1 implementation planning. Not yet implemented in code.
 
@@ -26,7 +26,7 @@ Design notes for the first ADL **agent** surface in `@agent-dev-lab/runtime`. Wo
 An agent is a reusable configuration: identity (instructions), model, tools, memory store binding, and optional defaults.
 
 ```ts
-import { createAgent, createTemplate } from "@agent-dev-lab/runtime";
+import { createAgent, createTemplate } from "@agent-dev-lab/core";
 
 /** `id` is the registry key (CLI, UI, stores) — listed in adl.config `agents` array */
 export const researcher = createAgent({

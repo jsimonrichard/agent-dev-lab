@@ -25,7 +25,7 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 ---
 
-## Runtime (`@agent-dev-lab/runtime`) — implement for v1
+## Runtime (`@agent-dev-lab/core`) — implement for v1
 
 - [ ] `createAgent`, `createWorkflow`, `createTemplate`
 - [ ] `createAdlRuntime`, `adl.createAgent` / `createAgent({ runtime })`
@@ -89,7 +89,7 @@ See [`inspection-ui.md`](./inspection-ui.md) for architecture, SSE format, and e
 | **OTEL default observer**           | 🔲         | Package in common vs example only                                                                 |
 | **Event schema versioning**         | 🔲         | `eventSchemaVersion` on run events for UI                                                         |
 | **Secrets / API keys**              | 🔲         | Document env vars only; no ADL vault v1                                                           |
-| **Export map**                      | 🔲         | `@agent-dev-lab/runtime`, `/project` subpath — already started                                    |
+| **Export map**                      | 🔲         | `@agent-dev-lab/core`, `/project` subpath — already started                                       |
 | **Cancellation UX**                 | partial    | `AbortSignal` documented; CLI/UI cancel 🔲                                                        |
 | **agent.stream in v1?**             | partial    | Designed; could ship `run` only first                                                             |
 | **WorkflowResumer**                 | ⏸          | interface later                                                                                   |

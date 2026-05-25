@@ -136,7 +136,7 @@ type ApprovalDecision = { approved: boolean; reason?: string };
 
 ## `loadAdlProject` result
 
-Extend [`LoadedAdlProject`](../packages/runtime/src/project/resolve.ts):
+Extend [`LoadedAdlProject`](../packages/core/src/project/resolve.ts):
 
 ```ts
 export interface LoadedAdlProject {

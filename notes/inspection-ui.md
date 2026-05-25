@@ -21,7 +21,7 @@ flowchart LR
     SFN["createServerFn\nstart / cancel / list"]
     SSE["GET /api/runs/:runId/events"]
   end
-  subgraph runtime["@agent-dev-lab/runtime"]
+  subgraph runtime["@agent-dev-lab/core"]
     LOAD["loadAdlProject + registry"]
     CTX["createRunContext"]
     RUN["workflow.run / agent.stream"]

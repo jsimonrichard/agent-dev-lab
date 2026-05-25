@@ -4,7 +4,7 @@ How ADL stays aligned with the [Vercel AI SDK](https://ai-sdk.dev/) (`ai` packag
 
 Related: [`agent-api.md`](./agent-api.md), [`streaming-api.md`](./streaming-api.md).
 
-**Pinned dependency:** `ai@^5` in `@agent-dev-lab/runtime` — re-verify when upgrading majors.
+**Pinned dependency:** `ai@^5` in `@agent-dev-lab/core` — re-verify when upgrading majors.
 
 ---
 

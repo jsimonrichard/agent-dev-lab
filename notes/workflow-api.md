@@ -2,7 +2,7 @@
 
 Design notes for **workflows**, **steps**, **templates**, and run observability (waterfall / tracing). Complements [`agent-api.md`](./agent-api.md) and [`message-store.md`](./message-store.md).
 
-**Status:** Design for v1 planning. **Not implemented** in `@agent-dev-lab/runtime`.
+**Status:** Design for v1 planning. **Not implemented** in `@agent-dev-lab/core`.
 
 Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live UI: [`streaming-api.md`](./streaming-api.md).
 
@@ -316,7 +316,7 @@ workflow.run(
 Expose a workflow or agent as a standard AI SDK **`tool()`** so other agents can call them. Prefer explicit helper names over a generic wrapper:
 
 ```ts
-import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/runtime";
+import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/core";
 
 const literatureReviewTool = createToolFromWorkflow(literatureReview, {
   /** Tool name seen by the model; defaults to workflow.id */

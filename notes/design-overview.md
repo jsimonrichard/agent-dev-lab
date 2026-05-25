@@ -10,12 +10,12 @@ Not a large “agent platform” — small, flexible core.
 
 ## Monorepo (Bun)
 
-| Path               | Role                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `apps/web`         | TanStack Start — inspection UI for runs, logs, conversations (to be built out).          |
-| `apps/docs`        | Astro + Starlight + **starlight-typedoc** — project + API docs.                          |
-| `packages/runtime` | Headless library — Vercel AI SDK, prompt load/render helpers; future workflow execution. |
-| `packages/common`  | Drizzle + SQLite (Bun), logging (pino), OTEL placeholder, **shared ESLint** entry.       |
+| Path              | Role                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `apps/web`        | TanStack Start — inspection UI for runs, logs, conversations (to be built out).          |
+| `apps/docs`       | Astro + Starlight + **starlight-typedoc** — project + API docs.                          |
+| `packages/core`   | Headless library — Vercel AI SDK, prompt load/render helpers; future workflow execution. |
+| `packages/common` | Drizzle + SQLite (Bun), logging (pino), OTEL placeholder, **shared ESLint** entry.       |
 
 No top-level `prompts` package — prompts live beside code or in tests.
 
