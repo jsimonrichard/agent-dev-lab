@@ -29,7 +29,7 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
-  WorkflowStreamHandle,
+  WorkflowRunStartOptions,
 } from "./workflow";
 
 export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
@@ -111,7 +111,7 @@ export function createCoreShell() {
       "project config load + registry indexing",
       "createTemplate (path or inline source)",
       "agent.run / agent.stream",
-      "workflow.run / workflow.stream with WorkflowStore + observers",
+      "workflow.run with WorkflowStore + observers",
     ],
   };
 }
