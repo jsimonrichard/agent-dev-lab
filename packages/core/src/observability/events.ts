@@ -60,6 +60,10 @@ export type StepStartedEvent = WorkflowRunEventBase & {
 export type StepFinishedEvent = WorkflowRunEventBase & {
   type: "step_finished";
   stepId: string;
+  parentStepId: string | null;
+  name: string;
+  key?: string;
+  path: string[];
   status: "ok";
   durationMs: number;
   output: unknown;
@@ -68,14 +72,20 @@ export type StepFinishedEvent = WorkflowRunEventBase & {
 export type StepSkippedEvent = WorkflowRunEventBase & {
   type: "step_skipped";
   stepId: string;
+  parentStepId: string | null;
   name: string;
   key?: string;
+  path: string[];
   output: unknown;
 };
 
 export type StepFailedEvent = WorkflowRunEventBase & {
   type: "step_failed";
   stepId: string;
+  parentStepId: string | null;
+  name: string;
+  key?: string;
+  path: string[];
   error: unknown;
 };
 

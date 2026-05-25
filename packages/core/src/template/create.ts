@@ -1,10 +1,12 @@
 import path from "node:path";
 
+import Handlebars from "handlebars";
 import type { z } from "zod";
 
 import { loadPromptFile, resolvePromptPath } from "../prompt/load";
-import { renderPromptTemplate } from "../prompt/render";
 import type { Template, TemplateConfig } from "./types";
+
+const handlebars = Handlebars.create();
 
 const MARKDOWN_EXTENSIONS = [".md", ".markdown"] as const;
 
@@ -54,6 +56,7 @@ export function createTemplate<TSchema extends z.ZodType>(
   }
 
   const name = resolveName(config);
+  const compiled = handlebars.compile(source, { noEscape: true });
 
   return {
     name,
@@ -62,7 +65,7 @@ export function createTemplate<TSchema extends z.ZodType>(
     demo: config.demo,
     render(inputData: z.infer<TSchema>) {
       const parsed = config.inputData.parse(inputData);
-      return renderPromptTemplate(source, parsed);
+      return compiled(parsed) as string;
     },
   };
 }

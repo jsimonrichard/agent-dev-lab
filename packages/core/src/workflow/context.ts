@@ -69,12 +69,15 @@ export class WorkflowContextImpl implements WorkflowContext {
       });
       if (cached !== null) {
         const skippedStepId = createId();
+        const skippedPath = [...this.stepPath, formatStepPathSegment(name, key)];
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
           stepId: skippedStepId,
+          parentStepId: parentId,
           name,
           key,
+          path: skippedPath,
           output: cached,
         });
         return cached as T;
@@ -117,6 +120,10 @@ export class WorkflowContextImpl implements WorkflowContext {
         type: "step_finished",
         workflowRunId: this.workflowRunId,
         stepId,
+        parentStepId: parentId,
+        name,
+        key,
+        path,
         status: "ok",
         durationMs,
         output,
@@ -127,6 +134,10 @@ export class WorkflowContextImpl implements WorkflowContext {
         type: "step_failed",
         workflowRunId: this.workflowRunId,
         stepId,
+        parentStepId: parentId,
+        name,
+        key,
+        path,
         error: serializeError(error),
       });
       throw error;

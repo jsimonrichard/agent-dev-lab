@@ -14,13 +14,19 @@ export function resolveInstructionsText(instructions: AgentInstructions): string
   return template.render({} as never);
 }
 
+/**
+ * Render instructions as a system message only when the store is empty (first run
+ * for this memoryScope). Existing messages are returned as-is even if they lack a
+ * system message — prepending one retroactively would be inconsistent with the
+ * AI-generated responses that follow.
+ */
 export function bootstrapSystemMessage(
   instructions: AgentInstructions,
   existing: CoreMessage[],
 ): CoreMessage[] {
-  if (existing.some((m) => m.role === "system")) {
+  if (existing.length > 0) {
     return existing;
   }
   const content = resolveInstructionsText(instructions);
-  return [{ role: "system", content }, ...existing];
+  return [{ role: "system", content }];
 }
