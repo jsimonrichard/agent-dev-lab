@@ -34,11 +34,11 @@ flowchart LR
   SSE --> STORE
 ```
 
-| Plane | Mechanism | Examples |
-| ----- | --------- | -------- |
-| **Control** | TanStack Start **server functions** (typed, short-lived) | `startInspectionRun`, `cancelRun`, `listRuns`, `listAgents` |
-| **Data** | **API route** SSE tail of persisted events | `GET /api/runs/:runId/events?afterSeq=` |
-| **Hydration** | GET snapshot (route or server fn) | `GET /api/runs/:runId`, optional initial events in first SSE message |
+| Plane         | Mechanism                                                | Examples                                                             |
+| ------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Control**   | TanStack Start **server functions** (typed, short-lived) | `startInspectionRun`, `cancelRun`, `listRuns`, `listAgents`          |
+| **Data**      | **API route** SSE tail of persisted events               | `GET /api/runs/:runId/events?afterSeq=`                              |
+| **Hydration** | GET snapshot (route or server fn)                        | `GET /api/runs/:runId`, optional initial events in first SSE message |
 
 **Rules**
 
@@ -160,13 +160,13 @@ Reference: [TanStack AI docs](https://tanstack.com/ai/latest/docs), [SSE protoco
 
 ### Do not adopt for ADL inspection UI
 
-| TanStack AI piece | Why skip |
-| ----------------- | -------- |
-| `@tanstack/ai` + provider adapters | Duplicates **`ai`** + [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) |
-| AG-UI `StreamChunk` as `RunEvent` | Name collision (`STEP_*`, `RUN_*`) with **different semantics** (AG-UI “step” ≈ model reasoning; ADL `step_*` ≈ `ctx.step`) |
-| POST `{ messages }` → SSE until `[DONE]` | One-shot chat; no durable **run log** or mid-run reconnect |
-| `@tanstack/ai-react` `useChat` | Chat-centric; deferred per product direction |
-| SSE without event `id:` | Conflicts with **replay / `afterSeq`** |
+| TanStack AI piece                        | Why skip                                                                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@tanstack/ai` + provider adapters       | Duplicates **`ai`** + [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md)                                                |
+| AG-UI `StreamChunk` as `RunEvent`        | Name collision (`STEP_*`, `RUN_*`) with **different semantics** (AG-UI “step” ≈ model reasoning; ADL `step_*` ≈ `ctx.step`) |
+| POST `{ messages }` → SSE until `[DONE]` | One-shot chat; no durable **run log** or mid-run reconnect                                                                  |
+| `@tanstack/ai-react` `useChat`           | Chat-centric; deferred per product direction                                                                                |
+| SSE without event `id:`                  | Conflicts with **replay / `afterSeq`**                                                                                      |
 
 If we ever add a **chat-shaped playground**, a dedicated route may use TanStack Start async-generator server fns—but it should still **write `RunEvent`s** if the run should appear in the inspector.
 
@@ -205,12 +205,12 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 
 ## Phasing (web work)
 
-| Order | Work |
-| ----- | ---- |
-| 1 | Runtime: `WorkflowStore` + emit `RunEvent`s on `workflow.run` |
-| 2 | `GET /api/runs/:id/events` SSE + manual `EventSource` test page |
-| 3 | `startInspectionRun` server fn + minimal waterfall UI |
-| 4 | `agent_text_delta` transcript pane |
-| 5 | Optional: hooks package, playground async-generator route |
+| Order | Work                                                            |
+| ----- | --------------------------------------------------------------- |
+| 1     | Runtime: `WorkflowStore` + emit `RunEvent`s on `workflow.run`   |
+| 2     | `GET /api/runs/:id/events` SSE + manual `EventSource` test page |
+| 3     | `startInspectionRun` server fn + minimal waterfall UI           |
+| 4     | `agent_text_delta` transcript pane                              |
+| 5     | Optional: hooks package, playground async-generator route       |
 
 Matches [`streaming-api.md` v1 phasing](./streaming-api.md#v1-phasing) phases 1–2 for UI.

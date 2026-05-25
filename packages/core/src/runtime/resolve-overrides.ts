@@ -1,0 +1,60 @@
+import { inMemoryMessageStore } from "../memory/in-memory";
+import type { AdlRuntime } from "./types";
+import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+
+/** Splits factory params into definition fields, runtime, and optional overrides. */
+export function splitFactoryParams<T extends AdlRuntimeOverrides & { runtime: AdlRuntime }>(
+  params: T,
+): {
+  definition: Omit<T, keyof AdlRuntimeOverrides | "runtime">;
+  runtime: AdlRuntime;
+  overrides: AdlRuntimeOverrides | undefined;
+} {
+  const { runtime, stores, observers, ...definition } = params;
+  const overrides: AdlRuntimeOverrides | undefined =
+    stores === undefined && observers === undefined
+      ? undefined
+      : {
+          ...(stores !== undefined ? { stores } : {}),
+          ...(observers !== undefined ? { observers } : {}),
+        };
+  return {
+    definition: definition as Omit<T, keyof AdlRuntimeOverrides | "runtime">,
+    runtime,
+    overrides,
+  };
+}
+
+export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServices {
+  return {
+    stores: {
+      message: config.stores?.message ?? inMemoryMessageStore(),
+      workflow: config.stores?.workflow,
+    },
+    observers: {
+      workflows: config.observers?.workflows ?? [],
+      agents: config.observers?.agents ?? [],
+    },
+  };
+}
+
+/** Merges runtime services with per-call overrides (observer lists concatenated). */
+export function resolveRuntimeOverrides(
+  base: RuntimeServices,
+  overrides?: AdlRuntimeOverrides,
+): RuntimeServices {
+  if (!overrides) {
+    return base;
+  }
+
+  return {
+    stores: {
+      message: overrides.stores?.message ?? base.stores.message,
+      workflow: overrides.stores?.workflow ?? base.stores.workflow,
+    },
+    observers: {
+      workflows: [...base.observers.workflows, ...(overrides.observers?.workflows ?? [])],
+      agents: [...base.observers.agents, ...(overrides.observers?.agents ?? [])],
+    },
+  };
+}

@@ -14,11 +14,13 @@ export type {
   AgentStreamHandle,
   AgentStreamInput,
   AgentStreamResult,
+  AgentWorkflowScope,
+  CreateAgentParams,
 } from "./agent";
 
-export { createWorkflow, createWorkflowRunContext } from "./workflow";
+export { createWorkflow } from "./workflow";
 export type {
-  CreateWorkflowRunContextOptions,
+  CreateWorkflowParams,
   CustomWorkflowEvent,
   StepFn,
   StepIdentity,
@@ -26,10 +28,19 @@ export type {
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
-  WorkflowRunContext,
   WorkflowRunHandle,
-  WorkflowRunOptions,
 } from "./workflow";
+
+export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
+export type {
+  AdlRuntime,
+  AdlRuntimeConfig,
+  AdlRuntimeOptions,
+  AdlRuntimeOverrides,
+  RuntimeObservers,
+  RuntimeServices,
+  RuntimeStores,
+} from "./runtime";
 
 export { createTemplate } from "./template";
 export type {
@@ -94,6 +105,7 @@ export function createCoreShell() {
     name: "agent-development-lab/core",
     capabilities: [
       "v1 API surface (draft)",
+      "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
       "createTemplate (path or inline source)",
       "agent/workflow execution (planned)",

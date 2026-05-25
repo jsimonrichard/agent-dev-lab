@@ -1,5 +1,5 @@
 export { createWorkflow } from "./create";
-export { createWorkflowRunContext } from "./run";
+export type { CreateWorkflowParams } from "./create";
 export type {
   CustomWorkflowEvent,
   StepFn,
@@ -9,6 +9,4 @@ export type {
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
-  WorkflowRunOptions,
 } from "./types";
-export type { CreateWorkflowRunContextOptions, WorkflowRunContext } from "./run";

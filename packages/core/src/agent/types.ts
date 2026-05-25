@@ -20,6 +20,12 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> 
   memory?: AgentMemoryConfig;
 };
 
+/** Links agent events to the active workflow step when called inside `ctx.step`. */
+export type AgentWorkflowScope = {
+  workflowRunId: string;
+  stepId: string | null;
+};
+
 export type AgentRunInput<Context = unknown> = {
   memoryScope: string;
   context?: Context;
@@ -27,6 +33,11 @@ export type AgentRunInput<Context = unknown> = {
   messages?: CoreMessage[];
   /** Per-episode override of the agent's `outputSchema`. */
   outputSchema?: z.ZodType<unknown>;
+  /**
+   * When running inside a workflow, pass the current {@link WorkflowContext} ids
+   * so agent events attach to the correct step. Omit for standalone episodes.
+   */
+  workflow?: AgentWorkflowScope;
   // cacheable?: boolean; // deferred — episode cache (see notes/resumability.md)
 };
 

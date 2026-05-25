@@ -13,7 +13,8 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 | Agents              | [`agent-api.md`](./agent-api.md)                       | `createAgent`, `run` / `stream`, context, memoryScope, structured output |
 | Workflows           | [`workflow-api.md`](./workflow-api.md)                 | `createWorkflow`, `ctx.step`, keys, `{ ctx }` nesting                    |
 | Templates           | [`templates-api.md`](./templates-api.md)               | `createTemplate` + Zod + `.render()`                                     |
-| Project config      | [`project-api.md`](./project-api.md)                   | arrays, `stores.*`, `observers.*`, `getWorkflow`                         |
+| Project config      | [`project-api.md`](./project-api.md)                   | arrays, `adl` ref, `getWorkflow`                                         |
+| Runtime wiring      | [`runtime-api.md`](./runtime-api.md)                   | `createAdlRuntime`, `src/adl.ts`, no ALS                                 |
 | Message memory      | [`message-store.md`](./message-store.md)               | `MessageStore` load/save                                                 |
 | Run persistence     | [`observability-api.md`](./observability-api.md)       | observers vs `WorkflowStore` (run/step **I/O** + events)                 |
 | Streaming / UI feed | [`streaming-api.md`](./streaming-api.md)               | run events, SSE, `ctx.emit` custom                                       |
@@ -27,7 +28,8 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 ## Runtime (`@agent-dev-lab/runtime`) — implement for v1
 
 - [ ] `createAgent`, `createWorkflow`, `createTemplate`
-- [ ] `createRunContext`, `workflow.run(input, ctx | { project })`
+- [ ] `createAdlRuntime`, `adl.createAgent` / `createAgent({ runtime })`
+- [ ] `workflow.run(input)` with internal context + `workflowRunId` on handle (no `{ project }`, no public `ctx`)
 - [ ] `agent.run`, `agent.stream` (shared `streamText` core)
 - [ ] `MessageStore` + `inMemory`; optional `stores.memory` SQLite in common
 - [ ] `WorkflowStore` + default SQLite; run/step **I/O**, `getStepOutput`, `getRunEvents`

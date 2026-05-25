@@ -1,17 +1,8 @@
-import type { AgentObservers, WorkflowObserver } from "../../observability/observers";
-import type { WorkflowStore } from "../../observability/workflow-store";
-import type { MessageStore } from "../../memory/types";
-import type { LoadedAdlProject } from "../../project/resolve";
+import type { RuntimeServices } from "../../runtime/types";
 import type { WorkflowContext } from "../types";
 
-export type CreateWorkflowRunContextOptions = {
-  workflowObservers?: WorkflowObserver[];
-  agentObservers?: AgentObservers;
-  workflowStore?: WorkflowStore;
-  messageStore?: MessageStore;
-};
+/** Root workflow context (package-internal; authors see {@link WorkflowContext} in `run`). */
+export type WorkflowRunContext = WorkflowContext;
 
-/** Root {@link WorkflowContext} for a workflow invocation, including project defaults. */
-export type WorkflowRunContext = WorkflowContext & {
-  readonly project: LoadedAdlProject;
-};
+/** Effective services for a workflow invocation (merged runtime + per-workflow overrides). */
+export type CreateWorkflowRunContextOptions = RuntimeServices;

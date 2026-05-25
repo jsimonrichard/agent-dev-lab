@@ -1,4 +1,5 @@
 export { createAgent } from "./create";
+export type { CreateAgentParams } from "./create";
 export type {
   Agent,
   AgentDefinition,
@@ -10,4 +11,5 @@ export type {
   AgentStreamHandle,
   AgentStreamInput,
   AgentStreamResult,
+  AgentWorkflowScope,
 } from "./types";
