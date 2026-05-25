@@ -3,7 +3,6 @@ import {
   stepCountIs,
   streamText,
   type CoreMessage,
-  type GenerateTextResult,
   type StreamTextResult,
   type ToolSet,
 } from "ai";
@@ -122,7 +121,7 @@ export class AgentImpl<
 
         try {
           let messages = await messageStore.load(input.memoryScope);
-          messages = await bootstrapSystemMessage(this.definition.instructions, messages);
+          messages = bootstrapSystemMessage(this.definition.instructions, messages);
 
           const turnMessages: CoreMessage[] = [];
           if (input.user) {
@@ -194,7 +193,7 @@ export class AgentImpl<
 
           const text = await streamResult.text;
           const structuredOutput = structuredPromise ? await structuredPromise : undefined;
-          const sdk = streamResult as unknown as GenerateTextResult<Tools, unknown>;
+          const sdk = streamResult;
 
           await runRecorder.emit({
             type: "agent_finished",

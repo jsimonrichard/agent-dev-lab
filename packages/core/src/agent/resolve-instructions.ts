@@ -3,7 +3,7 @@ import type { CoreMessage } from "ai";
 import type { Template } from "../template/types";
 import type { AgentInstructions } from "./types";
 
-export async function resolveInstructionsText(instructions: AgentInstructions): Promise<string> {
+export function resolveInstructionsText(instructions: AgentInstructions): string {
   if (typeof instructions === "string") {
     return instructions;
   }
@@ -14,13 +14,13 @@ export async function resolveInstructionsText(instructions: AgentInstructions): 
   return template.render({} as never);
 }
 
-export async function bootstrapSystemMessage(
+export function bootstrapSystemMessage(
   instructions: AgentInstructions,
   existing: CoreMessage[],
-): Promise<CoreMessage[]> {
+): CoreMessage[] {
   if (existing.some((m) => m.role === "system")) {
     return existing;
   }
-  const content = await resolveInstructionsText(instructions);
-  return [{ role: "system", content }];
+  const content = resolveInstructionsText(instructions);
+  return [{ role: "system", content }, ...existing];
 }

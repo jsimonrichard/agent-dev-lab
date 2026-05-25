@@ -1,4 +1,4 @@
-import type { CoreMessage, GenerateTextResult, LanguageModel, StreamTextResult, ToolSet } from "ai";
+import type { CoreMessage, LanguageModel, StreamTextResult, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { MessageStore } from "../memory/types";
@@ -54,7 +54,8 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = unknown> =
   output?: TOutput;
   messages: CoreMessage[];
   newMessages: CoreMessage[];
-  sdk: GenerateTextResult<Tools, TOutput>;
+  /** Raw AI SDK stream result. The agent runner uses `streamText` internally for both `run` and `stream`. */
+  sdk: StreamTextResult<Tools, TOutput>;
 };
 
 export type AgentStreamInput<Context = unknown> = AgentRunInput<Context>;
