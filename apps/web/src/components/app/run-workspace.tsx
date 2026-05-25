@@ -92,8 +92,16 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
         </Button>
       </header>
 
-      <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={inspectorOpen ? 62 : 100} minSize={40}>
+      <ResizablePanelGroup
+        orientation="horizontal"
+        id="run-workspace-panels"
+        className="min-h-0 flex-1"
+      >
+        <ResizablePanel
+          id="workflow-tree"
+          defaultSize={inspectorOpen ? "58%" : "100%"}
+          minSize={inspectorOpen ? "28%" : "100%"}
+        >
           <WorkflowTreePanel
             view={view}
             selectedStepId={selectedStepId}
@@ -106,7 +114,7 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
         {inspectorOpen ? (
           <>
             <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={38} minSize={26} maxSize={48}>
+            <ResizablePanel id="step-inspector" defaultSize="42%" minSize="24%" maxSize="72%">
               <StepInspectorPanel
                 step={selectedStep}
                 episode={activeEpisode}

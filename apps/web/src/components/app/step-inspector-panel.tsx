@@ -38,7 +38,7 @@ export function StepInspectorPanel({
   const stepLabel = formatStepLabel(step.name, step.key);
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-l border-border/40 bg-muted/10">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border/40 bg-muted/10">
       <div className="shrink-0 border-b border-border/40 px-3 py-2.5">
         <p className="truncate font-mono text-xs font-semibold">{stepLabel}</p>
         {episode ? (
@@ -84,7 +84,7 @@ export function StepInspectorPanel({
               />
             </ScrollArea>
             <div className="shrink-0 space-y-2 border-t border-border/40 p-2">
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[10px] leading-snug text-muted-foreground">
                 Read-only in workflow context. Fork to continue in a standalone agent run.
               </p>
               <Button size="sm" className="w-full gap-2" variant="secondary" onClick={onFork}>
