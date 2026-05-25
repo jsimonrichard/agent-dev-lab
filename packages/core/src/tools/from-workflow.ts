@@ -19,6 +19,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
   const bound = getWorkflowImpl(workflow);
 
   return tool({
+    ...(options.name !== undefined ? { name: options.name } : {}),
     description: options.description,
     inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
     execute: async (toolArgs) => {

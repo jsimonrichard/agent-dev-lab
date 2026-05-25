@@ -39,7 +39,7 @@ export interface WorkflowContext {
 
   /**
    * Run a named, cacheable unit of work. Child contexts are built from the parent host
-   * (`this`) — no ambient AsyncLocalStorage.
+   * (`this`). Agent/tool bridge uses scoped ALS only inside step bodies and the workflow body.
    */
   step: StepFn;
 

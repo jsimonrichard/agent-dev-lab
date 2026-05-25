@@ -58,6 +58,7 @@ export type { MessageStore } from "./memory";
 
 export type {
   AgentEventBase,
+  AgentFailedEvent,
   AgentObserver,
   AgentObserverEvent,
   AgentObservers,
@@ -79,8 +80,6 @@ export type {
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
 export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
-
-export { AdlNotImplementedError } from "./internal/not-implemented";
 
 export { loadPromptFile, resolvePromptPath } from "./prompt/load";
 export { renderPromptTemplate } from "./prompt/render";

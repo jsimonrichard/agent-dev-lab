@@ -15,7 +15,7 @@ import type {
 } from "./types";
 
 /** @internal Full run options (public start options + nested parent context). */
-export type WorkflowRunOptions = WorkflowRunStartOptions & {
+type WorkflowRunOptions = WorkflowRunStartOptions & {
   /** Reuse an existing root or nested context (same `workflowRunId` for step cache). */
   parentCtx?: WorkflowContext;
 };
@@ -73,10 +73,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     return this.executeRun(input, { parentCtx });
   }
 
-  /**
-   * Continue or replay a run with an existing context (step cache). Package tests only.
-   * @internal
-   */
+  /** @internal Nested replay / step-cache continuation (same {@link WorkflowRunOptions.parentCtx}). */
   executeRun(
     input: TInput,
     options?: WorkflowRunOptions,

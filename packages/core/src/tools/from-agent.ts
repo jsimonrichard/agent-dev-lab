@@ -20,6 +20,7 @@ export function createToolFromAgent<Context>(
   options: CreateToolFromAgentOptions<Context>,
 ): ToolSet[string] {
   return tool({
+    ...(options.name !== undefined ? { name: options.name } : {}),
     description: options.description,
     inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
     execute: async (toolArgs) => {

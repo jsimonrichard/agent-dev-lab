@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createId } from "../internal/ids";
-import { RunRecorder } from "../runtime/run-recorder";
 import { createAdlRuntime, createWorkflow, inMemoryWorkflowStore } from "../index";
-import { createWorkflowContext } from "./context";
-import { getWorkflowImpl } from "./workflow-impl";
 
 describe("workflow.run", () => {
   it("runs steps and records events in the workflow store", async () => {
@@ -51,26 +47,17 @@ describe("workflow.run", () => {
         return null;
       },
     });
-    const impl = getWorkflowImpl(workflow);
 
-    const workflowRunId = createId();
-    const ctx = createWorkflowContext({
-      workflowRunId,
-      services: runtime.services,
-      stepId: null,
-      parentStepId: null,
-      stepPath: [],
-      registryParentKey: workflowRunId,
-      runRecorder: new RunRecorder(runtime.services),
-    });
-    await impl.executeRun(null, { parentCtx: ctx });
+    const first = workflow.run(null);
+    await first.result;
     expect(computeCount).toBe(1);
 
-    await impl.executeRun(null, { parentCtx: ctx });
+    const second = workflow.run(null, { workflowRunId: first.workflowRunId });
+    await second.result;
     expect(computeCount).toBe(1);
 
     const skipped = await store.listEvents(
-      { workflowRunId: ctx.workflowRunId },
+      { workflowRunId: first.workflowRunId },
       { type: "step_skipped" },
     );
     expect(skipped.length).toBeGreaterThanOrEqual(1);
