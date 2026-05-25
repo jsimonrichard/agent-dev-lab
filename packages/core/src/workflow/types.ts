@@ -1,3 +1,4 @@
+import type { RunEvent } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { z } from "zod";
 
@@ -72,6 +73,11 @@ export type WorkflowRunHandle<TOutput> = {
   cancel: () => void;
 };
 
+/** Same execution as {@link Workflow.run} plus a live in-process tail of {@link RunEvent}s. */
+export type WorkflowStreamHandle<TOutput> = WorkflowRunHandle<TOutput> & {
+  events: AsyncIterable<RunEvent>;
+};
+
 /**
  * Optional start parameters for {@link Workflow.run}.
  * Hosts (e.g. inspection UI) may attach per-run observers for in-process event tails;
@@ -94,4 +100,10 @@ export interface Workflow<TInput, TOutput> {
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    */
   run(input: TInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
+  /**
+   * Start a run and expose live run events (steps, agents, lifecycle) for in-process consumers.
+   * Persisted history still goes through {@link WorkflowStore}; production UI may use
+   * `run` + SSE instead.
+   */
+  stream(input: TInput): WorkflowStreamHandle<TOutput>;
 }

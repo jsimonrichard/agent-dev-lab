@@ -1,40 +1,17 @@
-import type {
-  RunEvent,
-  Workflow,
-  WorkflowRunHandle,
-  WorkflowRunStartOptions,
-} from "@agent-dev-lab/core";
+import type { RunEvent, Workflow, WorkflowStreamHandle } from "@agent-dev-lab/core";
 
-import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
-
-export type WorkflowLiveRunHandle<TOutput> = WorkflowRunHandle<TOutput> & {
-  events: AsyncIterable<RunEvent>;
-};
+/** @deprecated Use {@link Workflow.stream} from `@agent-dev-lab/core` directly. */
+export type WorkflowLiveRunHandle<TOutput> = WorkflowStreamHandle<TOutput>;
 
 /**
- * Starts {@link Workflow.run} with in-process observers that buffer run events for
- * {@link WorkflowLiveRunHandle.events}. Prefer store + SSE for production UI.
+ * @deprecated Use `workflow.stream(input)` from `@agent-dev-lab/core`.
+ * Kept as a thin alias for existing inspection-ui imports.
  */
 export function startWorkflowRunWithEvents<TInput, TOutput>(
   workflow: Workflow<TInput, TOutput>,
   input: TInput,
-  options?: Omit<WorkflowRunStartOptions, "extraObservers">,
-): WorkflowLiveRunHandle<TOutput> {
-  const workflowRunId = options?.workflowRunId ?? crypto.randomUUID();
-  const channel = new WorkflowRunEventChannel(workflowRunId);
-  const handle = workflow.run(input, {
-    ...options,
-    workflowRunId,
-    extraObservers: {
-      workflows: [channel.asWorkflowObserver()],
-      agents: [channel.asAgentObserver()],
-    },
-  });
-  const result = handle.result.finally(() => channel.close());
-  return {
-    workflowRunId: handle.workflowRunId,
-    result,
-    cancel: handle.cancel,
-    events: channel.stream(),
-  };
+): WorkflowStreamHandle<TOutput> {
+  return workflow.stream(input);
 }
+
+export type { RunEvent };

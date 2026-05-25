@@ -90,11 +90,11 @@ describe("workflow.run", () => {
     await expect(workflow.run(null).result).rejects.toThrow(/key is required/);
   });
 
-  it("run with extraObservers receives run events", async () => {
+  it("stream yields run events for the workflow run", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
     const workflow = createWorkflow({
-      id: "observer-demo",
+      id: "stream-demo",
       runtime,
       run: async (_input, ctx) => {
         await ctx.step("only", async () => "ok");
@@ -102,16 +102,11 @@ describe("workflow.run", () => {
       },
     });
 
+    const handle = workflow.stream({});
     const collected: string[] = [];
-    const handle = workflow.run(
-      {},
-      {
-        extraObservers: {
-          workflows: [{ onEvent: (e) => collected.push(e.type) }],
-          agents: [{ onEvent: (e) => collected.push(e.type) }],
-        },
-      },
-    );
+    for await (const event of handle.events) {
+      collected.push(event.type);
+    }
     const output = await handle.result;
 
     expect(output).toEqual({ done: true });

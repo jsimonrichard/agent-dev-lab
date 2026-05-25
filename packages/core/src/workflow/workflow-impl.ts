@@ -4,12 +4,14 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { createWorkflowContext, refreshWorkflowContext } from "./context";
+import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
 import type {
   Workflow,
   WorkflowContext,
   WorkflowDefinition,
   WorkflowRunHandle,
   WorkflowRunStartOptions,
+  WorkflowStreamHandle,
 } from "./types";
 
 /** @internal Full run options (public start options + nested parent context). */
@@ -40,6 +42,25 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     return {
       workflowRunId: handle.workflowRunId,
       result: handle.result,
+      cancel: handle.cancel,
+    };
+  }
+
+  stream(input: TInput): WorkflowStreamHandle<TOutput> {
+    const workflowRunId = createId();
+    const channel = new WorkflowRunEventChannel(workflowRunId);
+    const handle = this.startRunWithCancel(input, {
+      workflowRunId,
+      extraObservers: {
+        workflows: [channel.asWorkflowObserver()],
+        agents: [channel.asAgentObserver()],
+      },
+    });
+    const result = handle.result.finally(() => channel.close());
+    return {
+      workflowRunId: handle.workflowRunId,
+      events: channel.stream(),
+      result,
       cancel: handle.cancel,
     };
   }

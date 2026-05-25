@@ -1,12 +1,15 @@
-import type { AgentObserver, WorkflowObserver } from "@agent-dev-lab/core";
-import type { RunEvent } from "@agent-dev-lab/core";
+import type { RunEvent } from "../observability/events";
+import type { AgentObserver, WorkflowObserver } from "../observability/observers";
 
 /**
- * In-process buffer + async iterator for live run-event tails in the inspection UI.
+ * In-process buffer for {@link WorkflowImpl.stream}.
  *
- * Production UI should prefer {@link WorkflowStore} + SSE (`GET /api/runs/:id/events`).
- * This is for same-process consumers (dev routes, tests) that want `AsyncIterable<RunEvent>`
- * without polling the store while a run is in flight.
+ * Registers as per-run workflow/agent observers, buffers {@link RunEvent}s for one
+ * `workflowRunId`, and exposes an async iterator while the run is in flight. Not part of
+ * the public package API — use {@link Workflow.stream} or {@link Workflow.run} with
+ * `WorkflowStore` + SSE for production UI.
+ *
+ * @internal
  */
 export class WorkflowRunEventChannel {
   private readonly buffer: RunEvent[] = [];
