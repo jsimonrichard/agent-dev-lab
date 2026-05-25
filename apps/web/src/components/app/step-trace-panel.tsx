@@ -20,8 +20,8 @@ export function StepTracePanel({
   onSelectEpisode,
 }: StepTracePanelProps) {
   return (
-    <div className="flex h-full flex-col border-l bg-muted/20">
-      <div className="border-b px-4 py-3">
+    <div className="flex h-full flex-col border-l border-border/40 bg-muted/15">
+      <div className="border-b border-border/40 px-4 py-3">
         <h2 className="text-sm font-semibold">Workflow trace</h2>
         <p className="text-xs text-muted-foreground">Steps and agent episodes</p>
       </div>

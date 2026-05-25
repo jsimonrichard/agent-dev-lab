@@ -37,7 +37,7 @@ function ChatBubble({
 
   if (isSystem) {
     return (
-      <div className="mx-auto max-w-lg rounded-md border border-dashed bg-muted/40 px-3 py-2 text-center text-xs text-muted-foreground">
+      <div className="mx-auto max-w-lg rounded-md border border-dashed border-border/50 bg-muted/30 px-3 py-2 text-center text-xs text-muted-foreground">
         {content}
       </div>
     );
@@ -48,8 +48,10 @@ function ChatBubble({
       <div
         className={cn(
           "max-w-[min(85%,42rem)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
-          isUser ? "bg-primary text-primary-foreground" : "border bg-card text-card-foreground",
-          streaming && "border-primary/30",
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "border border-border/40 bg-card text-card-foreground",
+          streaming && "border-primary/25",
         )}
       >
         <p className="m-0 whitespace-pre-wrap">{content}</p>

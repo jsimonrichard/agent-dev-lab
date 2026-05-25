@@ -25,7 +25,10 @@ export function ChatComposer({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t bg-background p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-end gap-2 border-t border-border/40 bg-background p-4"
+    >
       <Textarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

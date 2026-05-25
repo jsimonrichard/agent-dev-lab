@@ -67,7 +67,7 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
@@ -92,10 +92,10 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
       </header>
 
       <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel defaultSize={traceOpen ? 68 : 100} minSize={45}>
+        <ResizablePanel defaultSize={traceOpen ? 55 : 100} minSize={32}>
           <div className="flex h-full min-h-0 flex-col bg-background">
             {activeEpisode ? (
-              <div className="border-b px-4 py-2 text-xs text-muted-foreground">
+              <div className="border-b border-border/40 px-4 py-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{activeEpisode.agentId}</span>
                 <span className="mx-2">·</span>
                 <span className="font-mono">{activeEpisode.memoryScope}</span>
@@ -119,7 +119,7 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
         {traceOpen ? (
           <>
             <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={32} minSize={22} maxSize={45}>
+            <ResizablePanel defaultSize={45} minSize={28} maxSize={62}>
               <StepTracePanel
                 steps={view.steps}
                 selectedStepId={selectedStepId}
