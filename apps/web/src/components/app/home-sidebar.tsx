@@ -1,6 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouteContext } from "@tanstack/react-router";
 import { Bot, GitBranch, MessageSquare } from "lucide-react";
-import { mockProject, mockRuns } from "@/lib/mock/data";
+
 import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
   SidebarContent,
@@ -19,9 +19,11 @@ const devModeLabel = {
   serve: "Serve",
 } as const;
 
-const defaultWorkflowRun = mockRuns[0];
-
 export function HomeSidebar() {
+  const { project, runs, sessions } = useRouteContext({ from: "/_app" });
+  const defaultWorkflowRun = runs[0];
+  const defaultSession = sessions[0];
+
   return (
     <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
@@ -33,9 +35,9 @@ export function HomeSidebar() {
                   <Bot className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{mockProject.name}</span>
+                  <span className="truncate font-semibold">{project.name}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {devModeLabel[mockProject.devMode]}
+                    {devModeLabel[project.devMode]}
                   </span>
                 </div>
               </Link>
@@ -69,7 +71,17 @@ export function HomeSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Agent conversations">
-                  <Link to="/agent">
+                  <Link
+                    to={defaultSession ? "/agent/$agentId/run/$runId" : "/agent"}
+                    params={
+                      defaultSession
+                        ? {
+                            agentId: defaultSession.agentId,
+                            runId: defaultSession.memoryScope,
+                          }
+                        : undefined
+                    }
+                  >
                     <MessageSquare className="size-4" />
                     <span>Agent conversations</span>
                   </Link>

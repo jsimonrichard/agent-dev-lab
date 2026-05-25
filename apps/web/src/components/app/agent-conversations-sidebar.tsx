@@ -1,10 +1,7 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouteContext, useRouterState } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Plus } from "lucide-react";
-import { mockAgents, mockProject } from "@/lib/mock/data";
-import {
-  createStandaloneConversation,
-  listAgentConversations,
-} from "@/lib/mock/agent-conversations";
+
+import { createAgentSession } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
 import { ContextSidebar } from "@/components/app/context-sidebar";
@@ -27,16 +24,17 @@ const devModeLabel = {
 
 export function AgentConversationsSidebar() {
   const navigate = useNavigate();
+  const { project, sessions } = useRouteContext({ from: "/_app" });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const activeRunId = pathname.match(/^\/agent\/[^/]+\/run\/([^/]+)/)?.[1];
-  const conversations = listAgentConversations();
+  const defaultAgentId = project.agentIds[0];
 
-  function handleNewConversation() {
-    const agentId = mockAgents[0]?.id ?? "researcher";
-    const created = createStandaloneConversation(agentId);
+  async function handleNewConversation() {
+    if (!defaultAgentId) return;
+    const { memoryScope } = await createAgentSession({ data: defaultAgentId });
     void navigate({
       to: "/agent/$agentId/run/$runId",
-      params: { agentId: created.agentId, runId: created.runId },
+      params: { agentId: defaultAgentId, runId: memoryScope },
     });
   }
 
@@ -50,9 +48,9 @@ export function AgentConversationsSidebar() {
                 <MessageSquare className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{mockProject.name}</span>
+                <span className="truncate font-semibold">{project.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {devModeLabel[mockProject.devMode]}
+                  {devModeLabel[project.devMode]}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -68,8 +66,9 @@ export function AgentConversationsSidebar() {
               variant="ghost"
               size="icon"
               className="size-6"
-              title="New agent conversation (mock)"
-              onClick={handleNewConversation}
+              title="New agent conversation"
+              disabled={!defaultAgentId}
+              onClick={() => void handleNewConversation()}
             >
               <Plus className="size-3.5" />
               <span className="sr-only">New conversation</span>
@@ -77,37 +76,33 @@ export function AgentConversationsSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent className="px-1">
             <SidebarMenu className="gap-1.5">
-              {conversations.length === 0 ? (
+              {sessions.length === 0 ? (
                 <p className="px-3 py-4 text-xs text-muted-foreground">
                   No conversations yet. Fork from a workflow step or start a new chat.
                 </p>
               ) : (
-                conversations.map((conv) => (
-                  <SidebarMenuItem key={conv.runId}>
+                sessions.map((session) => (
+                  <SidebarMenuItem key={session.memoryScope}>
                     <SidebarMenuButton
                       asChild
-                      isActive={activeRunId === conv.runId}
-                      tooltip={`${conv.title}\n${conv.preview}`}
+                      isActive={activeRunId === session.memoryScope}
+                      tooltip={session.title}
                       className="h-auto min-h-14 items-start py-2.5"
                     >
                       <Link
                         to="/agent/$agentId/run/$runId"
-                        params={{ agentId: conv.agentId, runId: conv.runId }}
+                        params={{ agentId: session.agentId, runId: session.memoryScope }}
                       >
                         <MessageSquare className="mt-0.5 size-4 shrink-0" />
                         <div className="grid min-w-0 flex-1 gap-1 text-left leading-snug">
                           <span className="line-clamp-2 text-xs font-medium leading-snug">
-                            {conv.title}
+                            {session.title}
                           </span>
                           <span className="truncate font-mono text-[10px] text-muted-foreground">
-                            {conv.agentId}
-                            <span className="font-sans text-muted-foreground/70">
-                              {" · "}
-                              {conv.preview}
-                            </span>
+                            {session.agentId}
                           </span>
                         </div>
-                        {conv.runId.startsWith("fork_") ? (
+                        {session.fork ? (
                           <GitBranch className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
                         ) : null}
                       </Link>

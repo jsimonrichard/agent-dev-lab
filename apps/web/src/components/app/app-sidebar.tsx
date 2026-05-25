@@ -12,7 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { mockProject } from "@/lib/mock/data";
+import { useRouteContext } from "@tanstack/react-router";
 import { Settings2 } from "lucide-react";
 
 export function AppSidebar() {
@@ -35,6 +35,7 @@ export function AppSidebar() {
 }
 
 function SettingsContextSidebar() {
+  const { project } = useRouteContext({ from: "/_app" });
   return (
     <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
@@ -45,7 +46,7 @@ function SettingsContextSidebar() {
                 <Settings2 className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{mockProject.name}</span>
+                <span className="truncate font-semibold">{project.name}</span>
                 <span className="truncate text-xs text-muted-foreground">Project</span>
               </div>
             </SidebarMenuButton>

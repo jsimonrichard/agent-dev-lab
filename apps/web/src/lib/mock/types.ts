@@ -187,6 +187,7 @@ export interface AgentEpisode {
 export interface ForkedAgentSession {
   forkId: string;
   agentId: string;
+  sourceWorkflowId: string;
   sourceRunId: string;
   sourceStepId: string;
   sourceEpisodeId: string;

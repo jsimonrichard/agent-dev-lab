@@ -43,13 +43,7 @@ export default function ThemeToggle() {
   const label = mode === "dark" ? "Switch to light theme" : "Switch to dark theme";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleMode}
-      aria-label={label}
-      title={label}
-    >
+    <Button variant="ghost" size="icon" onClick={toggleMode} aria-label={label} title={label}>
       {mode === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
     </Button>
   );

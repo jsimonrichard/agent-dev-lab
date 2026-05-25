@@ -1,14 +1,21 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { mockProject } from "@/lib/mock/data";
 import { Badge } from "@/components/ui/badge";
+
+const devModeLabel = {
+  "framework-dev": "Framework dev",
+  "project-dev": "Project dev",
+  serve: "Serve",
+} as const;
 
 export const Route = createFileRoute("/_app/settings/")({
   component: SettingsPage,
 });
 
 function SettingsPage() {
+  const { project } = useRouteContext({ from: "/_app" });
+
   return (
     <div className="flex h-svh flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 px-4">
@@ -19,23 +26,32 @@ function SettingsPage() {
       <div className="max-w-xl space-y-6 overflow-auto p-6 text-sm">
         <div>
           <p className="text-xs font-medium text-muted-foreground">Name</p>
-          <p className="font-medium">{mockProject.name}</p>
+          <p className="font-medium">{project.name}</p>
         </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground">Root</p>
-          <p className="font-mono text-xs break-all">{mockProject.root}</p>
+          <p className="break-all font-mono text-xs">{project.root}</p>
         </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground">Dev mode</p>
-          <Badge variant="secondary">{mockProject.devMode}</Badge>
+          <Badge variant="secondary">{devModeLabel[project.devMode]}</Badge>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground">Core package</p>
-          <p className="font-mono text-xs">@agent-dev-lab/core {mockProject.coreVersion}</p>
+          <p className="text-xs font-medium text-muted-foreground">Workflows</p>
+          <p className="font-mono text-xs">
+            {project.workflowIds.length > 0 ? project.workflowIds.join(", ") : "—"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Agents</p>
+          <p className="font-mono text-xs">
+            {project.agentIds.length > 0 ? project.agentIds.join(", ") : "—"}
+          </p>
         </div>
         <p className="text-muted-foreground">
-          Mock project banner — will bind to <code className="text-xs">GET /api/project</code> and
-          hot-reload when the user codebase changes.
+          Loaded via <code className="text-xs">loadAdlProject</code> and the project{" "}
+          <code className="text-xs">adl</code> runtime from{" "}
+          <code className="text-xs">src/adl.ts</code>.
         </p>
       </div>
     </div>

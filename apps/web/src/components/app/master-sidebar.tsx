@@ -1,18 +1,17 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
 import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
-import { mockRuns } from "@/lib/mock/data";
-import { getDefaultAgentRun } from "@/lib/mock/agent-conversations";
+
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const defaultWorkflowRun = mockRuns[0];
-
 export function MasterSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const mode = inspectorModeFromPath(pathname);
-  const defaultAgentRun = getDefaultAgentRun();
+  const { runs, sessions } = useRouteContext({ from: "/_app" });
+  const defaultWorkflowRun = runs[0];
+  const defaultSession = sessions[0];
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -32,7 +31,6 @@ export function MasterSidebar() {
           <MasterNavItem
             label="Workflow runs"
             active={mode === "workflows"}
-            disabled={!defaultWorkflowRun}
             to={defaultWorkflowRun ? "/workflows/$workflowId/run/$runId" : "/workflows"}
             params={
               defaultWorkflowRun
@@ -47,11 +45,13 @@ export function MasterSidebar() {
           <MasterNavItem
             label="Agent conversations"
             active={mode === "agents"}
-            disabled={!defaultAgentRun}
-            to={defaultAgentRun ? "/agent/$agentId/run/$runId" : "/agent"}
+            to={defaultSession ? "/agent/$agentId/run/$runId" : "/agent"}
             params={
-              defaultAgentRun
-                ? { agentId: defaultAgentRun.agentId, runId: defaultAgentRun.runId }
+              defaultSession
+                ? {
+                    agentId: defaultSession.agentId,
+                    runId: defaultSession.memoryScope,
+                  }
                 : undefined
             }
             icon={MessageSquare}
@@ -82,7 +82,6 @@ export function MasterSidebar() {
 function MasterNavItem({
   label,
   active,
-  disabled,
   to,
   params,
   icon: Icon,
@@ -90,7 +89,6 @@ function MasterNavItem({
 }: {
   label: string;
   active: boolean;
-  disabled?: boolean;
   to: string;
   params?: Record<string, string>;
   icon: React.ComponentType<{ className?: string }>;
@@ -101,25 +99,17 @@ function MasterNavItem({
     active
       ? "bg-sidebar-accent text-sidebar-accent-foreground"
       : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-    disabled && "pointer-events-none opacity-40",
     className,
-  );
-
-  const inner = disabled ? (
-    <span className={buttonClass}>
-      <Icon className="size-4" />
-      <span className="sr-only">{label}</span>
-    </span>
-  ) : (
-    <Link to={to} params={params} className={buttonClass}>
-      <Icon className="size-4" />
-      <span className="sr-only">{label}</span>
-    </Link>
   );
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        <Link to={to} params={params} className={buttonClass}>
+          <Icon className="size-4" />
+          <span className="sr-only">{label}</span>
+        </Link>
+      </TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
   );

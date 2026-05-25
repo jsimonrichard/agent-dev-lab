@@ -1,11 +1,12 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouteContext } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
-import { mockProject, mockRuns, mockWorkflows } from "@/lib/mock/data";
-import { getDefaultAgentRun, listAgentConversations } from "@/lib/mock/agent-conversations";
+
+import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const devModeLabel = {
   "framework-dev": "Framework dev",
@@ -14,9 +15,20 @@ const devModeLabel = {
 } as const;
 
 export function InspectorDashboard() {
-  const conversations = listAgentConversations();
-  const defaultAgentRun = getDefaultAgentRun();
-  const recentRun = mockRuns[0];
+  const { project, runs, sessions } = useRouteContext({ from: "/_app" });
+  const recentRun = runs[0];
+  const recentSession = sessions[0];
+  const demoWorkflowId = project.workflowIds.includes("demo-counter")
+    ? "demo-counter"
+    : project.workflowIds[0];
+
+  async function handleStartDemo() {
+    if (!demoWorkflowId) return;
+    const { runId } = await startInspectionWorkflowRun({
+      data: { workflowId: demoWorkflowId, input: { steps: 3 } },
+    });
+    window.location.href = `/workflows/${demoWorkflowId}/run/${runId}`;
+  }
 
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-auto">
@@ -24,8 +36,8 @@ export function InspectorDashboard() {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
-          <h1 className="text-sm font-semibold">{mockProject.name}</h1>
-          <p className="text-xs text-muted-foreground">{devModeLabel[mockProject.devMode]}</p>
+          <h1 className="text-sm font-semibold">{project.name}</h1>
+          <p className="text-xs text-muted-foreground">{devModeLabel[project.devMode]}</p>
         </div>
       </header>
 
@@ -33,7 +45,8 @@ export function InspectorDashboard() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Inspect workflow runs, agent conversations, and project configuration.
+            Inspect workflow runs, agent conversations, and project configuration — backed by{" "}
+            <code className="text-xs">@agent-dev-lab/core</code>.
           </p>
         </div>
 
@@ -50,9 +63,14 @@ export function InspectorDashboard() {
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{mockRuns.length} runs</Badge>
-                <Badge variant="outline">{mockWorkflows.length} workflows</Badge>
+                <Badge variant="secondary">{runs.length} runs</Badge>
+                <Badge variant="outline">{project.workflowIds.length} workflows</Badge>
               </div>
+              {demoWorkflowId ? (
+                <Button size="sm" variant="secondary" onClick={() => void handleStartDemo()}>
+                  Start demo workflow
+                </Button>
+              ) : null}
               {recentRun ? (
                 <Link
                   to="/workflows/$workflowId/run/$runId"
@@ -85,17 +103,17 @@ export function InspectorDashboard() {
               </CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
-              <Badge variant="secondary">{conversations.length} conversations</Badge>
-              {defaultAgentRun ? (
+              <Badge variant="secondary">{sessions.length} sessions</Badge>
+              {recentSession ? (
                 <Link
                   to="/agent/$agentId/run/$runId"
                   params={{
-                    agentId: defaultAgentRun.agentId,
-                    runId: defaultAgentRun.runId,
+                    agentId: recentSession.agentId,
+                    runId: recentSession.memoryScope,
                   }}
                   className="text-sm font-medium text-primary hover:underline"
                 >
-                  Open latest conversation →
+                  Open latest session →
                 </Link>
               ) : null}
             </div>
@@ -109,7 +127,7 @@ export function InspectorDashboard() {
               <div>
                 <CardTitle className="text-base">Project</CardTitle>
                 <CardDescription className="font-mono text-xs">
-                  {mockProject.configPath}
+                  {project.configPath}
                 </CardDescription>
               </div>
             </div>

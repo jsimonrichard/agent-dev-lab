@@ -1,6 +1,7 @@
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
+import { demoCounter } from "./src/workflows/demo-counter";
 
 /**
  * Monorepo dev target for the inspection UI and CLI.
@@ -11,4 +12,5 @@ export { adl };
 export default {
   name: "playground",
   adl,
+  workflows: [demoCounter],
 } satisfies AdlProjectConfig;

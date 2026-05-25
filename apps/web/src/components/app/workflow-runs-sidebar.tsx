@@ -1,6 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
 import { GitBranch, Plus } from "lucide-react";
-import { mockProject, mockRuns } from "@/lib/mock/data";
+
+import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
 import type { RunStatus } from "@/lib/mock/types";
@@ -24,8 +25,20 @@ const devModeLabel = {
 } as const;
 
 export function WorkflowRunsSidebar() {
+  const { project, runs } = useRouteContext({ from: "/_app" });
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const activeRunId = pathname.match(/^\/workflows\/[^/]+\/run\/([^/]+)/)?.[1];
+  const demoWorkflowId = project.workflowIds.includes("demo-counter")
+    ? "demo-counter"
+    : project.workflowIds[0];
+
+  async function handleNewRun() {
+    if (!demoWorkflowId) return;
+    const { runId } = await startInspectionWorkflowRun({
+      data: { workflowId: demoWorkflowId, input: {} },
+    });
+    window.location.href = `/workflows/${demoWorkflowId}/run/${runId}`;
+  }
 
   return (
     <ContextSidebar>
@@ -37,9 +50,9 @@ export function WorkflowRunsSidebar() {
                 <GitBranch className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{mockProject.name}</span>
+                <span className="truncate font-semibold">{project.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {devModeLabel[mockProject.devMode]}
+                  {devModeLabel[project.devMode]}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -51,37 +64,50 @@ export function WorkflowRunsSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center justify-between">
             <span>Workflow runs</span>
-            <Button variant="ghost" size="icon" className="size-6" title="Start workflow (mock)">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              title="Start workflow"
+              disabled={!demoWorkflowId}
+              onClick={() => void handleNewRun()}
+            >
               <Plus className="size-3.5" />
               <span className="sr-only">New run</span>
             </Button>
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5">
-              {mockRuns.map((run) => (
-                <SidebarMenuItem key={run.runId}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={activeRunId === run.runId}
-                    tooltip={`${run.runId} · ${run.workflowId}`}
-                    className="h-auto min-h-10 py-2"
-                  >
-                    <Link
-                      to="/workflows/$workflowId/run/$runId"
-                      params={{ workflowId: run.workflowId, runId: run.runId }}
+              {runs.length === 0 ? (
+                <p className="px-3 py-4 text-xs text-muted-foreground">
+                  No runs yet. Start a workflow from the overview or + button.
+                </p>
+              ) : (
+                runs.map((run) => (
+                  <SidebarMenuItem key={run.runId}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={activeRunId === run.runId}
+                      tooltip={`${run.runId} · ${run.workflowId}`}
+                      className="h-auto min-h-10 py-2"
                     >
-                      <GitBranch className="size-4 shrink-0" />
-                      <div className="grid min-w-0 flex-1 gap-0.5 text-left">
-                        <span className="truncate font-mono text-xs">{run.runId}</span>
-                        <span className="truncate text-[11px] text-muted-foreground">
-                          {run.workflowId}
-                        </span>
-                      </div>
-                      <RunStatusDot status={run.status} />
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <Link
+                        to="/workflows/$workflowId/run/$runId"
+                        params={{ workflowId: run.workflowId, runId: run.runId }}
+                      >
+                        <GitBranch className="size-4 shrink-0" />
+                        <div className="grid min-w-0 flex-1 gap-0.5 text-left">
+                          <span className="truncate font-mono text-xs">{run.runId}</span>
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {run.workflowId}
+                          </span>
+                        </div>
+                        <RunStatusDot status={run.status} />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

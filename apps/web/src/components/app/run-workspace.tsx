@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { PanelRight } from "lucide-react";
-import { getEpisodeArtifacts, getMockRunEvents, mockConversations } from "@/lib/mock/data";
-import { createForkedSession } from "@/lib/mock/agent-conversations";
+
+import { fetchMessagesForScope, forkAgentConversation } from "#/lib/inspector-server";
 import { buildRunViewState, findStepInTree } from "@/lib/mock/run-projection";
-import type { AgentEpisode, MockRunSummary } from "@/lib/mock/types";
+import type { AgentEpisode, MockMessage, MockRunSummary, RunEvent } from "@/lib/mock/types";
+import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
 import { WorkflowTreePanel } from "@/components/app/workflow-tree-panel";
 import { StepInspectorPanel } from "@/components/app/step-inspector-panel";
@@ -15,11 +16,12 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 
 interface RunWorkspaceProps {
   summary: MockRunSummary;
+  initialEvents: RunEvent[];
 }
 
-export function RunWorkspace({ summary }: RunWorkspaceProps) {
+export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
   const navigate = useNavigate();
-  const events = getMockRunEvents(summary.runId);
+  const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
 
   const initialStep = findFirstEpisodeStep(view.steps) ?? view.steps[0];
@@ -28,16 +30,30 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
     initialStep?.agentEpisodes[initialStep.agentEpisodes.length - 1] ?? null,
   );
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [messages, setMessages] = useState<MockMessage[]>([]);
 
   const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
 
   const activeEpisode =
     selectedEpisode ?? selectedStep?.agentEpisodes[selectedStep.agentEpisodes.length - 1] ?? null;
 
-  const baseConversation = activeEpisode ? mockConversations[activeEpisode.memoryScope] : undefined;
-  const messages = baseConversation?.messages ?? [];
+  useEffect(() => {
+    if (!activeEpisode?.memoryScope) {
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchMessagesForScope({ data: activeEpisode.memoryScope }).then((loaded) => {
+      if (!cancelled) {
+        setMessages(loaded);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeEpisode?.memoryScope, activeEpisode?.episodeId]);
+
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
-  const artifacts = activeEpisode ? getEpisodeArtifacts(activeEpisode.episodeId) : undefined;
 
   function handleSelectStep(stepId: string) {
     setSelectedStepId(stepId);
@@ -50,19 +66,22 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
     setSelectedEpisode(ep);
   }
 
-  function handleFork() {
+  async function handleFork() {
     if (!activeEpisode || !selectedStepId) return;
-    const session = createForkedSession({
-      agentId: activeEpisode.agentId,
-      sourceRunId: summary.runId,
-      sourceStepId: selectedStepId,
-      sourceEpisodeId: activeEpisode.episodeId,
-      sourceMemoryScope: activeEpisode.memoryScope,
-      messages,
+    const { memoryScope } = await forkAgentConversation({
+      data: {
+        agentId: activeEpisode.agentId,
+        sourceWorkflowId: summary.workflowId,
+        sourceRunId: summary.runId,
+        sourceStepId: selectedStepId,
+        sourceEpisodeId: activeEpisode.episodeId,
+        sourceMemoryScope: activeEpisode.memoryScope,
+        messages,
+      },
     });
     void navigate({
       to: "/agent/$agentId/run/$runId",
-      params: { agentId: activeEpisode.agentId, runId: session.forkId },
+      params: { agentId: activeEpisode.agentId, runId: memoryScope },
     });
   }
 
@@ -78,7 +97,7 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
           </div>
           <p className="truncate text-xs text-muted-foreground">
             {view.workflowId}
-            {summary.status === "running" ? " · live (mock SSE)" : ""}
+            {view.status === "running" ? " · live" : ""}
           </p>
         </div>
         <Button
@@ -120,8 +139,8 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
                 episode={activeEpisode}
                 messages={messages}
                 streamingText={streamingText}
-                artifacts={artifacts}
-                onFork={handleFork}
+                artifacts={undefined}
+                onFork={() => void handleFork()}
               />
             </ResizablePanel>
           </>

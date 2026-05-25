@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, GitBranch, PanelRight } from "lucide-react";
+
+import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
 import type {
   MockAgentSettings,
   MockAgentSummary,
   MockMessage,
   ResolvedAgentConversation,
 } from "@/lib/mock/types";
-import { appendAgentRunMessage } from "@/lib/mock/agent-conversations";
-import { getMockRun } from "@/lib/mock/data";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
@@ -26,29 +26,32 @@ interface AgentRunWorkspaceProps {
 }
 
 export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
+  const router = useRouter();
   const forkSession = conversation.forkSession;
   const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSend(text: string) {
-    const userMsg: MockMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content: text,
-    };
-    const assistantMsg: MockMessage = {
-      id: `a-${Date.now()}`,
-      role: "assistant",
-      content: `[Mock] ${agent.id} reply: ${text}`,
-    };
-
-    appendAgentRunMessage(conversation.runId, userMsg);
-    const updated = appendAgentRunMessage(conversation.runId, assistantMsg);
-    if (updated) {
-      setMessages(updated.messages);
-      return;
+  async function handleSend(text: string) {
+    setSending(true);
+    setError(null);
+    try {
+      await sendAgentMessage({
+        data: {
+          agentId: agent.id,
+          memoryScope: conversation.runId,
+          user: text,
+        },
+      });
+      const updated = await fetchMessagesForScope({ data: conversation.runId });
+      setMessages(updated);
+      void router.invalidate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Agent run failed");
+    } finally {
+      setSending(false);
     }
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
   }
 
   return (
@@ -83,7 +86,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
             <Link
               to="/workflows/$workflowId/run/$runId"
               params={{
-                workflowId: getMockRun(forkSession.sourceRunId)?.workflowId ?? "literature-review",
+                workflowId: forkSession.sourceWorkflowId,
                 runId: forkSession.sourceRunId,
               }}
               className="gap-2"
@@ -104,6 +107,17 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         </div>
       ) : null}
 
+      {error ? (
+        <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          {error}
+          {!agent.id ? null : (
+            <span className="block text-muted-foreground">
+              Agent runs require a configured model and API credentials in the project.
+            </span>
+          )}
+        </div>
+      ) : null}
+
       <ResizablePanelGroup
         orientation="horizontal"
         id="agent-conversation-panels"
@@ -119,7 +133,8 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
               <ChatMessageList messages={messages} streamingText={null} />
             </ScrollArea>
             <ChatComposer
-              onSend={handleSend}
+              onSend={(text) => void handleSend(text)}
+              disabled={sending}
               placeholder={
                 forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
               }
