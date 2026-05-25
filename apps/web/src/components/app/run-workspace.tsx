@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { PanelRight } from "lucide-react";
 import { getEpisodeArtifacts, getMockRunEvents, mockConversations } from "@/lib/mock/data";
-import { createForkedSession } from "@/lib/mock/fork-sessions";
+import { createForkedSession } from "@/lib/mock/agent-conversations";
 import { buildRunViewState, findStepInTree } from "@/lib/mock/run-projection";
 import type { AgentEpisode, MockRunSummary } from "@/lib/mock/types";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
@@ -61,9 +61,8 @@ export function RunWorkspace({ summary }: RunWorkspaceProps) {
       messages,
     });
     void navigate({
-      to: "/agents/$agentId",
-      params: { agentId: activeEpisode.agentId },
-      search: { fork: session.forkId },
+      to: "/agents/$conversationId",
+      params: { conversationId: session.forkId },
     });
   }
 

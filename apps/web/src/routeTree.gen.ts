@@ -17,7 +17,7 @@ import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/i
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppAgentsIndexRouteImport } from './routes/_app/agents/index'
 import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs/$runId'
-import { Route as AppAgentsAgentIdRouteImport } from './routes/_app/agents/$agentId'
+import { Route as AppAgentsConversationIdRouteImport } from './routes/_app/agents/$conversationId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -58,9 +58,9 @@ const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
   path: '/runs/$runId',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgentsAgentIdRoute = AppAgentsAgentIdRouteImport.update({
-  id: '/agents/$agentId',
-  path: '/agents/$agentId',
+const AppAgentsConversationIdRoute = AppAgentsConversationIdRouteImport.update({
+  id: '/agents/$conversationId',
+  path: '/agents/$conversationId',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -68,7 +68,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
-  '/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/agents/$conversationId': typeof AppAgentsConversationIdRoute
   '/runs/$runId': typeof AppRunsRunIdRoute
   '/agents/': typeof AppAgentsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
@@ -78,7 +78,7 @@ export interface FileRoutesByTo {
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
   '/': typeof AppIndexRoute
-  '/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/agents/$conversationId': typeof AppAgentsConversationIdRoute
   '/runs/$runId': typeof AppRunsRunIdRoute
   '/agents': typeof AppAgentsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -90,7 +90,7 @@ export interface FileRoutesById {
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/agents/$agentId': typeof AppAgentsAgentIdRoute
+  '/_app/agents/$conversationId': typeof AppAgentsConversationIdRoute
   '/_app/runs/$runId': typeof AppRunsRunIdRoute
   '/_app/agents/': typeof AppAgentsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
@@ -102,7 +102,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/project'
     | '/api/runtime'
-    | '/agents/$agentId'
+    | '/agents/$conversationId'
     | '/runs/$runId'
     | '/agents/'
     | '/settings/'
@@ -112,7 +112,7 @@ export interface FileRouteTypes {
     | '/api/project'
     | '/api/runtime'
     | '/'
-    | '/agents/$agentId'
+    | '/agents/$conversationId'
     | '/runs/$runId'
     | '/agents'
     | '/settings'
@@ -123,7 +123,7 @@ export interface FileRouteTypes {
     | '/api/project'
     | '/api/runtime'
     | '/_app/'
-    | '/_app/agents/$agentId'
+    | '/_app/agents/$conversationId'
     | '/_app/runs/$runId'
     | '/_app/agents/'
     | '/_app/settings/'
@@ -194,11 +194,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRunsRunIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/agents/$agentId': {
-      id: '/_app/agents/$agentId'
-      path: '/agents/$agentId'
-      fullPath: '/agents/$agentId'
-      preLoaderRoute: typeof AppAgentsAgentIdRouteImport
+    '/_app/agents/$conversationId': {
+      id: '/_app/agents/$conversationId'
+      path: '/agents/$conversationId'
+      fullPath: '/agents/$conversationId'
+      preLoaderRoute: typeof AppAgentsConversationIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -206,7 +206,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
-  AppAgentsAgentIdRoute: typeof AppAgentsAgentIdRoute
+  AppAgentsConversationIdRoute: typeof AppAgentsConversationIdRoute
   AppRunsRunIdRoute: typeof AppRunsRunIdRoute
   AppAgentsIndexRoute: typeof AppAgentsIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -215,7 +215,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
-  AppAgentsAgentIdRoute: AppAgentsAgentIdRoute,
+  AppAgentsConversationIdRoute: AppAgentsConversationIdRoute,
   AppRunsRunIdRoute: AppRunsRunIdRoute,
   AppAgentsIndexRoute: AppAgentsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,

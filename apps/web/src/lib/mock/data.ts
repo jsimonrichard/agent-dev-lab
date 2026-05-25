@@ -1,5 +1,6 @@
 import type {
   EpisodeArtifacts,
+  MockAgentConversation,
   MockAgentSummary,
   MockConversation,
   MockProject,
@@ -37,6 +38,26 @@ export const mockAgents: MockAgentSummary[] = [
   {
     id: "writer",
     description: "Draft prose from prior research context.",
+  },
+];
+
+/** Standalone agent chats shown in the agent sidebar (not workflow runs). */
+export const mockAgentConversations: MockAgentConversation[] = [
+  {
+    conversationId: "conv_playground_researcher",
+    agentId: "researcher",
+    title: "Literature review prompts",
+    preview: "What is a good starting prompt for literature review?",
+    updatedAt: "2026-05-24T18:00:00.000Z",
+    memoryScope: "playground:researcher:local",
+  },
+  {
+    conversationId: "conv_writer_draft",
+    agentId: "writer",
+    title: "Synthesis draft",
+    preview: "Turn the CRISPR delivery notes into a short summary.",
+    updatedAt: "2026-05-23T11:30:00.000Z",
+    memoryScope: "standalone:conv_writer_draft",
   },
 ];
 
@@ -351,6 +372,28 @@ Top hit: [LNP-CRISPR review (2024)](https://example.org/lnp-crispr) — see \`de
         id: "m2",
         role: "user",
         content: "What is a good starting prompt for literature review?",
+      },
+    ],
+  },
+  "standalone:conv_writer_draft": {
+    memoryScope: "standalone:conv_writer_draft",
+    agentId: "writer",
+    messages: [
+      {
+        id: "m1",
+        role: "system",
+        content: "You are a technical writer.",
+      },
+      {
+        id: "m2",
+        role: "user",
+        content: "Turn the CRISPR delivery notes into a short summary.",
+      },
+      {
+        id: "m3",
+        role: "assistant",
+        content:
+          "Recent LNP–CRISPR work emphasizes **liver delivery** first, with extrahepatic routes still an open challenge.",
       },
     ],
   },

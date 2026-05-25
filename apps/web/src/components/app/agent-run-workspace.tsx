@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, GitBranch } from "lucide-react";
-import type { ForkedAgentSession, MockAgentSummary, MockMessage } from "@/lib/mock/types";
-import { appendForkMessage, getForkedSession } from "@/lib/mock/fork-sessions";
+import type { MockAgentSummary, MockMessage, ResolvedAgentConversation } from "@/lib/mock/types";
+import { appendConversationMessage } from "@/lib/mock/agent-conversations";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import { ChatComposer } from "@/components/app/chat-composer";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,12 @@ import { Badge } from "@/components/ui/badge";
 
 interface AgentRunWorkspaceProps {
   agent: MockAgentSummary;
-  forkSession: ForkedAgentSession | null;
+  conversation: ResolvedAgentConversation;
 }
 
-export function AgentRunWorkspace({ agent, forkSession }: AgentRunWorkspaceProps) {
-  const [messages, setMessages] = useState<MockMessage[]>(() =>
-    forkSession ? (getForkedSession(forkSession.forkId)?.messages ?? forkSession.messages) : [],
-  );
+export function AgentRunWorkspace({ agent, conversation }: AgentRunWorkspaceProps) {
+  const forkSession = conversation.forkSession;
+  const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
 
   function handleSend(text: string) {
     const userMsg: MockMessage = {
@@ -33,13 +32,13 @@ export function AgentRunWorkspace({ agent, forkSession }: AgentRunWorkspaceProps
       content: `[Mock] ${agent.id} reply: ${text}`,
     };
 
-    if (forkSession) {
-      appendForkMessage(forkSession.forkId, userMsg);
-      appendForkMessage(forkSession.forkId, assistantMsg);
-      setMessages(getForkedSession(forkSession.forkId)?.messages ?? []);
-    } else {
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    appendConversationMessage(conversation.conversationId, userMsg);
+    const updated = appendConversationMessage(conversation.conversationId, assistantMsg);
+    if (updated) {
+      setMessages(updated.messages);
+      return;
     }
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
   }
 
   return (
@@ -49,7 +48,8 @@ export function AgentRunWorkspace({ agent, forkSession }: AgentRunWorkspaceProps
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate font-mono text-sm font-semibold">{agent.id}</h1>
+            <h1 className="truncate text-sm font-semibold">{conversation.title}</h1>
+            <span className="font-mono text-xs text-muted-foreground">{agent.id}</span>
             {forkSession ? (
               <Badge variant="secondary" className="gap-1 text-[10px]">
                 <GitBranch className="size-3" />

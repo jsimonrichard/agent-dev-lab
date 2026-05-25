@@ -178,6 +178,25 @@ export interface ForkedAgentSession {
   messages: MockMessage[];
 }
 
+/** Standalone agent chat listed in the agent sidebar (mock). */
+export interface MockAgentConversation {
+  conversationId: string;
+  agentId: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+  memoryScope: string;
+}
+
+/** Resolved session for /agents/$conversationId — static mock or forked. */
+export interface ResolvedAgentConversation {
+  conversationId: string;
+  agentId: string;
+  title: string;
+  messages: MockMessage[];
+  forkSession: ForkedAgentSession | null;
+}
+
 export interface RunViewState {
   runId: string;
   workflowId: string;
