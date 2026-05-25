@@ -33,11 +33,48 @@ export class RunRecorder {
     return new Date().toISOString();
   }
 
+  /**
+   * Records a run event (store, observers, OTel). Never rejects — failures are logged on the
+   * active span, or `console.warn` if span recording fails.
+   */
   async emit(event: RunEventEmit): Promise<void> {
-    const withMeta = this.attachMeta(event);
-    this.recordOnActiveSpan(withMeta);
-    await this.persist(withMeta);
-    await this.notifyObservers(withMeta);
+    let withMeta: RunEvent;
+    try {
+      withMeta = this.attachMeta(event);
+    } catch (error) {
+      this.reportEmitFailure(error, event.type);
+      return;
+    }
+
+    try {
+      this.recordOnActiveSpan(withMeta);
+    } catch (error) {
+      this.reportEmitFailure(error, withMeta.type);
+    }
+
+    try {
+      await this.persist(withMeta);
+    } catch (error) {
+      this.reportEmitFailure(error, withMeta.type);
+    }
+
+    try {
+      await this.notifyObservers(withMeta);
+    } catch (error) {
+      this.reportEmitFailure(error, withMeta.type);
+    }
+  }
+
+  private reportEmitFailure(error: unknown, eventType: string): void {
+    try {
+      recordSpanError(error);
+    } catch (loggingError) {
+      console.warn(
+        `[agent-dev-lab] RunRecorder.emit(${eventType}) failed and could not record on span:`,
+        error,
+        loggingError,
+      );
+    }
   }
 
   private attachMeta(event: RunEventEmit): RunEvent {
@@ -74,11 +111,7 @@ export class RunRecorder {
     if (!store) {
       return;
     }
-    try {
-      await store.recordEvent(event);
-    } catch (error) {
-      recordSpanError(error);
-    }
+    await store.recordEvent(event);
   }
 
   private async notifyObservers(event: RunEvent): Promise<void> {
@@ -88,7 +121,7 @@ export class RunRecorder {
           try {
             await observer.onEvent?.(event);
           } catch (error) {
-            recordSpanError(error);
+            this.reportEmitFailure(error, event.type);
           }
         }),
       );
@@ -99,7 +132,7 @@ export class RunRecorder {
           try {
             await observer.onEvent?.(event);
           } catch (error) {
-            recordSpanError(error);
+            this.reportEmitFailure(error, event.type);
           }
         }),
       );

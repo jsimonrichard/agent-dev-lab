@@ -9,7 +9,6 @@ import {
 } from "ai";
 import type { z } from "zod";
 
-import { fireAndForget } from "../internal/fire-and-forget";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -153,15 +152,13 @@ export class AgentImpl<
               : {}),
             onChunk: ({ chunk }) => {
               if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
-                fireAndForget(
-                  runRecorder.emit({
-                    type: "agent_text_delta",
-                    agentCallId,
-                    workflowRunId,
-                    stepId,
-                    delta: chunk.text,
-                  }),
-                );
+                void runRecorder.emit({
+                  type: "agent_text_delta",
+                  agentCallId,
+                  workflowRunId,
+                  stepId,
+                  delta: chunk.text,
+                });
               }
             },
           }) as unknown as StreamTextResult<Tools, unknown>;
