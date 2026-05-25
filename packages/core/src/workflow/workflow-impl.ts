@@ -70,11 +70,11 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
    * @internal
    */
   runNested(input: TInput, parentCtx: WorkflowContext): Promise<TOutput> {
-    return this.executeRun(input, { parentCtx });
+    return this.#executeRun(input, { parentCtx });
   }
 
-  /** @internal Nested replay / step-cache continuation (same {@link WorkflowRunOptions.parentCtx}). */
-  executeRun(
+  /** Nested replay / step-cache continuation (same {@link WorkflowRunOptions.parentCtx}). */
+  #executeRun(
     input: TInput,
     options?: WorkflowRunOptions,
     abortController?: AbortController,
@@ -164,13 +164,16 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     const abortController = new AbortController();
     return {
       workflowRunId,
-      result: this.executeRun(input, { ...options, workflowRunId }, abortController),
+      result: this.#executeRun(input, { ...options, workflowRunId }, abortController),
       cancel: () => abortController.abort(),
     };
   }
 }
 
-/** Resolves the concrete workflow binding created by {@link createWorkflow} / {@link AdlRuntime.createWorkflow}. */
+/**
+ * Resolves the concrete workflow binding created by {@link createWorkflow} / {@link AdlRuntime.createWorkflow}.
+ * @internal
+ */
 export function getWorkflowImpl<TInput, TOutput>(
   workflow: Workflow<TInput, TOutput>,
 ): WorkflowImpl<TInput, TOutput> {
