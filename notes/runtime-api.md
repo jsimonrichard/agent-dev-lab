@@ -95,7 +95,7 @@ const researcher = adl.createAgent(
 - **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to the lists from `createAdlRuntime` (not replace).
 
-`AdlRuntimeConfig`, `AdlRuntimeOverrides`, and resolved `RuntimeServices` share the same nested `stores` / `observers` shape.
+Config and overrides use `Partial` nested `stores` / `observers`; resolved `RuntimeServices` has required `stores.message` and observer arrays.
 
 ---
 

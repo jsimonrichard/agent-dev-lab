@@ -1,11 +1,6 @@
 import { inMemoryMessageStore } from "../memory/in-memory";
 import type { AdlRuntime } from "./types";
-import type {
-  AdlRuntimeConfig,
-  AdlRuntimeOptions,
-  AdlRuntimeOverrides,
-  RuntimeServices,
-} from "./types";
+import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
 
 /** Splits factory params into definition fields, runtime, and optional overrides. */
 export function splitFactoryParams<T extends AdlRuntimeOverrides & { runtime: AdlRuntime }>(
@@ -15,14 +10,18 @@ export function splitFactoryParams<T extends AdlRuntimeOverrides & { runtime: Ad
   runtime: AdlRuntime;
   overrides: AdlRuntimeOverrides | undefined;
 } {
-  const { runtime, ...rest } = params;
-  const definition = { ...rest } as T & AdlRuntimeOverrides;
-  delete definition.stores;
-  delete definition.observers;
+  const { runtime, stores, observers, ...definition } = params;
+  const overrides: AdlRuntimeOverrides | undefined =
+    stores === undefined && observers === undefined
+      ? undefined
+      : {
+          ...(stores !== undefined ? { stores } : {}),
+          ...(observers !== undefined ? { observers } : {}),
+        };
   return {
     definition: definition as Omit<T, keyof AdlRuntimeOverrides | "runtime">,
     runtime,
-    overrides: pickAdlRuntimeOverrides(params),
+    overrides,
   };
 }
 
@@ -37,20 +36,6 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
       agents: config.observers?.agents ?? [],
     },
   };
-}
-
-/** Extracts override fields from factory params (definition + {@link AdlRuntimeOverrides}). */
-export function pickAdlRuntimeOverrides(
-  source: AdlRuntimeOptions,
-): AdlRuntimeOverrides | undefined {
-  const overrides: AdlRuntimeOverrides = {};
-  if (source.stores !== undefined) {
-    overrides.stores = source.stores;
-  }
-  if (source.observers !== undefined) {
-    overrides.observers = source.observers;
-  }
-  return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
 
 /** Merges runtime services with per-call overrides (observer lists concatenated). */

@@ -38,10 +38,8 @@ export type {
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
   RuntimeObservers,
-  RuntimeObserversConfig,
   RuntimeServices,
   RuntimeStores,
-  RuntimeStoresConfig,
 } from "./runtime";
 
 export { createTemplate } from "./template";

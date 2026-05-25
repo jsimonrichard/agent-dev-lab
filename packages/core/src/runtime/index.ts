@@ -1,6 +1,5 @@
 export { createAdlRuntime } from "./create";
 export {
-  pickAdlRuntimeOverrides,
   resolveRuntimeConfig,
   resolveRuntimeOverrides,
   splitFactoryParams,
@@ -11,8 +10,6 @@ export type {
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
   RuntimeObservers,
-  RuntimeObserversConfig,
   RuntimeServices,
   RuntimeStores,
-  RuntimeStoresConfig,
 } from "./types";

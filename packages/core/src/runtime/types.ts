@@ -8,32 +8,6 @@ import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 
-/** Store wiring — same nested shape for config, overrides, and resolved {@link RuntimeServices}. */
-export type RuntimeStoresConfig = {
-  message?: MessageStore;
-  workflow?: WorkflowStore;
-};
-
-export type RuntimeObserversConfig = {
-  workflows?: WorkflowObservers;
-  agents?: AgentObservers;
-};
-
-/**
- * Shared options shape for {@link createAdlRuntime} and per-call overrides on bound factories.
- * Observer lists on overrides are **appended** to runtime defaults (not replaced).
- */
-export type AdlRuntimeOptions = {
-  stores?: RuntimeStoresConfig;
-  observers?: RuntimeObserversConfig;
-};
-
-/** Options for {@link createAdlRuntime}. */
-export type AdlRuntimeConfig = AdlRuntimeOptions;
-
-/** Per-call overrides when creating agents or workflows on a runtime. */
-export type AdlRuntimeOverrides = AdlRuntimeOptions;
-
 export type RuntimeStores = {
   message: MessageStore;
   workflow?: WorkflowStore;
@@ -43,6 +17,21 @@ export type RuntimeObservers = {
   workflows: WorkflowObservers;
   agents: AgentObservers;
 };
+
+/**
+ * Shared options shape for {@link createAdlRuntime} and per-call overrides on bound factories.
+ * `stores` / `observers` are partial — only specified fields override or append (see merge rules).
+ */
+export type AdlRuntimeOptions = {
+  stores?: Partial<RuntimeStores>;
+  observers?: Partial<RuntimeObservers>;
+};
+
+/** Options for {@link createAdlRuntime}. */
+export type AdlRuntimeConfig = AdlRuntimeOptions;
+
+/** Per-call overrides when creating agents or workflows on a runtime. */
+export type AdlRuntimeOverrides = AdlRuntimeOptions;
 
 /**
  * Process-level services for agents and workflows (stores, observers).
