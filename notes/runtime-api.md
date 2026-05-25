@@ -20,10 +20,10 @@ Registry modules (`src/agents/researcher.ts`) import `adl` from `src/adl.ts` and
 // src/adl.ts
 import { createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
 
-// messageStore defaults to in-memory when omitted: createAdlRuntime()
+// stores.message defaults to in-memory when omitted: createAdlRuntime()
 export const adl = createAdlRuntime({
-  messageStore: inMemoryMessageStore(),
-  // workflowStore: createSqliteWorkflowStore({ db }),
+  stores: { message: inMemoryMessageStore() },
+  // stores: { message, workflow: createSqliteWorkflowStore({ db }) },
   observers: { workflows: [stdoutWorkflowObserver], agents: [] },
 });
 ```
@@ -53,7 +53,7 @@ export default {
 Drizzle/tRPC-style factory — primary app entrypoint:
 
 ```ts
-const adl = createAdlRuntime({ messageStore, workflowStore?, observers? });
+const adl = createAdlRuntime({ stores: { message, workflow? }, observers? });
 
 const researcher = adl.createAgent({
   id: "researcher",
@@ -92,10 +92,10 @@ const researcher = adl.createAgent(
 );
 ```
 
-- **`messageStore` / `workflowStore`**: replace the runtime default for this agent/workflow/run.
+- **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to the lists from `createAdlRuntime` (not replace).
 
-`RuntimeServices` uses `WorkflowObservers` and `AgentObservers` (both are observer arrays — same naming pattern).
+`AdlRuntimeConfig`, `AdlRuntimeOverrides`, and resolved `RuntimeServices` share the same nested `stores` / `observers` shape.
 
 ---
 
@@ -106,7 +106,7 @@ Explicit runtime — no globals, no ALS:
 ```ts
 import { createAgent, createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
 
-const runtime = createAdlRuntime({ messageStore: inMemoryMessageStore() });
+const runtime = createAdlRuntime({ stores: { message: inMemoryMessageStore() } });
 
 const agent = createAgent({
   id: "researcher",
@@ -198,7 +198,7 @@ Remove from `AdlProjectConfig` (v1 API PR). Move to `src/adl.ts`:
 - stores: { workflows, memory },
 - observers: { workflows, agents },
 + // in src/adl.ts
-+ export const adl = createAdlRuntime({ messageStore, workflowStore, observers });
++ export const adl = createAdlRuntime({ stores: { message, workflow }, observers });
 ```
 
 Config keeps `adl` reference for CLI execution.

@@ -32,7 +32,17 @@ export type {
 } from "./workflow";
 
 export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
-export type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./runtime";
+export type {
+  AdlRuntime,
+  AdlRuntimeConfig,
+  AdlRuntimeOptions,
+  AdlRuntimeOverrides,
+  RuntimeObservers,
+  RuntimeObserversConfig,
+  RuntimeServices,
+  RuntimeStores,
+  RuntimeStoresConfig,
+} from "./runtime";
 
 export { createTemplate } from "./template";
 export type {

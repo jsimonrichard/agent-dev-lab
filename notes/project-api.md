@@ -40,7 +40,7 @@ my-research/
 ```ts
 // src/adl.ts — see runtime-api.md
 import { createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
-export const adl = createAdlRuntime({ messageStore: inMemoryMessageStore() });
+export const adl = createAdlRuntime({ stores: { message: inMemoryMessageStore() } });
 
 // adl.config.ts
 import type { AdlProjectConfig } from "@agent-dev-lab/core";

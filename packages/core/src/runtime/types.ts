@@ -8,40 +8,49 @@ import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 
+/** Store wiring — same nested shape for config, overrides, and resolved {@link RuntimeServices}. */
+export type RuntimeStoresConfig = {
+  message?: MessageStore;
+  workflow?: WorkflowStore;
+};
+
+export type RuntimeObserversConfig = {
+  workflows?: WorkflowObservers;
+  agents?: AgentObservers;
+};
+
+/**
+ * Shared options shape for {@link createAdlRuntime} and per-call overrides on bound factories.
+ * Observer lists on overrides are **appended** to runtime defaults (not replaced).
+ */
+export type AdlRuntimeOptions = {
+  stores?: RuntimeStoresConfig;
+  observers?: RuntimeObserversConfig;
+};
+
+/** Options for {@link createAdlRuntime}. */
+export type AdlRuntimeConfig = AdlRuntimeOptions;
+
+/** Per-call overrides when creating agents or workflows on a runtime. */
+export type AdlRuntimeOverrides = AdlRuntimeOptions;
+
+export type RuntimeStores = {
+  message: MessageStore;
+  workflow?: WorkflowStore;
+};
+
+export type RuntimeObservers = {
+  workflows: WorkflowObservers;
+  agents: AgentObservers;
+};
+
 /**
  * Process-level services for agents and workflows (stores, observers).
  * Wired in `src/adl.ts` — not in `adl.config.ts` (avoids import cycles with registry modules).
  */
 export type RuntimeServices = {
-  messageStore: MessageStore;
-  /** Same pattern as {@link AgentObservers}: array type alias over {@link WorkflowObserver}. */
-  workflowObservers: WorkflowObservers;
-  agentObservers: AgentObservers;
-  workflowStore?: WorkflowStore;
-};
-
-/** Options for {@link createAdlRuntime}. */
-export type AdlRuntimeConfig = {
-  /** Defaults to an in-memory store when omitted. */
-  messageStore?: MessageStore;
-  workflowStore?: WorkflowStore;
-  observers?: {
-    workflows?: WorkflowObservers;
-    agents?: AgentObservers;
-  };
-};
-
-/**
- * Per-call overrides when creating agents, workflows, or run contexts on a runtime.
- * Observer lists are **appended** to the runtime defaults (not replaced).
- */
-export type AdlRuntimeOverrides = {
-  messageStore?: MessageStore;
-  workflowStore?: WorkflowStore;
-  observers?: {
-    workflows?: WorkflowObservers;
-    agents?: AgentObservers;
-  };
+  stores: RuntimeStores;
+  observers: RuntimeObservers;
 };
 
 /**

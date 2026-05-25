@@ -12,7 +12,6 @@ export type CreateWorkflowParams<TInput, TOutput> = WorkflowDefinition<TInput, T
 export type CreateWorkflowBoundParams<TInput, TOutput> = WorkflowDefinition<TInput, TOutput> & {
   runtime: AdlRuntime;
   services: RuntimeServices;
-  contextOverrides?: AdlRuntimeOverrides;
 };
 
 export function createWorkflow<TInput, TOutput>(
@@ -20,19 +19,14 @@ export function createWorkflow<TInput, TOutput>(
 ): Workflow<TInput, TOutput> {
   const { definition, runtime, overrides } = splitFactoryParams(params);
   const services = resolveRuntimeOverrides(runtime.services, overrides);
-  return createWorkflowWithServices({
-    ...definition,
-    runtime,
-    services,
-    contextOverrides: overrides,
-  });
+  return createWorkflowWithServices({ ...definition, runtime, services });
 }
 
 /** @internal */
 export function createWorkflowWithServices<TInput, TOutput>(
   params: CreateWorkflowBoundParams<TInput, TOutput>,
 ): Workflow<TInput, TOutput> {
-  const { id, runtime, services, run: runFn, contextOverrides } = params;
+  const { id, runtime, services, run: runFn } = params;
   if (!id || typeof id !== "string") {
     throw new Error('createWorkflow: "id" must be a non-empty string');
   }
@@ -44,8 +38,7 @@ export function createWorkflowWithServices<TInput, TOutput>(
       void services;
       void runFn;
       void input;
-      void contextOverrides;
-      // Implementation: const ctx = createWorkflowRunContext(runtime, contextOverrides);
+      // Implementation: const ctx = createWorkflowRunContext(runtime, services);
       const error = new AdlNotImplementedError(`workflow.run (${id})`);
       return {
         workflowRunId: "",
