@@ -9,25 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as InspectorRouteImport } from './routes/_inspector'
-import { Route as InspectorIndexRouteImport } from './routes/_inspector/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiRuntimeRouteImport } from './routes/api.runtime'
 import { Route as ApiProjectRouteImport } from './routes/api.project'
-import { Route as InspectorWorkflowsIndexRouteImport } from './routes/_inspector/workflows/index'
-import { Route as InspectorRunsIndexRouteImport } from './routes/_inspector/runs/index'
-import { Route as InspectorAgentsIndexRouteImport } from './routes/_inspector/agents/index'
-import { Route as InspectorWorkflowsWorkflowIdRouteImport } from './routes/_inspector/workflows/$workflowId'
-import { Route as InspectorRunsRunIdRouteImport } from './routes/_inspector/runs/$runId'
-import { Route as InspectorAgentsAgentIdRouteImport } from './routes/_inspector/agents/$agentId'
+import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppAgentsIndexRouteImport } from './routes/_app/agents/index'
+import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs/$runId'
 
-const InspectorRoute = InspectorRouteImport.update({
-  id: '/_inspector',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InspectorIndexRoute = InspectorIndexRouteImport.update({
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => InspectorRoute,
+  getParentRoute: () => AppRoute,
 } as any)
 const ApiRuntimeRoute = ApiRuntimeRouteImport.update({
   id: '/api/runtime',
@@ -39,72 +37,55 @@ const ApiProjectRoute = ApiProjectRouteImport.update({
   path: '/api/project',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InspectorWorkflowsIndexRoute = InspectorWorkflowsIndexRouteImport.update({
+const AppWorkflowsIndexRoute = AppWorkflowsIndexRouteImport.update({
   id: '/workflows/',
   path: '/workflows/',
-  getParentRoute: () => InspectorRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const InspectorRunsIndexRoute = InspectorRunsIndexRouteImport.update({
-  id: '/runs/',
-  path: '/runs/',
-  getParentRoute: () => InspectorRoute,
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => AppRoute,
 } as any)
-const InspectorAgentsIndexRoute = InspectorAgentsIndexRouteImport.update({
+const AppAgentsIndexRoute = AppAgentsIndexRouteImport.update({
   id: '/agents/',
   path: '/agents/',
-  getParentRoute: () => InspectorRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const InspectorWorkflowsWorkflowIdRoute =
-  InspectorWorkflowsWorkflowIdRouteImport.update({
-    id: '/workflows/$workflowId',
-    path: '/workflows/$workflowId',
-    getParentRoute: () => InspectorRoute,
-  } as any)
-const InspectorRunsRunIdRoute = InspectorRunsRunIdRouteImport.update({
+const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
-  getParentRoute: () => InspectorRoute,
-} as any)
-const InspectorAgentsAgentIdRoute = InspectorAgentsAgentIdRouteImport.update({
-  id: '/agents/$agentId',
-  path: '/agents/$agentId',
-  getParentRoute: () => InspectorRoute,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof InspectorIndexRoute
+  '/': typeof AppIndexRoute
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
-  '/agents/$agentId': typeof InspectorAgentsAgentIdRoute
-  '/runs/$runId': typeof InspectorRunsRunIdRoute
-  '/workflows/$workflowId': typeof InspectorWorkflowsWorkflowIdRoute
-  '/agents/': typeof InspectorAgentsIndexRoute
-  '/runs/': typeof InspectorRunsIndexRoute
-  '/workflows/': typeof InspectorWorkflowsIndexRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
+  '/agents/': typeof AppAgentsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
+  '/workflows/': typeof AppWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
-  '/': typeof InspectorIndexRoute
-  '/agents/$agentId': typeof InspectorAgentsAgentIdRoute
-  '/runs/$runId': typeof InspectorRunsRunIdRoute
-  '/workflows/$workflowId': typeof InspectorWorkflowsWorkflowIdRoute
-  '/agents': typeof InspectorAgentsIndexRoute
-  '/runs': typeof InspectorRunsIndexRoute
-  '/workflows': typeof InspectorWorkflowsIndexRoute
+  '/': typeof AppIndexRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
+  '/agents': typeof AppAgentsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
+  '/workflows': typeof AppWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_inspector': typeof InspectorRouteWithChildren
+  '/_app': typeof AppRouteWithChildren
   '/api/project': typeof ApiProjectRoute
   '/api/runtime': typeof ApiRuntimeRoute
-  '/_inspector/': typeof InspectorIndexRoute
-  '/_inspector/agents/$agentId': typeof InspectorAgentsAgentIdRoute
-  '/_inspector/runs/$runId': typeof InspectorRunsRunIdRoute
-  '/_inspector/workflows/$workflowId': typeof InspectorWorkflowsWorkflowIdRoute
-  '/_inspector/agents/': typeof InspectorAgentsIndexRoute
-  '/_inspector/runs/': typeof InspectorRunsIndexRoute
-  '/_inspector/workflows/': typeof InspectorWorkflowsIndexRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/runs/$runId': typeof AppRunsRunIdRoute
+  '/_app/agents/': typeof AppAgentsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/workflows/': typeof AppWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -112,58 +93,52 @@ export interface FileRouteTypes {
     | '/'
     | '/api/project'
     | '/api/runtime'
-    | '/agents/$agentId'
     | '/runs/$runId'
-    | '/workflows/$workflowId'
     | '/agents/'
-    | '/runs/'
+    | '/settings/'
     | '/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/api/project'
     | '/api/runtime'
     | '/'
-    | '/agents/$agentId'
     | '/runs/$runId'
-    | '/workflows/$workflowId'
     | '/agents'
-    | '/runs'
+    | '/settings'
     | '/workflows'
   id:
     | '__root__'
-    | '/_inspector'
+    | '/_app'
     | '/api/project'
     | '/api/runtime'
-    | '/_inspector/'
-    | '/_inspector/agents/$agentId'
-    | '/_inspector/runs/$runId'
-    | '/_inspector/workflows/$workflowId'
-    | '/_inspector/agents/'
-    | '/_inspector/runs/'
-    | '/_inspector/workflows/'
+    | '/_app/'
+    | '/_app/runs/$runId'
+    | '/_app/agents/'
+    | '/_app/settings/'
+    | '/_app/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  InspectorRoute: typeof InspectorRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
   ApiProjectRoute: typeof ApiProjectRoute
   ApiRuntimeRoute: typeof ApiRuntimeRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_inspector': {
-      id: '/_inspector'
+    '/_app': {
+      id: '/_app'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof InspectorRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_inspector/': {
-      id: '/_inspector/'
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof InspectorIndexRouteImport
-      parentRoute: typeof InspectorRoute
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/api/runtime': {
       id: '/api/runtime'
@@ -179,77 +154,57 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProjectRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_inspector/workflows/': {
-      id: '/_inspector/workflows/'
+    '/_app/workflows/': {
+      id: '/_app/workflows/'
       path: '/workflows'
       fullPath: '/workflows/'
-      preLoaderRoute: typeof InspectorWorkflowsIndexRouteImport
-      parentRoute: typeof InspectorRoute
+      preLoaderRoute: typeof AppWorkflowsIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_inspector/runs/': {
-      id: '/_inspector/runs/'
-      path: '/runs'
-      fullPath: '/runs/'
-      preLoaderRoute: typeof InspectorRunsIndexRouteImport
-      parentRoute: typeof InspectorRoute
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_inspector/agents/': {
-      id: '/_inspector/agents/'
+    '/_app/agents/': {
+      id: '/_app/agents/'
       path: '/agents'
       fullPath: '/agents/'
-      preLoaderRoute: typeof InspectorAgentsIndexRouteImport
-      parentRoute: typeof InspectorRoute
+      preLoaderRoute: typeof AppAgentsIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_inspector/workflows/$workflowId': {
-      id: '/_inspector/workflows/$workflowId'
-      path: '/workflows/$workflowId'
-      fullPath: '/workflows/$workflowId'
-      preLoaderRoute: typeof InspectorWorkflowsWorkflowIdRouteImport
-      parentRoute: typeof InspectorRoute
-    }
-    '/_inspector/runs/$runId': {
-      id: '/_inspector/runs/$runId'
+    '/_app/runs/$runId': {
+      id: '/_app/runs/$runId'
       path: '/runs/$runId'
       fullPath: '/runs/$runId'
-      preLoaderRoute: typeof InspectorRunsRunIdRouteImport
-      parentRoute: typeof InspectorRoute
-    }
-    '/_inspector/agents/$agentId': {
-      id: '/_inspector/agents/$agentId'
-      path: '/agents/$agentId'
-      fullPath: '/agents/$agentId'
-      preLoaderRoute: typeof InspectorAgentsAgentIdRouteImport
-      parentRoute: typeof InspectorRoute
+      preLoaderRoute: typeof AppRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface InspectorRouteChildren {
-  InspectorIndexRoute: typeof InspectorIndexRoute
-  InspectorAgentsAgentIdRoute: typeof InspectorAgentsAgentIdRoute
-  InspectorRunsRunIdRoute: typeof InspectorRunsRunIdRoute
-  InspectorWorkflowsWorkflowIdRoute: typeof InspectorWorkflowsWorkflowIdRoute
-  InspectorAgentsIndexRoute: typeof InspectorAgentsIndexRoute
-  InspectorRunsIndexRoute: typeof InspectorRunsIndexRoute
-  InspectorWorkflowsIndexRoute: typeof InspectorWorkflowsIndexRoute
+interface AppRouteChildren {
+  AppIndexRoute: typeof AppIndexRoute
+  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
+  AppAgentsIndexRoute: typeof AppAgentsIndexRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppWorkflowsIndexRoute: typeof AppWorkflowsIndexRoute
 }
 
-const InspectorRouteChildren: InspectorRouteChildren = {
-  InspectorIndexRoute: InspectorIndexRoute,
-  InspectorAgentsAgentIdRoute: InspectorAgentsAgentIdRoute,
-  InspectorRunsRunIdRoute: InspectorRunsRunIdRoute,
-  InspectorWorkflowsWorkflowIdRoute: InspectorWorkflowsWorkflowIdRoute,
-  InspectorAgentsIndexRoute: InspectorAgentsIndexRoute,
-  InspectorRunsIndexRoute: InspectorRunsIndexRoute,
-  InspectorWorkflowsIndexRoute: InspectorWorkflowsIndexRoute,
+const AppRouteChildren: AppRouteChildren = {
+  AppIndexRoute: AppIndexRoute,
+  AppRunsRunIdRoute: AppRunsRunIdRoute,
+  AppAgentsIndexRoute: AppAgentsIndexRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppWorkflowsIndexRoute: AppWorkflowsIndexRoute,
 }
 
-const InspectorRouteWithChildren = InspectorRoute._addFileChildren(
-  InspectorRouteChildren,
-)
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  InspectorRoute: InspectorRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
   ApiProjectRoute: ApiProjectRoute,
   ApiRuntimeRoute: ApiRuntimeRoute,
 }

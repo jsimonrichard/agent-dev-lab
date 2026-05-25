@@ -22,7 +22,12 @@ if (process.env[ADL_FRAMEWORK_DEV_ENV] === "1" && !process.env[ADL_PROJECT_ROOT_
 
 const config = defineConfig({
   envPrefix: "ADL_",
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      "@": path.resolve(webRoot, "./src"),
+    },
+  },
   ssr: {
     external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project"],
   },
