@@ -1,6 +1,7 @@
 import type {
   EpisodeArtifacts,
   MockAgentConversation,
+  MockAgentSettings,
   MockAgentSummary,
   MockConversation,
   MockProject,
@@ -40,6 +41,54 @@ export const mockAgents: MockAgentSummary[] = [
     description: "Draft prose from prior research context.",
   },
 ];
+
+export const mockAgentSettings: Record<string, MockAgentSettings> = {
+  researcher: {
+    agentId: "researcher",
+    model: "gpt-4.1",
+    temperature: 0.2,
+    maxSteps: 12,
+    memoryMode: "scoped per workflow step",
+    systemPromptPath: "prompts/researcher.md",
+    outputSchema: "PaperSearchResult",
+    tools: [
+      {
+        name: "search_pubmed",
+        description: "Query PubMed and return paper metadata (title, PMID, year).",
+      },
+      {
+        name: "fetch_abstracts",
+        description: "Load abstracts for a list of PMIDs.",
+      },
+      {
+        name: "cite_paper",
+        description: "Format a citation string for a PMID in APA style.",
+      },
+    ],
+  },
+  writer: {
+    agentId: "writer",
+    model: "gpt-4.1-mini",
+    temperature: 0.5,
+    maxSteps: 8,
+    memoryMode: "inherits prior step context",
+    systemPromptPath: "prompts/writer.md",
+    tools: [
+      {
+        name: "read_step_output",
+        description: "Read JSON output from a completed workflow step.",
+      },
+      {
+        name: "draft_section",
+        description: "Generate markdown for a report section from bullet notes.",
+      },
+    ],
+  },
+};
+
+export function getMockAgentSettings(agentId: string): MockAgentSettings | undefined {
+  return mockAgentSettings[agentId];
+}
 
 /** Standalone agent chats shown in the agent sidebar (not workflow runs). */
 export const mockAgentConversations: MockAgentConversation[] = [

@@ -1,24 +1,33 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, GitBranch } from "lucide-react";
-import type { MockAgentSummary, MockMessage, ResolvedAgentConversation } from "@/lib/mock/types";
+import { ArrowLeft, GitBranch, PanelRight } from "lucide-react";
+import type {
+  MockAgentSettings,
+  MockAgentSummary,
+  MockMessage,
+  ResolvedAgentConversation,
+} from "@/lib/mock/types";
 import { appendConversationMessage } from "@/lib/mock/agent-conversations";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import { ChatComposer } from "@/components/app/chat-composer";
+import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 interface AgentRunWorkspaceProps {
   agent: MockAgentSummary;
   conversation: ResolvedAgentConversation;
+  settings: MockAgentSettings;
 }
 
-export function AgentRunWorkspace({ agent, conversation }: AgentRunWorkspaceProps) {
+export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
   const forkSession = conversation.forkSession;
   const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
+  const [settingsOpen, setSettingsOpen] = useState(true);
 
   function handleSend(text: string) {
     const userMsg: MockMessage = {
@@ -59,6 +68,15 @@ export function AgentRunWorkspace({ agent, conversation }: AgentRunWorkspaceProp
           </div>
           <p className="truncate text-xs text-muted-foreground">{agent.description}</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex"
+          onClick={() => setSettingsOpen((o) => !o)}
+        >
+          <PanelRight className="mr-2 size-4" />
+          {settingsOpen ? "Hide settings" : "Show settings"}
+        </Button>
         {forkSession ? (
           <Button variant="outline" size="sm" asChild>
             <Link to="/runs/$runId" params={{ runId: forkSession.sourceRunId }} className="gap-2">
@@ -78,16 +96,38 @@ export function AgentRunWorkspace({ agent, conversation }: AgentRunWorkspaceProp
         </div>
       ) : null}
 
-      <ScrollArea className="min-h-0 flex-1">
-        <ChatMessageList messages={messages} streamingText={null} />
-      </ScrollArea>
+      <ResizablePanelGroup
+        orientation="horizontal"
+        id="agent-conversation-panels"
+        className="min-h-0 flex-1"
+      >
+        <ResizablePanel
+          id="agent-chat"
+          defaultSize={settingsOpen ? "62%" : "100%"}
+          minSize={settingsOpen ? "40%" : "100%"}
+        >
+          <div className="flex h-full min-h-0 flex-col">
+            <ScrollArea className="min-h-0 flex-1">
+              <ChatMessageList messages={messages} streamingText={null} />
+            </ScrollArea>
+            <ChatComposer
+              onSend={handleSend}
+              placeholder={
+                forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
+              }
+            />
+          </div>
+        </ResizablePanel>
 
-      <ChatComposer
-        onSend={handleSend}
-        placeholder={
-          forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
-        }
-      />
+        {settingsOpen ? (
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel id="agent-settings" defaultSize="38%" minSize="22%" maxSize="50%">
+              <AgentSettingsPanel settings={settings} conversation={conversation} />
+            </ResizablePanel>
+          </>
+        ) : null}
+      </ResizablePanelGroup>
     </div>
   );
 }

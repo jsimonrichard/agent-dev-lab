@@ -24,6 +24,23 @@ export interface MockAgentSummary {
   description: string;
 }
 
+export interface MockAgentToolDefinition {
+  name: string;
+  description: string;
+}
+
+/** Static agent configuration shown in the agent conversation settings panel (mock). */
+export interface MockAgentSettings {
+  agentId: string;
+  model: string;
+  temperature: number;
+  maxSteps: number;
+  memoryMode: string;
+  tools: MockAgentToolDefinition[];
+  outputSchema?: string;
+  systemPromptPath?: string;
+}
+
 export interface MockRunSummary {
   runId: string;
   workflowId: string;
