@@ -7,7 +7,6 @@
     "outDir": "dist",
     "rootDir": "src",
     "noEmit": false,
-    "stripInternal": true,
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],

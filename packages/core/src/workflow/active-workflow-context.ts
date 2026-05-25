@@ -10,7 +10,6 @@ import type { WorkflowContext } from "./types";
  */
 const activeWorkflowContext = new AsyncLocalStorage<WorkflowContextImpl>();
 
-/** @internal */
 export function runWithActiveWorkflowContext<T>(
   ctx: WorkflowContextImpl,
   fn: () => Promise<T>,
@@ -18,7 +17,6 @@ export function runWithActiveWorkflowContext<T>(
   return activeWorkflowContext.run(ctx, fn);
 }
 
-/** @internal Active workflow/step context when inside a workflow body or step callback. */
 export function peekWorkflowContext(): WorkflowContext | undefined {
   return activeWorkflowContext.getStore();
 }

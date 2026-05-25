@@ -8,8 +8,6 @@ import type { AgentObserver, WorkflowObserver } from "../observability/observers
  * `workflowRunId`, and exposes an async iterator while the run is in flight. Not part of
  * the public package API — use {@link Workflow.stream} or {@link Workflow.run} with
  * `WorkflowStore` + SSE for production UI.
- *
- * @internal
  */
 export class WorkflowRunEventChannel {
   private readonly buffer: RunEvent[] = [];

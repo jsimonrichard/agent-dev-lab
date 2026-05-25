@@ -16,7 +16,6 @@ export type WorkflowContextOptions = {
   runRecorder: RunRecorder;
 };
 
-/** @internal Stateful workflow execution host (implements {@link WorkflowContext}). */
 export class WorkflowContextImpl implements WorkflowContext {
   readonly workflowRunId: string;
   readonly stepId: string | null;
@@ -155,12 +154,10 @@ export function createChildWorkflowContext(
   });
 }
 
-/** @internal */
-export function asWorkflowContextImpl(ctx: WorkflowContext): WorkflowContextImpl {
+function asWorkflowContextImpl(ctx: WorkflowContext): WorkflowContextImpl {
   return ctx as WorkflowContextImpl;
 }
 
-/** @internal */
 export function refreshWorkflowContext(
   ctx: WorkflowContext,
   services: RuntimeServices,
@@ -178,7 +175,6 @@ export function refreshWorkflowContext(
   });
 }
 
-/** @internal */
 export function createWorkflowContext(options: WorkflowContextOptions): WorkflowContextImpl {
   return new WorkflowContextImpl(options);
 }

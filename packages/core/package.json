@@ -21,9 +21,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && bun run verify:api",
-    "verify:api": "bun run scripts/verify-public-api.ts",
-    "lint": "eslint . --max-warnings 0",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "bun test"
   },

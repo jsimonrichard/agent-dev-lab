@@ -14,7 +14,6 @@ import type {
   WorkflowStreamHandle,
 } from "./types";
 
-/** @internal Full run options (public start options + nested parent context). */
 type WorkflowRunOptions = WorkflowRunStartOptions & {
   /** Reuse an existing root or nested context (same `workflowRunId` for step cache). */
   parentCtx?: WorkflowContext;
@@ -65,10 +64,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     };
   }
 
-  /**
-   * Nested workflow invocation from a parent step (used by {@link createToolFromWorkflow}).
-   * @internal
-   */
+  /** Nested workflow invocation from a parent step (used by {@link createToolFromWorkflow}). */
   runNested(input: TInput, parentCtx: WorkflowContext): Promise<TOutput> {
     return this.#executeRun(input, { parentCtx });
   }
@@ -168,21 +164,6 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
       cancel: () => abortController.abort(),
     };
   }
-}
-
-/**
- * Resolves the concrete workflow binding created by {@link createWorkflow} / {@link AdlRuntime.createWorkflow}.
- * @internal
- */
-export function getWorkflowImpl<TInput, TOutput>(
-  workflow: Workflow<TInput, TOutput>,
-): WorkflowImpl<TInput, TOutput> {
-  if (!(workflow instanceof WorkflowImpl)) {
-    throw new Error(
-      "getWorkflowImpl: workflow was not created via createWorkflow / adl.createWorkflow",
-    );
-  }
-  return workflow;
 }
 
 function mergeServicesForRun(
