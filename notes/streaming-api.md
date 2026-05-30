@@ -44,7 +44,7 @@ flowchart LR
 
 ### Shape (sketch)
 
-Union of versioned events, all include `runId` and monotonic `seq` (or timestamp + tie-break):
+Union of versioned events. Each event carries a monotonic `seq` scoped to its **event stream** — per `workflowRunId` for workflow runs, per `agentCallId` for standalone agent episodes. Seq is not globally unique; it's meaningful only within a single `listEvents` query scope:
 
 | `type`                                                         | Purpose                                                                 |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -59,7 +59,7 @@ Events are **JSON-serializable** for SQLite + SSE.
 
 ### `RunEvent` and storage
 
-Not a `RunHandle`. **`RunEvent`** is the SSE/replay shape. **Observers** push to stdout/OTEL (no reads). **`WorkflowStore.record*`** persists events for `getRunEvents` — see [`observability-api.md`](./observability-api.md).
+Not a `RunHandle`. **`RunEvent`** is the SSE/replay shape. **Observers** push to stdout/OTEL (no reads). **`WorkflowStore.recordEvent`** persists events for `listEvents` — see [`observability-api.md`](./observability-api.md).
 
 ```ts
 function createRunContext(project: LoadedAdlProject): WorkflowContext {

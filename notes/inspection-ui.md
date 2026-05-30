@@ -64,10 +64,10 @@ Encode persisted **`RunEvent`** JSON only. Do **not** adopt TanStack AI [StreamC
 
 **Do not copy TanStack AI’s simplifications** (they skip SSE `id:` because one POST = one chat stream). ADL needs:
 
-- Monotonic **`seq`** on every `RunEvent` (see `packages/core` / [`streaming-api.md`](./streaming-api.md))
+- Monotonic **`seq`** on every `RunEvent`, scoped per event stream (`workflowRunId` or standalone `agentCallId` — not global)
 - SSE **`id: <seq>`** per event for `Last-Event-ID` / reconnect
 - **`?afterSeq=`** on GET for polling fallback and gap fill
-- Stream ends when **`run_finished` / `run_failed` / `run_cancelled`** is persisted—not only `data: [DONE]`
+- Stream ends when **`workflow_finished` / `workflow_failed` / `workflow_cancelled`** is persisted—not only `data: [DONE]`
 
 Optional small helper in `@agent-dev-lab/common` or `apps/web`: `encodeRunEventSse(event)` / `createRunEventSseStream(events)`—no dependency on `@tanstack/ai`.
 

@@ -20,8 +20,9 @@ const TRACER_NAME = "agent-dev-lab";
  *   code can use `@opentelemetry/api` directly. `RunRecorder` still persists agent episodes when a
  *   workflow store is present (optional history); it does not replace custom OTel instrumentation.
  *
- * `seq` is assigned only for store/SSE tailing (append order per recorder). OTel span events use
- * `at` and attributes only — span event order is already chronological per span.
+ * `seq` is scoped to the event stream a consumer subscribes to: per `workflowRunId` for workflow
+ * runs (all workflow + step + agent events share one counter), per `agentCallId` for standalone
+ * agent episodes. Not globally unique — meaningful only within a single `listEvents` query scope.
  */
 export class RunRecorder {
   private workflowSeq = 0;
