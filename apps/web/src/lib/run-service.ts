@@ -5,6 +5,7 @@ import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime";
 import {
   createMemoryScope,
   getAgentSessionByMemoryScope,
+  linkAgentCallId,
   listAgentSessions,
   registerAgentSession,
   registerForkSession,
@@ -161,19 +162,13 @@ export async function startAgentTurn(options: {
     workflow: options.workflow,
   });
 
+  linkAgentCallId(options.memoryScope, handle.agentCallId);
+
   void handle.result.catch((error) => {
     console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
   });
 
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const session = getAgentSessionByMemoryScope(options.memoryScope);
-    if (session && !session.agentCallId.startsWith("pending:")) {
-      return { agentCallId: session.agentCallId };
-    }
-    await new Promise((r) => setTimeout(r, 25));
-  }
-
-  throw new Error("Timed out waiting for agent_started event");
+  return { agentCallId: handle.agentCallId };
 }
 
 export function createForkMemoryScope(): string {

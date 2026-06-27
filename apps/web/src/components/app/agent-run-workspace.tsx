@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, GitBranch, PanelRight } from "lucide-react";
 
 import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
+import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   MockAgentSettings,
   MockAgentSummary,
@@ -32,10 +33,25 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamEnabled, setStreamEnabled] = useState(false);
+
+  const refreshMessages = useCallback(async () => {
+    const updated = await fetchMessagesForScope({ data: conversation.runId });
+    setMessages(updated);
+    void router.invalidate();
+  }, [conversation.runId, router]);
+
+  const { streamingText, isRunning } = useAgentRunEvents(conversation.runId, {
+    enabled: streamEnabled,
+    onFinished: () => {
+      void refreshMessages();
+    },
+  });
 
   async function handleSend(text: string) {
     setSending(true);
     setError(null);
+    setMessages((prev) => [...prev, { id: `pending-${Date.now()}`, role: "user", content: text }]);
     try {
       await sendAgentMessage({
         data: {
@@ -44,9 +60,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
           user: text,
         },
       });
-      const updated = await fetchMessagesForScope({ data: conversation.runId });
-      setMessages(updated);
-      void router.invalidate();
+      setStreamEnabled(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Agent run failed");
     } finally {
@@ -130,11 +144,14 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         >
           <div className="flex h-full min-h-0 flex-col">
             <ScrollArea className="min-h-0 flex-1">
-              <ChatMessageList messages={messages} streamingText={null} />
+              <ChatMessageList
+                messages={messages}
+                streamingText={isRunning || sending ? streamingText : null}
+              />
             </ScrollArea>
             <ChatComposer
               onSend={(text) => void handleSend(text)}
-              disabled={sending}
+              disabled={sending || isRunning}
               placeholder={
                 forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
               }

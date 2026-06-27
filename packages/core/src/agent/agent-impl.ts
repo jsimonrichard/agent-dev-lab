@@ -46,12 +46,15 @@ export class AgentImpl<
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools> {
     const controller = new AbortController();
+    const agentCallId = createId();
     const finished = this.executeEpisode({
       input: input as AgentRunInput<unknown>,
       abortSignal: controller.signal,
       exposeStream: false,
+      agentCallId,
     });
     return {
+      agentCallId,
       result: finished,
       cancel: () => controller.abort(),
     } satisfies AgentRunHandle<Tools>;
@@ -59,12 +62,14 @@ export class AgentImpl<
 
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools> {
     const controller = new AbortController();
+    const agentCallId = createId();
     const streamReady = Promise.withResolvers<StreamTextResult<Tools, unknown>>();
 
     const finished = this.executeEpisode({
       input: input as AgentRunInput<unknown>,
       abortSignal: controller.signal,
       exposeStream: true,
+      agentCallId,
       onStreamReady: (stream) => streamReady.resolve(stream),
     }).catch((error) => {
       streamReady.reject(error);
@@ -72,6 +77,7 @@ export class AgentImpl<
     });
 
     return {
+      agentCallId,
       textStream: lazyTextStream(
         () => streamReady.promise as unknown as Promise<StreamTextResult<ToolSet, unknown>>,
       ) as AgentStreamResult<Tools, unknown>["textStream"],
@@ -87,16 +93,16 @@ export class AgentImpl<
     input: AgentRunInput<unknown>;
     abortSignal: AbortSignal;
     exposeStream: boolean;
+    agentCallId: string;
     onStreamReady?: (stream: StreamTextResult<Tools, unknown>) => void;
   }): Promise<AgentRunResult<Tools>> {
-    const { input, abortSignal, exposeStream, onStreamReady } = options;
+    const { input, abortSignal, exposeStream, onStreamReady, agentCallId } = options;
     const messageStore = this.services.stores.message;
 
     const scope = this.services.workflowContextScope;
     const activeCtx = scope.peek();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
-    const agentCallId = createId();
 
     return withActiveSpan(
       "agent.episode",

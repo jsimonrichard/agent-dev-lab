@@ -68,6 +68,8 @@ export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = unknown
 
 /** Handle returned from `agent.run` — await `result` or call `cancel()` without passing AbortSignal in input. */
 export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+  /** Stable id for this agent episode; available before `agent_started` is emitted. */
+  agentCallId: string;
   result: Promise<AgentRunResult<Tools, TOutput>>;
   cancel: () => void;
 };
@@ -76,6 +78,8 @@ export type AgentStreamHandle<
   Tools extends ToolSet = ToolSet,
   TOutput = unknown,
 > = AgentStreamResult<Tools, TOutput> & {
+  /** Stable id for this agent episode; available before `agent_started` is emitted. */
+  agentCallId: string;
   cancel: () => void;
 };
 
