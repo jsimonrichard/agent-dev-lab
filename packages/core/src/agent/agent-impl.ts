@@ -12,7 +12,6 @@ import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { peekRunRecorder, peekWorkflowContext } from "../workflow/active-workflow-context";
 import { bootstrapSystemMessage } from "./resolve-instructions";
 import type {
   Agent,
@@ -93,7 +92,8 @@ export class AgentImpl<
     const { input, abortSignal, exposeStream, onStreamReady } = options;
     const messageStore = this.services.stores.message;
 
-    const activeCtx = peekWorkflowContext();
+    const scope = this.services.workflowContextScope;
+    const activeCtx = scope.peek();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
     const agentCallId = createId();
@@ -108,7 +108,7 @@ export class AgentImpl<
         ...(stepId ? { "adl.step_id": stepId } : {}),
       },
       async () => {
-        const runRecorder = peekRunRecorder() ?? new RunRecorder(this.services);
+        const runRecorder = scope.peekRunRecorder() ?? new RunRecorder(this.services);
 
         await runRecorder.emit({
           type: "agent_started",

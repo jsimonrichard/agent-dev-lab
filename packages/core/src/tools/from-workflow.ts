@@ -1,7 +1,6 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import { peekWorkflowContext } from "../workflow/active-workflow-context";
 import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow } from "../workflow/types";
 
@@ -34,7 +33,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
     description: options.description,
     inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
     execute: async (toolArgs) => {
-      const parentCtx = peekWorkflowContext();
+      const parentCtx = bound.services.workflowContextScope.peek();
       if (!parentCtx) {
         throw new Error(
           "createToolFromWorkflow: no WorkflowContext — call from within a workflow run or step",

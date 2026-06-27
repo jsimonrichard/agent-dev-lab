@@ -45,6 +45,7 @@ export type {
 } from "./runtime";
 
 export { createTemplate, TemplateEngine } from "./template";
+export { WorkflowContextScope } from "./workflow/workflow-context-scope";
 export type {
   CreateTemplateParams,
   Template,

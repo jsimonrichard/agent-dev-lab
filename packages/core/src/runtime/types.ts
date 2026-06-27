@@ -10,6 +10,7 @@ import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Template, TemplateConfig } from "../template/types";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { TemplateEngine } from "../template/engine";
+import type { WorkflowContextScope } from "../workflow/workflow-context-scope";
 
 export type RuntimeStores = {
   message: MessageStore;
@@ -44,6 +45,7 @@ export type RuntimeServices = {
   stores: RuntimeStores;
   observers: RuntimeObservers;
   templateEngine: TemplateEngine;
+  workflowContextScope: WorkflowContextScope;
 };
 
 /**

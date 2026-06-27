@@ -384,7 +384,7 @@ flowchart TB
 | Piece                                   | Status                                                           |
 | --------------------------------------- | ---------------------------------------------------------------- |
 | `createWorkflow`                        | ✅ Implemented (`workflow-impl.ts`)                              |
-| `WorkflowContext` / `step`              | ✅ Implemented (`context.ts`, `active-workflow-context.ts`)      |
+| `WorkflowContext` / `step`              | ✅ Implemented (`context.ts`, `workflow-context-scope.ts`)       |
 | Step key registry + errors              | ✅ Implemented (`step-registry.ts`)                              |
 | Run event log / step tree               | ✅ Implemented (events emitted via `RunRecorder`)                |
 | `createTemplate()` with Zod `.render()` | ✅ Implemented (`template/create.ts`, Handlebars compile cached) |

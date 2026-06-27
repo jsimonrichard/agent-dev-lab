@@ -2,7 +2,6 @@ import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { createWorkflowContext, refreshWorkflowContext } from "./context";
 import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
 import type {
@@ -111,7 +110,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
         });
 
         try {
-          const output = await runWithActiveWorkflowContext(rootCtx, () =>
+          const output = await effectiveServices.workflowContextScope.run(rootCtx, () =>
             this.definition.run(parsedInput, rootCtx),
           );
           const parsedOutput = this.definition.output

@@ -95,7 +95,7 @@ const researcher = adl.createAgent(
 - **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to the lists from `createAdlRuntime` (not replace).
 
-Config and overrides use `Partial` nested `stores` / `observers`; resolved `RuntimeServices` has required `stores.message` and observer arrays.
+Config and overrides use `Partial` nested `stores` / `observers`; resolved `RuntimeServices` has required `stores.message`, observer arrays, and per-runtime internals (`templateEngine`, `workflowContextScope`).
 
 ---
 
@@ -129,13 +129,13 @@ Overrides (including extra observers) work the same on `createAgent({ …, runti
 
 ALS is **not** used for runtime services wiring (stores, observers) — those are passed explicitly via `createAdlRuntime` and factory params.
 
-ALS **is** used narrowly for **workflow context propagation**: when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available via ALS so agents and tools can automatically attach to the correct `workflowRunId` / `stepId`. This avoids requiring every `agent.run` call to manually pass `workflow: { workflowRunId, stepId }`.
+ALS **is** used narrowly for **workflow context propagation**: when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available via the runtime's `workflowContextScope` so agents and tools can automatically attach to the correct `workflowRunId` / `stepId`. This avoids requiring every `agent.run` call to manually pass `workflow: { workflowRunId, stepId }`.
 
 Callers can still pass `workflow: { workflowRunId, stepId }` explicitly on `agent.run` — the explicit value takes priority over ALS.
 
 ### Workflow context host
 
-`WorkflowContext` is a **host object**. `step` and `emit` are methods that close over parent services, `workflowRunId`, and step registry:
+`WorkflowContext` is a **host object**. `step` and `emit` are methods that close over parent services, `workflowRunId`, and step registry. The runtime owns a per-instance `WorkflowContextScope` (`AsyncLocalStorage`) used only during workflow/step bodies:
 
 - Child contexts are built from the **parent host** when `ctx.step("name", async ({ ctx }) => …)` runs.
 - **Do not destructure** `ctx` (`const { step } = ctx` breaks method binding).
@@ -192,15 +192,15 @@ Subworkflows and `createToolFromWorkflow` call **`WorkflowImpl.runNested`** with
 
 ## Implementation status
 
-| Piece                                   | Status                                        |
-| --------------------------------------- | --------------------------------------------- |
-| `createAdlRuntime` / `AdlRuntime` types | ✅ Implemented (`adl-runtime.ts`)             |
-| `createAgent({ …, runtime })`           | ✅ Implemented (`agent-impl.ts`)              |
-| `createWorkflow({ …, runtime })`        | ✅ Implemented (`workflow-impl.ts`)           |
-| `adl` on `AdlProjectConfig`             | ✅ Implemented                                |
-| `src/adl.ts` convention                 | ✅ Documented + playground example            |
-| Context host (scoped ALS)               | ✅ Implemented (`active-workflow-context.ts`) |
-| Runtime services wiring (no ALS)        | ✅ Explicit via factory params                |
+| Piece                                   | Status                                       |
+| --------------------------------------- | -------------------------------------------- |
+| `createAdlRuntime` / `AdlRuntime` types | ✅ Implemented (`adl-runtime.ts`)            |
+| `createAgent({ …, runtime })`           | ✅ Implemented (`agent-impl.ts`)             |
+| `createWorkflow({ …, runtime })`        | ✅ Implemented (`workflow-impl.ts`)          |
+| `adl` on `AdlProjectConfig`             | ✅ Implemented                               |
+| `src/adl.ts` convention                 | ✅ Documented + playground example           |
+| Context host (`WorkflowContextScope`)   | ✅ Implemented (`workflow-context-scope.ts`) |
+| Runtime services wiring (no ALS)        | ✅ Explicit via factory params               |
 
 ---
 
