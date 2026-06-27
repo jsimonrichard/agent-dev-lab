@@ -38,7 +38,3 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | [`resumability.md`](./resumability.md)           | Deferred resume          |
 | [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping         |
 | [`future-extensions.md`](./future-extensions.md) | Approvals, hooks         |
-
-## Moved stubs
-
-Older `*-api.md` files point at TypeDoc or Starlight — do not extend the old copies.

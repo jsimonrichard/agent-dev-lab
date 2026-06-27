@@ -2,7 +2,7 @@
 
 **Status:** Not v1. Captures direction for hooks, human approval, and a possible **extension system** so the small core stays small while research projects can add RAG, guardrails, and custom policy.
 
-Related: [`agent-api.md`](./agent-api.md), [`workflow-api.md`](./workflow-api.md), [`project-api.md`](./project-api.md), [`message-store.md`](./message-store.md), [`memory-pipeline.md`](./memory-pipeline.md).
+Related: [agents guide](../apps/docs/src/content/docs/core/agents.md), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [project config](../apps/docs/src/content/docs/core/project.md), [`MessageStore`](../packages/core/src/memory/types.ts), [`memory-pipeline.md`](./memory-pipeline.md).
 
 **Explicitly out of scope here:** evals / scorers (no ADL primitive planned; use external tools + observers if needed).
 
@@ -66,7 +66,7 @@ Hooks should **not** replace `MessageStore` — they operate on the in-flight li
 
 **After persist:** secondary indexes, webhooks, analytics — must not block the critical path without explicit async queue (project choice).
 
-These hooks see **`CoreMessage[]`** in the same shape committed to [`MessageStore`](./message-store.md).
+These hooks see **`CoreMessage[]`** in the same shape committed to [`MessageStore`](../packages/core/src/memory/types.ts).
 
 ---
 
@@ -76,7 +76,7 @@ Two surfaces:
 
 ### 1. AI SDK tool approval
 
-When the AI SDK supports **`needApproval`** (or equivalent) on tools, ADL should forward approval requests to the project **`approvals`** config (see [`project-api.md`](./project-api.md)) so the same dispatcher handles SDK tool gates and workflow gates.
+When the AI SDK supports **`needApproval`** (or equivalent) on tools, ADL should forward approval requests to the project **`approvals`** config (see [project config](../apps/docs/src/content/docs/core/project.md)) so the same dispatcher handles SDK tool gates and workflow gates.
 
 ### 2. Workflow `ctx.requestApproval`
 
@@ -139,6 +139,6 @@ Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a u
 ## v1
 
 - [ ] Document only (this file + cross-links)
-- [ ] Ship **structured output** on agents without extensions ([`agent-api.md`](./agent-api.md))
-- [ ] Ship **`WorkflowStore`** run/step I/O ([`observability-api.md`](./observability-api.md))
+- [ ] Ship **structured output** on agents without extensions ([agents guide](../apps/docs/src/content/docs/core/agents.md))
+- [ ] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
 - [ ] Defer `ctx.requestApproval`, extension registry, RAG package

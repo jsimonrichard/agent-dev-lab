@@ -42,7 +42,7 @@ Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTempla
 | [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping |
 | [`future-extensions.md`](./future-extensions.md) | Approvals, hooks |
 
-Moved to `apps/docs/core/`: agents, workflows, runtime, project, templates, message-store, observability, streaming, ai-sdk.
+Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.md`](./README.md).
 
 ## Tooling
 
