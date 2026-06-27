@@ -1,5 +1,7 @@
-import { createFileRoute, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 
 export const Route = createFileRoute("/_app/agent/")({
   component: AgentIndexPage,
@@ -7,7 +9,7 @@ export const Route = createFileRoute("/_app/agent/")({
 
 function AgentIndexPage() {
   const navigate = useNavigate();
-  const { sessions } = useRouteContext({ from: "/_app" });
+  const { sessions } = useAppLoaderData();
 
   useEffect(() => {
     const first = sessions[0];

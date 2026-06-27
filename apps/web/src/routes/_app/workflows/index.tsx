@@ -1,8 +1,9 @@
-import { Link, createFileRoute, useRouteContext } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 
 export const Route = createFileRoute("/_app/workflows/")({
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/_app/workflows/")({
 });
 
 function WorkflowsPage() {
-  const { project, runs } = useRouteContext({ from: "/_app" });
+  const { project, runs } = useAppLoaderData();
 
   async function handleStart(workflowId: string) {
     const { runId } = await startInspectionWorkflowRun({ data: { workflowId, input: {} } });

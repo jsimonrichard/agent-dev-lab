@@ -1,5 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { AgentConversationsSidebar } from "@/components/app/agent-conversations-sidebar";
 import { HomeSidebar } from "@/components/app/home-sidebar";
 import { WorkflowRunsSidebar } from "@/components/app/workflow-runs-sidebar";
@@ -12,7 +13,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useRouteContext } from "@tanstack/react-router";
 import { Settings2 } from "lucide-react";
 
 export function AppSidebar() {
@@ -35,7 +35,7 @@ export function AppSidebar() {
 }
 
 function SettingsContextSidebar() {
-  const { project } = useRouteContext({ from: "/_app" });
+  const { project } = useAppLoaderData();
   return (
     <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">

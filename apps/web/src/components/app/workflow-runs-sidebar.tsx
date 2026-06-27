@@ -1,6 +1,7 @@
-import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { GitBranch, Plus } from "lucide-react";
 
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ const devModeLabel = {
 } as const;
 
 export function WorkflowRunsSidebar() {
-  const { project, runs } = useRouteContext({ from: "/_app" });
+  const { project, runs } = useAppLoaderData();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const activeRunId = pathname.match(/^\/workflows\/[^/]+\/run\/([^/]+)/)?.[1];
   const demoWorkflowId = project.workflowIds.includes("demo-counter")

@@ -1,6 +1,7 @@
-import { Link, useRouteContext } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
 
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
@@ -15,7 +16,7 @@ const devModeLabel = {
 } as const;
 
 export function InspectorDashboard() {
-  const { project, runs, sessions } = useRouteContext({ from: "/_app" });
+  const { project, runs, sessions } = useAppLoaderData();
   const recentRun = runs[0];
   const recentSession = sessions[0];
   const demoWorkflowId = project.workflowIds.includes("demo-counter")

@@ -24,7 +24,7 @@ export const fetchWorkflowRuns = createServerFn({ method: "GET" }).handler(async
 });
 
 export const fetchWorkflowRun = createServerFn({ method: "GET" })
-  .inputValidator((runId: string) => runId)
+  .validator((runId: string) => runId)
   .handler(async ({ data: runId }) => {
     const summary = await getWorkflowRunSummary(runId);
     if (!summary) {
@@ -35,13 +35,13 @@ export const fetchWorkflowRun = createServerFn({ method: "GET" })
   });
 
 export const startInspectionWorkflowRun = createServerFn({ method: "POST" })
-  .inputValidator((payload: { workflowId: string; input?: unknown }) => payload)
+  .validator((payload: { workflowId: string; input?: unknown }) => payload)
   .handler(async ({ data }) => {
     return startWorkflowRun(data.workflowId, data.input ?? {});
   });
 
 export const fetchAgentConversation = createServerFn({ method: "GET" })
-  .inputValidator((memoryScope: string) => memoryScope)
+  .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return resolveAgentConversation(memoryScope);
   });
@@ -51,7 +51,7 @@ export const fetchAgentSessions = createServerFn({ method: "GET" }).handler(asyn
 });
 
 export const sendAgentMessage = createServerFn({ method: "POST" })
-  .inputValidator((payload: { agentId: string; memoryScope: string; user: string }) => payload)
+  .validator((payload: { agentId: string; memoryScope: string; user: string }) => payload)
   .handler(async ({ data }) => {
     return startAgentTurn({
       agentId: data.agentId,
@@ -61,7 +61,7 @@ export const sendAgentMessage = createServerFn({ method: "POST" })
   });
 
 export const forkAgentConversation = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (payload: {
       agentId: string;
       sourceWorkflowId: string;
@@ -77,13 +77,13 @@ export const forkAgentConversation = createServerFn({ method: "POST" })
   });
 
 export const createAgentSession = createServerFn({ method: "POST" })
-  .inputValidator((agentId: string) => agentId)
+  .validator((agentId: string) => agentId)
   .handler(async ({ data: agentId }) => {
     return createStandaloneAgentSession(agentId);
   });
 
 export const fetchMessagesForScope = createServerFn({ method: "GET" })
-  .inputValidator((memoryScope: string) => memoryScope)
+  .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return loadMessagesForScope(memoryScope);
   });

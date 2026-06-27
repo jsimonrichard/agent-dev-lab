@@ -1,15 +1,16 @@
-import { Link, useRouteContext, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
 
-import { inspectorModeFromPath } from "@/lib/inspector-mode";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { cn } from "@/lib/utils";
+import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function MasterSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const mode = inspectorModeFromPath(pathname);
-  const { runs, sessions } = useRouteContext({ from: "/_app" });
+  const { runs, sessions } = useAppLoaderData();
   const defaultWorkflowRun = runs[0];
   const defaultSession = sessions[0];
 

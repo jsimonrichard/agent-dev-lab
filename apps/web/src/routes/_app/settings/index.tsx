@@ -1,7 +1,8 @@
-import { createFileRoute, useRouteContext } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 
 const devModeLabel = {
   "framework-dev": "Framework dev",
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/_app/settings/")({
 });
 
 function SettingsPage() {
-  const { project } = useRouteContext({ from: "/_app" });
+  const { project } = useAppLoaderData();
 
   return (
     <div className="flex h-svh flex-col">

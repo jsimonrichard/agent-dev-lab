@@ -1,6 +1,7 @@
-import { Link, useNavigate, useRouteContext, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Plus } from "lucide-react";
 
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { createAgentSession } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ const devModeLabel = {
 
 export function AgentConversationsSidebar() {
   const navigate = useNavigate();
-  const { project, sessions } = useRouteContext({ from: "/_app" });
+  const { project, sessions } = useAppLoaderData();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const activeRunId = pathname.match(/^\/agent\/[^/]+\/run\/([^/]+)/)?.[1];
   const defaultAgentId = project.agentIds[0];

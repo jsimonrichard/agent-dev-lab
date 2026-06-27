@@ -1,6 +1,7 @@
-import { Link, useRouteContext } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Bot, GitBranch, MessageSquare } from "lucide-react";
 
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
   SidebarContent,
@@ -20,7 +21,7 @@ const devModeLabel = {
 } as const;
 
 export function HomeSidebar() {
-  const { project, runs, sessions } = useRouteContext({ from: "/_app" });
+  const { project, runs, sessions } = useAppLoaderData();
   const defaultWorkflowRun = runs[0];
   const defaultSession = sessions[0];
 
