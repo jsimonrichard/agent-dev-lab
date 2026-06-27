@@ -1,4 +1,5 @@
 import type { ToolSet } from "ai";
+import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
 import type { MessageStore } from "../memory/types";
@@ -6,7 +7,9 @@ import type { AgentObservers, WorkflowObservers } from "../observability/observe
 import type { WorkflowStore } from "../observability/workflow-store";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
+import type { Template, TemplateConfig } from "../template/types";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
+import type { TemplateEngine } from "../template/engine";
 
 export type RuntimeStores = {
   message: MessageStore;
@@ -40,6 +43,7 @@ export type AdlRuntimeOverrides = AdlRuntimeOptions;
 export type RuntimeServices = {
   stores: RuntimeStores;
   observers: RuntimeObservers;
+  templateEngine: TemplateEngine;
 };
 
 /**
@@ -68,4 +72,8 @@ export interface AdlRuntime {
     workflow: Workflow<TInput, TOutput>,
     options: CreateToolFromWorkflowOptions<TInput>,
   ): ToolSet[string];
+
+  createTemplate<TSchema extends z.ZodType>(
+    config: TemplateConfig<TSchema>,
+  ): Template<z.infer<TSchema>>;
 }

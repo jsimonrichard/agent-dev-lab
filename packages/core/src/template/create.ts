@@ -1,12 +1,11 @@
 import path from "node:path";
 
-import Handlebars from "handlebars";
 import type { z } from "zod";
 
 import { loadPromptFile, resolvePromptPath } from "../prompt/load";
+import type { AdlRuntime } from "../runtime/types";
+import type { TemplateEngine } from "./engine";
 import type { Template, TemplateConfig } from "./types";
-
-const handlebars = Handlebars.create();
 
 const MARKDOWN_EXTENSIONS = [".md", ".markdown"] as const;
 
@@ -30,11 +29,16 @@ function resolveName(config: { name?: string; path?: string }): string {
   throw new Error("createTemplate: provide `name` when using inline `source`");
 }
 
+/** Functional factory: template config plus explicit {@link AdlRuntime}. */
+export type CreateTemplateParams<TSchema extends z.ZodType> = TemplateConfig<TSchema> & {
+  runtime: AdlRuntime;
+};
+
 /**
- * Create a reusable prompt template (Zod → Handlebars → string).
- * Supports file paths or inline `source` (e.g. ESM raw imports).
+ * Build a reusable prompt template (Zod → Handlebars → string) using a runtime-owned engine.
  */
-export function createTemplate<TSchema extends z.ZodType>(
+export function buildTemplate<TSchema extends z.ZodType>(
+  engine: TemplateEngine,
   config: TemplateConfig<TSchema>,
 ): Template<z.infer<TSchema>> {
   let source: string;
@@ -56,7 +60,6 @@ export function createTemplate<TSchema extends z.ZodType>(
   }
 
   const name = resolveName(config);
-  const compiled = handlebars.compile(source, { noEscape: true });
 
   return {
     name,
@@ -65,7 +68,15 @@ export function createTemplate<TSchema extends z.ZodType>(
     demo: config.demo,
     render(inputData: z.infer<TSchema>) {
       const parsed = config.inputData.parse(inputData);
-      return compiled(parsed) as string;
+      return engine.render(source, parsed);
     },
   };
+}
+
+/** Functional factory — prefer {@link AdlRuntime.createTemplate} in project code. */
+export function createTemplate<TSchema extends z.ZodType>(
+  params: CreateTemplateParams<TSchema>,
+): Template<z.infer<TSchema>> {
+  const { runtime, ...config } = params;
+  return buildTemplate(runtime.services.templateEngine, config);
 }

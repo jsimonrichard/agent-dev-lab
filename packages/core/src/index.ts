@@ -44,8 +44,9 @@ export type {
   RuntimeStores,
 } from "./runtime";
 
-export { createTemplate } from "./template";
+export { createTemplate, TemplateEngine } from "./template";
 export type {
+  CreateTemplateParams,
   Template,
   TemplateConfig,
   TemplateFromPathConfig,
@@ -109,7 +110,7 @@ export function createCoreShell() {
       "v1 API surface (draft)",
       "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
-      "createTemplate (path or inline source)",
+      "createTemplate via adl.createTemplate / createTemplate({ runtime })",
       "agent.run / agent.stream",
       "workflow.run / workflow.stream with WorkflowStore + observers",
     ],

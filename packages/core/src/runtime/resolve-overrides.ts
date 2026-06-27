@@ -1,6 +1,7 @@
 import type { AgentMemoryConfig } from "../agent/types";
 import { inMemoryMessageStore } from "../memory/in-memory";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
+import { TemplateEngine } from "../template/engine";
 import type { AdlRuntime } from "./types";
 import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
 
@@ -55,6 +56,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
       workflows: config.observers?.workflows ?? [],
       agents: config.observers?.agents ?? [],
     },
+    templateEngine: new TemplateEngine(),
   };
 }
 
@@ -76,5 +78,6 @@ export function resolveRuntimeOverrides(
       workflows: [...base.observers.workflows, ...(overrides.observers?.workflows ?? [])],
       agents: [...base.observers.agents, ...(overrides.observers?.agents ?? [])],
     },
+    templateEngine: base.templateEngine,
   };
 }

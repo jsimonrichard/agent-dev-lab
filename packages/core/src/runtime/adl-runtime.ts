@@ -13,6 +13,9 @@ import {
   resolveRuntimeOverrides,
 } from "./resolve-overrides";
 import type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+import { buildTemplate } from "../template/create";
+import type { TemplateConfig } from "../template/types";
+import type { z } from "zod";
 
 /** Process-level ADL runtime: owns {@link RuntimeServices} and binds agents/workflows. */
 export class AdlRuntimeImpl implements AdlRuntime {
@@ -54,5 +57,9 @@ export class AdlRuntimeImpl implements AdlRuntime {
     options: CreateToolFromWorkflowOptions<TInput>,
   ): ToolSet[string] {
     return createToolFromWorkflow(workflow, options);
+  }
+
+  createTemplate<TSchema extends z.ZodType>(config: TemplateConfig<TSchema>) {
+    return buildTemplate(this.services.templateEngine, config);
   }
 }
