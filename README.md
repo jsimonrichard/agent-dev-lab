@@ -64,7 +64,7 @@ const handle = review.run({ topic: "CRISPR delivery" });
 await handle.result;
 ```
 
-An ADL **project** is any directory with an `adl.config.*` file at its root — the single discovery surface for the CLI, inspection UI, and `loadAdlProject()`. See [Project setup](apps/docs/src/content/docs/guides/project-setup.md) for the recommended layout and the `#adl` import alias.
+An ADL **project** is any directory with an `adl.config.*` file at its root — the single discovery surface for the CLI, inspection UI, and `loadAdlProject()`. See [Project setup](https://agent-dev-lab.com/guides/project-setup/) for the recommended layout and the `#adl` import alias.
 
 ## Development
 
@@ -113,14 +113,14 @@ The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI
 
 ## Documentation
 
-Run the docs site locally with `bun run dev:docs` (port 4321), or browse the source directly:
+Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com). You can also run the docs site locally with `bun run dev:docs` (port 4321).
 
-- [Overview](apps/docs/src/content/docs/guides/overview.md) — high-level orientation
-- [Project setup](apps/docs/src/content/docs/guides/project-setup.md) — required vs. recommended layout, the `#adl` alias
-- [Runtime](apps/docs/src/content/docs/core/runtime.md) — `createAdlRuntime`, workflow context propagation
-- [Agents](apps/docs/src/content/docs/core/agents.md) — `adl.createAgent`, memory, structured output
-- [Workflows](apps/docs/src/content/docs/core/workflows.md) — `adl.createWorkflow`, steps, keys, nesting
-- [Project config](apps/docs/src/content/docs/core/project.md) — registry, `loadAdlProject`
+- [Overview](https://agent-dev-lab.com/guides/overview/) — high-level orientation
+- [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias
+- [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context propagation
+- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, memory, structured output
+- [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting
+- [Project config](https://agent-dev-lab.com/core/project/) — registry, `loadAdlProject`
 
 Coding-agent tracking notes (v1 gaps, deferred design) live in [`notes/`](notes/).
 
