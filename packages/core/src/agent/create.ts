@@ -1,6 +1,9 @@
 import type { ToolSet } from "ai";
 
-import { resolveDefinitionServices, resolveRuntimeOverrides } from "../runtime/resolve-overrides.js";
+import {
+  resolveDefinitionServices,
+  resolveRuntimeOverrides,
+} from "../runtime/resolve-overrides.js";
 import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types.js";
 import { AgentImpl } from "./agent-impl.js";
 import type { Agent, AgentDefinition } from "./types.js";
