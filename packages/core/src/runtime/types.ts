@@ -39,7 +39,7 @@ export type AdlRuntimeOverrides = AdlRuntimeOptions;
 
 /**
  * Process-level services for agents and workflows (stores, observers).
- * Typically constructed in a dedicated runtime module and exposed via `adl.config.adl`.
+ * Typically constructed in `src/adl.ts` and exposed via `adl.config.adl`.
  */
 export type RuntimeServices = {
   stores: RuntimeStores;

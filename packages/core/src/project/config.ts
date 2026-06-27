@@ -18,7 +18,7 @@ export interface AdlProjectConfig {
   name: string;
 
   /**
-   * Process runtime (stores, observers). Set from a dedicated module or inline.
+   * Process runtime (stores, observers). Set from `src/adl.ts` (recommended) or inline.
    * Exposed to tooling via `loadAdlProject().getAdl()` / `config.adl`.
    */
   adl?: AdlRuntime;

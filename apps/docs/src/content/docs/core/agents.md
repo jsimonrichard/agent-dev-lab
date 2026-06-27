@@ -7,7 +7,7 @@ Agents are reusable model configurations: identity (instructions), model, tools,
 
 ## createAgent
 
-Registry modules import `adl` from your runtime module and call `adl.createAgent`:
+Registry modules `import { adl } from "#adl"` (`src/adl.ts`) and call `adl.createAgent`:
 
 ```ts
 import { tool } from "@agent-dev-lab/core";

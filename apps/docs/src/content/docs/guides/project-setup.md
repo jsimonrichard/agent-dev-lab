@@ -5,7 +5,7 @@ description: Recommended layout for an ADL project and how tooling discovers the
 
 An ADL **project** is a directory with `adl.config.*` at the project root. That file is the **only required discovery surface** for the CLI, inspection UI, and `loadAdlProject()`.
 
-Everything else — where the runtime module lives, how agents and workflows are organized — is a **recommendation**, not a framework requirement.
+Everything else — folder layout for agents and workflows, prompt paths — is a **recommendation**, not a framework requirement. The runtime instance itself is also not required at a fixed path for tooling (only `config.adl` matters), but **`src/adl.ts`** is the recommended place to construct and export it.
 
 ## What is required
 
@@ -65,8 +65,6 @@ In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
 }
 ```
 
-Point `"./src/adl.ts"` at wherever your runtime module actually lives (`runtime/adl.ts`, etc.).
-
 Then use it everywhere you define agents, workflows, or templates:
 
 ```ts
@@ -83,10 +81,10 @@ This structure keeps import cycles predictable when registry modules call `adl.c
 
 ```
 my-research/
-  tsconfig.json          # paths["#adl"] → runtime module
+  tsconfig.json          # paths["#adl"] → ./src/adl.ts
   adl.config.ts          # registry + metadata; sets config.adl
   src/
-    adl.ts               # createAdlRuntime() — path wired in tsconfig paths
+    adl.ts               # createAdlRuntime() — recommended runtime module
   agents/
     researcher.ts
   workflows/
@@ -95,16 +93,16 @@ my-research/
     …
 ```
 
-| Piece                | Role                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------- |
-| **`adl.config.ts`**  | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling           |
-| **Runtime module**   | `createAdlRuntime({ stores, observers })` — recommended separate file to avoid cycles |
-| **Registry modules** | `import { adl } from "#adl"` — not from `adl.config`                                  |
+| Piece                | Role                                                                          |
+| -------------------- | ----------------------------------------------------------------------------- |
+| **`adl.config.ts`**  | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling   |
+| **`src/adl.ts`**     | `createAdlRuntime({ stores, observers })` — keeps config free of store wiring |
+| **Registry modules** | `import { adl } from "#adl"` — not from `adl.config`                          |
 
 Registry modules should import `adl` via **`#adl`** (or your alias), **not** from `adl.config.ts`, to avoid import cycles (`adl.config` imports agents; agents must not import `adl.config`).
 
 ```ts
-// src/adl.ts (or runtime/adl.ts — update tsconfig paths["#adl"] to match)
+// src/adl.ts
 import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
 
 export const adl = createAdlRuntime({
@@ -122,7 +120,7 @@ import { adl } from "#adl";
 export const researcher = adl.createAgent({ id: "researcher" /* … */ });
 ```
 
-**Avoid** heavy store construction inline in `adl.config.ts` when registry modules also import from config — that pattern tends to create cycles. A dedicated runtime module is the flexible default.
+**Avoid** heavy store construction inline in `adl.config.ts` when registry modules also import from config — that pattern tends to create cycles. Keep runtime wiring in **`src/adl.ts`** and reference it from config.
 
 ## Loading a project
 
