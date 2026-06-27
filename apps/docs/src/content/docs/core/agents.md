@@ -82,6 +82,8 @@ Opaque string selecting a **conversation message list** in the store:
 
 Same agent + same `memoryScope` → shared history. New scope → new conversation (new system bootstrap when store is empty).
 
+This is ADL’s **conversational resume** path — independent of workflow step retry, which uses [`WorkflowStore`](/api/interfaces/workflowstore/) step outputs. See [Workflows — Resumability](/core/workflows/#resumability).
+
 ## Run context
 
 Optional **`context`** on `agent.run()` forwards to tool `execute` via AI SDK `experimental_context`:
