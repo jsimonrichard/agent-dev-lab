@@ -138,19 +138,50 @@ function coreMessageToMock(message: CoreMessage, index: number): MockMessage {
   const role =
     message.role === "system" || message.role === "user" || message.role === "assistant"
       ? message.role
-      : "assistant";
-  const content =
-    typeof message.content === "string"
-      ? message.content
-      : Array.isArray(message.content)
-        ? message.content.map((part) => ("text" in part && part.text ? part.text : "")).join("")
-        : JSON.stringify(message.content);
+      : message.role === "tool"
+        ? "assistant"
+        : "assistant";
+  const content = formatCoreMessageContent(message);
 
   return {
     id: `msg-${index}`,
     role,
     content: content || "",
   };
+}
+
+function formatCoreMessageContent(message: CoreMessage): string {
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+  if (!Array.isArray(message.content)) {
+    return JSON.stringify(message.content);
+  }
+
+  const parts: string[] = [];
+  for (const part of message.content) {
+    if (typeof part !== "object" || part === null) {
+      continue;
+    }
+    if ("type" in part && part.type === "text" && "text" in part && typeof part.text === "string") {
+      parts.push(part.text);
+      continue;
+    }
+    if ("type" in part && part.type === "tool-call" && "toolName" in part) {
+      const toolName = String(part.toolName);
+      const input = "input" in part && part.input !== undefined ? JSON.stringify(part.input) : "{}";
+      parts.push(`**Tool call:** \`${toolName}\` ${input}`);
+      continue;
+    }
+    if ("type" in part && part.type === "tool-result" && "toolName" in part) {
+      const toolName = String(part.toolName);
+      const output =
+        "output" in part && part.output !== undefined ? JSON.stringify(part.output) : "";
+      parts.push(`**Tool result:** \`${toolName}\`${output ? ` → ${output}` : ""}`);
+    }
+  }
+
+  return parts.join("\n\n");
 }
 
 export async function startAgentTurn(options: {

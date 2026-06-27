@@ -10,6 +10,9 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
+// Load playground `.env` / `.env.local` and normalize injected secret names before SSR loads agents.
+import "../playground/src/env.ts";
+
 const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
 const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 

@@ -155,6 +155,23 @@ export function findStepInTree(steps: StepNode[], stepId: string): StepNode | un
   return undefined;
 }
 
+export function findEpisodeInTree(
+  steps: StepNode[],
+  episodeId: string,
+): { step: StepNode; episode: AgentEpisode } | undefined {
+  for (const step of steps) {
+    const episode = step.agentEpisodes.find((e) => e.episodeId === episodeId);
+    if (episode) {
+      return { step, episode };
+    }
+    const nested = findEpisodeInTree(step.children, episodeId);
+    if (nested) {
+      return nested;
+    }
+  }
+  return undefined;
+}
+
 export function stepStatusClass(status: StepNodeStatus): string {
   switch (status) {
     case "running":

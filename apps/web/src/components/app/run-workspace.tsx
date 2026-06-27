@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { PanelRight } from "lucide-react";
 
 import { fetchMessagesForScope, forkAgentConversation } from "#/lib/inspector-server";
-import { buildRunViewState, findStepInTree } from "@/lib/mock/run-projection";
+import { buildRunViewState, findEpisodeInTree, findStepInTree } from "@/lib/mock/run-projection";
 import type { AgentEpisode, MockMessage, MockRunSummary, RunEvent } from "@/lib/mock/types";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
@@ -26,16 +26,35 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
 
   const initialStep = findFirstEpisodeStep(view.steps) ?? view.steps[0];
   const [selectedStepId, setSelectedStepId] = useState<string | null>(initialStep?.stepId ?? null);
-  const [selectedEpisode, setSelectedEpisode] = useState<AgentEpisode | null>(
-    initialStep?.agentEpisodes[initialStep.agentEpisodes.length - 1] ?? null,
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
+    initialStep?.agentEpisodes[initialStep.agentEpisodes.length - 1]?.episodeId ?? null,
   );
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [messages, setMessages] = useState<MockMessage[]>([]);
 
   const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
 
-  const activeEpisode =
-    selectedEpisode ?? selectedStep?.agentEpisodes[selectedStep.agentEpisodes.length - 1] ?? null;
+  const activeEpisode = useMemo(() => {
+    if (selectedEpisodeId) {
+      const located = findEpisodeInTree(view.steps, selectedEpisodeId);
+      if (located) {
+        return located.episode;
+      }
+    }
+    return selectedStep?.agentEpisodes[selectedStep.agentEpisodes.length - 1] ?? null;
+  }, [selectedEpisodeId, selectedStep, view.steps]);
+
+  const committedMessageCount = useMemo(() => {
+    if (!activeEpisode?.memoryScope) {
+      return 0;
+    }
+    return events.reduce((count, event) => {
+      if (event.type === "messages_committed" && event.memoryScope === activeEpisode.memoryScope) {
+        return count + event.messageCount;
+      }
+      return count;
+    }, 0);
+  }, [activeEpisode?.memoryScope, events]);
 
   useEffect(() => {
     if (!activeEpisode?.memoryScope) {
@@ -51,7 +70,12 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeEpisode?.memoryScope, activeEpisode?.episodeId]);
+  }, [
+    activeEpisode?.memoryScope,
+    activeEpisode?.episodeId,
+    activeEpisode?.status,
+    committedMessageCount,
+  ]);
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
 
@@ -59,11 +83,11 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
     setSelectedStepId(stepId);
     const step = findStepInTree(view.steps, stepId);
     const ep = step?.agentEpisodes[step.agentEpisodes.length - 1];
-    if (ep) setSelectedEpisode(ep);
+    if (ep) setSelectedEpisodeId(ep.episodeId);
   }
 
   function handleSelectEpisode(ep: AgentEpisode) {
-    setSelectedEpisode(ep);
+    setSelectedEpisodeId(ep.episodeId);
   }
 
   async function handleFork() {
