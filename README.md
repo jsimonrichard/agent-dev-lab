@@ -26,15 +26,8 @@ Bun + Turborepo monorepo.
 
 ## Getting started
 
-Requires [Bun](https://bun.sh) `1.3.13` (declared in the root `packageManager` field).
-
-```bash
-bun install
-bun run dev:docs   # docs site on :4321
-bun run dev:web    # inspection UI on :3000
-```
-
-No `.env` file or external services are required for basic development. LLM provider API keys are needed once agent execution is wired up.
+> [!NOTE]
+> TBA — the packages are not published to npm yet. Install instructions will land here once `@agent-dev-lab/core` and friends are released.
 
 ## Example
 
@@ -73,7 +66,17 @@ await handle.result;
 
 An ADL **project** is any directory with an `adl.config.*` file at its root — the single discovery surface for the CLI, inspection UI, and `loadAdlProject()`. See [Project setup](apps/docs/src/content/docs/guides/project-setup.md) for the recommended layout and the `#adl` import alias.
 
-## Commands
+## Development
+
+Working on the framework itself (this monorepo). Requires [Bun](https://bun.sh) `1.3.13` (declared in the root `packageManager` field).
+
+```bash
+bun install
+bun run dev:docs   # docs site on :4321
+bun run dev:web    # inspection UI on :3000
+```
+
+No `.env` file or external services are required. LLM provider API keys are needed once agent execution is wired up.
 
 All standard scripts live in the root `package.json` and run through Turbo:
 
