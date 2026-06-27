@@ -48,7 +48,7 @@ function WorkflowRunsPage() {
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">
-            <Link to="/workflows" className="hover:text-foreground hover:underline">
+            <Link to="/workflows" className="cursor-pointer hover:text-foreground hover:underline">
               Workflows
             </Link>
             <span className="mx-1.5">/</span>
@@ -79,7 +79,7 @@ function WorkflowRunsPage() {
                 <Link
                   to="/workflows/$workflowId/r/$runId"
                   params={{ workflowId, runId: run.runId }}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                  className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-mono text-sm">{run.runId}</p>

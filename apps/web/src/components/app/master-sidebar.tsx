@@ -76,7 +76,7 @@ function MasterNavItem({
   className?: string;
 }) {
   const buttonClass = cn(
-    "flex size-10 items-center justify-center rounded-lg transition-colors",
+    "flex size-10 cursor-pointer items-center justify-center rounded-lg transition-colors",
     active
       ? "bg-sidebar-accent text-sidebar-accent-foreground"
       : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",

@@ -45,7 +45,7 @@ function AgentSessionsPage() {
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">
-            <Link to="/agent" className="hover:text-foreground hover:underline">
+            <Link to="/agent" className="cursor-pointer hover:text-foreground hover:underline">
               Agents
             </Link>
             <span className="mx-1.5">/</span>
@@ -76,7 +76,7 @@ function AgentSessionsPage() {
                 <Link
                   to="/agent/$agentId/r/$runId"
                   params={{ agentId, runId: session.memoryScope }}
-                  className="flex items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                  className="flex cursor-pointer items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
                 >
                   <div className="min-w-0">
                     <p className="line-clamp-2 text-sm font-medium">{session.title}</p>

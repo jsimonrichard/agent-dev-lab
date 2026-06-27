@@ -57,7 +57,7 @@ function WorkflowsPage() {
                   <Link
                     to="/workflows/$workflowId"
                     params={{ workflowId: id }}
-                    className="text-sm font-medium text-primary hover:underline"
+                    className="cursor-pointer text-sm font-medium text-primary hover:underline"
                   >
                     View runs →
                   </Link>

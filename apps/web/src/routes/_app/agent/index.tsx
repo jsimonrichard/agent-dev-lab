@@ -44,7 +44,7 @@ function AgentsPage() {
                   <Link
                     to="/agent/$agentId"
                     params={{ agentId: id }}
-                    className="text-sm font-medium text-primary hover:underline"
+                    className="cursor-pointer text-sm font-medium text-primary hover:underline"
                   >
                     View conversations →
                   </Link>

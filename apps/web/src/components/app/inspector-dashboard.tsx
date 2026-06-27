@@ -67,7 +67,10 @@ export function InspectorDashboard() {
                 <Badge variant="secondary">{runs.length} runs</Badge>
                 <Badge variant="outline">{project.workflowIds.length} workflows</Badge>
               </div>
-              <Link to="/workflows" className="text-sm font-medium text-primary hover:underline">
+              <Link
+                to="/workflows"
+                className="cursor-pointer text-sm font-medium text-primary hover:underline"
+              >
                 Browse workflows →
               </Link>
               {demoWorkflowId ? (
@@ -79,7 +82,7 @@ export function InspectorDashboard() {
                 <Link
                   to="/workflows/$workflowId"
                   params={{ workflowId: recentWorkflowId }}
-                  className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                  className="cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
                 >
                   View runs for {recentWorkflowId} →
                 </Link>
@@ -102,14 +105,17 @@ export function InspectorDashboard() {
                 <Badge variant="secondary">{sessions.length} sessions</Badge>
                 <Badge variant="outline">{project.agentIds.length} agents</Badge>
               </div>
-              <Link to="/agent" className="text-sm font-medium text-primary hover:underline">
+              <Link
+                to="/agent"
+                className="cursor-pointer text-sm font-medium text-primary hover:underline"
+              >
                 Browse agents →
               </Link>
               {recentAgentId ? (
                 <Link
                   to="/agent/$agentId"
                   params={{ agentId: recentAgentId }}
-                  className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                  className="cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
                 >
                   View conversations for {recentAgentId} →
                 </Link>
@@ -131,7 +137,10 @@ export function InspectorDashboard() {
             </div>
           </CardHeader>
           <div className="px-6 pb-6">
-            <Link to="/settings" className="text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/settings"
+              className="cursor-pointer text-sm font-medium text-primary hover:underline"
+            >
               Project settings →
             </Link>
           </div>
