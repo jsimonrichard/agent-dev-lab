@@ -1,6 +1,11 @@
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
-import type { RunEvent as UiRunEvent, RunStatus } from "#/lib/mock/types";
+import type { JsonValue, RunEvent as UiRunEvent, RunStatus } from "#/lib/mock/types";
+
+/** Run inputs/outputs from the store are JSON-serialized; assert that at the UI boundary. */
+function asJson(value: unknown): JsonValue {
+  return value as JsonValue;
+}
 
 /** Maps core {@link RunEvent} records to the UI reducer shape in `run-projection.ts`. */
 export function adaptCoreEventsForWorkflowRun(
@@ -22,7 +27,7 @@ export function adaptCoreEventsForWorkflowRun(
           type: "run_started",
           at: event.at,
           workflowId: event.workflowId,
-          input: event.input,
+          input: asJson(event.input),
         });
         break;
       case "workflow_finished":
@@ -31,7 +36,7 @@ export function adaptCoreEventsForWorkflowRun(
           runId: event.workflowRunId,
           type: "run_finished",
           at: event.at,
-          output: event.output,
+          output: asJson(event.output),
         });
         break;
       case "workflow_failed":
@@ -73,7 +78,7 @@ export function adaptCoreEventsForWorkflowRun(
           at: event.at,
           stepId: event.stepId,
           durationMs: event.durationMs,
-          output: event.output,
+          output: asJson(event.output),
         });
         break;
       case "step_failed":

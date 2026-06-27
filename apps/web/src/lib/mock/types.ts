@@ -1,4 +1,13 @@
-/** Mock shapes aligned with notes/streaming-api.md and workflow-api.md — wire to runtime later. */
+/** UI view-model shapes aligned with notes/streaming-api.md and workflow-api.md. */
+
+/** JSON-serializable value — used for fields crossing the server-function boundary. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 export type RunStatus = "running" | "completed" | "failed" | "cancelled";
 
@@ -82,7 +91,12 @@ export interface StepFinishedEvent extends RunEventBase {
   type: "step_finished";
   stepId: string;
   durationMs: number;
-  output?: unknown;
+  output?: JsonValue;
+}
+
+export interface StepFailedEvent extends RunEventBase {
+  type: "step_failed";
+  stepId: string;
 }
 
 export interface AgentStartedEvent extends RunEventBase {
@@ -117,23 +131,29 @@ export interface MessagesCommittedEvent extends RunEventBase {
 export interface RunStartedEvent extends RunEventBase {
   type: "run_started";
   workflowId: string;
-  input: unknown;
+  input: JsonValue;
 }
 
 export interface RunFinishedEvent extends RunEventBase {
   type: "run_finished";
-  output?: unknown;
+  output?: JsonValue;
+}
+
+export interface RunFailedEvent extends RunEventBase {
+  type: "run_failed";
 }
 
 export type RunEvent =
   | RunStartedEvent
   | StepStartedEvent
   | StepFinishedEvent
+  | StepFailedEvent
   | AgentStartedEvent
   | AgentFinishedEvent
   | TextDeltaEvent
   | MessagesCommittedEvent
-  | RunFinishedEvent;
+  | RunFinishedEvent
+  | RunFailedEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";
 

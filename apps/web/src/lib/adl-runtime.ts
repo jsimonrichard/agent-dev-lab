@@ -27,7 +27,13 @@ export async function getAdlRuntime(): Promise<AdlRuntime> {
 
 export async function getWorkflowStore(): Promise<WorkflowStore> {
   const runtime = await getAdlRuntime();
-  return runtime.services.stores.workflow;
+  const store = runtime.services.stores.workflow;
+  if (!store) {
+    throw new Error(
+      "ADL runtime has no workflow store. The inspection UI requires `createAdlRuntime` to configure `stores.workflow`.",
+    );
+  }
+  return store;
 }
 
 export async function getMessageStore(): Promise<MessageStore> {
