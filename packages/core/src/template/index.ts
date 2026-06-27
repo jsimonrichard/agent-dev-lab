@@ -1,7 +1,7 @@
-export { createTemplate } from "./create";
+export { createTemplate } from "./create.js";
 export type {
   Template,
   TemplateConfig,
   TemplateFromPathConfig,
   TemplateFromSourceConfig,
-} from "./types";
+} from "./types.js";

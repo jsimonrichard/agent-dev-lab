@@ -1,12 +1,12 @@
 import type { ToolSet } from "ai";
 
-import type { Agent, AgentDefinition } from "../agent/types";
-import type { MessageStore } from "../memory/types";
-import type { AgentObservers, WorkflowObservers } from "../observability/observers";
-import type { WorkflowStore } from "../observability/workflow-store";
-import type { CreateToolFromAgentOptions } from "../tools/from-agent";
-import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
-import type { Workflow, WorkflowDefinition } from "../workflow/types";
+import type { Agent, AgentDefinition } from "../agent/types.js";
+import type { MessageStore } from "../memory/types.js";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers.js";
+import type { WorkflowStore } from "../observability/workflow-store.js";
+import type { CreateToolFromAgentOptions } from "../tools/from-agent.js";
+import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow.js";
+import type { Workflow, WorkflowDefinition } from "../workflow/types.js";
 
 export type RuntimeStores = {
   message: MessageStore;

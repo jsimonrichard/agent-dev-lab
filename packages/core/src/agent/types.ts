@@ -1,8 +1,8 @@
 import type { CoreMessage, GenerateTextResult, LanguageModel, StreamTextResult, ToolSet } from "ai";
 import type { z } from "zod";
 
-import type { MessageStore } from "../memory/types";
-import type { Template } from "../template/types";
+import type { MessageStore } from "../memory/types.js";
+import type { Template } from "../template/types.js";
 
 export type AgentInstructions<TInput = unknown> = string | Template<TInput>;
 

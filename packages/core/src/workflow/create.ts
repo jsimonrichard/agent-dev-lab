@@ -1,7 +1,7 @@
-import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types";
-import { resolveRuntimeOverrides, splitFactoryParams } from "../runtime/resolve-overrides";
-import { WorkflowImpl } from "./workflow-impl";
-import type { Workflow, WorkflowDefinition } from "./types";
+import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types.js";
+import { resolveRuntimeOverrides, splitFactoryParams } from "../runtime/resolve-overrides.js";
+import { WorkflowImpl } from "./workflow-impl.js";
+import type { Workflow, WorkflowDefinition } from "./types.js";
 
 /** Functional factory: workflow definition plus explicit {@link AdlRuntime}. */
 export type CreateWorkflowParams<TInput, TOutput> = WorkflowDefinition<TInput, TOutput> & {

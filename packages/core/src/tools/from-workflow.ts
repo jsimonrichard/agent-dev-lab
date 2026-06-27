@@ -1,9 +1,9 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import { peekWorkflowContext } from "../workflow/active-workflow-context";
-import { WorkflowImpl } from "../workflow/workflow-impl";
-import type { Workflow } from "../workflow/types";
+import { peekWorkflowContext } from "../workflow/active-workflow-context.js";
+import { WorkflowImpl } from "../workflow/workflow-impl.js";
+import type { Workflow } from "../workflow/types.js";
 
 function asWorkflowImpl<TInput, TOutput>(
   workflow: Workflow<TInput, TOutput>,

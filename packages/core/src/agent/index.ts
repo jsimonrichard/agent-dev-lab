@@ -1,5 +1,5 @@
-export { createAgent } from "./create";
-export type { CreateAgentParams } from "./create";
+export { createAgent } from "./create.js";
+export type { CreateAgentParams } from "./create.js";
 export type {
   Agent,
   AgentDefinition,
@@ -12,4 +12,4 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
-} from "./types";
+} from "./types.js";

@@ -4,10 +4,10 @@ import {
   resolveDefinitionServices,
   resolveRuntimeOverrides,
   splitFactoryParams,
-} from "../runtime/resolve-overrides";
-import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types";
-import { AgentImpl } from "./agent-impl";
-import type { Agent, AgentDefinition } from "./types";
+} from "../runtime/resolve-overrides.js";
+import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types.js";
+import { AgentImpl } from "./agent-impl.js";
+import type { Agent, AgentDefinition } from "./types.js";
 
 /** Functional factory: agent definition plus explicit {@link AdlRuntime}. */
 export type CreateAgentParams<Tools extends ToolSet = ToolSet, TOutput = unknown> = AgentDefinition<

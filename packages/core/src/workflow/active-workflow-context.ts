@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import type { WorkflowContextImpl } from "./context";
-import type { WorkflowContext } from "./types";
+import type { WorkflowContextImpl } from "./context.js";
+import type { WorkflowContext } from "./types.js";
 
 /**
  * Step- or workflow-body-local binding so {@link peekWorkflowContext} can resolve the

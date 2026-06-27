@@ -1,18 +1,23 @@
 import type { ToolSet } from "ai";
 
-import { AgentImpl } from "../agent/agent-impl";
-import type { Agent, AgentDefinition } from "../agent/types";
-import { createToolFromAgent, createToolFromWorkflow } from "../tools";
-import { WorkflowImpl } from "../workflow/workflow-impl";
-import type { Workflow, WorkflowDefinition } from "../workflow/types";
-import type { CreateToolFromAgentOptions } from "../tools/from-agent";
-import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
+import { AgentImpl } from "../agent/agent-impl.js";
+import type { Agent, AgentDefinition } from "../agent/types.js";
+import { createToolFromAgent, createToolFromWorkflow } from "../tools/index.js";
+import { WorkflowImpl } from "../workflow/workflow-impl.js";
+import type { Workflow, WorkflowDefinition } from "../workflow/types.js";
+import type { CreateToolFromAgentOptions } from "../tools/from-agent.js";
+import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow.js";
 import {
   resolveDefinitionServices,
   resolveRuntimeConfig,
   resolveRuntimeOverrides,
-} from "./resolve-overrides";
-import type { AdlRuntime, AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+} from "./resolve-overrides.js";
+import type {
+  AdlRuntime,
+  AdlRuntimeConfig,
+  AdlRuntimeOverrides,
+  RuntimeServices,
+} from "./types.js";
 
 /** Process-level ADL runtime: owns {@link RuntimeServices} and binds agents/workflows. */
 export class AdlRuntimeImpl implements AdlRuntime {

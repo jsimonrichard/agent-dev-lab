@@ -1,5 +1,5 @@
-import type { RunEvent } from "../observability/events";
-import type { AgentObservers, WorkflowObservers } from "../observability/observers";
+import type { RunEvent } from "../observability/events.js";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers.js";
 import type { z } from "zod";
 
 export type CustomWorkflowEvent = {

@@ -1,7 +1,7 @@
 import type { CoreMessage } from "ai";
 
-import type { Template } from "../template/types";
-import type { AgentInstructions } from "./types";
+import type { Template } from "../template/types.js";
+import type { AgentInstructions } from "./types.js";
 
 export async function resolveInstructionsText(instructions: AgentInstructions): Promise<string> {
   if (typeof instructions === "string") {
