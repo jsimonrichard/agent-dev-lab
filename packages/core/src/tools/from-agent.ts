@@ -1,9 +1,9 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import type { Agent, AgentRunInput } from "../agent/types";
-import type { AdlRuntime } from "../runtime/types";
-import type { WorkflowContext } from "../workflow/types";
+import type { Agent, AgentRunInput } from "../agent/types.js";
+import type { AdlRuntime } from "../runtime/types.js";
+import type { WorkflowContext } from "../workflow/types.js";
 
 export type CreateToolFromAgentOptions<Context> = {
   name?: string;

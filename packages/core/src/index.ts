@@ -13,7 +13,7 @@
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
-export { createAgent } from "./agent";
+export { createAgent } from "./agent/index.js";
 export type {
   Agent,
   AgentDefinition,
@@ -26,9 +26,9 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
-} from "./agent";
+} from "./agent/index.js";
 
-export { createWorkflow } from "./workflow";
+export { createWorkflow } from "./workflow/index.js";
 export type {
   CustomWorkflowEvent,
   StepFn,
@@ -40,9 +40,9 @@ export type {
   WorkflowRunHandle,
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
-} from "./workflow";
+} from "./workflow/index.js";
 
-export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
+export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime/index.js";
 export type {
   AdlRuntime,
   AdlRuntimeConfig,
@@ -51,20 +51,20 @@ export type {
   RuntimeObservers,
   RuntimeServices,
   RuntimeStores,
-} from "./runtime";
+} from "./runtime/index.js";
 
-export { createTemplate, TemplateEngine } from "./template";
-export { WorkflowContextScope } from "./workflow/workflow-context-scope";
+export { createTemplate, TemplateEngine } from "./template/index.js";
+export { WorkflowContextScope } from "./workflow/workflow-context-scope.js";
 export type {
   Template,
   TemplateConfig,
   TemplateFromPathConfig,
   TemplateFromSourceConfig,
-} from "./template";
+} from "./template/index.js";
 
-export { inMemoryMessageStore } from "./memory";
-export { inMemoryWorkflowStore } from "./observability";
-export type { MessageStore } from "./memory";
+export { inMemoryMessageStore } from "./memory/index.js";
+export { inMemoryWorkflowStore } from "./observability/index.js";
+export type { MessageStore } from "./memory/index.js";
 
 export type {
   AgentEventBase,
@@ -86,13 +86,13 @@ export type {
   WorkflowRunSummary,
   WorkflowStartedEvent,
   WorkflowStore,
-} from "./observability";
+} from "./observability/index.js";
 
-export { createToolFromAgent, createToolFromWorkflow } from "./tools";
-export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
+export { createToolFromAgent, createToolFromWorkflow } from "./tools/index.js";
+export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools/index.js";
 
-export { loadPromptFile, resolvePromptPath } from "./prompt/load";
-export { renderPromptTemplate } from "./prompt/render";
+export { loadPromptFile, resolvePromptPath } from "./prompt/load.js";
+export { renderPromptTemplate } from "./prompt/render.js";
 
 export {
   ADL_CONFIG_FILENAMES,
@@ -106,7 +106,7 @@ export {
   type AdlProjectConfig,
   type AdlProjectDefaults,
   type LoadedAdlProject,
-} from "./project/index";
+} from "./project/index.js";
 
 export { generateText, streamText, tool } from "ai";
 export type { CoreMessage, LanguageModel, ToolSet } from "ai";

@@ -1,9 +1,9 @@
-import type { AgentMemoryConfig } from "../agent/types";
-import { inMemoryMessageStore } from "../memory/in-memory";
-import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
-import { TemplateEngine } from "../template/engine";
-import { WorkflowContextScope } from "../workflow/workflow-context-scope";
-import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
+import type { AgentMemoryConfig } from "../agent/types.js";
+import { inMemoryMessageStore } from "../memory/in-memory.js";
+import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store.js";
+import { TemplateEngine } from "../template/engine.js";
+import { WorkflowContextScope } from "../workflow/workflow-context-scope.js";
+import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types.js";
 
 /** Applies definition-level store overrides once at bind time (agent/workflow factories). */
 export function resolveDefinitionServices(

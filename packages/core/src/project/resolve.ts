@@ -5,10 +5,10 @@ import { pathToFileURL } from "node:url";
 
 import type { ToolSet } from "ai";
 
-import type { Agent } from "../agent/types";
-import type { Template } from "../template/types";
-import type { Workflow } from "../workflow/types";
-import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config";
+import type { Agent } from "../agent/types.js";
+import type { Template } from "../template/types.js";
+import type { Workflow } from "../workflow/types.js";
+import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config.js";
 
 export const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 

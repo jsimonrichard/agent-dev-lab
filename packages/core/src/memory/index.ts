@@ -1,2 +1,2 @@
-export { inMemoryMessageStore } from "./in-memory";
-export type { MessageStore } from "./types";
+export { inMemoryMessageStore } from "./in-memory.js";
+export type { MessageStore } from "./types.js";

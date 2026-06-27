@@ -5,7 +5,7 @@ import type {
   StepRecord,
   StepSlot,
   WorkflowRunSummary,
-} from "./events";
+} from "./events.js";
 
 /**
  * Scope for reading events — workflow log vs standalone agent episode.

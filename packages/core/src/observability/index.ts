@@ -25,12 +25,12 @@ export type {
   WorkflowRunEventBase,
   WorkflowRunSummary,
   WorkflowStartedEvent,
-} from "./events";
+} from "./events.js";
 export type {
   AgentObserver,
   AgentObservers,
   WorkflowObserver,
   WorkflowObservers,
-} from "./observers";
-export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
-export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
+} from "./observers.js";
+export { inMemoryWorkflowStore } from "./in-memory-workflow-store.js";
+export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store.js";

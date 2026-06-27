@@ -1,4 +1,4 @@
-import type { TemplateEngine } from "../template/engine";
+import type { TemplateEngine } from "../template/engine.js";
 
 /**
  * Renders a prompt template with Handlebars ({@link https://handlebarsjs.com/}).

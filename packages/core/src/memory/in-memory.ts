@@ -1,6 +1,6 @@
 import type { CoreMessage } from "ai";
 
-import type { MessageStore } from "./types";
+import type { MessageStore } from "./types.js";
 
 /**
  * In-process {@link MessageStore} for tests, local scripts, and the default when

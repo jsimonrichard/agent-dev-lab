@@ -1,4 +1,4 @@
-export { createWorkflow } from "./create";
+export { createWorkflow } from "./create.js";
 export type {
   CustomWorkflowEvent,
   StepFn,
@@ -10,4 +10,4 @@ export type {
   WorkflowRunHandle,
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
-} from "./types";
+} from "./types.js";

@@ -1,9 +1,9 @@
-export { createAdlRuntime } from "./create";
+export { createAdlRuntime } from "./create.js";
 export {
   resolveDefinitionServices,
   resolveRuntimeConfig,
   resolveRuntimeOverrides,
-} from "./resolve-overrides";
+} from "./resolve-overrides.js";
 export type {
   AdlRuntime,
   AdlRuntimeConfig,
@@ -12,4 +12,4 @@ export type {
   RuntimeObservers,
   RuntimeServices,
   RuntimeStores,
-} from "./types";
+} from "./types.js";

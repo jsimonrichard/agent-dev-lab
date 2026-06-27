@@ -1,9 +1,9 @@
-import { createId } from "../internal/ids";
-import { serializeError } from "../internal/serialize-error";
-import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
-import type { RuntimeServices } from "../runtime/types";
-import { createWorkflowContext, refreshWorkflowContext } from "./context";
-import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
+import { createId } from "../internal/ids.js";
+import { serializeError } from "../internal/serialize-error.js";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder.js";
+import type { RuntimeServices } from "../runtime/types.js";
+import { createWorkflowContext, refreshWorkflowContext } from "./context.js";
+import { WorkflowRunEventChannel } from "./workflow-run-event-channel.js";
 import type {
   Workflow,
   WorkflowContext,
@@ -11,7 +11,7 @@ import type {
   WorkflowRunHandle,
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
-} from "./types";
+} from "./types.js";
 
 /**
  * Default workflow implementation: definition plus resolved runtime services.

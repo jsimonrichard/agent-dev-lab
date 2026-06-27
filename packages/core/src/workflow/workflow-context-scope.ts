@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import type { RunRecorder } from "../runtime/run-recorder";
-import type { WorkflowContextImpl } from "./context";
-import type { WorkflowContext } from "./types";
+import type { RunRecorder } from "../runtime/run-recorder.js";
+import type { WorkflowContextImpl } from "./context.js";
+import type { WorkflowContext } from "./types.js";
 
 /**
  * Per-runtime AsyncLocalStorage for the active workflow context.
