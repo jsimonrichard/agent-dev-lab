@@ -13,7 +13,7 @@
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
-export { createAgent } from "./agent/index";
+export { createAgent } from "./agent";
 export type {
   Agent,
   AgentDefinition,
@@ -26,9 +26,9 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
-} from "./agent/index";
+} from "./agent";
 
-export { createWorkflow } from "./workflow/index";
+export { createWorkflow } from "./workflow";
 export type {
   CustomWorkflowEvent,
   StepFn,
@@ -40,9 +40,9 @@ export type {
   WorkflowRunHandle,
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
-} from "./workflow/index";
+} from "./workflow";
 
-export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime/index";
+export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
 export type {
   AdlRuntime,
   AdlRuntimeConfig,
@@ -51,20 +51,20 @@ export type {
   RuntimeObservers,
   RuntimeServices,
   RuntimeStores,
-} from "./runtime/index";
+} from "./runtime";
 
-export { createTemplate, TemplateEngine } from "./template/index";
+export { createTemplate, TemplateEngine } from "./template";
 export { WorkflowContextScope } from "./workflow/workflow-context-scope";
 export type {
   Template,
   TemplateConfig,
   TemplateFromPathConfig,
   TemplateFromSourceConfig,
-} from "./template/index";
+} from "./template";
 
-export { inMemoryMessageStore } from "./memory/index";
-export { inMemoryWorkflowStore } from "./observability/index";
-export type { MessageStore } from "./memory/index";
+export { inMemoryMessageStore } from "./memory";
+export { inMemoryWorkflowStore } from "./observability";
+export type { MessageStore } from "./memory";
 
 export type {
   AgentEventBase,
@@ -86,10 +86,10 @@ export type {
   WorkflowRunSummary,
   WorkflowStartedEvent,
   WorkflowStore,
-} from "./observability/index";
+} from "./observability";
 
-export { createToolFromAgent, createToolFromWorkflow } from "./tools/index";
-export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools/index";
+export { createToolFromAgent, createToolFromWorkflow } from "./tools";
+export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
 
 export { loadPromptFile, resolvePromptPath } from "./prompt/load";
 export { renderPromptTemplate } from "./prompt/render";
@@ -106,7 +106,7 @@ export {
   type AdlProjectConfig,
   type AdlProjectDefaults,
   type LoadedAdlProject,
-} from "./project/index";
+} from "./project";
 
 export { generateText, streamText, tool } from "ai";
 export type { CoreMessage, LanguageModel, ToolSet } from "ai";

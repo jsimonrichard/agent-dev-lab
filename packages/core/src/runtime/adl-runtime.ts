@@ -2,7 +2,7 @@ import type { ToolSet } from "ai";
 
 import { AgentImpl } from "../agent/agent-impl";
 import type { Agent, AgentDefinition } from "../agent/types";
-import { createToolFromAgent, createToolFromWorkflow } from "../tools/index";
+import { createToolFromAgent, createToolFromWorkflow } from "../tools";
 import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { CreateToolFromAgentOptions } from "../tools/from-agent";
