@@ -1,60 +1,51 @@
-# Agent Development Lab — design handoff
+# Agent Development Lab — agent orientation
 
-Concise summary of the **Agentic Workflow Research Framework** (full brief was used for initial repo setup).
+Concise summary for coding agents working in this repo. **User-facing API docs:** `apps/docs` (run `bun run dev:docs`). **Gap tracking:** [`v1-scope.md`](./v1-scope.md).
 
 ## Purpose
 
-TypeScript-first toolkit to **author, run, and inspect** multi-agent workflows for research: fast iteration, strong execution visibility (including nested agents), UI-first inspection, **headless runtime** (no React/browser in core), **colocated** workflow code and markdown prompts (templating, no MDX / no custom frontmatter v1).
-
-Not a large “agent platform” — small, flexible core.
+TypeScript-first toolkit to **author, run, and inspect** multi-agent workflows: fast iteration, execution visibility, UI-first inspection, **headless runtime** (no React in core), colocated prompts via `createTemplate`.
 
 ## Monorepo (Bun)
 
-| Path              | Role                                                                                     |
-| ----------------- | ---------------------------------------------------------------------------------------- |
-| `apps/web`        | TanStack Start — inspection UI for runs, logs, conversations (to be built out).          |
-| `apps/docs`       | Astro + Starlight + **starlight-typedoc** — project + API docs.                          |
-| `packages/core`   | Headless library — Vercel AI SDK, prompt load/render helpers; future workflow execution. |
-| `packages/common` | Drizzle + SQLite (Bun), logging (pino), OTEL placeholder, **shared ESLint** entry.       |
-
-No top-level `prompts` package — prompts live beside code or in tests.
+| Path              | Role                                                                  |
+| ----------------- | --------------------------------------------------------------------- |
+| `apps/web`        | TanStack Start — inspection UI (scaffolding; run waterfall not built) |
+| `apps/docs`       | Astro Starlight + starlight-typedoc — **stable docs**                 |
+| `apps/cli`        | `adl` CLI — `adl dev` only today                                      |
+| `apps/playground` | Framework dev ADL project                                             |
+| `packages/core`   | Headless library — agents, workflows, runtime (implemented)           |
+| `packages/common` | Drizzle + SQLite helpers, logging, ESLint                             |
 
 ## Principles
 
-- **Runtime/UI split**: workflows runnable from scripts/tests/server; UI reads persisted output, does not own execution.
-- **Defer**: final workflow context API, DB schema, conversation/replay model, prompt templating API surface, observability event schema — but **do not assume a flat run model** (nested activity and conversations must remain possible).
-- **Observability direction**: OpenTelemetry + structured logs/events; all agent threads should be representable in the UI later.
+- **Runtime/UI split** — core executes; UI reads `WorkflowStore` / events.
+- **AI SDK native** — `streamText`, `CoreMessage`, `tool()`.
+- **Notes vs docs** — implemented APIs documented in `apps/docs`; this folder tracks gaps and deferred design.
+
+## Core runtime (implemented)
+
+See [`apps/docs/src/content/docs/guides/overview.md`](../apps/docs/src/content/docs/guides/overview.md) for the current status table.
+
+Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTemplate`, in-memory `MessageStore` + `WorkflowStore`, `loadAdlProject`.
+
+**Not implemented:** SQLite stores, CLI `adl run`, inspection SSE, playground sample workflow.
+
+## Agent note index
+
+| Still in `notes/`                                | Topic            |
+| ------------------------------------------------ | ---------------- |
+| [`v1-scope.md`](./v1-scope.md)                   | Checklist        |
+| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE  |
+| [`tracing.md`](./tracing.md)                     | OTEL packaging   |
+| [`resumability.md`](./resumability.md)           | Deferred resume  |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks |
+
+Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.md`](./README.md).
 
 ## Tooling
 
-Root: `bun install`, **`bun run dev`** (Turbo runs all `dev` scripts — web + docs in parallel), `bun run dev:web` / `bun run dev:docs` for a single app, **`bun run build`** / `typecheck` / `test` via Turborepo, `bun run lint` (root ESLint, repo-wide globs).
+`bun install`, `bun run dev`, `bun run dev:web`, `bun run dev:docs`, `bun run build`, `bun run lint`, `bun run test`.
 
-**Nitro + Bun**: root declares `"nitro": "npm:nitro-nightly@latest"` so Nitro’s Vite plugin can resolve the `nitro` package when hoisted from Bun’s store.
-
-## Generated docs
-
-`apps/docs` gitignores `src/content/docs/api/`; that folder is produced by `astro build`, `astro check`, or `astro dev`.
-
-## API design notes (draft)
-
-| Doc                                                    | Topic                                                                                                                         |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`agent-api.md`](./agent-api.md)                       | Agents, `run()`, templates, context → AI SDK                                                                                  |
-| [`workflow-api.md`](./workflow-api.md)                 | Steps, nesting, tracing, templates, nested workflows                                                                          |
-| [`project-api.md`](./project-api.md)                   | `adl.config` registries, `workflow.run`, CLI entrypoints                                                                      |
-| [`streaming-api.md`](./streaming-api.md)               | Run events, `agent.stream`, UI SSE                                                                                            |
-| [`inspection-ui.md`](./inspection-ui.md)               | `apps/web` wrappers, SSE wire format, t3code / TanStack AI notes                                                              |
-| [`observability-api.md`](./observability-api.md)       | Observers (push only) vs `WorkflowStore` (run/step I/O + events)                                                              |
-| [`tracing.md`](./tracing.md)                           | OpenTelemetry — native API, ADL context at workflow/step/agent boundaries (no core wrapper)                                   |
-| (memory vs observability)                              | [`message-store.md`](./message-store.md#memory-vs-observability-not-the-same-layer) — separate concerns, dual write on commit |
-| [`resumability.md`](./resumability.md)                 | Conversation vs workflow resume; which store when                                                                             |
-| [`message-store.md`](./message-store.md)               | `MessageStore` contract (planned; not in code yet)                                                                            |
-| [`memory-pipeline.md`](./memory-pipeline.md)           | Deferred message-list shaping                                                                                                 |
-| [`templates-api.md`](./templates-api.md)               | `createTemplate` + Zod + Handlebars                                                                                           |
-| [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md) | AI SDK alignment checklist                                                                                                    |
-| [`v1-scope.md`](./v1-scope.md)                         | v1 inventory & gaps                                                                                                           |
-| [`future-extensions.md`](./future-extensions.md)       | Future hooks, approvals, RAG-as-extension (not v1)                                                                            |
-
-## Open questions (unchanged)
-
-Workflow context API — see [`workflow-api.md`](./workflow-api.md). DB schema, conversation storage, replay/substeps, observability event model beyond step events — still deferred in code.
+`apps/docs` gitignores `src/content/docs/api/` — generated by `astro dev` / `astro build`.

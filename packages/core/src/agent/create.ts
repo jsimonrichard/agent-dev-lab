@@ -5,6 +5,9 @@ import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types";
 import { AgentImpl } from "./agent-impl";
 import type { Agent, AgentDefinition } from "./types";
 
+/**
+ * Functional factory for tests and libraries. In project code, use {@link AdlRuntime.createAgent}.
+ */
 export function createAgent<
   Context = undefined,
   Tools extends ToolSet = ToolSet,

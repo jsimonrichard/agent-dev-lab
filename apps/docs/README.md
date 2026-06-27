@@ -1,49 +1,28 @@
-# Starlight Starter Kit: Basics
+# @agent-dev-lab/docs
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+Astro [Starlight](https://starlight.astro.build/) site with [starlight-typedoc](https://github.com/HiDeoo/starlight-typedoc) API reference for `@agent-dev-lab/core`.
 
-```
-bun create astro@latest -- --template starlight
-```
+## Commands
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+From the monorepo root:
 
-## 🚀 Project Structure
-
-Inside of your Astro + Starlight project, you'll see the following folders and files:
-
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
+```bash
+bun run dev:docs    # localhost:4321
+bun run build       # includes docs build via Turbo
 ```
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+## Content split
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+| Layer               | Path                                | Role                                                                              |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| **Guides**          | `src/content/docs/guides/`          | Project setup, orientation                                                        |
+| **Conceptual core** | `src/content/docs/core/`            | Runtime, agents, workflows, project (cross-cutting)                               |
+| **API reference**   | `src/content/docs/api/` (generated) | TypeDoc from `packages/core` JSDoc — `MessageStore`, `Template`, `RunEvent`, etc. |
 
-Static assets, like favicons, can be placed in the `public/` directory.
+Smaller single-API docs live as JSDoc on `packages/core` exports to avoid duplicating Starlight pages.
 
-## 🧞 Commands
+Coding-agent gap tracking: repo root `notes/`.
 
-All commands are run from the root of the project, from a terminal:
+## TypeDoc
 
-| Command               | Action                                           |
-| :-------------------- | :----------------------------------------------- |
-| `bun install`         | Installs dependencies                            |
-| `bun dev`             | Starts local dev server at `localhost:4321`      |
-| `bun build`           | Build your production site to `./dist/`          |
-| `bun preview`         | Preview your build locally, before deploying     |
-| `bun astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `bun astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+Configured in `astro.config.mjs` — entry point `packages/core/src/index.ts`. Regenerated on `astro dev` and `astro build`.

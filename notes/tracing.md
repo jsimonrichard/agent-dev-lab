@@ -4,7 +4,7 @@ How ADL fits with **OpenTelemetry** — no parallel tracing API in `@agent-dev-l
 
 **Status:** Design for v1. Runtime pre-instrumentation not implemented yet.
 
-Related: [`observability-api.md`](./observability-api.md), [`workflow-api.md`](./workflow-api.md), [`streaming-api.md`](./streaming-api.md), [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md).
+Related: [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
 
 ---
 
@@ -64,7 +64,7 @@ Standalone `agent.run` (no `workflowRunId` on events) still gets an agent root s
 | **`WorkflowObserver` / `AgentObserver`** | Push-only adapters (stdout, bespoke backends), or bridging {@link RunEvent} to another system                            |
 | **Both**                                 | Common: ADL activates context for user OTel; an observer exports the same run events to SQLite/SSE for the inspection UI |
 
-An OTel-backed observer can map `onEvent` payloads to spans without core exposing span types. See [`observability-api.md`](./observability-api.md).
+An OTel-backed observer can map `onEvent` payloads to spans without core exposing span types. See [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts) and observers in `packages/core/src/observability/`.
 
 ---
 
@@ -74,7 +74,7 @@ An OTel-backed observer can map `onEvent` payloads to spans without core exposin
 
 The agent runner should forward the **active OTel context** into that option so model and tool spans nest under the ADL **agent** span.
 
-See [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md).
+See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentation`).
 
 ---
 

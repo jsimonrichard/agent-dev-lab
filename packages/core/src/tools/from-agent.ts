@@ -14,7 +14,7 @@ export type CreateToolFromAgentOptions<Context> = {
   ) => Pick<AgentRunInput<Context>, "memoryScope" | "user" | "context" | "messages" | "workflow">;
 };
 
-/** Expose a single agent episode as an AI SDK tool. @see notes/workflow-api.md */
+/** Expose a single agent episode as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}. */
 export function createToolFromAgent<Context>(
   runtime: AdlRuntime,
   agent: Agent<Context>,

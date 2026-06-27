@@ -7,8 +7,8 @@ import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 export default defineConfig({
   integrations: [
     starlight({
-      title: "Agent Development Lab",
-      description: "Documentation for the Agent Development Lab monorepo.",
+      title: "Agent Dev Lab",
+      description: "Documentation for the Agent Dev Lab monorepo.",
       social: [
         {
           icon: "github",
@@ -26,7 +26,14 @@ export default defineConfig({
       sidebar: [
         {
           label: "Guides",
-          items: [{ label: "Overview", slug: "guides/overview" }],
+          items: [
+            { label: "Overview", slug: "guides/overview" },
+            { label: "Project setup", slug: "guides/project-setup" },
+          ],
+        },
+        {
+          label: "Core",
+          items: [{ autogenerate: { directory: "core" } }],
         },
         typeDocSidebarGroup,
       ],

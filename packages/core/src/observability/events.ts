@@ -1,11 +1,9 @@
 /**
- * Append-only event union for SSE / waterfall UI.
+ * Append-only event union for waterfall UI and {@link WorkflowStore.listEvents}.
  *
- * - **Workflow run events** require `workflowRunId` (workflow + step + in-workflow custom).
- * - **Agent events** require `agentCallId`; `workflowRunId` and `stepId` are optional
- *   (agents may run outside a workflow, or between steps at workflow root).
- *
- * @see notes/streaming-api.md
+ * Includes workflow lifecycle, step tree, agent episodes (`agent_text_delta` when streaming),
+ * and `custom` events from `WorkflowContext.emit`. `seq` is monotonic per `workflowRunId` or
+ * `agentCallId`. Both `agent.run` and `agent.stream` use `streamText` internally.
  */
 
 /** Workflow + step events (always tied to a workflow invocation). */

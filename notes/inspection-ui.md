@@ -6,7 +6,7 @@ How the TanStack Start inspection UI talks to the runtime, plus **takeaways** fr
 
 **Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
 
-Related: [`streaming-api.md`](./streaming-api.md), [`observability-api.md`](./observability-api.md), [`v1-scope.md`](./v1-scope.md), [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md).
+Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [`v1-scope.md`](./v1-scope.md), [AI SDK notes](../packages/core/src/index.ts).
 
 ---
 
@@ -47,7 +47,7 @@ flowchart LR
 - Return **`{ runId }` immediately** from start; do not block the server fn on `workflow.run` completion.
 - Defer **`@agent-dev-lab/hooks`** and chat-style hooks until the inspector works without them.
 
-See [`streaming-api.md` — Getting data to apps/web](./streaming-api.md#getting-data-to-appsweb-no-runhandle) for run-event channels (`step_*` vs `agent_text_delta`).
+Run-event channels: `step_*` (workflow steps) vs `agent_text_delta` (streaming text) — see [`RunEvent`](../packages/core/src/observability/events.ts).
 
 ---
 
@@ -99,8 +99,8 @@ Aligns with [`v1-scope.md`](./v1-scope.md#inspection-ui-apps-web--implement-for-
 
 ### Runtime prerequisite (not in `apps/web`)
 
-- [ ] `WorkflowStore` append + `listEvents(runId, afterSeq?)` ([`observability-api.md`](./observability-api.md))
-- [ ] Observers / internal bridge: `streamText` `onChunk` → `agent_text_delta` ([`streaming-api.md`](./streaming-api.md))
+- [ ] `WorkflowStore` append + `listEvents(runId, afterSeq?)` ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
+- [ ] Observers / internal bridge: `streamText` `onChunk` → `agent_text_delta` ([`RunEvent`](../packages/core/src/observability/events.ts))
 
 ---
 
@@ -162,7 +162,7 @@ Reference: [TanStack AI docs](https://tanstack.com/ai/latest/docs), [SSE protoco
 
 | TanStack AI piece                        | Why skip                                                                                                                    |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `@tanstack/ai` + provider adapters       | Duplicates **`ai`** + [`ai-sdk-compatibility.md`](./ai-sdk-compatibility.md)                                                |
+| `@tanstack/ai` + provider adapters       | Duplicates **`ai`** + [AI SDK notes](../packages/core/src/index.ts)                                                         |
 | AG-UI `StreamChunk` as `RunEvent`        | Name collision (`STEP_*`, `RUN_*`) with **different semantics** (AG-UI “step” ≈ model reasoning; ADL `step_*` ≈ `ctx.step`) |
 | POST `{ messages }` → SSE until `[DONE]` | One-shot chat; no durable **run log** or mid-run reconnect                                                                  |
 | `@tanstack/ai-react` `useChat`           | Chat-centric; deferred per product direction                                                                                |
@@ -213,4 +213,4 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 | 4     | `agent_text_delta` transcript pane                              |
 | 5     | Optional: hooks package, playground async-generator route       |
 
-Matches [`streaming-api.md` v1 phasing](./streaming-api.md#v1-phasing) phases 1–2 for UI.
+Matches [Phasing (web work)](#phasing-web-work) phases 1–2 for UI.

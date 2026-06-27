@@ -156,6 +156,10 @@ export class InMemoryWorkflowStore implements WorkflowStore {
   }
 }
 
+/**
+ * In-process {@link WorkflowStore} for tests and the default when `createAdlRuntime()`
+ * omits `stores.workflow`.
+ */
 export function inMemoryWorkflowStore(): WorkflowStore {
   return new InMemoryWorkflowStore();
 }

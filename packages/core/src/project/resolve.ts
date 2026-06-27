@@ -60,6 +60,12 @@ export interface LoadedAdlProject {
   configPath: string;
   config: AdlProjectConfig;
 
+  /**
+   * Process runtime from `adl.config` (`config.adl`).
+   * CLI, inspection UI, and scripts should use this — not import a project runtime file directly.
+   */
+  getAdl(): AdlProjectConfig["adl"];
+
   getWorkflow(id: string): Workflow<unknown, unknown> | undefined;
   getAgent(id: string): Agent<unknown, ToolSet> | undefined;
   listWorkflowIds(): string[];
@@ -150,6 +156,9 @@ function buildLoadedProject(parts: {
 
   return {
     ...parts,
+    getAdl() {
+      return parts.config.adl;
+    },
     getWorkflow(id) {
       return workflowById.get(id);
     },

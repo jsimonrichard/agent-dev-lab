@@ -21,6 +21,6 @@ Between loading stored messages and calling the AI SDK, ADL needs a hook to shap
 
 ## References
 
-- Agent run flow: [`agent-api.md`](./agent-api.md)
-- Message store contract and implementation status: [`message-store.md`](./message-store.md)
+- Agent run flow: [agents guide](../apps/docs/src/content/docs/core/agents.md)
+- Message store contract: [`MessageStore`](../packages/core/src/memory/types.ts)
 - Mastra uses processor-style `MessageHistory` on a message list; ADL may adopt a similar _idea_ with a simpler function pipeline once the above is settled.

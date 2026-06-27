@@ -29,7 +29,7 @@ export type StepIdentity = {
  * Passed to the workflow author's `run` function. Callers may pass {@link WorkflowRunStartOptions.parentCtx}
  * on {@link Workflow.run} to nest under a parent run; otherwise the runtime supplies context.
  *
- * @see notes/runtime-api.md
+ * @see apps/docs — core/runtime
  */
 export interface WorkflowContext {
   /** Id of this workflow invocation (shared by all steps/agents in the run). */

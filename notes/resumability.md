@@ -1,6 +1,6 @@
 # Resumability (draft)
 
-What “resume” means in ADL, and which stores participate. **Not implemented** in v1; this clarifies dependencies between [`message-store.md`](./message-store.md) and [`observability-api.md`](./observability-api.md).
+What “resume” means in ADL, and which stores participate. **Not implemented** in v1; this clarifies dependencies between [`MessageStore`](../packages/core/src/memory/types.ts) and [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts).
 
 ---
 
@@ -75,7 +75,7 @@ To retry “from step `search`” without re-running `outline`:
    - Run **`input`** and (when finished) run **`output`**
    - Per-step **`output`** (and optional `input` snapshot) for completed steps
    - `step_failed` at the failure point
-2. **Runtime skip:** on retry with the same `runId`, **`ctx.step`** calls `getStepOutput` and **returns the stored output without running the callback** (see [`workflow-api.md`](./workflow-api.md)). No per-step manual early-return boilerplate in user TS for the common case.
+2. **Runtime skip:** on retry with the same `runId`, **`ctx.step`** calls `getStepOutput` and **returns the stored output without running the callback** (see [workflows guide](../apps/docs/src/content/docs/core/workflows.md)). No per-step manual early-return boilerplate in user TS for the common case.
 3. **Workflow code** still must be **idempotent** for work _outside_ `ctx.step` (top-level `run` body, code between steps).
 
 The **memory store** does not know about workflow steps. It only knows **agent** transcripts per `memoryScope`.
@@ -240,6 +240,6 @@ interface WorkflowCheckpointStore {
 - **Both** matter when a crashed run had already committed agent messages and finished steps.
 - Neither alone gives **transparent** resume of arbitrary TypeScript workflow state — that needs idempotent design, explicit inputs, and eventually checkpoints.
 
-Optional **`WorkflowResumer`** reads the store — see [`observability-api.md`](./observability-api.md). Observers alone are insufficient for resume.
+Optional **`WorkflowResumer`** reads the store — see [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts). Observers alone are insufficient for resume.
 
-Cross-links: [`memory-store.md`](./message-store.md), [`observability-api.md`](./observability-api.md), [`workflow-api.md`](./workflow-api.md).
+Cross-links: [`MessageStore`](../packages/core/src/memory/types.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md).

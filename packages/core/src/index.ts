@@ -1,6 +1,17 @@
 /**
- * Headless ADL core library (v1 API draft).
- * Types and factories mirror notes/; execution is implemented incrementally.
+ * @packageDocumentation
+ *
+ * Headless ADL core — agents, workflows, templates, runtime wiring.
+ *
+ * Cross-cutting guides (project layout, workflow steps, ALS) are in **apps/docs** Starlight.
+ * Focused API docs live here as JSDoc on exports.
+ *
+ * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `CoreMessage`, `LanguageModel`.
+ * Import `stepCountIs` from `ai` for workflow tool loops. Single internal `streamText` path for
+ * `agent.run` and `agent.stream`; commits `response.messages` to MessageStore.
+ *
+ * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
+ * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
 export { createAgent } from "./agent";
 export type {
@@ -108,7 +119,7 @@ export function createCoreShell() {
       "v1 API surface (draft)",
       "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
-      "createTemplate via adl.createTemplate / createTemplate(runtime, config)",
+      "adl.createTemplate / createTemplate(runtime, config)",
       "agent.run / agent.stream",
       "workflow.run / workflow.stream with WorkflowStore + observers",
     ],
