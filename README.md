@@ -10,7 +10,6 @@ Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agent
 - **TypeScript-first** — plain TS orchestration (`if` / `for` / `try` / `await` / `Promise.all`), no workflow graph DSL.
 - **AI SDK native** — `CoreMessage`, `streamText`, and `tool()` without parallel abstractions.
 - **Colocated prompts** — markdown beside code; templates via `createTemplate`.
-- **Docs near code** — smaller single-API surfaces documented in JSDoc; conceptual guides stay in Starlight.
 
 ## Monorepo layout
 
