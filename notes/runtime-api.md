@@ -73,7 +73,7 @@ const handle = review.run(input);
 await handle.result;
 ```
 
-`adl.createWorkflow` binds the runtime on the returned workflow; **`workflow.run` creates `WorkflowContext` internally** on `WorkflowImpl` (package-internal). Callers never pass `ctx` or `parentCtx`.
+`adl.createWorkflow` binds the runtime on the returned workflow; **`workflow.run` creates `WorkflowContext` internally** for root runs. Nested runs reuse the parent via `parentCtx` or ALS.
 
 `adl.createAgent` / `adl.createWorkflow` delegate to the functional factories with `runtime` injected.
 
@@ -178,14 +178,23 @@ handle.workflowRunId; // for UI / SSE before result completes
 await handle.result;
 ```
 
-- **Public API:** `run(input)` only — no `WorkflowContext` argument.
+- **Public API:** `run(input)` for root runs (CLI, UI). Optional `parentCtx` on `WorkflowRunStartOptions` for explicit nesting.
+- **Author API:** inside a workflow body or step, `otherWorkflow.run(input)` nests automatically via ALS when `parentCtx` is omitted.
 - **Author API:** `createWorkflow({ run: async (input, ctx) => … })` — `ctx` is supplied by the runtime when the bound workflow runs.
 - **No `{ project }`** on the execution path.
 - CLI: `loadAdlProject()` → `getWorkflow(id)` → `workflow.run(input)` using `config.adl`-bound workflows.
 
-### Nested / subworkflows (package-internal)
+### Nested / subworkflows
 
-Subworkflows and `createToolFromWorkflow` call **`WorkflowImpl.runNested`** with the parent `WorkflowContext` — never exposed on public `Workflow.run`.
+Call `otherWorkflow.run(input)` from inside a parent workflow (ALS supplies `parentCtx`), or pass `parentCtx` explicitly:
+
+```ts
+await ctx.step("search", async ({ ctx: child }) => {
+  const result = await searchPapers.run({ topic }, { parentCtx: child }).result;
+});
+```
+
+`createToolFromWorkflow` uses the same path — `workflow.run(input)` while the parent step is active.
 
 ---
 

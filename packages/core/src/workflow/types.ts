@@ -26,7 +26,8 @@ export type StepIdentity = {
  * Workflow execution scope. Implemented by {@link WorkflowContextImpl} (class); prefer
  * `ctx.step(...)` on the instance — do not destructure methods off a plain object host.
  *
- * Passed to the workflow author's `run` function only — not via the public `Workflow.run` API.
+ * Passed to the workflow author's `run` function. Callers may pass {@link WorkflowRunStartOptions.parentCtx}
+ * on {@link Workflow.run} to nest under a parent run; otherwise the runtime supplies context.
  *
  * @see notes/runtime-api.md
  */
@@ -86,6 +87,12 @@ export type WorkflowStreamHandle<TOutput> = WorkflowRunHandle<TOutput> & {
 export type WorkflowRunStartOptions = {
   /** Pre-allocate a run id so subscribers can connect before execution finishes. */
   workflowRunId?: string;
+  /**
+   * Nest under an existing workflow run (shared `workflowRunId`, step cache, event stream).
+   * When omitted inside a workflow body or step, the active {@link WorkflowContext} is read
+   * from the runtime's scoped ALS — same pattern as `agent.run` workflow linkage.
+   */
+  parentCtx?: WorkflowContext;
   /** Merged with runtime observers for this invocation only. */
   extraObservers?: {
     workflows?: WorkflowObservers;

@@ -209,7 +209,7 @@ So the split is not “`runWorkflow` vs `.run`”; it is **lookup by `id`** (CLI
 - **`result`** — `Promise<Output>` (typed rejection on failure).
 - **`cancel()`** — cooperative cancellation (implementation forwards `AbortSignal` internally).
 
-Authors still receive [`WorkflowContext`](./workflow-api.md) inside `createWorkflow({ run: async (input, ctx) => … })`; callers never pass `ctx` or `parentCtx`.
+Authors still receive [`WorkflowContext`](./workflow-api.md) inside `createWorkflow({ run: async (input, ctx) => … })`. Nested subworkflows use `otherWorkflow.run(input)` (ALS) or `otherWorkflow.run(input, { parentCtx })` — not the CLI entry path.
 
 Background execution: `void workflow.run(input)` or keep the handle and await `result` later.
 

@@ -46,7 +46,7 @@ export const searchPapers = createWorkflow({
 
 // Inside another workflow:
 await ctx.step("search", async ({ ctx: child }) => {
-  const { papers } = await searchPapers.run({ topic }, child);
+  const { papers } = await searchPapers.run({ topic }).result;
   return papers;
 });
 ```
@@ -302,8 +302,8 @@ workflow.run(input: Input, options?: WorkflowRunStartOptions): WorkflowRunHandle
 ```
 
 - Returns **`WorkflowRunHandle`** with `workflowRunId` (available immediately), `result: Promise<Output>`, and `cancel()`.
-- `WorkflowContext` is created internally by the runtime — callers never pass `ctx`.
-- Nested workflows use `WorkflowImpl.runNested(input, parentCtx)` (package-internal, used by `createToolFromWorkflow`).
+- `WorkflowContext` is created internally by the runtime for root runs.
+- **Nested runs:** pass `parentCtx` on `WorkflowRunStartOptions`, or omit it inside a workflow body/step — the runtime reads the active context from ALS (same pattern as `agent.run` workflow linkage).
 
 ---
 

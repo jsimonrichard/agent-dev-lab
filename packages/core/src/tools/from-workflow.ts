@@ -2,21 +2,7 @@ import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
 import type { AdlRuntime } from "../runtime/types";
-import { WorkflowImpl } from "../workflow/workflow-impl";
-import type { Workflow, WorkflowContext } from "../workflow/types";
-
-function runNestedWorkflow<TInput, TOutput>(
-  workflow: Workflow<TInput, TOutput>,
-  input: TInput,
-  parentCtx: WorkflowContext,
-): Promise<TOutput> {
-  if (!(workflow instanceof WorkflowImpl)) {
-    throw new Error(
-      "createToolFromWorkflow: workflow was not created via createWorkflow / adl.createWorkflow",
-    );
-  }
-  return workflow.runNested(input, parentCtx);
-}
+import type { Workflow } from "../workflow/types";
 
 export type CreateToolFromWorkflowOptions<TInput> = {
   name?: string;
@@ -35,14 +21,13 @@ export function createToolFromWorkflow<TInput, TOutput>(
     description: options.description,
     inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
     execute: async (toolArgs) => {
-      const parentCtx = runtime.services.workflowContextScope.peek();
-      if (!parentCtx) {
+      if (!runtime.services.workflowContextScope.peek()) {
         throw new Error(
           "createToolFromWorkflow: no WorkflowContext — call from within a workflow run or step",
         );
       }
       const input = options.mapInput ? options.mapInput(toolArgs) : (toolArgs as TInput);
-      const output = await runNestedWorkflow(workflow, input, parentCtx);
+      const output = await workflow.run(input).result;
       return output as unknown;
     },
   }) as ToolSet[string];

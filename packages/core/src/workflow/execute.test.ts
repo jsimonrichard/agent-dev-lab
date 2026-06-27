@@ -74,6 +74,30 @@ describe("workflow.run", () => {
     await expect(workflow.run(null).result).rejects.toThrow(/key is required/);
   });
 
+  it("nests under the active workflow context when parentCtx is omitted", async () => {
+    const runtime = createAdlRuntime();
+    const child = createWorkflow(runtime, {
+      id: "child",
+      run: async () => ({ nested: true }),
+    });
+    let childRunId: string | undefined;
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async (_input, ctx) =>
+        ctx.step("invoke-child", async () => {
+          const handle = child.run({});
+          childRunId = handle.workflowRunId;
+          return handle.result;
+        }),
+    });
+
+    const parentHandle = parent.run({});
+    const output = await parentHandle.result;
+
+    expect(output).toEqual({ nested: true });
+    expect(childRunId).toBe(parentHandle.workflowRunId);
+  });
+
   it("stream yields run events for the workflow run", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
