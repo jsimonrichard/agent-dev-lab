@@ -1,5 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
+import { NotFoundPage } from "@/components/app/not-found";
 import { RunWorkspace } from "@/components/app/run-workspace";
 import { fetchWorkflowRun } from "#/lib/inspector-server";
 
@@ -12,6 +13,13 @@ export const Route = createFileRoute("/_app/workflows/$workflowId/run/$runId")({
     }
     return data;
   },
+  notFoundComponent: () => (
+    <NotFoundPage
+      inAppShell
+      title="Run not found"
+      description="This workflow run does not exist or does not belong to the requested workflow."
+    />
+  ),
 });
 
 function WorkflowRunPage() {
