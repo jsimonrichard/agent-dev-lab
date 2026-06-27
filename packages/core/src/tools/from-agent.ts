@@ -2,7 +2,7 @@ import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
 import type { Agent, AgentRunInput } from "../agent/types";
-import { peekWorkflowContext } from "../workflow/active-workflow-context";
+import type { AdlRuntime } from "../runtime/types";
 import type { WorkflowContext } from "../workflow/types";
 
 export type CreateToolFromAgentOptions<Context> = {
@@ -16,6 +16,7 @@ export type CreateToolFromAgentOptions<Context> = {
 
 /** Expose a single agent episode as an AI SDK tool. @see notes/workflow-api.md */
 export function createToolFromAgent<Context>(
+  runtime: AdlRuntime,
   agent: Agent<Context>,
   options: CreateToolFromAgentOptions<Context>,
 ): ToolSet[string] {
@@ -24,7 +25,7 @@ export function createToolFromAgent<Context>(
     description: options.description,
     inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
     execute: async (toolArgs) => {
-      const workflowCtx = peekWorkflowContext();
+      const workflowCtx = runtime.services.workflowContextScope.peek();
       if (!workflowCtx) {
         throw new Error(
           "createToolFromAgent: no WorkflowContext — call from within a workflow run or step",

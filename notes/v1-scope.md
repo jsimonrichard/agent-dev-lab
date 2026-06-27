@@ -25,10 +25,10 @@ Consolidated view of what we have **designed** vs what still needs a decision or
 
 ---
 
-## Runtime (`@agent-dev-lab/runtime`) — implement for v1
+## Runtime (`@agent-dev-lab/core`) — implement for v1
 
 - [ ] `createAgent`, `createWorkflow`, `createTemplate`
-- [ ] `createAdlRuntime`, `adl.createAgent` / `createAgent({ runtime })`
+- [ ] `createAdlRuntime`, `adl.createAgent` / `createAgent(runtime, definition)`
 - [ ] `workflow.run(input)` with internal context + `workflowRunId` on handle (no `{ project }`, no public `ctx`)
 - [ ] `agent.run`, `agent.stream` (shared `streamText` core)
 - [ ] `MessageStore` + `inMemory`; optional `stores.memory` SQLite in common
@@ -80,7 +80,7 @@ See [`inspection-ui.md`](./inspection-ui.md) for architecture, SSE format, and e
 | **Templates registry**              | ✅         | array; `name` = filename basename                                                                 |
 | **Error types**                     | 🔲         | `AdlError`, step failure propagation, user-facing CLI messages                                    |
 | **Testing helpers**                 | 🔲         | `createTestRunContext`, in-memory store/observers bundle                                          |
-| **Structured output**               | ✅         | `output` on `createAgent` + `run`; `streamText` + reasoning deltas                                |
+| **Structured output**               | ✅         | `outputSchema` on `createAgent` + `run`; `streamText` + reasoning deltas                          |
 | **Workflow/agent as tool**          | 🔲         | `createToolFromWorkflow`, `createToolFromAgent` — [`workflow-api.md`](./workflow-api.md)          |
 | **Workflow tool-loop helper**       | 🔲         | Optional `runAgentToolLoop` in runtime vs raw TS in workflow                                      |
 | **Human approval**                  | ⏸          | `ctx.requestApproval` + `approvals.dispatcher` — [`future-extensions.md`](./future-extensions.md) |
@@ -89,7 +89,7 @@ See [`inspection-ui.md`](./inspection-ui.md) for architecture, SSE format, and e
 | **OTEL default observer**           | 🔲         | Package in common vs example only                                                                 |
 | **Event schema versioning**         | 🔲         | `eventSchemaVersion` on run events for UI                                                         |
 | **Secrets / API keys**              | 🔲         | Document env vars only; no ADL vault v1                                                           |
-| **Export map**                      | 🔲         | `@agent-dev-lab/runtime`, `/project` subpath — already started                                    |
+| **Export map**                      | 🔲         | `@agent-dev-lab/core`, `/project` subpath — already started                                       |
 | **Cancellation UX**                 | partial    | `AbortSignal` documented; CLI/UI cancel 🔲                                                        |
 | **agent.stream in v1?**             | partial    | Designed; could ship `run` only first                                                             |
 | **WorkflowResumer**                 | ⏸          | interface later                                                                                   |

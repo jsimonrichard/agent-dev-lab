@@ -2,7 +2,6 @@ import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { CustomWorkflowEvent, StepOptions, WorkflowContext } from "./types";
 
@@ -69,12 +68,15 @@ export class WorkflowContextImpl implements WorkflowContext {
       });
       if (cached !== null) {
         const skippedStepId = createId();
+        const skippedPath = [...this.stepPath, formatStepPathSegment(name, key)];
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
           stepId: skippedStepId,
+          parentStepId: parentId,
           name,
           key,
+          path: skippedPath,
           output: cached,
         });
         return cached as T;
@@ -110,13 +112,17 @@ export class WorkflowContextImpl implements WorkflowContext {
           "adl.step_id": stepId,
           "adl.step.name": name,
         },
-        () => runWithActiveWorkflowContext(childCtx, () => fn({ ctx: childCtx })),
+        () => this.services.workflowContextScope.run(childCtx, () => fn({ ctx: childCtx })),
       );
       const durationMs = Date.now() - startedAt;
       await this.runRecorder.emit({
         type: "step_finished",
         workflowRunId: this.workflowRunId,
         stepId,
+        parentStepId: parentId,
+        name,
+        key,
+        path,
         status: "ok",
         durationMs,
         output,
@@ -127,6 +133,10 @@ export class WorkflowContextImpl implements WorkflowContext {
         type: "step_failed",
         workflowRunId: this.workflowRunId,
         stepId,
+        parentStepId: parentId,
+        name,
+        key,
+        path,
         error: serializeError(error),
       });
       throw error;

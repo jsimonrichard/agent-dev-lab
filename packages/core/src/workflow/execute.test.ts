@@ -6,9 +6,8 @@ describe("workflow.run", () => {
   it("runs steps and records events in the workflow store", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "counter",
-      runtime,
       run: async (_input, ctx) => {
         const a = await ctx.step("first", async () => 1);
         const b = await ctx.step("second", async () => a + 1);
@@ -36,9 +35,8 @@ describe("workflow.run", () => {
     const runtime = createAdlRuntime({ stores: { workflow: store } });
     let computeCount = 0;
 
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "cacheable",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("work", async () => {
           computeCount += 1;
@@ -65,9 +63,8 @@ describe("workflow.run", () => {
 
   it("requires distinct keys for repeated step names", async () => {
     const runtime = createAdlRuntime();
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "keys",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("dup", async () => 1);
         await ctx.step("dup", async () => 2);
@@ -77,12 +74,35 @@ describe("workflow.run", () => {
     await expect(workflow.run(null).result).rejects.toThrow(/key is required/);
   });
 
+  it("nests under the active workflow context when parentCtx is omitted", async () => {
+    const runtime = createAdlRuntime();
+    const child = createWorkflow(runtime, {
+      id: "child",
+      run: async () => ({ nested: true }),
+    });
+    let childRunId: string | undefined;
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async (_input, ctx) =>
+        ctx.step("invoke-child", async () => {
+          const handle = child.run({});
+          childRunId = handle.workflowRunId;
+          return handle.result;
+        }),
+    });
+
+    const parentHandle = parent.run({});
+    const output = await parentHandle.result;
+
+    expect(output).toEqual({ nested: true });
+    expect(childRunId).toBe(parentHandle.workflowRunId);
+  });
+
   it("stream yields run events for the workflow run", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "stream-demo",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("only", async () => "ok");
         return { done: true };

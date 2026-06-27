@@ -2,7 +2,7 @@
 
 Design notes for **workflows**, **steps**, **templates**, and run observability (waterfall / tracing). Complements [`agent-api.md`](./agent-api.md) and [`message-store.md`](./message-store.md).
 
-**Status:** Design for v1 planning. **Not implemented** in `@agent-dev-lab/runtime`.
+**Status:** Core implementation in `@agent-dev-lab/core` (`workflow-impl.ts`, `context.ts`, `step-registry.ts`).
 
 Project discovery & `workflow.run`: [`project-api.md`](./project-api.md). Live UI: [`streaming-api.md`](./streaming-api.md).
 
@@ -46,7 +46,7 @@ export const searchPapers = createWorkflow({
 
 // Inside another workflow:
 await ctx.step("search", async ({ ctx: child }) => {
-  const { papers } = await searchPapers.run({ topic }, child);
+  const { papers } = await searchPapers.run({ topic }).result;
   return papers;
 });
 ```
@@ -169,12 +169,12 @@ await Promise.all(
 
 ### Events (for UI + tracing)
 
-| Event           | Payload (minimal)                                                              |
-| --------------- | ------------------------------------------------------------------------------ |
-| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                   |
-| `step_finished` | `stepId`, `status: "ok"`, `durationMs`, **`output`** (serialized return value) |
-| `step_skipped`  | `stepId`, `name`, `key`, **`output`** (reused from store — no callback ran)    |
-| `step_failed`   | `stepId`, `error`                                                              |
+| Event           | Payload (minimal)                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `step_started`  | `stepId`, `parentStepId`, `name`, `key`, `path`, `startedAt`                                |
+| `step_finished` | `stepId`, `parentStepId`, `name`, `key`, `path`, `status: "ok"`, `durationMs`, **`output`** |
+| `step_skipped`  | `stepId`, `parentStepId`, `name`, `key`, `path`, **`output`** (reused from store)           |
+| `step_failed`   | `stepId`, `parentStepId`, `name`, `key`, `path`, `error`                                    |
 
 **Active steps** = `step_started` without a terminal event. Optional `ctx.activeSteps()` can project this in-process.
 
@@ -298,16 +298,12 @@ type StepFn = <T>(
 `createWorkflow` exposes:
 
 ```ts
-workflow.run(
-  input: Input,
-  options: WorkflowContext | { project: LoadedAdlProject; signal?: AbortSignal },
-): Promise<Output>;
+workflow.run(input: Input, options?: WorkflowRunStartOptions): WorkflowRunHandle<Output>;
 ```
 
-- Returns **`Promise<Output>`** only — no core **`RunHandle`** (see [`project-api.md`](./project-api.md)).
-- Root run: pass `{ project }` so the runtime creates `ctx` with a new `runId` and event sink.
-- Nested run: pass child `ctx` from `step(async ({ ctx }) => …)`.
-- **`signal`**: optional `AbortSignal` for cancellation (checked in steps / forwarded to agents).
+- Returns **`WorkflowRunHandle`** with `workflowRunId` (available immediately), `result: Promise<Output>`, and `cancel()`.
+- `WorkflowContext` is created internally by the runtime for root runs.
+- **Nested runs:** pass `parentCtx` on `WorkflowRunStartOptions`, or omit it inside a workflow body/step — the runtime reads the active context from ALS (same pattern as `agent.run` workflow linkage).
 
 ---
 
@@ -316,9 +312,9 @@ workflow.run(
 Expose a workflow or agent as a standard AI SDK **`tool()`** so other agents can call them. Prefer explicit helper names over a generic wrapper:
 
 ```ts
-import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/runtime";
+import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/core";
 
-const literatureReviewTool = createToolFromWorkflow(literatureReview, {
+const literatureReviewTool = createToolFromWorkflow(runtime, literatureReview, {
   /** Tool name seen by the model; defaults to workflow.id */
   name?: "literature-review",
   description: "Run the full literature review workflow",
@@ -326,7 +322,7 @@ const literatureReviewTool = createToolFromWorkflow(literatureReview, {
   mapInput?: (toolArgs) => toolArgs,
 });
 
-const researcherTool = createToolFromAgent(researcher, {
+const researcherTool = createToolFromAgent(runtime, researcher, {
   name?: "researcher",
   description: "One model episode with the researcher agent",
   /** Build memoryScope + user from tool args */
@@ -385,13 +381,13 @@ flowchart TB
 
 ## Implementation status
 
-| Piece                                   | Status                                                  |
-| --------------------------------------- | ------------------------------------------------------- |
-| `createWorkflow`                        | Not implemented                                         |
-| `WorkflowContext` / `step`              | Not implemented                                         |
-| Step key registry + errors              | Not implemented                                         |
-| Run event log / step tree               | Not implemented                                         |
-| `createTemplate()` with Zod `.render()` | Partial: `renderPromptTemplate` + `loadPromptFile` only |
+| Piece                                   | Status                                                           |
+| --------------------------------------- | ---------------------------------------------------------------- |
+| `createWorkflow`                        | ✅ Implemented (`workflow-impl.ts`)                              |
+| `WorkflowContext` / `step`              | ✅ Implemented (`context.ts`, `workflow-context-scope.ts`)       |
+| Step key registry + errors              | ✅ Implemented (`step-registry.ts`)                              |
+| Run event log / step tree               | ✅ Implemented (events emitted via `RunRecorder`)                |
+| `createTemplate()` with Zod `.render()` | ✅ Implemented (`template/create.ts`, Handlebars compile cached) |
 
 ---
 

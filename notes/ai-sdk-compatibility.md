@@ -4,7 +4,7 @@ How ADL stays aligned with the [Vercel AI SDK](https://ai-sdk.dev/) (`ai` packag
 
 Related: [`agent-api.md`](./agent-api.md), [`streaming-api.md`](./streaming-api.md).
 
-**Pinned dependency:** `ai@^5` in `@agent-dev-lab/runtime` — re-verify when upgrading majors.
+**Pinned dependency:** `ai@^5` in `@agent-dev-lab/core` — re-verify when upgrading majors.
 
 ---
 
@@ -30,7 +30,7 @@ Prefer **re-export** over wrapping so user code matches upstream docs.
 ## Agent execution
 
 - [ ] **Single internal path:** `streamText` for both `agent.run` (drain) and `agent.stream` (expose streams) — [`streaming-api.md`](./streaming-api.md)
-- [ ] **Structured output:** `streamText` / `generateText` with `output` schema when `createAgent({ output })` or `run({ output })` — still stream reasoning/text parts when provider emits them
+- [ ] **Structured output:** `streamText` / `generateText` with `output` schema when `createAgent({ outputSchema })` or `run({ outputSchema })` — still stream reasoning/text parts when provider emits them
 - [ ] Forward **`experimental_context`** from `agent.run({ context })` to `streamText` → tool `execute` `options.experimental_context`
 - [ ] Default **one SDK step** per `agent.run` (`stopWhen: stepCountIs(1)` or equivalent); multi-step tool loops live in **workflow** TypeScript
 - [ ] Do **not** require AI SDK experimental **`Agent`** class for v1 — ADL **`createAgent`** wraps `streamText` / `generateText` directly

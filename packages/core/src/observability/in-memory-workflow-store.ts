@@ -60,44 +60,38 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         }
       }
       if (event.type === "step_finished") {
-        const started = findStepStarted(list, event.stepId);
-        if (started) {
-          const slot: StepSlot = {
-            parentStepId: started.parentStepId,
-            name: started.name,
-            key: started.key,
-          };
-          const map = this.stepOutputs.get(wfId) ?? new Map();
-          map.set(stepSlotKey(slot), event.output);
-          this.stepOutputs.set(wfId, map);
+        const slot: StepSlot = {
+          parentStepId: event.parentStepId,
+          name: event.name,
+          key: event.key,
+        };
+        const map = this.stepOutputs.get(wfId) ?? new Map();
+        map.set(stepSlotKey(slot), event.output);
+        this.stepOutputs.set(wfId, map);
 
-          const records = this.stepRecords.get(wfId) ?? new Map();
-          records.set(event.stepId, {
-            stepId: event.stepId,
-            name: started.name,
-            key: started.key,
-            path: started.path,
-            parentStepId: started.parentStepId,
-            output: event.output,
-            status: "ok",
-          });
-          this.stepRecords.set(wfId, records);
-        }
+        const records = this.stepRecords.get(wfId) ?? new Map();
+        records.set(event.stepId, {
+          stepId: event.stepId,
+          name: event.name,
+          key: event.key,
+          path: event.path,
+          parentStepId: event.parentStepId,
+          output: event.output,
+          status: "ok",
+        });
+        this.stepRecords.set(wfId, records);
       }
       if (event.type === "step_failed") {
-        const started = findStepStarted(list, event.stepId);
-        if (started) {
-          const records = this.stepRecords.get(wfId) ?? new Map();
-          records.set(event.stepId, {
-            stepId: event.stepId,
-            name: started.name,
-            key: started.key,
-            path: started.path,
-            parentStepId: started.parentStepId,
-            status: "error",
-          });
-          this.stepRecords.set(wfId, records);
-        }
+        const records = this.stepRecords.get(wfId) ?? new Map();
+        records.set(event.stepId, {
+          stepId: event.stepId,
+          name: event.name,
+          key: event.key,
+          path: event.path,
+          parentStepId: event.parentStepId,
+          status: "error",
+        });
+        this.stepRecords.set(wfId, records);
       }
     }
 
@@ -164,16 +158,6 @@ export class InMemoryWorkflowStore implements WorkflowStore {
 
 export function inMemoryWorkflowStore(): WorkflowStore {
   return new InMemoryWorkflowStore();
-}
-
-function findStepStarted(
-  events: RunEvent[],
-  stepId: string,
-): Extract<RunEvent, { type: "step_started" }> | undefined {
-  return events.find(
-    (e): e is Extract<RunEvent, { type: "step_started" }> =>
-      e.type === "step_started" && e.stepId === stepId,
-  );
 }
 
 function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEvent[] {

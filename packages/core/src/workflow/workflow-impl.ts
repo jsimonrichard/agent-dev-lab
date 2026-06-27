@@ -2,7 +2,6 @@ import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { runWithActiveWorkflowContext } from "./active-workflow-context";
 import { createWorkflowContext, refreshWorkflowContext } from "./context";
 import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
 import type {
@@ -13,11 +12,6 @@ import type {
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
 } from "./types";
-
-type WorkflowRunOptions = WorkflowRunStartOptions & {
-  /** Reuse an existing root or nested context (same `workflowRunId` for step cache). */
-  parentCtx?: WorkflowContext;
-};
 
 /**
  * Default workflow implementation: definition plus resolved runtime services.
@@ -64,18 +58,12 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     };
   }
 
-  /** Nested workflow invocation from a parent step (used by {@link createToolFromWorkflow}). */
-  runNested(input: TInput, parentCtx: WorkflowContext): Promise<TOutput> {
-    return this.#executeRun(input, { parentCtx });
-  }
-
-  /** Nested replay / step-cache continuation (same {@link WorkflowRunOptions.parentCtx}). */
   #executeRun(
     input: TInput,
-    options?: WorkflowRunOptions,
+    options?: WorkflowRunStartOptions,
     abortController?: AbortController,
   ): Promise<TOutput> {
-    const parentCtx = options?.parentCtx;
+    const parentCtx = resolveParentContext(this.services, options);
     const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
 
     const parsedInput = this.definition.input ? this.definition.input.parse(input) : input;
@@ -111,7 +99,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
         });
 
         try {
-          const output = await runWithActiveWorkflowContext(rootCtx, () =>
+          const output = await effectiveServices.workflowContextScope.run(rootCtx, () =>
             this.definition.run(parsedInput, rootCtx),
           );
           const parsedOutput = this.definition.output
@@ -154,9 +142,10 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
 
   private startRunWithCancel(
     input: TInput,
-    options?: WorkflowRunOptions,
+    options?: WorkflowRunStartOptions,
   ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
-    const workflowRunId = options?.workflowRunId ?? options?.parentCtx?.workflowRunId ?? createId();
+    const parentCtx = resolveParentContext(this.services, options);
+    const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
     const abortController = new AbortController();
     return {
       workflowRunId,
@@ -164,6 +153,13 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
       cancel: () => abortController.abort(),
     };
   }
+}
+
+function resolveParentContext(
+  services: RuntimeServices,
+  options?: WorkflowRunStartOptions,
+): WorkflowContext | undefined {
+  return options?.parentCtx ?? services.workflowContextScope.peek();
 }
 
 function mergeServicesForRun(

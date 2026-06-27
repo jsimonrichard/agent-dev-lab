@@ -3,7 +3,8 @@ import path from "node:path";
 import type { z } from "zod";
 
 import { loadPromptFile, resolvePromptPath } from "../prompt/load";
-import { renderPromptTemplate } from "../prompt/render";
+import type { AdlRuntime } from "../runtime/types";
+import type { TemplateEngine } from "./engine";
 import type { Template, TemplateConfig } from "./types";
 
 const MARKDOWN_EXTENSIONS = [".md", ".markdown"] as const;
@@ -29,10 +30,10 @@ function resolveName(config: { name?: string; path?: string }): string {
 }
 
 /**
- * Create a reusable prompt template (Zod → Handlebars → string).
- * Supports file paths or inline `source` (e.g. ESM raw imports).
+ * Build a reusable prompt template (Zod → Handlebars → string) using a runtime-owned engine.
  */
-export function createTemplate<TSchema extends z.ZodType>(
+export function buildTemplate<TSchema extends z.ZodType>(
+  engine: TemplateEngine,
   config: TemplateConfig<TSchema>,
 ): Template<z.infer<TSchema>> {
   let source: string;
@@ -62,7 +63,15 @@ export function createTemplate<TSchema extends z.ZodType>(
     demo: config.demo,
     render(inputData: z.infer<TSchema>) {
       const parsed = config.inputData.parse(inputData);
-      return renderPromptTemplate(source, parsed);
+      return engine.render(source, parsed);
     },
   };
+}
+
+/** Functional factory — prefer {@link AdlRuntime.createTemplate} in project code. */
+export function createTemplate<TSchema extends z.ZodType>(
+  runtime: AdlRuntime,
+  config: TemplateConfig<TSchema>,
+): Template<z.infer<TSchema>> {
+  return buildTemplate(runtime.services.templateEngine, config);
 }

@@ -14,7 +14,7 @@ Align with **`createAgent`**, **`createWorkflow`** — `create*` leaves room for
 
 ```ts
 import { z } from "zod";
-import { createTemplate } from "@agent-dev-lab/runtime";
+import { createTemplate } from "@agent-dev-lab/core";
 
 export const findPapersPrompt = createTemplate({
   path: "./prompts/find-papers.md", // registry name: "find-papers" (filename without extension)

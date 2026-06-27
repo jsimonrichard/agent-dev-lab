@@ -4,18 +4,18 @@ How ADL persists **conversation history** (`CoreMessage` / `ModelMessage` lists)
 
 ## Current implementation status
 
-| Item                                                 | Status                                                                                 |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `MessageStore` interface in `@agent-dev-lab/runtime` | **Not implemented**                                                                    |
-| `inMemoryMessageStore()`                             | **Not implemented**                                                                    |
-| SQLite / Drizzle-backed store                        | **Not implemented** (placeholder `runs` table in `@agent-dev-lab/common` is unrelated) |
-| Agent runner `load` / `save`                         | **Not implemented**                                                                    |
+| Item                                              | Status                                                                                 |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `MessageStore` interface in `@agent-dev-lab/core` | ✅ Implemented                                                                         |
+| `inMemoryMessageStore()`                          | ✅ Implemented                                                                         |
+| SQLite / Drizzle-backed store                     | **Not implemented** (placeholder `runs` table in `@agent-dev-lab/common` is unrelated) |
+| Agent runner `load` / `save`                      | ✅ Implemented                                                                         |
 
 **What exists today in the runtime package:**
 
-- Prompt loading/rendering: `loadPromptFile`, `resolvePromptPath`, `renderPromptTemplate` ([`packages/runtime/src/prompt/`](../packages/runtime/src/prompt/))
-- Project config: `loadAdlProject`, `AdlProjectConfig` ([`packages/runtime/src/project/`](../packages/runtime/src/project/))
-- AI SDK re-exports: `generateText`, `streamText`, `CoreMessage`, `LanguageModel` ([`packages/runtime/src/index.ts`](../packages/runtime/src/index.ts))
+- Prompt loading/rendering: `loadPromptFile`, `resolvePromptPath`, `renderPromptTemplate` ([`packages/core/src/prompt/`](../packages/core/src/prompt/))
+- Project config: `loadAdlProject`, `AdlProjectConfig` ([`packages/core/src/project/`](../packages/core/src/project/))
+- AI SDK re-exports: `generateText`, `streamText`, `CoreMessage`, `LanguageModel` ([`packages/core/src/index.ts`](../packages/core/src/index.ts))
 
 This document describes the **planned** store contract used by [`agent-api.md`](./agent-api.md). Update the status table when code lands.
 

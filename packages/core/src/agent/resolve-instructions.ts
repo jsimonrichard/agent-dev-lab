@@ -3,7 +3,7 @@ import type { CoreMessage } from "ai";
 import type { Template } from "../template/types";
 import type { AgentInstructions } from "./types";
 
-export async function resolveInstructionsText(instructions: AgentInstructions): Promise<string> {
+export function resolveInstructionsText(instructions: AgentInstructions): string {
   if (typeof instructions === "string") {
     return instructions;
   }
@@ -14,13 +14,19 @@ export async function resolveInstructionsText(instructions: AgentInstructions): 
   return template.render({} as never);
 }
 
-export async function bootstrapSystemMessage(
+/**
+ * Render instructions as a system message only when the store is empty (first run
+ * for this memoryScope). Existing messages are returned as-is even if they lack a
+ * system message — prepending one retroactively would be inconsistent with the
+ * AI-generated responses that follow.
+ */
+export function bootstrapSystemMessage(
   instructions: AgentInstructions,
   existing: CoreMessage[],
-): Promise<CoreMessage[]> {
-  if (existing.some((m) => m.role === "system")) {
+): CoreMessage[] {
+  if (existing.length > 0) {
     return existing;
   }
-  const content = await resolveInstructionsText(instructions);
+  const content = resolveInstructionsText(instructions);
   return [{ role: "system", content }];
 }

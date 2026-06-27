@@ -15,12 +15,10 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
-  CreateAgentParams,
 } from "./agent";
 
 export { createWorkflow } from "./workflow";
 export type {
-  CreateWorkflowParams,
   CustomWorkflowEvent,
   StepFn,
   StepIdentity,
@@ -44,7 +42,8 @@ export type {
   RuntimeStores,
 } from "./runtime";
 
-export { createTemplate } from "./template";
+export { createTemplate, TemplateEngine } from "./template";
+export { WorkflowContextScope } from "./workflow/workflow-context-scope";
 export type {
   Template,
   TemplateConfig,
@@ -109,7 +108,7 @@ export function createCoreShell() {
       "v1 API surface (draft)",
       "createAdlRuntime + explicit runtime wiring",
       "project config load + registry indexing",
-      "createTemplate (path or inline source)",
+      "createTemplate via adl.createTemplate / createTemplate(runtime, config)",
       "agent.run / agent.stream",
       "workflow.run / workflow.stream with WorkflowStore + observers",
     ],
