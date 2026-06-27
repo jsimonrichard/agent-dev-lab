@@ -29,11 +29,17 @@ Every agent uses one shared model from `src/model.ts` (`@ai-sdk/openai`). The Op
 provider reads the key lazily, so the project loads fine without one — agents only fail
 when actually executed.
 
+Configure via a `.env` file (loaded by `src/env.ts` for `bun run start`, the inspection
+UI, and the CLI) or via real environment variables (which take precedence):
+
 ```bash
-export OPENAI_API_KEY=sk-...
-# optional: pick a different model (default: gpt-5.4-mini)
-export ADL_OPENAI_MODEL=gpt-5.5
+cp .env.example .env
+# then edit .env:
+#   OPENAI_API_KEY=sk-...
+#   ADL_OPENAI_MODEL=gpt-5.5   # optional, default: gpt-5.4-mini
 ```
+
+`.env` / `.env.local` are gitignored; `.env.example` documents the supported variables.
 
 ## Run
 

@@ -1,3 +1,5 @@
+import "./env";
+
 import { createAdlRuntime } from "@agent-dev-lab/core";
 
 /**

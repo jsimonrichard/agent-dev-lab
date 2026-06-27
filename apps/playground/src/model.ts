@@ -1,3 +1,5 @@
+import "./env";
+
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "@agent-dev-lab/core";
 
