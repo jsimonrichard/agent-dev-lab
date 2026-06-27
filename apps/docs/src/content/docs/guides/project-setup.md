@@ -37,6 +37,9 @@ Your `adl.config.ts` should **reference** the runtime (and optionally re-export 
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
 import { adl } from "#adl";
 
+import { researcher } from "./agents/researcher";
+import { literatureReview } from "./workflows/literature-review";
+
 export { adl }; // optional named re-export for in-project imports
 
 export default {
@@ -68,9 +71,16 @@ In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
 Then use it everywhere you define agents, workflows, or templates:
 
 ```ts
+// agents/researcher.ts
+import { openai } from "@ai-sdk/openai";
+
 import { adl } from "#adl";
 
-export const researcher = adl.createAgent({ id: "researcher" /* … */ });
+export const researcher = adl.createAgent({
+  id: "researcher",
+  model: openai("gpt-4o"),
+  instructions: "You are a research assistant.",
+});
 ```
 
 The `#adl` prefix is the recommended convention (short, unlikely to clash with npm scopes). You may choose another alias name; keep one alias per project.
@@ -115,9 +125,15 @@ export const adl = createAdlRuntime({
 
 ```ts
 // agents/researcher.ts
+import { openai } from "@ai-sdk/openai";
+
 import { adl } from "#adl";
 
-export const researcher = adl.createAgent({ id: "researcher" /* … */ });
+export const researcher = adl.createAgent({
+  id: "researcher",
+  model: openai("gpt-4o"),
+  instructions: "You are a research assistant.",
+});
 ```
 
 **Avoid** heavy store construction inline in `adl.config.ts` when registry modules also import from config — that pattern tends to create cycles. Keep runtime wiring in **`src/adl.ts`** and reference it from config.
@@ -125,6 +141,8 @@ export const researcher = adl.createAgent({ id: "researcher" /* … */ });
 ## Loading a project
 
 ```ts
+import { loadAdlProject } from "@agent-dev-lab/core";
+
 const project = await loadAdlProject();
 const workflow = project.getWorkflow("literature-review");
 if (!workflow) throw new Error("Unknown workflow");

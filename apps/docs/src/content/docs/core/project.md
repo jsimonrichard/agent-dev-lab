@@ -18,6 +18,10 @@ The project config module is the **discovery surface** for CLI, inspection UI, a
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
 import { adl } from "#adl";
 
+import { researcher, writer } from "./agents";
+import { literatureReview, quickSummary } from "./workflows";
+import { findPapersPrompt, outlinePrompt } from "./prompts";
+
 export { adl }; // optional — tooling uses the default export's `adl` field
 
 export default {
@@ -48,21 +52,13 @@ Validation at load time:
 ## loadAdlProject
 
 ```ts
-export interface LoadedAdlProject {
-  root: string;
-  configPath: string;
-  config: AdlProjectConfig;
+import { loadAdlProject, type LoadedAdlProject } from "@agent-dev-lab/core";
 
-  /** Runtime from `config.adl` — preferred accessor for CLI / UI */
-  getAdl(): AdlRuntime | undefined;
+const project: LoadedAdlProject = await loadAdlProject();
 
-  getWorkflow(id: string): Workflow | undefined;
-  getAgent(id: string): Agent | undefined;
-  listWorkflowIds(): string[];
-  listAgentIds(): string[];
-  getTemplate(name: string): Template | undefined;
-  listTemplateNames(): string[];
-}
+project.getAdl();
+project.getWorkflow("literature-review");
+project.listAgentIds();
 ```
 
 Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`. The inspection UI uses the same `loadAdlProject()` path as the CLI — never a hard-coded `src/adl.ts` import.
@@ -79,13 +75,18 @@ Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`)
 | **Direct import**         | Skip registry; still use `.run`                    |
 
 ```ts
+import { loadAdlProject } from "@agent-dev-lab/core";
+
+import { literatureReview } from "./workflows/literature-review";
+
 // By reference
 const handle = literatureReview.run({ topic: "CRISPR delivery" });
 const output = await handle.result;
 
 // By id after loadAdlProject
+const project = await loadAdlProject();
 const workflow = project.getWorkflow("literature-review");
-const handle = workflow!.run({ topic: "CRISPR delivery" });
+const handleById = workflow!.run({ topic: "CRISPR delivery" });
 ```
 
 ### WorkflowRunHandle

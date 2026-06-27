@@ -18,6 +18,7 @@ Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `P
 Typically **`step` around a nested `run`** when you want the sub-workflow visible as one waterfall bar:
 
 ```ts
+// workflows/search-papers.ts
 import { z } from "zod";
 
 import { adl } from "#adl";
@@ -30,8 +31,10 @@ export const searchPapers = adl.createWorkflow({
     return { papers: [] };
   },
 });
+```
 
-// inside another workflow body:
+```ts
+// inside another workflow's run(input, ctx):
 await ctx.step("search", async ({ ctx: child }) => {
   const { papers } = await searchPapers.run({ topic: input.topic }).result;
   return papers;
@@ -136,6 +139,9 @@ OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 Templates are standalone — no `ctx.render`. Define with `adl.createTemplate` in your prompts module:
 
 ```ts
+// prompts/find-papers.ts
+import { z } from "zod";
+
 import { adl } from "#adl";
 
 export const findPapersPrompt = adl.createTemplate({
@@ -143,10 +149,25 @@ export const findPapersPrompt = adl.createTemplate({
   from: import.meta.url,
   inputData: z.object({ topic: z.string(), maxResults: z.number() }),
 });
+```
 
-// inside a workflow step:
-const text = findPapersPrompt.render({ topic: "CRISPR", maxResults: 10 });
-await agent.run({ memoryScope: ctx.memoryScope("draft"), user: text });
+```ts
+// workflows/literature-review.ts
+import { z } from "zod";
+
+import { adl } from "#adl";
+import { researcher } from "../agents/researcher";
+import { findPapersPrompt } from "../prompts/find-papers";
+
+export const literatureReview = adl.createWorkflow({
+  id: "literature-review",
+  input: z.object({ topic: z.string() }),
+  async run(input, ctx) {
+    const text = findPapersPrompt.render({ topic: input.topic, maxResults: 10 });
+    await researcher.run({ memoryScope: ctx.memoryScope("draft"), user: text });
+    return { topic: input.topic };
+  },
+});
 ```
 
 See [Template](/api/interfaces/template/) in the API reference.

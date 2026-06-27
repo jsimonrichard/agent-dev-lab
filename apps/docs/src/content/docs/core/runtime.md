@@ -13,6 +13,7 @@ Drizzle/tRPC-style factory — primary app entrypoint:
 
 ```ts
 import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
+import { openai } from "@ai-sdk/openai";
 
 const adl = createAdlRuntime({
   stores: {
@@ -24,18 +25,24 @@ const adl = createAdlRuntime({
 
 const researcher = adl.createAgent({
   id: "researcher",
-  model,
-  instructions,
+  model: openai("gpt-4o"),
+  instructions: "You are a research assistant.",
 });
 
 const review = adl.createWorkflow({
   id: "literature-review",
-  run: async (input, ctx) => {
-    /* ctx is supplied by the runtime inside workflow.run */
+  run: async (input: { topic: string }, ctx) => {
+    await ctx.step("research", async ({ ctx: child }) => {
+      await researcher.run({
+        memoryScope: child.memoryScope("notes"),
+        user: input.topic,
+      });
+    });
+    return { topic: input.topic };
   },
 });
 
-const handle = review.run(input);
+const handle = review.run({ topic: "CRISPR delivery" });
 handle.workflowRunId; // subscribe immediately (WorkflowStore / future SSE)
 await handle.result;
 ```
@@ -47,8 +54,18 @@ await handle.result;
 Second argument on `adl.createAgent` / `adl.createWorkflow`:
 
 ```ts
+import { inMemoryMessageStore, type AgentObserver, type MessageStore } from "@agent-dev-lab/core";
+import { openai } from "@ai-sdk/openai";
+
+// continues the createAdlRuntime example above
+const episodeLogger: AgentObserver = {
+  onEvent: (event) => console.log(event.type, event),
+};
+
+const customStore: MessageStore = inMemoryMessageStore();
+
 const researcher = adl.createAgent(
-  { id: "researcher", model, instructions },
+  { id: "researcher", model: openai("gpt-4o"), instructions: "You are a research assistant." },
   {
     observers: { agents: [episodeLogger] }, // appended to runtime defaults
     stores: { message: customStore }, // replaces default for this agent
@@ -78,7 +95,7 @@ Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that
 - Child contexts are built from the **parent host** when `ctx.step("name", async ({ ctx }) => …)` runs.
 - **Do not destructure** `ctx` (`const { step } = ctx` breaks method binding).
 
-Inside a workflow step:
+Inside a workflow step (`researcher` defined in registry; `query` from workflow input):
 
 ```ts
 await ctx.step("research", async ({ ctx: child }) => {
@@ -106,8 +123,9 @@ await handle.result;
 Nested runs can pass `parentCtx` explicitly:
 
 ```ts
+// inside literature-review run; searchPapers imported from workflows/search-papers.ts
 await ctx.step("search", async ({ ctx: child }) => {
-  const result = await searchPapers.run({ topic }, { parentCtx: child }).result;
+  const result = await searchPapers.run({ topic: input.topic }, { parentCtx: child }).result;
 });
 ```
 
