@@ -104,7 +104,18 @@ export async function startWorkflowRun(
     throw new Error(`Unknown workflow: ${workflowId}`);
   }
 
+  const store = await getWorkflowStore();
   const handle = workflow.run(input);
+
+  // Ensure the run is visible to loaders and SSE before returning to the UI.
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const run = await store.getRun(handle.workflowRunId);
+    if (run) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+
   void handle.result.catch((error) => {
     console.warn(`[adl-web] workflow run ${handle.workflowRunId} failed:`, error);
   });

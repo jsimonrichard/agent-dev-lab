@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
@@ -17,6 +17,7 @@ const devModeLabel = {
 
 export function InspectorDashboard() {
   const { project, runs, sessions } = useAppLoaderData();
+  const router = useRouter();
   const recentWorkflowId = runs[0]?.workflowId;
   const recentAgentId = sessions[0]?.agentId;
   const demoWorkflowId = project.workflowIds.includes("demo-counter")
@@ -28,7 +29,11 @@ export function InspectorDashboard() {
     const { runId } = await startInspectionWorkflowRun({
       data: { workflowId: demoWorkflowId, input: { steps: 3 } },
     });
-    window.location.href = `/workflows/${demoWorkflowId}/r/${runId}`;
+    await router.invalidate();
+    void router.navigate({
+      to: "/workflows/$workflowId/r/$runId",
+      params: { workflowId: demoWorkflowId, runId },
+    });
   }
 
   return (

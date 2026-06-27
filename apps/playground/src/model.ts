@@ -18,5 +18,5 @@ export const model: LanguageModel = openai(DEFAULT_MODEL_ID);
 
 /** Whether an OpenAI key is configured — used by the CLI demo to give a friendly hint. */
 export function hasOpenAiKey(): boolean {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return Boolean(process.env.OPENAI_API_KEY ?? process.env.openai_api_key);
 }

@@ -7,7 +7,14 @@ import { fetchWorkflowRun } from "#/lib/inspector-server";
 export const Route = createFileRoute("/_app/workflows/$workflowId/r/$runId")({
   component: WorkflowRunPage,
   loader: async ({ params }) => {
-    const data = await fetchWorkflowRun({ data: params.runId });
+    let data = null;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      data = await fetchWorkflowRun({ data: params.runId });
+      if (data) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
     if (!data || data.summary.workflowId !== params.workflowId) {
       throw notFound();
     }

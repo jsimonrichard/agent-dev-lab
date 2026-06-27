@@ -1,7 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChevronRight, GitBranch, Plus } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { useWorkflowRuns } from "@/hooks/use-workflow-runs";
 import { parseWorkflowPath } from "@/lib/inspector-path";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
@@ -25,7 +26,9 @@ import {
 } from "@/components/ui/sidebar";
 
 export function WorkflowRunsSidebar() {
-  const { project, runs } = useAppLoaderData();
+  const { project, runs: initialRuns } = useAppLoaderData();
+  const { runs, refresh } = useWorkflowRuns(initialRuns);
+  const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { workflowId: activeWorkflowId, runId: activeRunId } = parseWorkflowPath(pathname);
   const onRegistry = pathname === "/workflows";
@@ -34,7 +37,12 @@ export function WorkflowRunsSidebar() {
     const { runId } = await startInspectionWorkflowRun({
       data: { workflowId, input: {} },
     });
-    window.location.href = `/workflows/${workflowId}/r/${runId}`;
+    await refresh();
+    await router.invalidate();
+    void router.navigate({
+      to: "/workflows/$workflowId/r/$runId",
+      params: { workflowId, runId },
+    });
   }
 
   return (

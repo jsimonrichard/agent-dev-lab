@@ -58,3 +58,8 @@ function loadEnvFile(file: string): void {
 // `.env.local` first so it overrides `.env`; both yield to the real environment.
 loadEnvFile(".env.local");
 loadEnvFile(".env");
+
+// Cursor Cloud and other hosts may inject lowercase secret names.
+if (process.env.OPENAI_API_KEY === undefined && process.env.openai_api_key !== undefined) {
+  process.env.OPENAI_API_KEY = process.env.openai_api_key;
+}

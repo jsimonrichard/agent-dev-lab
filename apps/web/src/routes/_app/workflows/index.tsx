@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { GitBranch } from "lucide-react";
 
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
@@ -6,6 +6,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { useWorkflowRuns } from "@/hooks/use-workflow-runs";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 
 export const Route = createFileRoute("/_app/workflows/")({
@@ -13,11 +14,15 @@ export const Route = createFileRoute("/_app/workflows/")({
 });
 
 function WorkflowsPage() {
-  const { project, runs } = useAppLoaderData();
+  const { project, runs: initialRuns } = useAppLoaderData();
+  const { runs, refresh } = useWorkflowRuns(initialRuns);
   const navigate = useNavigate();
+  const router = useRouter();
 
   async function handleStart(workflowId: string) {
     const { runId } = await startInspectionWorkflowRun({ data: { workflowId, input: {} } });
+    await refresh();
+    await router.invalidate();
     void navigate({
       to: "/workflows/$workflowId/r/$runId",
       params: { workflowId, runId },

@@ -1,4 +1,4 @@
-import { Link, createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, notFound, useNavigate, useRouter } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 
 import { NotFoundPage } from "@/components/app/not-found";
@@ -7,6 +7,7 @@ import { RunStatusBadge } from "@/components/app/run-status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { useWorkflowRuns } from "@/hooks/use-workflow-runs";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 
 export const Route = createFileRoute("/_app/workflows/$workflowId/")({
@@ -23,7 +24,9 @@ export const Route = createFileRoute("/_app/workflows/$workflowId/")({
 function WorkflowRunsPage() {
   const { workflowId } = Route.useParams();
   const navigate = useNavigate();
-  const { project, runs } = useAppLoaderData();
+  const router = useRouter();
+  const { project, runs: initialRuns } = useAppLoaderData();
+  const { runs, refresh } = useWorkflowRuns(initialRuns);
 
   if (!project.workflowIds.includes(workflowId)) {
     throw notFound();
@@ -35,6 +38,8 @@ function WorkflowRunsPage() {
     const { runId } = await startInspectionWorkflowRun({
       data: { workflowId, input: {} },
     });
+    await refresh();
+    await router.invalidate();
     void navigate({
       to: "/workflows/$workflowId/r/$runId",
       params: { workflowId, runId },
