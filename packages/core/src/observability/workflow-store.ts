@@ -21,7 +21,7 @@ export type ListEventsFilter = {
 /**
  * Workflow run persistence: materialized I/O + append-only events.
  *
- * @see notes/observability-api.md
+ * @see apps/docs — core/observability
  */
 export interface WorkflowStore {
   recordEvent(event: RunEvent): Promise<void>;

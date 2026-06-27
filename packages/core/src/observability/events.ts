@@ -5,7 +5,7 @@
  * - **Agent events** require `agentCallId`; `workflowRunId` and `stepId` are optional
  *   (agents may run outside a workflow, or between steps at workflow root).
  *
- * @see notes/streaming-api.md
+ * @see apps/docs — core/streaming
  */
 
 /** Workflow + step events (always tied to a workflow invocation). */

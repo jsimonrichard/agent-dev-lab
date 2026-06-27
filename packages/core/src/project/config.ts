@@ -7,7 +7,7 @@ import type { Workflow } from "../workflow/types";
 
 /**
  * Shape of `adl.config.*` at a project root.
- * Registry arrays are static at load time — see notes/project-api.md.
+ * Registry arrays are static at load time — see apps/docs (core/project).
  *
  * **Runtime:** export `adl` from `src/adl.ts` and reference it here for the CLI.
  * Do not construct stores/observers in this file (import-cycle safe).

@@ -26,7 +26,14 @@ export default defineConfig({
       sidebar: [
         {
           label: "Guides",
-          items: [{ label: "Overview", slug: "guides/overview" }],
+          items: [
+            { label: "Overview", slug: "guides/overview" },
+            { label: "Project setup", slug: "guides/project-setup" },
+          ],
+        },
+        {
+          label: "Core",
+          items: [{ autogenerate: { directory: "core" } }],
         },
         typeDocSidebarGroup,
       ],

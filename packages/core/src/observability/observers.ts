@@ -36,8 +36,8 @@ import type { AgentObserverEvent, WorkflowObserverEvent } from "./events";
  * `createWorkflowObserver({ onStepStart: (e) => … })` that implement `onEvent` internally
  * — without changing the core interface.
  *
- * @see notes/observability-api.md
- * @see notes/tracing.md — OpenTelemetry (native API, no core wrapper)
+ * @see apps/docs — core/observability
+ * @see notes/tracing.md — OpenTelemetry packaging (deferred)
  */
 
 /** Push-only workflow telemetry (workflow + step + custom events). */

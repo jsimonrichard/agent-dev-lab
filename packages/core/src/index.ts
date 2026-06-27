@@ -1,6 +1,6 @@
 /**
  * Headless ADL core library (v1 API draft).
- * Types and factories mirror notes/; execution is implemented incrementally.
+ * Types and factories documented in apps/docs; API reference via starlight-typedoc.
  */
 export { createAgent } from "./agent";
 export type {
