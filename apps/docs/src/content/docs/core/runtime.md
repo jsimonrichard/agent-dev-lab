@@ -40,7 +40,7 @@ handle.workflowRunId; // subscribe immediately (WorkflowStore / future SSE)
 await handle.result;
 ```
 
-`adl.createAgent` / `adl.createWorkflow` delegate to `createAgent(runtime, …)` / `createWorkflow(runtime, …)` with the runtime injected.
+`adl.createAgent` / `adl.createWorkflow` bind the runtime automatically — use these in project code.
 
 ### Per-definition overrides
 
@@ -59,19 +59,9 @@ const researcher = adl.createAgent(
 - **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to lists from `createAdlRuntime` (not replace).
 
-## Functional factories (tests & libraries)
+### Functional factories (tests only)
 
-Explicit runtime — no globals:
-
-```ts
-import { createAgent, createAdlRuntime, inMemoryMessageStore } from "@agent-dev-lab/core";
-
-const runtime = createAdlRuntime({ stores: { message: inMemoryMessageStore() } });
-
-const agent = createAgent(runtime, { id: "researcher", model, instructions });
-
-await agent.run({ memoryScope: "test:1", user: "Hello" });
-```
+Project code should use **`adl.createAgent`**, **`adl.createWorkflow`**, and **`adl.createTemplate`**. The package also exports `createAgent(runtime, …)`, `createWorkflow(runtime, …)`, and `createTemplate(runtime, …)` for unit tests and libraries that need an explicit runtime handle without a project `adl` module. Same behavior — prefer the bound methods in application code.
 
 ## AsyncLocalStorage: workflow context only
 
@@ -99,7 +89,7 @@ await ctx.step("research", async ({ ctx: child }) => {
 });
 ```
 
-Tools created via `createToolFromAgent` / `createToolFromWorkflow` **require** ALS — they must be called from within a workflow run.
+Tools created via `adl.createToolFromAgent` / `adl.createToolFromWorkflow` **require** ALS — they must be called from within a workflow run.
 
 ## workflow.run
 

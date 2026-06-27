@@ -94,7 +94,7 @@ const handle = workflow!.run({ topic: "CRISPR delivery" });
 - **`result`** — `Promise<Output>`
 - **`cancel()`** — cooperative cancellation (partial propagation today)
 
-Authors receive `WorkflowContext` inside `createWorkflow({ run: async (input, ctx) => … })`.
+Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input, ctx) => … })`.
 
 ## CLI (planned)
 

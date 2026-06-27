@@ -49,8 +49,10 @@ export type RuntimeServices = {
 };
 
 /**
- * Bound runtime (Drizzle/tRPC-style). Created via {@link createAdlRuntime}, referenced from `adl.config`.
- * `adl.createAgent` delegates to functional {@link createAgent} with `runtime` injected.
+ * Bound runtime — primary project API. Create via {@link createAdlRuntime}, reference from `adl.config`.
+ *
+ * Use `adl.createAgent`, `adl.createWorkflow`, `adl.createTemplate`, and tool helpers on this object
+ * in application code. Functional `createAgent(runtime, …)` exports exist for tests only.
  */
 export interface AdlRuntime {
   readonly services: RuntimeServices;

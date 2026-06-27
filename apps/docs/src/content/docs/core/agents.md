@@ -1,21 +1,26 @@
 ---
 title: Agents
-description: createAgent, run and stream, memoryScope, structured output, and tools.
+description: adl.createAgent, run and stream, memoryScope, structured output, and tools.
 ---
 
 Agents are reusable model configurations: identity (instructions), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript.
 
 ## createAgent
 
+Registry modules import `adl` from your runtime module and call `adl.createAgent`:
+
 ```ts
-import { createAgent, createTemplate, tool } from "@agent-dev-lab/core";
+import { tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-export const researcher = createAgent({
+import { adl } from "../runtime/adl";
+
+export const researcher = adl.createAgent({
   id: "researcher",
 
-  instructions: createTemplate({
+  instructions: adl.createTemplate({
     path: "./researcher.md",
+    from: import.meta.url,
     inputData: z.object({}),
   }),
 
@@ -49,10 +54,10 @@ Volatile turn context belongs in **user** messages, not re-injected system text.
 
 ### Structured output
 
-| Level         | Field                           | Behavior                                                        |
-| ------------- | ------------------------------- | --------------------------------------------------------------- |
-| Agent default | `createAgent({ outputSchema })` | Every `run` / `stream` uses structured output unless overridden |
-| Per call      | `agent.run({ outputSchema })`   | Overrides agent default for one episode                         |
+| Level         | Field                               | Behavior                                                        |
+| ------------- | ----------------------------------- | --------------------------------------------------------------- |
+| Agent default | `adl.createAgent({ outputSchema })` | Every `run` / `stream` uses structured output unless overridden |
+| Per call      | `agent.run({ outputSchema })`       | Overrides agent default for one episode                         |
 
 Implementation uses **`streamText`** with `experimental_output` when a schema is set — same path for `run` and `stream`. `AgentRunResult` includes `output`, `text`, `messages`, `newMessages`, and `sdk`.
 
@@ -127,13 +132,13 @@ After `run()`, extend the store with messages from `result.response.messages` �
 ## Agents and workflows as tools
 
 ```ts
-import { createToolFromAgent, createToolFromWorkflow } from "@agent-dev-lab/core";
+import { adl } from "../runtime/adl";
 
-const literatureReviewTool = createToolFromWorkflow(runtime, literatureReview, {
+const literatureReviewTool = adl.createToolFromWorkflow(literatureReview, {
   description: "Run the full literature review workflow",
 });
 
-const researcherTool = createToolFromAgent(runtime, researcher, {
+const researcherTool = adl.createToolFromAgent(researcher, {
   mapRun: (toolArgs, { ctx }) => ({
     memoryScope: ctx.memoryScope(`tool:${toolArgs.threadId}`),
     user: toolArgs.query,

@@ -7,8 +7,8 @@ import type { z } from "zod";
  * {@link WorkflowContext}. Pass render data explicitly (no `ctx.render`).
  *
  * When created from a file path, `name` is the filename basename without extension
- * (e.g. `./prompts/find-papers.md` → `"find-papers"`). Listed in `adl.config`
- * `templates[]` and resolved via `loadAdlProject().getTemplate(name)`.
+ * (e.g. `./prompts/find-papers.md` → `"find-papers"`). Create via `adl.createTemplate`
+ * and list in `adl.config` `templates[]`.
  *
  * @see {@link createTemplate}
  */

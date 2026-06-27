@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: createWorkflow, ctx.step, nesting, keys, and step caching.
+description: adl.createWorkflow, ctx.step, nesting, keys, and step caching.
 ---
 
 Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `Promise.all` — no graph DSL. Steps provide observability spans; nested workflows provide typed, reusable modules.
@@ -18,7 +18,11 @@ Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `P
 Typically **`step` around a nested `run`** when you want the sub-workflow visible as one waterfall bar:
 
 ```ts
-export const searchPapers = createWorkflow({
+import { z } from "zod";
+
+import { adl } from "../runtime/adl";
+
+export const searchPapers = adl.createWorkflow({
   id: "search-papers",
   input: z.object({ topic: z.string() }),
   output: z.object({ papers: z.array(z.string()) }),
@@ -27,6 +31,7 @@ export const searchPapers = createWorkflow({
   },
 });
 
+// inside another workflow body:
 await ctx.step("search", async ({ ctx: child }) => {
   const { papers } = await searchPapers.run({ topic: input.topic }).result;
   return papers;
@@ -128,9 +133,18 @@ OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 
 ## Templates in workflows
 
-Templates are standalone — no `ctx.render`:
+Templates are standalone — no `ctx.render`. Define with `adl.createTemplate` in your prompts module:
 
 ```ts
+import { adl } from "../runtime/adl";
+
+export const findPapersPrompt = adl.createTemplate({
+  path: "./prompts/find-papers.md",
+  from: import.meta.url,
+  inputData: z.object({ topic: z.string(), maxResults: z.number() }),
+});
+
+// inside a workflow step:
 const text = findPapersPrompt.render({ topic: "CRISPR", maxResults: 10 });
 await agent.run({ memoryScope: ctx.memoryScope("draft"), user: text });
 ```

@@ -12,7 +12,7 @@ import type { CoreMessage } from "ai";
  * `response.messages` → `save`. `context` on `agent.run()` is not stored here.
  *
  * Configure via `createAdlRuntime({ stores: { message } })` or per-agent
- * `createAgent({ memory: { store } })`.
+ * `adl.createAgent({ memory: { store } })`.
  *
  * @see {@link inMemoryMessageStore}
  */

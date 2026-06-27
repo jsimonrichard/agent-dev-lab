@@ -10,7 +10,7 @@ export type CreateToolFromWorkflowOptions<TInput> = {
   mapInput?: (toolArgs: unknown) => TInput;
 };
 
-/** Expose a workflow as an AI SDK tool for coordinator agents. @see apps/docs — core/workflows */
+/** Expose a workflow as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromWorkflow}. */
 export function createToolFromWorkflow<TInput, TOutput>(
   runtime: AdlRuntime,
   workflow: Workflow<TInput, TOutput>,

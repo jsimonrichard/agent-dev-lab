@@ -17,7 +17,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 | `MessageStore` + `WorkflowStore` (in-memory defaults)        | Implemented     |
 | Observers, `RunRecorder`, run events                         | Implemented     |
 | `loadAdlProject` + registry indexes                          | Implemented     |
-| `createToolFromAgent` / `createToolFromWorkflow`             | Implemented     |
+| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`     | Implemented     |
 | SQLite-backed stores                                         | Not implemented |
 | CLI `adl run` / list commands                                | Not implemented |
 | Inspection UI run waterfall / SSE                            | Not implemented |
@@ -30,9 +30,9 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 Cross-cutting concepts and project layout:
 
 - [Project setup](/guides/project-setup/) — required vs recommended layout; how tooling gets `config.adl`
-- [Runtime](/core/runtime/) — `createAdlRuntime`, ALS for workflow context
-- [Agents](/core/agents/) — `createAgent`, memory, structured output
-- [Workflows](/core/workflows/) — steps, keys, nesting, caching
+- [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
+- [Agents](/core/agents/) — `adl.createAgent`, memory, structured output
+- [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting
 - [Project config](/core/project/) — registry, `loadAdlProject`
 
 ### API reference (TypeDoc)
