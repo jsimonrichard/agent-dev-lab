@@ -1,5 +1,5 @@
 # Observability & run storage
 
-**Moved** → [`apps/docs/src/content/docs/core/observability.md`](../apps/docs/src/content/docs/core/observability.md)
+**Moved to TypeDoc** — see `WorkflowStore`, `WorkflowObserver`, `AgentObserver` in the [Core API](/api/interfaces/workflowstore/).
 
-Run `bun run dev:docs` or see the **Observability** page under Core in the docs site.
+Planned inspection UI SSE detail remains in [`inspection-ui.md`](./inspection-ui.md).

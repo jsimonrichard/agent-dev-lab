@@ -1,5 +1,3 @@
 # Message store
 
-**Moved** → [`apps/docs/src/content/docs/core/message-store.md`](../apps/docs/src/content/docs/core/message-store.md)
-
-Run `bun run dev:docs` or see the **Message store** page under Core in the docs site.
+**Moved to TypeDoc** — see `MessageStore` and `inMemoryMessageStore` in the [Core API](/api/interfaces/messagestore/) (generated from `packages/core/src/memory/`).

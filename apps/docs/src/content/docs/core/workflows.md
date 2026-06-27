@@ -135,7 +135,7 @@ const text = findPapersPrompt.render({ topic: "CRISPR", maxResults: 10 });
 await agent.run({ memoryScope: ctx.memoryScope("draft"), user: text });
 ```
 
-See [Templates](/core/templates/).
+See [Template](/api/interfaces/template/) in the API reference.
 
 ## Parallelism
 

@@ -1,38 +1,44 @@
 # Coding-agent notes
 
-This directory is for **agent-oriented** tracking: v1 gaps, deferred design, and UI plans. Stable API documentation for implemented features lives in **`apps/docs`** (Astro Starlight + TypeDoc).
+This directory is for **agent-oriented** tracking: v1 gaps, deferred design, and UI plans.
 
-## Published docs (apps/docs)
+## Documentation split
 
-| Topic            | Path                                                 |
-| ---------------- | ---------------------------------------------------- |
-| Overview         | `apps/docs/src/content/docs/guides/overview.md`      |
-| Project setup    | `apps/docs/src/content/docs/guides/project-setup.md` |
-| Runtime          | `apps/docs/src/content/docs/core/runtime.md`         |
-| Agents           | `apps/docs/src/content/docs/core/agents.md`          |
-| Workflows        | `apps/docs/src/content/docs/core/workflows.md`       |
-| Templates        | `apps/docs/src/content/docs/core/templates.md`       |
-| Project config   | `apps/docs/src/content/docs/core/project.md`         |
-| Message store    | `apps/docs/src/content/docs/core/message-store.md`   |
-| Observability    | `apps/docs/src/content/docs/core/observability.md`   |
-| Streaming        | `apps/docs/src/content/docs/core/streaming.md`       |
-| AI SDK checklist | `apps/docs/src/content/docs/core/ai-sdk.md`          |
-| TypeDoc API      | generated at `apps/docs` dev/build → `/api/`         |
+| Layer                 | Location                                                                           | Contents                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/runtime`, `agents`, `workflows`, `project` | Cross-cutting patterns, project layout                                       |
+| **API reference**     | `apps/docs` TypeDoc `/api/`                                                        | JSDoc on `packages/core` exports (`MessageStore`, `Template`, `RunEvent`, …) |
+| **Gaps / deferred**   | `notes/` (this folder)                                                             | v1-scope, inspection-ui, resumability, …                                     |
 
 Run locally: `bun run dev:docs` (port 4321).
 
-## Still in notes (not fully shipped or deferred)
+## Starlight guides
 
-| File                                             | Purpose                               |
-| ------------------------------------------------ | ------------------------------------- |
-| [`v1-scope.md`](./v1-scope.md)                   | Implementation checklist vs v1 target |
-| [`design-overview.md`](./design-overview.md)     | Repo orientation for agents           |
-| [`inspection-ui.md`](./inspection-ui.md)         | Planned `apps/web` SSE / waterfall    |
-| [`tracing.md`](./tracing.md)                     | OTEL packaging decisions              |
-| [`resumability.md`](./resumability.md)           | Episode cache, checkpoints (deferred) |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Message-list shaping (deferred)       |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks, RAG extensions      |
+| Topic          | Path                                                 |
+| -------------- | ---------------------------------------------------- |
+| Overview       | `apps/docs/src/content/docs/guides/overview.md`      |
+| Project setup  | `apps/docs/src/content/docs/guides/project-setup.md` |
+| Runtime        | `apps/docs/src/content/docs/core/runtime.md`         |
+| Agents         | `apps/docs/src/content/docs/core/agents.md`          |
+| Workflows      | `apps/docs/src/content/docs/core/workflows.md`       |
+| Project config | `apps/docs/src/content/docs/core/project.md`         |
+
+## TypeDoc (JSDoc on code)
+
+Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEvent`, observers, AI SDK compatibility (`@packageDocumentation` on `packages/core/src/index.ts`).
+
+## Still in notes
+
+| File                                             | Purpose                  |
+| ------------------------------------------------ | ------------------------ |
+| [`v1-scope.md`](./v1-scope.md)                   | Implementation checklist |
+| [`design-overview.md`](./design-overview.md)     | Repo orientation         |
+| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE          |
+| [`tracing.md`](./tracing.md)                     | OTEL packaging           |
+| [`resumability.md`](./resumability.md)           | Deferred resume          |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping         |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks         |
 
 ## Moved stubs
 
-Files like `agent-api.md` now redirect to `apps/docs` — do not extend the old copies.
+Older `*-api.md` files point at TypeDoc or Starlight — do not extend the old copies.

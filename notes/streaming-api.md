@@ -1,5 +1,5 @@
 # Streaming & live runs
 
-**Moved** → [`apps/docs/src/content/docs/core/streaming.md`](../apps/docs/src/content/docs/core/streaming.md)
+**Moved to TypeDoc** — see `RunEvent` and `WorkflowStore.listEvents` in the [Core API](/api/type-aliases/runevent/).
 
-Planned inspection UI detail remains in [`inspection-ui.md`](./inspection-ui.md).
+Planned HTTP/SSE routes: [`inspection-ui.md`](./inspection-ui.md).

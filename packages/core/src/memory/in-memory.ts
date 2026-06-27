@@ -2,7 +2,10 @@ import type { CoreMessage } from "ai";
 
 import type { MessageStore } from "./types";
 
-/** In-process message store for tests and local scripts. */
+/**
+ * In-process {@link MessageStore} for tests, local scripts, and the default when
+ * `createAdlRuntime()` omits `stores.message`. Not durable across process restarts.
+ */
 export function inMemoryMessageStore(): MessageStore {
   const scopes = new Map<string, CoreMessage[]>();
 

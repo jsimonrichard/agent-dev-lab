@@ -19,9 +19,13 @@ export type ListEventsFilter = {
 };
 
 /**
- * Workflow run persistence: materialized I/O + append-only events.
+ * Workflow run persistence: materialized run/step I/O plus append-only {@link RunEvent}s.
  *
- * @see apps/docs — core/observability
+ * **Observers** ({@link WorkflowObserver}) are push-only — no reads. **WorkflowStore** supports
+ * queries (`listRuns`, `listEvents`, `getStepOutput`) for UI and step skip on retry.
+ * {@link RunRecorder} writes to both when configured. Separate from {@link MessageStore}.
+ *
+ * Default implementation: {@link inMemoryWorkflowStore}.
  */
 export interface WorkflowStore {
   recordEvent(event: RunEvent): Promise<void>;

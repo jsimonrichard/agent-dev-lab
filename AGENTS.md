@@ -39,8 +39,8 @@ All standard commands are in root `package.json`:
 - **End-user / CLI dev** (`adl dev`): walks up from cwd for `adl.config.*`; no playground default. Uses Vite (`dev:project`) by default; `--serve` runs the built Nitro UI.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`.
 - SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`.
-- `apps/docs` — Starlight guides under `src/content/docs/` plus TypeDoc API (`src/content/docs/api/` gitignored; generated on dev/build).
-- `notes/` — coding-agent gap tracking only; stable API docs live in `apps/docs`.
+- `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).
+- `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.
 - CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
 - No `.env` file is required for basic development. LLM API keys will be needed later when agent execution is wired up.

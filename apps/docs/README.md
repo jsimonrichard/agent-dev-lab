@@ -11,24 +11,18 @@ bun run dev:docs    # localhost:4321
 bun run build       # includes docs build via Turbo
 ```
 
-From this package:
+## Content split
 
-```bash
-bun run dev
-bun run build
-bun run typecheck
-```
+| Layer               | Path                                | Role                                                                              |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| **Guides**          | `src/content/docs/guides/`          | Project setup, orientation                                                        |
+| **Conceptual core** | `src/content/docs/core/`            | Runtime, agents, workflows, project (cross-cutting)                               |
+| **API reference**   | `src/content/docs/api/` (generated) | TypeDoc from `packages/core` JSDoc — `MessageStore`, `Template`, `RunEvent`, etc. |
 
-## Content
+Smaller single-API docs live as JSDoc on `packages/core` exports to avoid duplicating Starlight pages.
 
-| Directory                  | Purpose                                        |
-| -------------------------- | ---------------------------------------------- |
-| `src/content/docs/guides/` | Orientation and project setup                  |
-| `src/content/docs/core/`   | Implemented runtime API (agents, workflows, …) |
-| `src/content/docs/api/`    | **Generated** TypeDoc output (gitignored)      |
-
-Coding-agent gap tracking remains in the repo root `notes/` directory.
+Coding-agent gap tracking: repo root `notes/`.
 
 ## TypeDoc
 
-Configured in `astro.config.mjs` — entry point `packages/core/src/index.ts`. The API sidebar is regenerated on `astro dev` and `astro build`.
+Configured in `astro.config.mjs` — entry point `packages/core/src/index.ts`. Regenerated on `astro dev` and `astro build`.

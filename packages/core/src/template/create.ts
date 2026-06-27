@@ -30,7 +30,8 @@ function resolveName(config: { name?: string; path?: string }): string {
 }
 
 /**
- * Build a reusable prompt template (Zod → Handlebars → string) using a runtime-owned engine.
+ * Build a reusable prompt template (Zod → Handlebars → string).
+ * Prefer {@link AdlRuntime.createTemplate} in project code.
  */
 export function buildTemplate<TSchema extends z.ZodType>(
   engine: TemplateEngine,
