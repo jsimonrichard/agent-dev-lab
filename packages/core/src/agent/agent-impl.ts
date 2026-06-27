@@ -12,7 +12,7 @@ import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { bootstrapSystemMessage } from "./resolve-instructions";
+import { resolveInstructionsText } from "./resolve-instructions";
 import type {
   Agent,
   AgentDefinition,
@@ -126,8 +126,7 @@ export class AgentImpl<
         });
 
         try {
-          let messages = await messageStore.load(input.memoryScope);
-          messages = bootstrapSystemMessage(this.definition.instructions, messages);
+          const storedMessages = await messageStore.load(input.memoryScope);
 
           const turnMessages: CoreMessage[] = [];
           if (input.user) {
@@ -136,13 +135,20 @@ export class AgentImpl<
           if (input.messages?.length) {
             turnMessages.push(...input.messages);
           }
-          if (turnMessages.length > 0) {
-            messages = [...messages, ...turnMessages];
-          }
+
+          // Instructions are passed via the AI SDK `system` option rather than as a
+          // system message in `messages`. This avoids the SDK's system-in-messages
+          // prompt-injection warning and keeps the MessageStore free of system text.
+          // Any stray system messages (legacy stores, caller input) are dropped here.
+          const messages = [...storedMessages, ...turnMessages].filter(
+            (message) => message.role !== "system",
+          );
+          const system = resolveInstructionsText(this.definition.instructions);
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const streamResult = streamText({
             model: this.definition.model,
+            ...(system ? { system } : {}),
             tools: this.definition.tools,
             messages,
             experimental_context: input.context,
