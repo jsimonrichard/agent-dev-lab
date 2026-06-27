@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agent-dev-lab/core": "workspace:*"
+    "@agent-dev-lab/core": "workspace:*",
+    "@ai-sdk/openai": "^2.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@agent-dev-lab/common": "workspace:*",

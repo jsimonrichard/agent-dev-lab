@@ -61,8 +61,8 @@ Design: [`inspection-ui.md`](./inspection-ui.md)
 | Item                                                 | Status |
 | ---------------------------------------------------- | ------ |
 | Starlight guides + TypeDoc for implemented core APIs | ✅     |
-| Sample agent + workflow in `apps/playground`         | 🔲     |
-| Playground `adl.config` registry arrays populated    | 🔲     |
+| Sample agent + workflow in `apps/playground`         | ✅     |
+| Playground `adl.config` registry arrays populated    | ✅     |
 
 ---
 
