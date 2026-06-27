@@ -3,7 +3,6 @@ import { createServerFn } from "@tanstack/react-start";
 import {
   forkAgentFromWorkflow,
   getProjectInspectorMeta,
-  getWorkflowRunEvents,
   getWorkflowRunSummary,
   getWorkflowRunUiEvents,
   listWorkflowRunSummaries,
@@ -87,5 +86,3 @@ export const fetchMessagesForScope = createServerFn({ method: "GET" })
   .handler(async ({ data: memoryScope }) => {
     return loadMessagesForScope(memoryScope);
   });
-
-export { getWorkflowRunEvents };
