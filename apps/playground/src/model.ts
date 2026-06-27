@@ -10,7 +10,7 @@ import type { LanguageModel } from "@agent-dev-lab/core";
  */
 const openai = createOpenAI();
 
-export const DEFAULT_MODEL_ID = process.env.ADL_OPENAI_MODEL ?? "gpt-4o-mini";
+export const DEFAULT_MODEL_ID = process.env.ADL_OPENAI_MODEL ?? "gpt-5.4-mini";
 
 export const model: LanguageModel = openai(DEFAULT_MODEL_ID);
 

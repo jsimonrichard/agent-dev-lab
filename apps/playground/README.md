@@ -31,8 +31,8 @@ when actually executed.
 
 ```bash
 export OPENAI_API_KEY=sk-...
-# optional: pick a different model (default: gpt-4o-mini)
-export ADL_OPENAI_MODEL=gpt-4o
+# optional: pick a different model (default: gpt-5.4-mini)
+export ADL_OPENAI_MODEL=gpt-5.5
 ```
 
 ## Run
