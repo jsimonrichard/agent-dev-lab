@@ -1,9 +1,9 @@
 ---
-title: Agent Development Lab
-description: Docs and generated API reference for the Agent Development Lab monorepo.
+title: Agent Dev Lab
+description: Docs and generated API reference for the Agent Dev Lab monorepo.
 template: splash
 hero:
-  tagline: TypeScript-first agentic workflow research — runtime, inspection UI, and shared tooling.
+  tagline: Flexible TypeScript tooling for developing, debugging, and visualizing AI agents and workflows 
   actions:
     - text: Get started
       link: /guides/project-setup/
@@ -19,13 +19,14 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <CardGrid stagger>
   <Card title="Headless core" icon="rocket">
-    `@agent-dev-lab/core` — Vercel AI SDK, v1 API draft (agents, workflows, templates).
+    `@agent-dev-lab/core` — A framework for developing AI agents and workflows built on top of
+    Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>.
   </Card>
   <Card title="Shared infrastructure" icon="setting">
-    `@agent-dev-lab/common` — Drizzle + SQLite (Bun), logging, ESLint preset.
+    `@agent-dev-lab/common` — TBA
   </Card>
-  <Card title="Web inspection UI" icon="laptop">
-    `apps/web` — TanStack Start; consumes runs and telemetry later, not required to execute
-    workflows.
+  <Card title="Web Inspection UI" icon="laptop">
+    `apps/web` — An optional UI built on TanStack Start that triggers runs and consumes telemetry
+    using the `@agent-dev-lab/core` API.
   </Card>
 </CardGrid>

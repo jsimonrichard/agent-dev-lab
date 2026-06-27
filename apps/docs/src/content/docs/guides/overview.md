@@ -1,9 +1,9 @@
 ---
 title: Overview
-description: High-level orientation for the Agent Development Lab docs site.
+description: High-level orientation for the Agent Dev Lab docs site.
 ---
 
-The **Agent Development Lab** is a TypeScript-first workspace for experimenting with agentic workflows: a headless core library (`@agent-dev-lab/core`), a TanStack Start inspection UI (`apps/web`), CLI (`adl`), and shared infrastructure.
+The **Agent Dev Lab** is a TypeScript-first workspace for experimenting with agentic workflows: a headless core library (`@agent-dev-lab/core`), a TanStack Start inspection UI (`apps/web`), CLI (`adl`), and shared infrastructure.
 
 ## What is implemented today
 
