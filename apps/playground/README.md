@@ -5,6 +5,7 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 ## Config
 
 - `adl.config.ts` — same shape end users will place at their project root (see `@agent-dev-lab/core` `AdlProjectConfig`).
+- `tsconfig.json` — `#adl` path alias → `src/adl.ts` (recommended for registry imports).
 - `.adl/` — local project state (runs, caches, etc.) when we add persistence; gitignored.
 
 ## Run

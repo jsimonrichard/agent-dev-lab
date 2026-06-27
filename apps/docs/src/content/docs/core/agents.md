@@ -13,7 +13,7 @@ Registry modules import `adl` from your runtime module and call `adl.createAgent
 import { tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import { adl } from "../runtime/adl";
+import { adl } from "#adl";
 
 export const researcher = adl.createAgent({
   id: "researcher",
@@ -132,7 +132,7 @@ After `run()`, extend the store with messages from `result.response.messages` â€
 ## Agents and workflows as tools
 
 ```ts
-import { adl } from "../runtime/adl";
+import { adl } from "#adl";
 
 const literatureReviewTool = adl.createToolFromWorkflow(literatureReview, {
   description: "Run the full literature review workflow",

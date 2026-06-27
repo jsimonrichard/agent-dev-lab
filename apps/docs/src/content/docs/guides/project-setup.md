@@ -35,7 +35,7 @@ Your `adl.config.ts` should **reference** the runtime (and optionally re-export 
 
 ```ts
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
-import { adl } from "./runtime/adl"; // path is up to you
+import { adl } from "#adl";
 
 export { adl }; // optional named re-export for in-project imports
 
@@ -49,15 +49,44 @@ export default {
 
 `export { adl }` from `adl.config.ts` is optional. What matters for tooling is the **`adl` field on the default export**.
 
+## `#adl` import alias (recommended)
+
+Registry modules import the runtime often. Set a **TypeScript path alias** so every file can use the same stable import — no `../../../src/adl` as your tree grows.
+
+In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "#adl": ["./src/adl.ts"]
+    }
+  }
+}
+```
+
+Point `"./src/adl.ts"` at wherever your runtime module actually lives (`runtime/adl.ts`, etc.).
+
+Then use it everywhere you define agents, workflows, or templates:
+
+```ts
+import { adl } from "#adl";
+
+export const researcher = adl.createAgent({ id: "researcher" /* … */ });
+```
+
+The `#adl` prefix is the recommended convention (short, unlikely to clash with npm scopes). You may choose another alias name; keep one alias per project.
+
 ## Recommended layout
 
 This structure keeps import cycles predictable when registry modules call `adl.createAgent`:
 
 ```
 my-research/
+  tsconfig.json          # paths["#adl"] → runtime module
   adl.config.ts          # registry + metadata; sets config.adl
-  runtime/
-    adl.ts               # createAdlRuntime() — any path works
+  src/
+    adl.ts               # createAdlRuntime() — path wired in tsconfig paths
   agents/
     researcher.ts
   workflows/
@@ -66,18 +95,16 @@ my-research/
     …
 ```
 
-A common convention is `src/adl.ts` instead of `runtime/adl.ts` — equivalent as long as `adl.config` imports it.
-
 | Piece                | Role                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------- |
 | **`adl.config.ts`**  | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling           |
 | **Runtime module**   | `createAdlRuntime({ stores, observers })` — recommended separate file to avoid cycles |
-| **Registry modules** | Import `adl` from the runtime module (not from `adl.config`) and export definitions   |
+| **Registry modules** | `import { adl } from "#adl"` — not from `adl.config`                                  |
 
-Registry modules should import `adl` from the **runtime module**, not from `adl.config.ts`, to avoid import cycles (`adl.config` imports agents; agents must not import `adl.config`).
+Registry modules should import `adl` via **`#adl`** (or your alias), **not** from `adl.config.ts`, to avoid import cycles (`adl.config` imports agents; agents must not import `adl.config`).
 
 ```ts
-// runtime/adl.ts (or src/adl.ts)
+// src/adl.ts (or runtime/adl.ts — update tsconfig paths["#adl"] to match)
 import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
 
 export const adl = createAdlRuntime({
@@ -90,7 +117,7 @@ export const adl = createAdlRuntime({
 
 ```ts
 // agents/researcher.ts
-import { adl } from "../runtime/adl";
+import { adl } from "#adl";
 
 export const researcher = adl.createAgent({ id: "researcher" /* … */ });
 ```

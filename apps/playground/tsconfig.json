@@ -1,6 +1,9 @@
 {
   "extends": "@agent-dev-lab/common/tsconfig/node.json",
   "compilerOptions": {
+    "paths": {
+      "#adl": ["./src/adl.ts"]
+    },
     "noEmit": true,
     "types": ["bun"]
   },

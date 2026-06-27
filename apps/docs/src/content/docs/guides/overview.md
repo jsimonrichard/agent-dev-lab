@@ -29,7 +29,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 
 Cross-cutting concepts and project layout:
 
-- [Project setup](/guides/project-setup/) — required vs recommended layout; how tooling gets `config.adl`
+- [Project setup](/guides/project-setup/) — required vs recommended layout; `#adl` import alias; how tooling gets `config.adl`
 - [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
 - [Agents](/core/agents/) — `adl.createAgent`, memory, structured output
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting

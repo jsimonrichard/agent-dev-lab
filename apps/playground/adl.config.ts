@@ -1,6 +1,6 @@
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
 
-import { adl } from "./src/adl";
+import { adl } from "#adl";
 
 /**
  * Monorepo dev target for the inspection UI and CLI.

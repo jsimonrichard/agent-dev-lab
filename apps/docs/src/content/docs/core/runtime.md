@@ -5,7 +5,7 @@ description: createAdlRuntime, factory binding, and workflow context propagation
 
 The ADL **runtime** wires process-level services: message and workflow stores, observers, template engine, and workflow context scope.
 
-Construct the runtime in a **dedicated module** (recommended) and set `adl` on `adl.config.ts`. Tooling loads it via `loadAdlProject().getAdl()` — not by importing your runtime file directly. Keeping runtime construction out of `adl.config.ts` avoids import cycles when registry modules import the runtime module.
+Construct the runtime in a **dedicated module** (recommended) and set `adl` on `adl.config.ts`. Registry code should `import { adl } from "#adl"` — see [Project setup](/guides/project-setup/) for the tsconfig alias. Tooling loads the runtime via `loadAdlProject().getAdl()` — not by importing your runtime file directly.
 
 ## createAdlRuntime
 

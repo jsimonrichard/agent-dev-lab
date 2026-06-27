@@ -16,7 +16,7 @@ The project config module is the **discovery surface** for CLI, inspection UI, a
 
 ```ts
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
-import { adl } from "./runtime/adl"; // recommended separate module; path is flexible
+import { adl } from "#adl";
 
 export { adl }; // optional — tooling uses the default export's `adl` field
 

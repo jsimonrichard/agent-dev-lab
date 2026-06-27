@@ -9,11 +9,9 @@ import type { Workflow } from "../workflow/types";
  * Shape of `adl.config.*` at a project root.
  * Registry arrays are static at load time — see apps/docs (core/project).
  *
- * **Runtime:** set `adl` to your `createAdlRuntime()` instance. Consumers
- * (`loadAdlProject`, CLI, inspection UI) read `config.adl` — they do not import
- * a project runtime module directly. A separate runtime file (e.g. `src/adl.ts`)
- * is recommended to avoid import cycles with registry modules, but the path is
- * not fixed.
+ * **Runtime:** set `adl` on the config default export. In project code, import the runtime
+ * via a tsconfig path alias (recommended: `#adl` → `./src/adl.ts`). Tooling uses
+ * `loadAdlProject().getAdl()` — not the alias.
  */
 export interface AdlProjectConfig {
   /** Human-readable project label shown in the inspection UI. */

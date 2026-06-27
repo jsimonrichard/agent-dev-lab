@@ -20,7 +20,7 @@ Typically **`step` around a nested `run`** when you want the sub-workflow visibl
 ```ts
 import { z } from "zod";
 
-import { adl } from "../runtime/adl";
+import { adl } from "#adl";
 
 export const searchPapers = adl.createWorkflow({
   id: "search-papers",
@@ -136,7 +136,7 @@ OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 Templates are standalone — no `ctx.render`. Define with `adl.createTemplate` in your prompts module:
 
 ```ts
-import { adl } from "../runtime/adl";
+import { adl } from "#adl";
 
 export const findPapersPrompt = adl.createTemplate({
   path: "./prompts/find-papers.md",
