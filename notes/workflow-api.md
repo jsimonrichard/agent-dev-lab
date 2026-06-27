@@ -314,7 +314,7 @@ Expose a workflow or agent as a standard AI SDK **`tool()`** so other agents can
 ```ts
 import { createToolFromWorkflow, createToolFromAgent } from "@agent-dev-lab/core";
 
-const literatureReviewTool = createToolFromWorkflow(literatureReview, {
+const literatureReviewTool = createToolFromWorkflow(runtime, literatureReview, {
   /** Tool name seen by the model; defaults to workflow.id */
   name?: "literature-review",
   description: "Run the full literature review workflow",
@@ -322,7 +322,7 @@ const literatureReviewTool = createToolFromWorkflow(literatureReview, {
   mapInput?: (toolArgs) => toolArgs,
 });
 
-const researcherTool = createToolFromAgent(researcher, {
+const researcherTool = createToolFromAgent(runtime, researcher, {
   name?: "researcher",
   description: "One model episode with the researcher agent",
   /** Build memoryScope + user from tool args */

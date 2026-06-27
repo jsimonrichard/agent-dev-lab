@@ -49,14 +49,14 @@ export class AdlRuntimeImpl implements AdlRuntime {
     agent: Agent<Context>,
     options: CreateToolFromAgentOptions<Context>,
   ): ToolSet[string] {
-    return createToolFromAgent(agent, options);
+    return createToolFromAgent(this, agent, options);
   }
 
   createToolFromWorkflow<TInput, TOutput>(
     workflow: Workflow<TInput, TOutput>,
     options: CreateToolFromWorkflowOptions<TInput>,
   ): ToolSet[string] {
-    return createToolFromWorkflow(workflow, options);
+    return createToolFromWorkflow(this, workflow, options);
   }
 
   createTemplate<TSchema extends z.ZodType>(config: TemplateConfig<TSchema>) {
