@@ -80,7 +80,7 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
       },
     });
     void navigate({
-      to: "/agent/$agentId/run/$runId",
+      to: "/agent/$agentId/r/$runId",
       params: { agentId: activeEpisode.agentId, runId: memoryScope },
     });
   }

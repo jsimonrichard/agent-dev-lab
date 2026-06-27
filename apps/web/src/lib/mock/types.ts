@@ -66,6 +66,7 @@ export type RunEventType =
   | "step_failed"
   | "agent_started"
   | "agent_finished"
+  | "agent_failed"
   | "text_delta"
   | "messages_committed"
   | "run_finished"
@@ -114,6 +115,12 @@ export interface AgentFinishedEvent extends RunEventBase {
   durationMs: number;
 }
 
+export interface AgentFailedEvent extends RunEventBase {
+  type: "agent_failed";
+  stepId: string;
+  episodeId: string;
+}
+
 export interface TextDeltaEvent extends RunEventBase {
   type: "text_delta";
   stepId: string;
@@ -150,6 +157,7 @@ export type RunEvent =
   | StepFailedEvent
   | AgentStartedEvent
   | AgentFinishedEvent
+  | AgentFailedEvent
   | TextDeltaEvent
   | MessagesCommittedEvent
   | RunFinishedEvent
@@ -199,7 +207,7 @@ export interface AgentEpisode {
   episodeId: string;
   agentId: string;
   memoryScope: string;
-  status: "running" | "completed";
+  status: "running" | "completed" | "failed";
   durationMs?: number;
   streamingText: string;
 }
@@ -226,7 +234,7 @@ export interface MockAgentConversation {
   memoryScope: string;
 }
 
-/** Resolved session for /agent/$agentId/run/$runId — static mock or forked. */
+/** Resolved session for /agent/$agentId/r/$runId — static mock or forked. */
 export interface ResolvedAgentConversation {
   runId: string;
   agentId: string;

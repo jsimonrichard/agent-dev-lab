@@ -1,8 +1,13 @@
-import type { CoreMessage } from "ai";
-
 import type { Template } from "../template/types";
 import type { AgentInstructions } from "./types";
 
+/**
+ * Resolve an agent's instructions to plain text for the AI SDK `system` option.
+ *
+ * Templates render with their `demo` data when present, otherwise with an empty
+ * object. Instructions are supplied to `streamText` via `system` on every episode
+ * (not stored as a system message), so this is called once per `agent.run`.
+ */
 export function resolveInstructionsText(instructions: AgentInstructions): string {
   if (typeof instructions === "string") {
     return instructions;
@@ -12,21 +17,4 @@ export function resolveInstructionsText(instructions: AgentInstructions): string
     return template.render(template.demo);
   }
   return template.render({} as never);
-}
-
-/**
- * Render instructions as a system message only when the store is empty (first run
- * for this memoryScope). Existing messages are returned as-is even if they lack a
- * system message — prepending one retroactively would be inconsistent with the
- * AI-generated responses that follow.
- */
-export function bootstrapSystemMessage(
-  instructions: AgentInstructions,
-  existing: CoreMessage[],
-): CoreMessage[] {
-  if (existing.length > 0) {
-    return existing;
-  }
-  const content = resolveInstructionsText(instructions);
-  return [{ role: "system", content }];
 }

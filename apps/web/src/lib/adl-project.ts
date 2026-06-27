@@ -1,5 +1,6 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   ADL_FRAMEWORK_DEV_ENV,
@@ -27,9 +28,18 @@ function resolveAdlProjectRoot(): string {
 
 let cached: LoadedAdlProject | undefined;
 
+async function ensureProjectEnv(root: string): Promise<void> {
+  const envModule = path.join(root, "src/env.ts");
+  if (existsSync(envModule)) {
+    await import(pathToFileURL(envModule).href);
+  }
+}
+
 export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   if (!cached) {
-    cached = await loadAdlProject({ root: resolveAdlProjectRoot() });
+    const root = resolveAdlProjectRoot();
+    await ensureProjectEnv(root);
+    cached = await loadAdlProject({ root });
   }
   return cached;
 }

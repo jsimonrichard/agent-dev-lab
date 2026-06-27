@@ -106,7 +106,7 @@ function WaterfallStep({
         type="button"
         onClick={() => onSelectStep(step.stepId)}
         className={cn(
-          "group mb-1 flex w-full max-w-2xl flex-col gap-1 rounded-lg border px-2 py-1.5 text-left transition-colors",
+          "group mb-1 flex w-full max-w-2xl cursor-pointer flex-col gap-1 rounded-lg border px-2 py-1.5 text-left transition-colors",
           isSelected
             ? "border-primary/40 bg-accent/50"
             : "border-border/30 bg-card/50 hover:border-border/50 hover:bg-accent/30",
@@ -142,7 +142,7 @@ function WaterfallStep({
                 onSelectEpisode(ep);
               }}
               className={cn(
-                "rounded-md border px-2 py-0.5 text-[10px] transition-colors",
+                "cursor-pointer rounded-md border px-2 py-0.5 text-[10px] transition-colors",
                 selectedEpisodeId === ep.episodeId
                   ? "border-primary/50 bg-primary/15 text-foreground"
                   : "border-border/40 bg-muted/40 text-muted-foreground hover:text-foreground",

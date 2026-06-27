@@ -76,6 +76,13 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         }
         break;
       }
+      case "step_failed": {
+        const step = stepMap.get(event.stepId);
+        if (step) {
+          step.status = "failed";
+        }
+        break;
+      }
       case "agent_started": {
         const step = stepMap.get(event.stepId);
         if (step) {
@@ -98,6 +105,14 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         }
         break;
       }
+      case "agent_failed": {
+        const step = stepMap.get(event.stepId);
+        const ep = step ? findEpisode(step, event.episodeId) : undefined;
+        if (ep) {
+          ep.status = "failed";
+        }
+        break;
+      }
       case "text_delta": {
         const step = stepMap.get(event.stepId);
         const ep = step ? findEpisode(step, event.episodeId) : undefined;
@@ -114,7 +129,6 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         finishedAt = event.at;
         break;
       case "messages_committed":
-      case "step_failed":
         break;
     }
   }

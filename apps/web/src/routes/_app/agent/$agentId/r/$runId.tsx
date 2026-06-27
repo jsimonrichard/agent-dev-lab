@@ -1,10 +1,11 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
+import { NotFoundPage } from "@/components/app/not-found";
 import { fetchAgentConversation } from "#/lib/inspector-server";
 import type { MockAgentSettings, MockAgentSummary } from "@/lib/mock/types";
 
-export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
+export const Route = createFileRoute("/_app/agent/$agentId/r/$runId")({
   component: AgentRunPage,
   loader: async ({ params }) => {
     const conversation = await fetchAgentConversation({ data: params.runId });
@@ -25,6 +26,13 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
     };
     return { agent, conversation, settings };
   },
+  notFoundComponent: () => (
+    <NotFoundPage
+      inAppShell
+      title="Session not found"
+      description="This agent conversation does not exist or does not match the requested agent."
+    />
+  ),
 });
 
 function AgentRunPage() {

@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
@@ -17,8 +17,9 @@ const devModeLabel = {
 
 export function InspectorDashboard() {
   const { project, runs, sessions } = useAppLoaderData();
-  const recentRun = runs[0];
-  const recentSession = sessions[0];
+  const router = useRouter();
+  const recentWorkflowId = runs[0]?.workflowId;
+  const recentAgentId = sessions[0]?.agentId;
   const demoWorkflowId = project.workflowIds.includes("demo-counter")
     ? "demo-counter"
     : project.workflowIds[0];
@@ -28,7 +29,11 @@ export function InspectorDashboard() {
     const { runId } = await startInspectionWorkflowRun({
       data: { workflowId: demoWorkflowId, input: { steps: 3 } },
     });
-    window.location.href = `/workflows/${demoWorkflowId}/run/${runId}`;
+    await router.invalidate();
+    void router.navigate({
+      to: "/workflows/$workflowId/r/$runId",
+      params: { workflowId: demoWorkflowId, runId },
+    });
   }
 
   return (
@@ -57,7 +62,7 @@ export function InspectorDashboard() {
               <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <GitBranch className="size-4" />
               </div>
-              <CardTitle className="text-base">Workflow runs</CardTitle>
+              <CardTitle className="text-base">Workflows</CardTitle>
               <CardDescription>
                 Waterfall traces, step output, and per-step agent transcripts.
               </CardDescription>
@@ -67,29 +72,26 @@ export function InspectorDashboard() {
                 <Badge variant="secondary">{runs.length} runs</Badge>
                 <Badge variant="outline">{project.workflowIds.length} workflows</Badge>
               </div>
+              <Link
+                to="/workflows"
+                className="cursor-pointer text-sm font-medium text-primary hover:underline"
+              >
+                Browse workflows →
+              </Link>
               {demoWorkflowId ? (
                 <Button size="sm" variant="secondary" onClick={() => void handleStartDemo()}>
                   Start demo workflow
                 </Button>
               ) : null}
-              {recentRun ? (
+              {recentWorkflowId ? (
                 <Link
-                  to="/workflows/$workflowId/run/$runId"
-                  params={{
-                    workflowId: recentRun.workflowId,
-                    runId: recentRun.runId,
-                  }}
-                  className="text-sm font-medium text-primary hover:underline"
+                  to="/workflows/$workflowId"
+                  params={{ workflowId: recentWorkflowId }}
+                  className="cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
                 >
-                  Open latest run →
+                  View runs for {recentWorkflowId} →
                 </Link>
               ) : null}
-              <Link
-                to="/workflows"
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-              >
-                Browse workflow registry
-              </Link>
             </div>
           </Card>
 
@@ -98,23 +100,29 @@ export function InspectorDashboard() {
               <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <MessageSquare className="size-4" />
               </div>
-              <CardTitle className="text-base">Agent conversations</CardTitle>
+              <CardTitle className="text-base">Agents</CardTitle>
               <CardDescription>
                 Standalone agent chats and forks continued outside a workflow.
               </CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
-              <Badge variant="secondary">{sessions.length} sessions</Badge>
-              {recentSession ? (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">{sessions.length} sessions</Badge>
+                <Badge variant="outline">{project.agentIds.length} agents</Badge>
+              </div>
+              <Link
+                to="/agent"
+                className="cursor-pointer text-sm font-medium text-primary hover:underline"
+              >
+                Browse agents →
+              </Link>
+              {recentAgentId ? (
                 <Link
-                  to="/agent/$agentId/run/$runId"
-                  params={{
-                    agentId: recentSession.agentId,
-                    runId: recentSession.memoryScope,
-                  }}
-                  className="text-sm font-medium text-primary hover:underline"
+                  to="/agent/$agentId"
+                  params={{ agentId: recentAgentId }}
+                  className="cursor-pointer text-xs text-muted-foreground hover:text-foreground hover:underline"
                 >
-                  Open latest session →
+                  View conversations for {recentAgentId} →
                 </Link>
               ) : null}
             </div>
@@ -134,7 +142,10 @@ export function InspectorDashboard() {
             </div>
           </CardHeader>
           <div className="px-6 pb-6">
-            <Link to="/settings" className="text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/settings"
+              className="cursor-pointer text-sm font-medium text-primary hover:underline"
+            >
               Project settings →
             </Link>
           </div>

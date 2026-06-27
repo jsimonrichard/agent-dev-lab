@@ -48,13 +48,11 @@ Install a model provider package (e.g. `@ai-sdk/openai`) in your project for `mo
 
 ### Instructions
 
-Declared as a **template ref** or static string. On the **first** `run()` for a given `memoryScope` when the store is empty:
+Declared as a **template ref** or static string. On every `run()` the instructions are resolved to text and passed to the AI SDK via the **`system`** option — not stored as a `system` message in the conversation.
 
-1. Render the template.
-2. Append `{ role: "system", content: rendered }` to the store.
-3. **Persist** — do not re-render on later turns.
+This avoids the AI SDK system-in-messages prompt-injection warning and keeps the `MessageStore` free of system text. Any stray `system` messages (legacy stores or caller `messages`) are dropped before the model call.
 
-Volatile turn context belongs in **user** messages, not re-injected system text.
+Volatile turn context belongs in **user** messages, not in instructions.
 
 ### Structured output
 
@@ -126,9 +124,9 @@ type AgentRunInput = {
 
 ### Per-run flow
 
-1. `store.load(memoryScope)`
-2. If empty → render `instructions` → append and persist **system** message
-3. If `user` / `messages` → append to working list
+1. `store.load(memoryScope)` (any `system` messages are filtered out)
+2. If `user` / `messages` → append to working list
+3. Resolve `instructions` → pass as the **`system`** option to `streamText`
 4. **`streamText`** — forward text deltas to run events
 5. Append `response.messages` to store via `save`
 6. Return `AgentRunResult`
