@@ -108,11 +108,10 @@ import { createAgent, createAdlRuntime, inMemoryMessageStore } from "@agent-dev-
 
 const runtime = createAdlRuntime({ stores: { message: inMemoryMessageStore() } });
 
-const agent = createAgent({
+const agent = createAgent(runtime, {
   id: "researcher",
   model,
   instructions,
-  runtime,
 });
 
 await agent.run({
@@ -121,7 +120,7 @@ await agent.run({
 });
 ```
 
-Overrides (including extra observers) work the same on `createAgent({ …, runtime, observers: { agents: […] } })`.
+Overrides (including extra observers) are a third argument: `createAgent(runtime, definition, { observers: { agents: […] } })`.
 
 ---
 
@@ -195,8 +194,8 @@ Subworkflows and `createToolFromWorkflow` call **`WorkflowImpl.runNested`** with
 | Piece                                   | Status                                       |
 | --------------------------------------- | -------------------------------------------- |
 | `createAdlRuntime` / `AdlRuntime` types | ✅ Implemented (`adl-runtime.ts`)            |
-| `createAgent({ …, runtime })`           | ✅ Implemented (`agent-impl.ts`)             |
-| `createWorkflow({ …, runtime })`        | ✅ Implemented (`workflow-impl.ts`)          |
+| `createAgent(runtime, definition)`      | ✅ Implemented (`agent/create.ts`)           |
+| `createWorkflow(runtime, definition)`   | ✅ Implemented (`workflow/create.ts`)        |
 | `adl` on `AdlProjectConfig`             | ✅ Implemented                               |
 | `src/adl.ts` convention                 | ✅ Documented + playground example           |
 | Context host (`WorkflowContextScope`)   | ✅ Implemented (`workflow-context-scope.ts`) |

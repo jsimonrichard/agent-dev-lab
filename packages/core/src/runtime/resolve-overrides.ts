@@ -3,7 +3,6 @@ import { inMemoryMessageStore } from "../memory/in-memory";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import { TemplateEngine } from "../template/engine";
 import { WorkflowContextScope } from "../workflow/workflow-context-scope";
-import type { AdlRuntime } from "./types";
 import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";
 
 /** Applies definition-level store overrides once at bind time (agent/workflow factories). */
@@ -21,29 +20,6 @@ export function resolveDefinitionServices(
       ...services.stores,
       message: messageStore,
     },
-  };
-}
-
-/** Splits factory params into definition fields, runtime, and optional overrides. */
-export function splitFactoryParams<T extends AdlRuntimeOverrides & { runtime: AdlRuntime }>(
-  params: T,
-): {
-  definition: Omit<T, keyof AdlRuntimeOverrides | "runtime">;
-  runtime: AdlRuntime;
-  overrides: AdlRuntimeOverrides | undefined;
-} {
-  const { runtime, stores, observers, ...definition } = params;
-  const overrides: AdlRuntimeOverrides | undefined =
-    stores === undefined && observers === undefined
-      ? undefined
-      : {
-          ...(stores !== undefined ? { stores } : {}),
-          ...(observers !== undefined ? { observers } : {}),
-        };
-  return {
-    definition: definition as Omit<T, keyof AdlRuntimeOverrides | "runtime">,
-    runtime,
-    overrides,
   };
 }
 

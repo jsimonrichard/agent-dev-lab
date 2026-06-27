@@ -1,5 +1,4 @@
 export { createWorkflow } from "./create";
-export type { CreateWorkflowParams } from "./create";
 export type {
   CustomWorkflowEvent,
   StepFn,

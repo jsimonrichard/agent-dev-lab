@@ -6,9 +6,8 @@ describe("workflow.run", () => {
   it("runs steps and records events in the workflow store", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "counter",
-      runtime,
       run: async (_input, ctx) => {
         const a = await ctx.step("first", async () => 1);
         const b = await ctx.step("second", async () => a + 1);
@@ -36,9 +35,8 @@ describe("workflow.run", () => {
     const runtime = createAdlRuntime({ stores: { workflow: store } });
     let computeCount = 0;
 
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "cacheable",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("work", async () => {
           computeCount += 1;
@@ -65,9 +63,8 @@ describe("workflow.run", () => {
 
   it("requires distinct keys for repeated step names", async () => {
     const runtime = createAdlRuntime();
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "keys",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("dup", async () => 1);
         await ctx.step("dup", async () => 2);
@@ -80,9 +77,8 @@ describe("workflow.run", () => {
   it("stream yields run events for the workflow run", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store } });
-    const workflow = createWorkflow({
+    const workflow = createWorkflow(runtime, {
       id: "stream-demo",
-      runtime,
       run: async (_input, ctx) => {
         await ctx.step("only", async () => "ok");
         return { done: true };

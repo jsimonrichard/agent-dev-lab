@@ -1,28 +1,19 @@
 import type { ToolSet } from "ai";
 
-import {
-  resolveDefinitionServices,
-  resolveRuntimeOverrides,
-  splitFactoryParams,
-} from "../runtime/resolve-overrides";
+import { resolveDefinitionServices, resolveRuntimeOverrides } from "../runtime/resolve-overrides";
 import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types";
 import { AgentImpl } from "./agent-impl";
 import type { Agent, AgentDefinition } from "./types";
-
-/** Functional factory: agent definition plus explicit {@link AdlRuntime}. */
-export type CreateAgentParams<Tools extends ToolSet = ToolSet, TOutput = unknown> = AgentDefinition<
-  Tools,
-  TOutput
-> & {
-  runtime: AdlRuntime;
-} & AdlRuntimeOverrides;
 
 export function createAgent<
   Context = undefined,
   Tools extends ToolSet = ToolSet,
   TOutput = unknown,
->(params: CreateAgentParams<Tools, TOutput>): Agent<Context, Tools> {
-  const { definition, runtime, overrides } = splitFactoryParams(params);
+>(
+  runtime: AdlRuntime,
+  definition: AgentDefinition<Tools, TOutput>,
+  overrides?: AdlRuntimeOverrides,
+): Agent<Context, Tools> {
   const services = resolveDefinitionServices(
     definition,
     resolveRuntimeOverrides(runtime.services, overrides),

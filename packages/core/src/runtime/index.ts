@@ -1,8 +1,8 @@
 export { createAdlRuntime } from "./create";
 export {
+  resolveDefinitionServices,
   resolveRuntimeConfig,
   resolveRuntimeOverrides,
-  splitFactoryParams,
 } from "./resolve-overrides";
 export type {
   AdlRuntime,

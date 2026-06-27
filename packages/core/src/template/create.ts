@@ -29,11 +29,6 @@ function resolveName(config: { name?: string; path?: string }): string {
   throw new Error("createTemplate: provide `name` when using inline `source`");
 }
 
-/** Functional factory: template config plus explicit {@link AdlRuntime}. */
-export type CreateTemplateParams<TSchema extends z.ZodType> = TemplateConfig<TSchema> & {
-  runtime: AdlRuntime;
-};
-
 /**
  * Build a reusable prompt template (Zod → Handlebars → string) using a runtime-owned engine.
  */
@@ -75,8 +70,8 @@ export function buildTemplate<TSchema extends z.ZodType>(
 
 /** Functional factory — prefer {@link AdlRuntime.createTemplate} in project code. */
 export function createTemplate<TSchema extends z.ZodType>(
-  params: CreateTemplateParams<TSchema>,
+  runtime: AdlRuntime,
+  config: TemplateConfig<TSchema>,
 ): Template<z.infer<TSchema>> {
-  const { runtime, ...config } = params;
   return buildTemplate(runtime.services.templateEngine, config);
 }

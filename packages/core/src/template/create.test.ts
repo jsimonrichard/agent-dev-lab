@@ -8,8 +8,7 @@ describe("createTemplate", () => {
   const runtime = createAdlRuntime();
 
   it("renders a fixture prompt from path", () => {
-    const tpl = createTemplate({
-      runtime,
+    const tpl = createTemplate(runtime, {
       path: "../prompt/fixtures/sample-agent.md",
       from: import.meta.url,
       inputData: z.object({ project: z.string() }),
@@ -22,8 +21,7 @@ describe("createTemplate", () => {
   });
 
   it("renders inline source with explicit name", () => {
-    const tpl = createTemplate({
-      runtime,
+    const tpl = createTemplate(runtime, {
       name: "greeting",
       source: "Hello {{name}}!",
       inputData: z.object({ name: z.string() }),
