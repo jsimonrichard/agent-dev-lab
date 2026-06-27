@@ -98,7 +98,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         {forkSession ? (
           <Button variant="outline" size="sm" asChild>
             <Link
-              to="/workflows/$workflowId/run/$runId"
+              to="/workflows/$workflowId/r/$runId"
               params={{
                 workflowId: forkSession.sourceWorkflowId,
                 runId: forkSession.sourceRunId,

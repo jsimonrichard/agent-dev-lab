@@ -1,18 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
 
-import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { cn } from "@/lib/utils";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export function MasterSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const mode = inspectorModeFromPath(pathname);
-  const { runs, sessions } = useAppLoaderData();
-  const defaultWorkflowRun = runs[0];
-  const defaultSession = sessions[0];
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -30,31 +26,15 @@ export function MasterSidebar() {
 
         <nav className="flex flex-1 flex-col items-center gap-2">
           <MasterNavItem
-            label="Workflow runs"
+            label="Workflows"
             active={mode === "workflows"}
-            to={defaultWorkflowRun ? "/workflows/$workflowId/run/$runId" : "/workflows"}
-            params={
-              defaultWorkflowRun
-                ? {
-                    workflowId: defaultWorkflowRun.workflowId,
-                    runId: defaultWorkflowRun.runId,
-                  }
-                : undefined
-            }
+            to="/workflows"
             icon={GitBranch}
           />
           <MasterNavItem
-            label="Agent conversations"
+            label="Agents"
             active={mode === "agents"}
-            to={defaultSession ? "/agent/$agentId/run/$runId" : "/agent"}
-            params={
-              defaultSession
-                ? {
-                    agentId: defaultSession.agentId,
-                    runId: defaultSession.memoryScope,
-                  }
-                : undefined
-            }
+            to="/agent"
             icon={MessageSquare}
           />
         </nav>

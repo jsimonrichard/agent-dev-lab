@@ -226,7 +226,7 @@ export interface MockAgentConversation {
   memoryScope: string;
 }
 
-/** Resolved session for /agent/$agentId/run/$runId — static mock or forked. */
+/** Resolved session for /agent/$agentId/r/$runId — static mock or forked. */
 export interface ResolvedAgentConversation {
   runId: string;
   agentId: string;

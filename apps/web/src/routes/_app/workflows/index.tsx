@@ -1,8 +1,10 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { GitBranch } from "lucide-react";
+
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
-import { Separator } from "@/components/ui/separator";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 
@@ -12,10 +14,14 @@ export const Route = createFileRoute("/_app/workflows/")({
 
 function WorkflowsPage() {
   const { project, runs } = useAppLoaderData();
+  const navigate = useNavigate();
 
   async function handleStart(workflowId: string) {
     const { runId } = await startInspectionWorkflowRun({ data: { workflowId, input: {} } });
-    window.location.href = `/workflows/${workflowId}/run/${runId}`;
+    void navigate({
+      to: "/workflows/$workflowId/r/$runId",
+      params: { workflowId, runId },
+    });
   }
 
   return (
@@ -32,28 +38,32 @@ function WorkflowsPage() {
           </p>
         ) : (
           project.workflowIds.map((id) => {
-            const latest = runs.find((r) => r.workflowId === id);
+            const count = runs.filter((run) => run.workflowId === id).length;
             return (
-              <Card key={id}>
+              <Card key={id} className="border-border/40">
                 <CardHeader>
+                  <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <GitBranch className="size-4" />
+                  </div>
                   <CardTitle className="font-mono text-base">{id}</CardTitle>
                   <CardDescription>
                     Registered workflow from the loaded ADL project.
                   </CardDescription>
                 </CardHeader>
                 <div className="flex flex-col gap-2 px-6 pb-6">
+                  <p className="text-xs text-muted-foreground">
+                    {count} run{count === 1 ? "" : "s"}
+                  </p>
+                  <Link
+                    to="/workflows/$workflowId"
+                    params={{ workflowId: id }}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    View runs →
+                  </Link>
                   <Button size="sm" variant="secondary" onClick={() => void handleStart(id)}>
                     Start run
                   </Button>
-                  {latest ? (
-                    <Link
-                      to="/workflows/$workflowId/run/$runId"
-                      params={{ workflowId: id, runId: latest.runId }}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      Open latest run →
-                    </Link>
-                  ) : null}
                 </div>
               </Card>
             );

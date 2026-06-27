@@ -5,7 +5,7 @@ import { NotFoundPage } from "@/components/app/not-found";
 import { fetchAgentConversation } from "#/lib/inspector-server";
 import type { MockAgentSettings, MockAgentSummary } from "@/lib/mock/types";
 
-export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
+export const Route = createFileRoute("/_app/agent/$agentId/r/$runId")({
   component: AgentRunPage,
   loader: async ({ params }) => {
     const conversation = await fetchAgentConversation({ data: params.runId });
