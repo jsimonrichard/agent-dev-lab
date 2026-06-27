@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const srcRoot = path.join(packageRoot, "src");
+const distRoot = path.join(packageRoot, "dist");
 
 async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -15,7 +15,7 @@ async function walk(dir: string): Promise<string[]> {
       files.push(...(await walk(full)));
       continue;
     }
-    if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
+    if (entry.name.endsWith(".js") && !entry.name.endsWith(".test.js")) {
       files.push(full);
     }
   }
@@ -24,10 +24,10 @@ async function walk(dir: string): Promise<string[]> {
 
 function resolveImport(fromDir: string, spec: string): string {
   const base = path.resolve(fromDir, spec);
-  if (existsSync(`${base}.ts`)) {
+  if (existsSync(`${base}.js`)) {
     return `${spec}.js`;
   }
-  if (existsSync(path.join(base, "index.ts"))) {
+  if (existsSync(path.join(base, "index.js"))) {
     return `${spec}/index.js`;
   }
   throw new Error(`Cannot resolve "${spec}" from ${fromDir}`);
@@ -65,7 +65,7 @@ async function fixFile(file: string): Promise<boolean> {
   return true;
 }
 
-const files = await walk(srcRoot);
+const files = await walk(distRoot);
 let changed = 0;
 for (const file of files) {
   if (await fixFile(file)) {

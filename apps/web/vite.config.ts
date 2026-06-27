@@ -30,7 +30,7 @@ const config = defineConfig({
     },
   },
   ssr: {
-    external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project"],
+    external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project", "jiti"],
   },
   plugins: [
     devtools(),

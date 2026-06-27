@@ -1,9 +1,9 @@
-import { createId } from "../internal/ids.js";
-import { serializeError } from "../internal/serialize-error.js";
-import { RunRecorder, withActiveSpan } from "../runtime/run-recorder.js";
-import type { RuntimeServices } from "../runtime/types.js";
-import { formatStepPathSegment, StepRegistry } from "./step-registry.js";
-import type { CustomWorkflowEvent, StepOptions, WorkflowContext } from "./types.js";
+import { createId } from "../internal/ids";
+import { serializeError } from "../internal/serialize-error";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
+import type { RuntimeServices } from "../runtime/types";
+import { formatStepPathSegment, StepRegistry } from "./step-registry";
+import type { CustomWorkflowEvent, StepOptions, WorkflowContext } from "./types";
 
 export type WorkflowContextOptions = {
   workflowRunId: string;

@@ -4,7 +4,7 @@ export {
   type AdlConfigFilename,
   type AdlProjectConfig,
   type AdlProjectDefaults,
-} from "./config.js";
+} from "./config";
 export {
   ADL_PROJECT_ROOT_ENV,
   findAdlConfigPath,
@@ -12,4 +12,4 @@ export {
   loadAdlProject,
   resolveProjectRoot,
   type LoadedAdlProject,
-} from "./resolve.js";
+} from "./resolve";

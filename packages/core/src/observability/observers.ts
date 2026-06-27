@@ -1,4 +1,4 @@
-import type { AgentObserverEvent, WorkflowObserverEvent } from "./events.js";
+import type { AgentObserverEvent, WorkflowObserverEvent } from "./events";
 
 /**
  * ## Single `onEvent` vs many `onStepStart` / `onRunComplete` / … methods

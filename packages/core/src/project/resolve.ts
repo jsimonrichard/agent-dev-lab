@@ -1,14 +1,14 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import type { ToolSet } from "ai";
 
-import type { Agent } from "../agent/types.js";
-import type { Template } from "../template/types.js";
-import type { Workflow } from "../workflow/types.js";
-import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config.js";
+import type { Agent } from "../agent/types";
+import type { Template } from "../template/types";
+import type { Workflow } from "../workflow/types";
+import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config";
+import { importAdlConfigModule } from "./load-config";
 
 export const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
@@ -101,10 +101,7 @@ async function loadConfigModule(configPath: string, filename: string): Promise<A
     return normalizeConfig(parsed, configPath);
   }
 
-  const mod: { default?: unknown } = await import(
-    /* @vite-ignore */ pathToFileURL(configPath).href
-  );
-  const exported = mod.default ?? mod;
+  const exported = await importAdlConfigModule(configPath);
   return normalizeConfig(exported, configPath);
 }
 

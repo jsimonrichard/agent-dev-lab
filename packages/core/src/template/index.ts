@@ -1,8 +1,8 @@
-export { buildTemplate, createTemplate } from "./create.js";
-export { TemplateEngine } from "./engine.js";
+export { buildTemplate, createTemplate } from "./create";
+export { TemplateEngine } from "./engine";
 export type {
   Template,
   TemplateConfig,
   TemplateFromPathConfig,
   TemplateFromSourceConfig,
-} from "./types.js";
+} from "./types";

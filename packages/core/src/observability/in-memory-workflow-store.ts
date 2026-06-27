@@ -5,8 +5,8 @@ import type {
   StepRecord,
   StepSlot,
   WorkflowRunSummary,
-} from "./events.js";
-import type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store.js";
+} from "./events";
+import type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
 
 type StepKey = string;
 

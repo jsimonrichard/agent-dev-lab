@@ -1,7 +1,7 @@
-import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types.js";
-import { resolveRuntimeOverrides } from "../runtime/resolve-overrides.js";
-import { WorkflowImpl } from "./workflow-impl.js";
-import type { Workflow, WorkflowDefinition } from "./types.js";
+import type { AdlRuntime, AdlRuntimeOverrides } from "../runtime/types";
+import { resolveRuntimeOverrides } from "../runtime/resolve-overrides";
+import { WorkflowImpl } from "./workflow-impl";
+import type { Workflow, WorkflowDefinition } from "./types";
 
 /**
  * Functional factory for tests and libraries. In project code, use {@link AdlRuntime.createWorkflow}.

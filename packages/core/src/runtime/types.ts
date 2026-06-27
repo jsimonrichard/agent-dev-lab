@@ -1,16 +1,16 @@
 import type { ToolSet } from "ai";
 import type { z } from "zod";
 
-import type { Agent, AgentDefinition } from "../agent/types.js";
-import type { MessageStore } from "../memory/types.js";
-import type { AgentObservers, WorkflowObservers } from "../observability/observers.js";
-import type { WorkflowStore } from "../observability/workflow-store.js";
-import type { CreateToolFromAgentOptions } from "../tools/from-agent.js";
-import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow.js";
-import type { Template, TemplateConfig } from "../template/types.js";
-import type { Workflow, WorkflowDefinition } from "../workflow/types.js";
-import type { TemplateEngine } from "../template/engine.js";
-import type { WorkflowContextScope } from "../workflow/workflow-context-scope.js";
+import type { Agent, AgentDefinition } from "../agent/types";
+import type { MessageStore } from "../memory/types";
+import type { AgentObservers, WorkflowObservers } from "../observability/observers";
+import type { WorkflowStore } from "../observability/workflow-store";
+import type { CreateToolFromAgentOptions } from "../tools/from-agent";
+import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
+import type { Template, TemplateConfig } from "../template/types";
+import type { Workflow, WorkflowDefinition } from "../workflow/types";
+import type { TemplateEngine } from "../template/engine";
+import type { WorkflowContextScope } from "../workflow/workflow-context-scope";
 
 export type RuntimeStores = {
   message: MessageStore;

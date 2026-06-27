@@ -8,11 +8,11 @@ import {
 } from "ai";
 import type { z } from "zod";
 
-import { createId } from "../internal/ids.js";
-import { serializeError } from "../internal/serialize-error.js";
-import { RunRecorder, withActiveSpan } from "../runtime/run-recorder.js";
-import type { RuntimeServices } from "../runtime/types.js";
-import { bootstrapSystemMessage } from "./resolve-instructions.js";
+import { createId } from "../internal/ids";
+import { serializeError } from "../internal/serialize-error";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
+import type { RuntimeServices } from "../runtime/types";
+import { bootstrapSystemMessage } from "./resolve-instructions";
 import type {
   Agent,
   AgentDefinition,
@@ -22,7 +22,7 @@ import type {
   AgentStreamHandle,
   AgentStreamInput,
   AgentStreamResult,
-} from "./types.js";
+} from "./types";
 
 /**
  * Default agent implementation: definition plus resolved runtime services.

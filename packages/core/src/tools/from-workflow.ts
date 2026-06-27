@@ -1,8 +1,8 @@
 import { tool, zodSchema, type ToolSet } from "ai";
 import { z } from "zod";
 
-import type { AdlRuntime } from "../runtime/types.js";
-import type { Workflow } from "../workflow/types.js";
+import type { AdlRuntime } from "../runtime/types";
+import type { Workflow } from "../workflow/types";
 
 export type CreateToolFromWorkflowOptions<TInput> = {
   name?: string;

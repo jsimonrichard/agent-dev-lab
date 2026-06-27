@@ -1,4 +1,4 @@
-import { adl } from "../adl.js";
+import { adl } from "../adl";
 
 /** Step-only demo workflow for the inspection UI (no LLM). */
 export const demoCounter = adl.createWorkflow({

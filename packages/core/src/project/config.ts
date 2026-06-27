@@ -1,9 +1,9 @@
 import type { ToolSet } from "ai";
 
-import type { Agent } from "../agent/types.js";
-import type { AdlRuntime } from "../runtime/types.js";
-import type { Template } from "../template/types.js";
-import type { Workflow } from "../workflow/types.js";
+import type { Agent } from "../agent/types";
+import type { AdlRuntime } from "../runtime/types";
+import type { Template } from "../template/types";
+import type { Workflow } from "../workflow/types";
 
 /**
  * Shape of `adl.config.*` at a project root.

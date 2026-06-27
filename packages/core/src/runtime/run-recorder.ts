@@ -5,8 +5,8 @@ import type {
   RunEvent,
   RunEventEmit,
   WorkflowObserverEvent,
-} from "../observability/events.js";
-import type { RuntimeServices } from "./types.js";
+} from "../observability/events";
+import type { RuntimeServices } from "./types";
 
 const TRACER_NAME = "agent-dev-lab";
 

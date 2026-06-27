@@ -1,7 +1,7 @@
 import type { CoreMessage } from "ai";
 
-import type { Template } from "../template/types.js";
-import type { AgentInstructions } from "./types.js";
+import type { Template } from "../template/types";
+import type { AgentInstructions } from "./types";
 
 export function resolveInstructionsText(instructions: AgentInstructions): string {
   if (typeof instructions === "string") {

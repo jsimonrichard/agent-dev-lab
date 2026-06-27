@@ -1,5 +1,5 @@
-import type { RunEvent } from "../observability/events.js";
-import type { AgentObserver, WorkflowObserver } from "../observability/observers.js";
+import type { RunEvent } from "../observability/events";
+import type { AgentObserver, WorkflowObserver } from "../observability/observers";
 
 /**
  * In-process buffer for {@link WorkflowImpl.stream}.

@@ -2,10 +2,10 @@ import path from "node:path";
 
 import type { z } from "zod";
 
-import { loadPromptFile, resolvePromptPath } from "../prompt/load.js";
-import type { AdlRuntime } from "../runtime/types.js";
-import type { TemplateEngine } from "./engine.js";
-import type { Template, TemplateConfig } from "./types.js";
+import { loadPromptFile, resolvePromptPath } from "../prompt/load";
+import type { AdlRuntime } from "../runtime/types";
+import type { TemplateEngine } from "./engine";
+import type { Template, TemplateConfig } from "./types";
 
 const MARKDOWN_EXTENSIONS = [".md", ".markdown"] as const;
 
