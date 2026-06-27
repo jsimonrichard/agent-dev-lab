@@ -16,15 +16,21 @@ const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const frameworkPlaygroundRoot = path.resolve(webRoot, "../playground");
 
-if (process.env[ADL_FRAMEWORK_DEV_ENV] === "1" && !process.env[ADL_PROJECT_ROOT_ENV]) {
+if (!process.env[ADL_PROJECT_ROOT_ENV]) {
   process.env[ADL_PROJECT_ROOT_ENV] = frameworkPlaygroundRoot;
+  process.env[ADL_FRAMEWORK_DEV_ENV] = "1";
 }
 
 const config = defineConfig({
   envPrefix: "ADL_",
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      "@": path.resolve(webRoot, "./src"),
+    },
+  },
   ssr: {
-    external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project"],
+    external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project", "jiti"],
   },
   plugins: [
     devtools(),

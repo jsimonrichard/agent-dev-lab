@@ -106,7 +106,7 @@ export {
   type AdlProjectConfig,
   type AdlProjectDefaults,
   type LoadedAdlProject,
-} from "./project/index";
+} from "./project";
 
 export { generateText, streamText, tool } from "ai";
 export type { CoreMessage, LanguageModel, ToolSet } from "ai";

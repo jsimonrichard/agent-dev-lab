@@ -34,7 +34,7 @@ export function spawnInspectionUi(options: {
         stdio: "inherit",
       });
     case "project-dev":
-      return spawn("bun", ["run", "dev:project", "--", "--port", String(options.port)], {
+      return spawn("bun", ["run", "dev", "--", "--port", String(options.port)], {
         cwd: webRoot,
         env,
         stdio: "inherit",

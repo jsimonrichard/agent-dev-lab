@@ -2,6 +2,9 @@
   "name": "@agent-dev-lab/playground",
   "private": true,
   "type": "module",
+  "imports": {
+    "#adl": "./src/adl.ts"
+  },
   "scripts": {
     "start": "bun run src/main.ts",
     "typecheck": "tsc --noEmit"

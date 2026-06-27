@@ -36,7 +36,7 @@ All standard commands are in root `package.json`:
 - Bun must be version 1.3.13 (declared in `packageManager` field). The update script installs it if missing.
 - The root `package.json` declares `"nitro": "npm:nitro-nightly@latest"` so Nitro's Vite plugin can resolve when hoisted by Bun.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
-- **End-user / CLI dev** (`adl dev`): walks up from cwd for `adl.config.*`; no playground default. Uses Vite (`dev:project`) by default; `--serve` runs the built Nitro UI.
+- **End-user / CLI dev** (`adl dev`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`.
 - SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`.
 - `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).

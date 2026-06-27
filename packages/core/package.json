@@ -21,7 +21,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsdown",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "bun test"
@@ -31,10 +31,13 @@
     "@opentelemetry/api": "^1.9.0",
     "ai": "^5.0.86",
     "handlebars": "^4.7.8",
+    "jiti": "^2.7.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^6.0.2"
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.2",
+    "unrun": "^0.3.1"
   }
 }
