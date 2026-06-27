@@ -39,7 +39,7 @@ export type AdlRuntimeOverrides = AdlRuntimeOptions;
 
 /**
  * Process-level services for agents and workflows (stores, observers).
- * Wired in `src/adl.ts` — not in `adl.config.ts` (avoids import cycles with registry modules).
+ * Typically constructed in a dedicated runtime module and exposed via `adl.config.adl`.
  */
 export type RuntimeServices = {
   stores: RuntimeStores;
@@ -49,7 +49,7 @@ export type RuntimeServices = {
 };
 
 /**
- * Bound runtime (Drizzle/tRPC-style). Created via {@link createAdlRuntime} in `src/adl.ts`.
+ * Bound runtime (Drizzle/tRPC-style). Created via {@link createAdlRuntime}, referenced from `adl.config`.
  * `adl.createAgent` delegates to functional {@link createAgent} with `runtime` injected.
  */
 export interface AdlRuntime {

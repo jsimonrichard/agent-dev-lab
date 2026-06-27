@@ -4,8 +4,10 @@ import { adl } from "./src/adl";
 
 /**
  * Monorepo dev target for the inspection UI and CLI.
- * Registry arrays hold full agent/workflow/template objects; runtime is `src/adl.ts`.
+ * Registry arrays hold full agent/workflow/template objects; runtime is referenced via `adl`.
  */
+export { adl };
+
 export default {
   name: "playground",
   adl,

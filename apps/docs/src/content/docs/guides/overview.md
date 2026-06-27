@@ -27,7 +27,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 
 ### Guides
 
-- [Project setup](/guides/project-setup/) — `adl.config.ts`, `src/adl.ts`, layout
+- [Project setup](/guides/project-setup/) — required vs recommended layout; how tooling gets `config.adl`
 
 ### Core concepts
 

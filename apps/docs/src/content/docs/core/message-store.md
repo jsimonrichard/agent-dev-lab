@@ -71,7 +71,7 @@ flowchart LR
 
 ## Wiring
 
-Configure in `src/adl.ts`:
+Configure via the runtime module referenced from `adl.config`:
 
 ```ts
 export const adl = createAdlRuntime({

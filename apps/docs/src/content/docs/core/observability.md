@@ -117,7 +117,7 @@ Errors in observers: log and continue. Errors in store: log, do not throw.
 
 ## Project wiring
 
-Stores and observers belong in **`src/adl.ts`**, not `adl.config.ts`. See [Runtime](/core/runtime/).
+Stores and observers belong in a **runtime module** referenced from `adl.config` — not required to be `src/adl.ts`. See [Runtime](/core/runtime/) and [Project setup](/guides/project-setup/).
 
 ## WorkflowResumer (deferred)
 

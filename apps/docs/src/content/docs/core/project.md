@@ -3,23 +3,27 @@ title: Project config
 description: adl.config.ts shape, loadAdlProject, and execution entrypoints.
 ---
 
-The project config module is the **discovery surface** for CLI, inspection UI, and `loadAdlProject()`. Implementations live in arbitrary paths; only `adl.config.*` is the registry.
+The project config module is the **discovery surface** for CLI, inspection UI, and `loadAdlProject()`. Implementations can live at arbitrary paths; only `adl.config.*` at the project root is required.
 
 ## Design decisions
 
 - **Static registry** at load time — no dynamic registration or runtime plugin scan.
 - **Arrays** of definitions; each carries its own **`id`** (agents/workflows) or **`name`** (templates from filename).
-- **JSON config** (`adl.config.json`) suits `name` + paths only — registries need TS/JS for imports.
+- **Runtime via config** — tooling reads `config.adl` from the loaded config; it does not import a project runtime file by convention path.
+- **JSON config** (`adl.config.json`) suits `name` only — registries and `adl` need TS/JS for imports.
 
 ## AdlProjectConfig
 
 ```ts
 import type { AdlProjectConfig } from "@agent-dev-lab/core";
+import { adl } from "./runtime/adl"; // recommended separate module; path is flexible
+
+export { adl }; // optional — tooling uses the default export's `adl` field
 
 export default {
   name: "my-research",
 
-  /** Process runtime from src/adl.ts — stores/observers live there */
+  /** Required for CLI / inspection UI execution — not a fixed file path */
   adl,
 
   agents: [researcher, writer],
@@ -49,6 +53,9 @@ export interface LoadedAdlProject {
   configPath: string;
   config: AdlProjectConfig;
 
+  /** Runtime from `config.adl` — preferred accessor for CLI / UI */
+  getAdl(): AdlRuntime | undefined;
+
   getWorkflow(id: string): Workflow | undefined;
   getAgent(id: string): Agent | undefined;
   listWorkflowIds(): string[];
@@ -58,7 +65,7 @@ export interface LoadedAdlProject {
 }
 ```
 
-Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`.
+Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`. The inspection UI uses the same `loadAdlProject()` path as the CLI — never a hard-coded `src/adl.ts` import.
 
 ## Execution
 

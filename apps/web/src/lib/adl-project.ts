@@ -33,3 +33,9 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   }
   return cached;
 }
+
+/** Process runtime from the loaded project config (`config.adl`). */
+export async function getAdlRuntime() {
+  const project = await getLoadedAdlProject();
+  return project.getAdl();
+}
