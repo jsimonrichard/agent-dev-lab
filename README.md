@@ -26,21 +26,49 @@ Bun + Turborepo monorepo.
 
 ## Getting started
 
-> [!NOTE]
-> TBA — the packages are not published to npm yet. Install instructions will land here once `@agent-dev-lab/core` and friends are released.
+Requires [Bun](https://bun.sh) `1.3.13`.
+
+```bash
+bunx @agent-dev-lab/cli init my-research
+cd my-research
+bun install
+export OPENAI_API_KEY=sk-...          # needed for the sample LLM workflow
+adl run demo-counter --input '{"steps":3}'
+adl run literature-review --input '{"topic":"CRISPR delivery"}'
+adl dev                               # inspection UI on :3000
+```
+
+Or add the packages to an existing project:
+
+```bash
+bun add @agent-dev-lab/core @agent-dev-lab/cli @ai-sdk/openai
+```
+
+### Environment variables
+
+ADL loads `.env` files from the project root (the directory with `adl.config.*`), the same way [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) does — including `.env.local` and `.env.[mode]`. Existing process environment values are not overwritten. This applies to `adl dev`, `adl run`, and `bun run dev:web` (playground `.env`).
+
+| Variable           | Purpose                                                                   |
+| ------------------ | ------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`   | Provider key for the sample agent (`@ai-sdk/openai`)                      |
+| `ADL_MODEL`        | Model id (default `gpt-4o-mini`)                                          |
+| `ADL_SQLITE_PATH`  | SQLite file (default `.data/agent-dev-lab.sqlite` under the project root) |
+| `ADL_PROJECT_ROOT` | Override project discovery for CLI / UI                                   |
+| `DEBUG=adl`        | Print CLI stack traces                                                    |
 
 ## Example
 
 Author a runtime, an agent, and a workflow as plain TypeScript:
 
 ```ts
-import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
+import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
 import { openai } from "@ai-sdk/openai";
 
 export const adl = createAdlRuntime({
+  defaults: { model: openai("gpt-4o-mini") },
   stores: {
-    message: inMemoryMessageStore(),
-    workflow: inMemoryWorkflowStore(),
+    message: sqliteMessageStore(),
+    workflow: sqliteWorkflowStore(),
   },
 });
 
@@ -54,7 +82,7 @@ const review = adl.createWorkflow({
   id: "literature-review",
   run: async (input: { topic: string }, ctx) => {
     await ctx.step("research", async ({ ctx: child }) => {
-      await researcher.run({ memoryScope: child.memoryScope("notes"), user: input.topic });
+      await researcher.run({ memoryScope: child.memoryScopeWithSuffix("notes"), user: input.topic });
     });
     return { topic: input.topic };
   },
@@ -98,18 +126,17 @@ All standard scripts live in the root `package.json` and run through Turbo:
 
 The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI or CLI execution path.
 
-| Area                                                         | Status          |
-| ------------------------------------------------------------ | --------------- |
-| `createAdlRuntime`, agents, workflows, templates             | Implemented     |
-| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented     |
-| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented     |
-| `MessageStore` + `WorkflowStore` (in-memory defaults)        | Implemented     |
-| Observers, `RunRecorder`, run events                         | Implemented     |
-| `loadAdlProject` + registry indexes                          | Implemented     |
-| SQLite-backed stores                                         | Not implemented |
-| CLI `adl run` / list commands                                | Not implemented |
-| Inspection UI run waterfall / SSE                            | Not implemented |
-| Playground end-to-end sample                                 | Not implemented |
+| Area                                                         | Status      |
+| ------------------------------------------------------------ | ----------- |
+| `createAdlRuntime`, agents, workflows, templates             | Implemented |
+| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented |
+| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented |
+| `MessageStore` + `WorkflowStore` (in-memory + SQLite)        | Implemented |
+| Observers, `RunRecorder`, run events                         | Implemented |
+| `loadAdlProject` + registry indexes                          | Implemented |
+| CLI `adl init` / `adl run` / list / `adl dev`                | Implemented |
+| Inspection UI run waterfall / SSE / cancel                   | Implemented |
+| Playground sample agent + workflow                           | Implemented |
 
 ## Documentation
 

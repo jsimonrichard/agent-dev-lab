@@ -17,11 +17,13 @@ Consolidated view of **designed** vs **implemented** vs **remaining** for a cred
 | `agent.run`, `agent.stream` (shared `streamText` core)                              | ✅                                 |
 | `MessageStore` + `inMemoryMessageStore`                                             | ✅                                 |
 | `WorkflowStore` + `inMemoryWorkflowStore`                                           | ✅                                 |
-| SQLite `WorkflowStore` / `MessageStore` in `@agent-dev-lab/common`                  | 🔲                                 |
+| SQLite `WorkflowStore` / `MessageStore`                                             | ✅                                 |
 | `ctx.step` skip when stored output exists                                           | ✅                                 |
 | `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`                      | ✅                                 |
 | `loadAdlProject` + `getWorkflow` / `getAgent` / `getTemplate` + duplicate id checks | ✅                                 |
 | `createToolFromAgent` / `createToolFromWorkflow`                                    | ✅                                 |
+| `AdlError` + `createTestRuntime`                                                    | ✅                                 |
+| `eventSchemaVersion` on persisted events                                            | ✅                                 |
 | AI SDK re-exports (`generateText`, `streamText`, `tool`, `CoreMessage`, …)          | 🚧 (`stepCountIs` not re-exported) |
 | Cancellation propagated through steps → agents                                      | 🚧                                 |
 | `WorkflowResumer` / episode `cacheable`                                             | ⏸                                  |
@@ -35,8 +37,9 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Item                                     | Status |
 | ---------------------------------------- | ------ |
 | `adl dev` (inspection UI)                | ✅     |
-| `adl run <workflow-id> --input '{}'`     | 🔲     |
-| `adl workflows list` / `adl agents list` | 🔲     |
+| `adl init`                               | ✅     |
+| `adl run <workflow-id> --input '{}'`     | ✅     |
+| `adl workflows list` / `adl agents list` | ✅     |
 
 ---
 
@@ -45,9 +48,10 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Item                                      | Status |
 | ----------------------------------------- | ------ |
 | Project banner (`/api/project`)           | ✅     |
-| List runs from `WorkflowStore`            | 🔲     |
-| Start run server fn → `{ workflowRunId }` | 🔲     |
-| SSE `GET /api/runs/:id/events`            | 🔲     |
+| List runs from `WorkflowStore`            | ✅     |
+| Start run server fn → `{ workflowRunId }` | ✅     |
+| SSE `GET /api/runs/:id/events`            | ✅     |
+| Cancel in-process run                     | ✅     |
 | Template playground                       | ⏸      |
 | Live token view                           | ⏸      |
 | `@agent-dev-lab/hooks`                    | ⏸      |
@@ -68,19 +72,19 @@ Design: [`inspection-ui.md`](./inspection-ui.md)
 
 ## Gaps — decide or implement for v1
 
-| Topic                         | Status | Notes                                                        |
-| ----------------------------- | ------ | ------------------------------------------------------------ |
-| **Model / provider setup**    | 🔲     | Where `LanguageModel` comes from: `defaults`, env, per-agent |
-| **Workflow input validation** | 🚧     | Zod on `createWorkflow`; parse at `run()` boundary TBD       |
-| **Shared `tools` in config**  | 🔲     | `ToolSet` on config vs only on agents                        |
-| **Error types**               | 🔲     | `AdlError`, step failure propagation, CLI messages           |
-| **Testing helpers**           | 🔲     | `createTestRunContext`, mock model fixtures                  |
-| **OTEL default observer**     | 🔲     | Package in common vs example — [`tracing.md`](./tracing.md)  |
-| **Event schema versioning**   | 🔲     | `eventSchemaVersion` on run events                           |
-| **Secrets / API keys**        | 🔲     | Document env vars only                                       |
-| **Human approval**            | ⏸      | [`future-extensions.md`](./future-extensions.md)             |
-| **Memory pipeline**           | ⏸      | [`memory-pipeline.md`](./memory-pipeline.md)                 |
-| **Checkpoints**               | ⏸      | [`resumability.md`](./resumability.md)                       |
+| Topic                         | Status | Notes                                                      |
+| ----------------------------- | ------ | ---------------------------------------------------------- |
+| **Model / provider setup**    | ✅     | `createAdlRuntime({ defaults: { model } })` + env docs     |
+| **Workflow input validation** | ✅     | Zod on `createWorkflow`; parsed at `run()`                 |
+| **Shared `tools` in config**  | ✅     | Runtime `tools` merge; `adl.config.tools` is registry-only |
+| **Error types**               | ✅     | `AdlError` + CLI messages (`DEBUG=adl` for stacks)         |
+| **Testing helpers**           | ✅     | `createTestRuntime()`                                      |
+| **OTEL default observer**     | ✅     | `RunRecorder` mirrors events; app installs exporter        |
+| **Event schema versioning**   | ✅     | `eventSchemaVersion: 1`                                    |
+| **Secrets / API keys**        | ✅     | Document env vars only                                     |
+| **Human approval**            | ⏸      | [`future-extensions.md`](./future-extensions.md)           |
+| **Memory pipeline**           | ⏸      | [`memory-pipeline.md`](./memory-pipeline.md)               |
+| **Checkpoints**               | ⏸      | [`resumability.md`](./resumability.md)                     |
 
 ---
 
@@ -93,13 +97,3 @@ Design: [`inspection-ui.md`](./inspection-ui.md)
 - AI SDK WorkflowAgent / durable execution required path
 - Evals / scorers in runtime
 - Multi-tenant auth on run APIs
-
----
-
-## Suggested v1 slice
-
-**Ship path:** config load → `createAdlRuntime` → `workflow.run` → steps → `agent.run` → stores → `adl run` + minimal UI waterfall.
-
-**Cut if needed:** SQLite (in-memory first), template playground UI, full cancellation UX.
-
-**Current position:** headless runtime path is largely complete; product slice (playground demo, CLI run, inspection SSE) is not.

@@ -2,7 +2,7 @@
 
 How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) to apply when we build the web UI.
 
-**Status:** Design only. Not implemented.
+**Status:** v1 implemented (server functions + SSE + waterfall + cancel). Template playground and live token pane remain deferred.
 
 **Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
 

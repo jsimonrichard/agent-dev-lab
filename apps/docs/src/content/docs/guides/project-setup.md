@@ -113,25 +113,26 @@ Registry modules should import `adl` via **`#adl`** (or your alias), **not** fro
 
 ```ts
 // src/adl.ts
-import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
+import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
+import { openai } from "@ai-sdk/openai";
 
 export const adl = createAdlRuntime({
+  defaults: { model: openai(process.env.ADL_MODEL ?? "gpt-4o-mini") },
   stores: {
-    message: inMemoryMessageStore(),
-    workflow: inMemoryWorkflowStore(),
+    message: sqliteMessageStore(),
+    workflow: sqliteWorkflowStore(),
   },
 });
 ```
 
+Use `inMemoryMessageStore` / `inMemoryWorkflowStore` (or `createTestRuntime()`) in unit tests.
+
 ```ts
 // agents/researcher.ts
-import { openai } from "@ai-sdk/openai";
-
 import { adl } from "#adl";
 
 export const researcher = adl.createAgent({
   id: "researcher",
-  model: openai("gpt-4o"),
   instructions: "You are a research assistant.",
 });
 ```
@@ -153,9 +154,48 @@ const output = await handle.result;
 
 `loadAdlProject` indexes agents/workflows by `id` and templates by `name`. Duplicate ids throw at load time.
 
-## CLI today
+## CLI
 
-- **`adl dev`** — inspection UI; sets `ADL_PROJECT_ROOT` and loads via `loadAdlProject()`
-- **`adl run`** / **`adl workflows list`** — planned
+```bash
+adl init my-research
+adl workflows list
+adl agents list
+adl run literature-review --input '{"topic":"CRISPR delivery"}'
+adl dev
+```
+
+- **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, and sample agent/workflow
+- **`adl run`** — `loadAdlProject()` → `getWorkflow(id).run(input)`
+- **`adl dev`** — inspection UI; sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
+
+### Environment variables
+
+`loadAdlProject()` (and the inspection UI / CLI, which all go through it) loads `.env*` files from the **ADL project root** — the directory that contains `adl.config.*`, not the process cwd. That is why `bun run dev:web` picks up `apps/playground/.env` even though Vite starts in `apps/web`.
+
+Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) (highest first). Values already set in the process environment are never overwritten:
+
+| File                | When it loads                          |
+| ------------------- | -------------------------------------- |
+| `.env.[mode].local` | Always, for that mode                  |
+| `.env.local`        | All modes except `test`                |
+| `.env.[mode]`       | `development`, `production`, or `test` |
+| `.env`              | Always                                 |
+
+`mode` is `NODE_ENV` when it is `development` / `production` / `test`, otherwise `development` (so `adl run` still loads `.env.local`). Variable expansion (`$VAR`, `${VAR}`) is supported.
+
+Put provider keys in `.env` or `.env.local` at the project root:
+
+```bash
+OPENAI_API_KEY=sk-...
+ADL_MODEL=gpt-4o-mini
+```
+
+| Variable           | Purpose                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)          |
+| `ADL_MODEL`        | Model id (default `gpt-4o-mini`)                          |
+| `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root |
+| `ADL_PROJECT_ROOT` | Override project discovery                                |
+| `DEBUG=adl`        | Print CLI stack traces                                    |
 
 See [Project config](/core/project/) and [Runtime](/core/runtime/) for API detail.

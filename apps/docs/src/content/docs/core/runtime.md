@@ -12,13 +12,14 @@ Construct the runtime in **`src/adl.ts`** (recommended) and set `adl` on `adl.co
 Drizzle/tRPC-style factory — primary app entrypoint:
 
 ```ts
-import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "@agent-dev-lab/core";
+import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
 import { openai } from "@ai-sdk/openai";
 
 const adl = createAdlRuntime({
+  defaults: { model: openai("gpt-4o-mini") },
   stores: {
-    message: inMemoryMessageStore(),
-    workflow: inMemoryWorkflowStore(),
+    message: sqliteMessageStore(),
+    workflow: sqliteWorkflowStore(),
   },
   observers: { workflows: [], agents: [] },
 });
@@ -34,7 +35,7 @@ const review = adl.createWorkflow({
   run: async (input: { topic: string }, ctx) => {
     await ctx.step("research", async ({ ctx: child }) => {
       await researcher.run({
-        memoryScope: child.memoryScope("notes"),
+        memoryScope: child.memoryScopeWithSuffix("notes"),
         user: input.topic,
       });
     });
@@ -100,7 +101,7 @@ Inside a workflow step (`researcher` defined in registry; `query` from workflow 
 ```ts
 await ctx.step("research", async ({ ctx: child }) => {
   await researcher.run({
-    memoryScope: child.memoryScope("notes"),
+    memoryScope: child.memoryScopeWithSuffix("notes"),
     user: query,
   });
 });
@@ -131,4 +132,20 @@ await ctx.step("search", async ({ ctx: child }) => {
 
 ## Defaults
 
-When stores are omitted, `createAdlRuntime` defaults to in-memory implementations for both `message` and `workflow`. SQLite-backed stores are planned in `@agent-dev-lab/common` but not shipped yet.
+When stores are omitted, `createAdlRuntime` uses in-memory `message` and `workflow` stores (fine for tests). For durable runs, pass `sqliteMessageStore()` / `sqliteWorkflowStore()` (default file `.data/agent-dev-lab.sqlite`, overridable with `ADL_SQLITE_PATH`).
+
+`defaults.model` and `tools` on `createAdlRuntime` apply to every agent that omits those fields (agent values win). Set these on the runtime — not on `adl.config` — because agents are created before the config object finishes loading.
+
+## Testing
+
+```ts
+import { createTestRuntime } from "@agent-dev-lab/core";
+
+const adl = createTestRuntime(); // in-memory stores
+```
+
+Pass `defaults.model` (or a mock `LanguageModel`) when the test constructs agents.
+
+## Tracing
+
+`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.

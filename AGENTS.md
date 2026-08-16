@@ -34,7 +34,8 @@ All standard commands are in root `package.json`:
 ### Non-obvious notes
 
 - Bun must be version 1.3.13 (declared in `packageManager` field). The update script installs it if missing.
-- The root `package.json` declares `"nitro": "npm:nitro-nightly@latest"` so Nitro's Vite plugin can resolve when hoisted by Bun.
+- Nitro is the published `nitro` package (v3), pinned to `3.0.260610-beta` in root + `apps/web` + `overrides` to match [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) (`npm install nitro`). Do not mix `nitro` and `nitro-nightly` — Bun will nest two copies and Vite/Nitro fail (`setModuleRunner`, `h3/rules`).
+- Inspection UI **dev** must run under the Bun runtime (`bun --bun vite`) because SQLite stores import `bun:sqlite`. Production `vite build` stays on Node; `start` runs `.output` with Bun.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
 - **End-user / CLI dev** (`adl dev`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`.

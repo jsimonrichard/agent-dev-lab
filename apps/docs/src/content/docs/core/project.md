@@ -35,10 +35,7 @@ export default {
   templates: [findPapersPrompt, outlinePrompt],
 
   tools: {
-    /* shared AI SDK ToolSet */
-  },
-  defaults: {
-    /* optional project-wide defaults — TBD */
+    /* registry-only — runtime merge uses createAdlRuntime({ tools }) */
   },
 } satisfies AdlProjectConfig;
 ```
@@ -63,16 +60,18 @@ project.listAgentIds();
 
 Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`. The inspection UI uses the same `loadAdlProject()` path as the CLI — never a hard-coded `src/adl.ts` import.
 
+Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project setup](/guides/project-setup/#environment-variables).
+
 ## Execution
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
 
-| Entry                     | What it does                                       |
-| ------------------------- | -------------------------------------------------- |
-| **`workflow.run(input)`** | The execution primitive                            |
-| **`adl run <id>`**        | Planned: load project → `getWorkflow(id).run(...)` |
-| **`adl dev` / UI**        | Planned: list ids + trigger by id                  |
-| **Direct import**         | Skip registry; still use `.run`                    |
+| Entry                     | What it does                              |
+| ------------------------- | ----------------------------------------- |
+| **`workflow.run(input)`** | The execution primitive                   |
+| **`adl run <id>`**        | Load project → `getWorkflow(id).run(...)` |
+| **`adl dev` / UI**        | List ids + start / inspect runs           |
+| **Direct import**         | Skip registry; still use `.run`           |
 
 ```ts
 import { loadAdlProject } from "@agent-dev-lab/core";
@@ -97,15 +96,15 @@ const handleById = workflow!.run({ topic: "CRISPR delivery" });
 
 Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input, ctx) => … })`.
 
-## CLI (planned)
+## CLI
 
 ```bash
+adl init my-research
 adl run literature-review --input '{"topic":"…"}'
 adl workflows list
 adl agents list
+adl dev
 ```
-
-**Implemented today:** `adl dev` only.
 
 ## Why registries stay static
 

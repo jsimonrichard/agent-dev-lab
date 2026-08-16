@@ -26,7 +26,7 @@ export const researcher = adl.createAgent({
     inputData: z.object({}),
   }),
 
-  model: openai("gpt-4o"),
+  model: openai("gpt-4o"), // optional when createAdlRuntime({ defaults: { model } }) is set
 
   tools: {
     search: tool({
@@ -156,7 +156,7 @@ const literatureReviewTool = adl.createToolFromWorkflow(literatureReview, {
 const researcherTool = adl.createToolFromAgent(researcher, {
   description: "Run one research episode",
   mapRun: (toolArgs, { ctx }) => ({
-    memoryScope: ctx.memoryScope(`tool:${(toolArgs as { threadId: string }).threadId}`),
+    memoryScope: ctx.memoryScopeWithSuffix(`tool:${(toolArgs as { threadId: string }).threadId}`),
     user: (toolArgs as { query: string }).query,
   }),
 });

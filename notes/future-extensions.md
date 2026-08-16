@@ -138,7 +138,7 @@ Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a u
 
 ## v1
 
-- [ ] Document only (this file + cross-links)
-- [ ] Ship **structured output** on agents without extensions ([agents guide](../apps/docs/src/content/docs/core/agents.md))
-- [ ] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
+- [x] Document only (this file + cross-links)
+- [x] Ship **structured output** on agents without extensions ([agents guide](../apps/docs/src/content/docs/core/agents.md))
+- [x] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
 - [ ] Defer `ctx.requestApproval`, extension registry, RAG package

@@ -9,19 +9,18 @@ The **Agent Dev Lab** is a TypeScript-first workspace for experimenting with age
 
 The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CLI execution path:
 
-| Area                                                         | Status          |
-| ------------------------------------------------------------ | --------------- |
-| `createAdlRuntime`, agents, workflows, templates             | Implemented     |
-| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented     |
-| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented     |
-| `MessageStore` + `WorkflowStore` (in-memory defaults)        | Implemented     |
-| Observers, `RunRecorder`, run events                         | Implemented     |
-| `loadAdlProject` + registry indexes                          | Implemented     |
-| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`     | Implemented     |
-| SQLite-backed stores                                         | Not implemented |
-| CLI `adl run` / list commands                                | Not implemented |
-| Inspection UI run waterfall / SSE                            | Not implemented |
-| Playground end-to-end sample                                 | Not implemented |
+| Area                                                         | Status      |
+| ------------------------------------------------------------ | ----------- |
+| `createAdlRuntime`, agents, workflows, templates             | Implemented |
+| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented |
+| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented |
+| `MessageStore` + `WorkflowStore` (in-memory + SQLite)        | Implemented |
+| Observers, `RunRecorder`, run events                         | Implemented |
+| `loadAdlProject` + registry indexes                          | Implemented |
+| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`     | Implemented |
+| CLI `adl init` / `adl run` / list / `adl dev`                | Implemented |
+| Inspection UI run waterfall / SSE / cancel                   | Implemented |
+| Playground sample agent + workflow                           | Implemented |
 
 ## Documentation map
 

@@ -29,7 +29,7 @@ See [`apps/docs/src/content/docs/guides/overview.md`](../apps/docs/src/content/d
 
 Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTemplate`, in-memory `MessageStore` + `WorkflowStore`, `loadAdlProject`.
 
-**Not implemented:** SQLite stores, CLI `adl run`, inspection SSE, playground sample workflow.
+**Implemented for v1:** SQLite stores, CLI `adl init` / `adl run` / list, inspection SSE + waterfall, playground sample agent + workflow.
 
 ## Agent note index
 

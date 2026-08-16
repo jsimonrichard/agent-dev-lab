@@ -2,7 +2,7 @@
 
 How ADL fits with **OpenTelemetry** — no parallel tracing API in `@agent-dev-lab/core`.
 
-**Status:** Design for v1. Runtime pre-instrumentation not implemented yet.
+**Status:** `RunRecorder` mirrors run events onto the active OpenTelemetry span. Install an exporter in the application; ADL does not ship a parallel tracing API.
 
 Related: [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
 

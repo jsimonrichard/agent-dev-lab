@@ -115,7 +115,7 @@ There is no safe way to resume “halfway through” a step body (custom logic �
 await ctx.step("search", async ({ ctx }) => {
   const files = await listFiles(); // runs again unless this step is skipped
   const prompt = buildPrompt(files);
-  const out = await agent.run({ memoryScope: ctx.memoryScope("search"), user: prompt });
+  const out = await agent.run({ memoryScope: ctx.memoryScopeWithSuffix("search"), user: prompt });
   await uploadSummary(out); // runs again on step retry — keep uploads in a separate step if needed
   return out;
 });
@@ -168,18 +168,18 @@ On step retry, choose a policy explicitly:
 | Policy             | Behavior                                                         |
 | ------------------ | ---------------------------------------------------------------- |
 | **Continue scope** | Same `memoryScope`; model sees prior attempt                     |
-| **Fork scope**     | New suffix per attempt, e.g. `ctx.memoryScope("search:retry-1")` |
+| **Fork scope**     | New suffix per attempt, e.g. `ctx.memoryScopeWithSuffix("search:retry-1")` |
 | **Clear scope**    | Wipe store for that scope before `agent.run`                     |
 
 ### Not in v1
 
-| Capability                              | Status                                              |
-| --------------------------------------- | --------------------------------------------------- |
-| Auto resume mid-closure (TS variables)  | Not supported — use step outputs + skip             |
-| Checkpoints (`ctx.checkpoint`)          | Deferred                                            |
-| Agent episode cache (`cacheable: true`) | Deferred                                            |
-| Mid-stream token resume                 | Not a goal                                          |
-| Durable crash resume without re-entry   | Requires persisted stores (SQLite planned) + caller |
+| Capability                              | Status                                                       |
+| --------------------------------------- | ------------------------------------------------------------ |
+| Auto resume mid-closure (TS variables)  | Not supported — use step outputs + skip                      |
+| Checkpoints (`ctx.checkpoint`)          | Deferred                                                     |
+| Agent episode cache (`cacheable: true`) | Deferred                                                     |
+| Mid-stream token resume                 | Not a goal                                                   |
+| Durable crash resume without re-entry   | SQLite stores persist I/O; mid-closure resume still deferred |
 
 ## WorkflowContext
 
@@ -191,7 +191,7 @@ type WorkflowContext = {
   readonly parentStepId: string | null;
 
   step: StepFn;
-  memoryScope: (suffix: string) => string;
+  memoryScopeWithSuffix: (suffix: string) => string;
   emit(event: { type: "custom"; name: string; payload: unknown }): void;
 };
 ```
@@ -246,7 +246,7 @@ export const literatureReview = adl.createWorkflow({
   input: z.object({ topic: z.string() }),
   async run(input, ctx) {
     const text = findPapersPrompt.render({ topic: input.topic, maxResults: 10 });
-    await researcher.run({ memoryScope: ctx.memoryScope("draft"), user: text });
+    await researcher.run({ memoryScope: ctx.memoryScopeWithSuffix("draft"), user: text });
     return { topic: input.topic };
   },
 });
