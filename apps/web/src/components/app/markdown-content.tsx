@@ -1,6 +1,8 @@
+import { memo, useMemo, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { JsonTokens } from "@/components/app/json-preview";
 import { cn } from "@/lib/utils";
 
 const sanitizeSchema = {
@@ -35,12 +37,14 @@ const toneClasses: Record<MarkdownTone, string> = {
     "text-muted-foreground prose-headings:text-muted-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-muted-foreground prose-a:text-muted-foreground",
 };
 
-export function MarkdownContent({
+export const MarkdownContent = memo(function MarkdownContent({
   content,
   className,
   compact = false,
   tone = "default",
 }: MarkdownContentProps) {
+  const components = useMemo(() => markdownComponents(tone), [tone]);
+
   return (
     <div
       className={cn(
@@ -60,54 +64,67 @@ export function MarkdownContent({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
-        components={{
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline underline-offset-2"
-            >
-              {children}
-            </a>
-          ),
-          pre: ({ children }) => (
-            <pre
-              className={cn(
-                "my-2 overflow-x-auto rounded-md border p-3 text-xs leading-relaxed",
-                tone === "on-primary"
-                  ? "border-primary-foreground/25 bg-primary-foreground/10"
-                  : "border-border/40 bg-muted/40",
-              )}
-            >
-              {children}
-            </pre>
-          ),
-          code: ({ className: codeClassName, children, ...props }) => {
-            const isBlock = codeClassName?.includes("language-");
-            if (isBlock) {
-              return (
-                <code className={cn("font-mono", codeClassName)} {...props}>
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <code
-                className={cn(
-                  "rounded px-1 py-0.5 font-mono text-[0.9em]",
-                  tone === "on-primary" ? "bg-primary-foreground/15" : "bg-muted/60",
-                )}
-                {...props}
-              >
-                {children}
-              </code>
-            );
-          },
-        }}
+        components={components}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
+});
+
+function markdownComponents(tone: MarkdownTone) {
+  return {
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium underline underline-offset-2"
+      >
+        {children}
+      </a>
+    ),
+    pre: ({ children }: { children?: ReactNode }) => (
+      <pre
+        className={cn(
+          "my-2 overflow-x-auto rounded-md border p-3 text-xs leading-relaxed",
+          tone === "on-primary"
+            ? "border-primary-foreground/25 bg-primary-foreground/10"
+            : "border-border/40 bg-muted/40",
+        )}
+      >
+        {children}
+      </pre>
+    ),
+    code: ({
+      className: codeClassName,
+      children,
+      ...props
+    }: {
+      className?: string;
+      children?: ReactNode;
+    }) => {
+      const isBlock = codeClassName?.includes("language-");
+      if (isBlock) {
+        const isJson = /\blanguage-json\b/.test(codeClassName ?? "");
+        const text = String(children).replace(/\n$/, "");
+        return (
+          <code className={cn("font-mono", codeClassName)} {...props}>
+            {isJson ? <JsonTokens text={text} /> : children}
+          </code>
+        );
+      }
+      return (
+        <code
+          className={cn(
+            "rounded px-1 py-0.5 font-mono text-[0.9em]",
+            tone === "on-primary" ? "bg-primary-foreground/15" : "bg-muted/60",
+          )}
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    },
+  };
 }

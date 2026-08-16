@@ -57,6 +57,7 @@ export interface MockRunSummary {
   startedAt: string;
   finishedAt?: string;
   inputPreview: string;
+  title?: string;
 }
 
 export type RunEventType =
@@ -66,11 +67,12 @@ export type RunEventType =
   | "step_failed"
   | "agent_started"
   | "agent_finished"
-  | "agent_failed"
   | "text_delta"
   | "messages_committed"
   | "run_finished"
-  | "run_failed";
+  | "run_failed"
+  | "run_cancelled"
+  | "agent_failed";
 
 export interface RunEventBase {
   seq: number;
@@ -98,6 +100,7 @@ export interface StepFinishedEvent extends RunEventBase {
 export interface StepFailedEvent extends RunEventBase {
   type: "step_failed";
   stepId: string;
+  error?: JsonValue;
 }
 
 export interface AgentStartedEvent extends RunEventBase {
@@ -113,12 +116,6 @@ export interface AgentFinishedEvent extends RunEventBase {
   stepId: string;
   episodeId: string;
   durationMs: number;
-}
-
-export interface AgentFailedEvent extends RunEventBase {
-  type: "agent_failed";
-  stepId: string;
-  episodeId: string;
 }
 
 export interface TextDeltaEvent extends RunEventBase {
@@ -148,6 +145,18 @@ export interface RunFinishedEvent extends RunEventBase {
 
 export interface RunFailedEvent extends RunEventBase {
   type: "run_failed";
+  error?: JsonValue;
+}
+
+export interface RunCancelledEvent extends RunEventBase {
+  type: "run_cancelled";
+}
+
+export interface AgentFailedEvent extends RunEventBase {
+  type: "agent_failed";
+  stepId: string;
+  episodeId: string;
+  error?: JsonValue;
 }
 
 export type RunEvent =
@@ -161,7 +170,8 @@ export type RunEvent =
   | TextDeltaEvent
   | MessagesCommittedEvent
   | RunFinishedEvent
-  | RunFailedEvent;
+  | RunFailedEvent
+  | RunCancelledEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";
 
@@ -174,33 +184,9 @@ export interface StepNode {
   status: StepNodeStatus;
   durationMs?: number;
   output?: unknown;
+  error?: unknown;
   children: StepNode[];
   agentEpisodes: AgentEpisode[];
-}
-
-export interface MockToolCall {
-  id: string;
-  name: string;
-  args: unknown;
-}
-
-export interface MockToolResult {
-  toolCallId: string;
-  result: unknown;
-  isError?: boolean;
-}
-
-export interface MockStructuredOutput {
-  schemaName: string;
-  value: unknown;
-}
-
-/** Per-episode artifacts for tools / structured output UI (mock). */
-export interface EpisodeArtifacts {
-  episodeId: string;
-  toolCalls: MockToolCall[];
-  toolResults: MockToolResult[];
-  structuredOutput?: MockStructuredOutput;
 }
 
 export interface AgentEpisode {
@@ -210,6 +196,7 @@ export interface AgentEpisode {
   status: "running" | "completed" | "failed";
   durationMs?: number;
   streamingText: string;
+  error?: unknown;
 }
 
 export interface ForkedAgentSession {
@@ -234,13 +221,22 @@ export interface MockAgentConversation {
   memoryScope: string;
 }
 
-/** Resolved session for /agent/$agentId/r/$runId — static mock or forked. */
+/** Provenance when this chat is an in-workflow episode (not a fork or standalone). */
+export interface ConversationWorkflowLink {
+  workflowId: string;
+  workflowRunId: string;
+  stepId: string | null;
+  episodeId: string;
+}
+
+/** Resolved session for /agent/$agentId/run/$runId — static mock or forked. */
 export interface ResolvedAgentConversation {
   runId: string;
   agentId: string;
   title: string;
   messages: MockMessage[];
   forkSession: ForkedAgentSession | null;
+  workflowLink: ConversationWorkflowLink | null;
 }
 
 export interface RunViewState {
@@ -249,16 +245,49 @@ export interface RunViewState {
   status: RunStatus;
   input: unknown;
   output?: unknown;
+  error?: unknown;
   lastSeq: number;
   steps: StepNode[];
   startedAt: string;
   finishedAt?: string;
 }
 
+export type ChatTextPart = {
+  type: "text";
+  text: string;
+};
+
+export type ChatToolCallPart = {
+  type: "tool-call";
+  toolCallId: string;
+  toolName: string;
+  args: JsonValue;
+};
+
+export type ChatToolResultPart = {
+  type: "tool-result";
+  toolCallId: string;
+  toolName: string;
+  result: JsonValue;
+  isError?: boolean;
+};
+
+export type ChatMessagePart = ChatTextPart | ChatToolCallPart | ChatToolResultPart;
+
 export interface MockMessage {
   id: string;
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  parts?: ChatMessagePart[];
+}
+
+/** Transcripts keyed by agent `memoryScope`, prefetched per workflow run. */
+export type MessagesByScope = Record<string, MockMessage[]>;
+
+export interface PrefetchedRunMessages {
+  messagesByScope: MessagesByScope;
+  /** Highest run-event seq observed when these messages were loaded. */
+  eventSeq: number;
 }
 
 export interface MockConversation {

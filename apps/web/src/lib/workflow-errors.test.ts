@@ -1,0 +1,257 @@
+import { describe, expect, it } from "bun:test";
+
+import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
+
+import { adaptCoreEventsForWorkflowRun } from "./event-adapter";
+import { formatSerializedError, formatSerializedErrorHeadline } from "./format-error";
+import { buildRunViewState } from "./mock/run-projection";
+import type { RunEvent } from "./mock/types";
+
+const AT = "2026-01-01T00:00:00.000Z";
+
+describe("formatSerializedError", () => {
+  it("reads name, message, code, and extra fields", () => {
+    const formatted = formatSerializedError({
+      name: "APICallError",
+      message: "Missing credentials",
+      code: "unauthorized",
+      statusCode: 401,
+      stack: "Error: Missing credentials\n    at run",
+    });
+    expect(formatted.message).toBe("Missing credentials");
+    expect(formatted.name).toBe("APICallError");
+    expect(formatted.code).toBe("unauthorized");
+    expect(formatted.extra).toEqual({ statusCode: 401 });
+    expect(
+      formatSerializedErrorHeadline({
+        name: "APICallError",
+        message: "Missing credentials",
+        code: "unauthorized",
+      }),
+    ).toBe("APICallError unauthorized: Missing credentials");
+  });
+});
+
+describe("adaptCoreEventsForWorkflowRun", () => {
+  it("keeps workflow, step, and agent error payloads", () => {
+    const error = { name: "Error", message: "boom", stack: "Error: boom" };
+    const events: CoreRunEvent[] = [
+      {
+        type: "workflow_failed",
+        workflowRunId: "run-1",
+        seq: 1,
+        at: AT,
+        eventSchemaVersion: 1,
+        error,
+      },
+      {
+        type: "step_failed",
+        workflowRunId: "run-1",
+        seq: 2,
+        at: AT,
+        eventSchemaVersion: 1,
+        stepId: "step-1",
+        parentStepId: null,
+        name: "research",
+        path: ["research"],
+        error,
+      },
+      {
+        type: "agent_failed",
+        workflowRunId: "run-1",
+        stepId: "step-1",
+        agentCallId: "ep-1",
+        seq: 3,
+        at: AT,
+        eventSchemaVersion: 1,
+        agentId: "researcher",
+        error,
+      },
+    ];
+
+    const adapted = adaptCoreEventsForWorkflowRun("run-1", events);
+    expect(adapted).toEqual([
+      { seq: 1, runId: "run-1", type: "run_failed", at: AT, error },
+      { seq: 2, runId: "run-1", type: "step_failed", at: AT, stepId: "step-1", error },
+      {
+        seq: 3,
+        runId: "run-1",
+        type: "agent_failed",
+        at: AT,
+        stepId: "step-1",
+        episodeId: "ep-1",
+        error,
+      },
+    ]);
+  });
+});
+
+describe("buildRunViewState", () => {
+  it("marks failed steps and does not leave them running", () => {
+    const error = { name: "Error", message: "API key missing" };
+    const events: RunEvent[] = [
+      {
+        seq: 1,
+        runId: "run-1",
+        type: "run_started",
+        at: AT,
+        workflowId: "literature-review",
+        input: { topic: "x" },
+      },
+      {
+        seq: 2,
+        runId: "run-1",
+        type: "step_started",
+        at: AT,
+        stepId: "step-1",
+        parentStepId: null,
+        name: "research",
+        path: ["research"],
+      },
+      {
+        seq: 3,
+        runId: "run-1",
+        type: "agent_started",
+        at: AT,
+        stepId: "step-1",
+        agentId: "researcher",
+        memoryScope: "notes",
+        episodeId: "ep-1",
+      },
+      {
+        seq: 4,
+        runId: "run-1",
+        type: "agent_failed",
+        at: AT,
+        stepId: "step-1",
+        episodeId: "ep-1",
+        error,
+      },
+      {
+        seq: 5,
+        runId: "run-1",
+        type: "step_failed",
+        at: AT,
+        stepId: "step-1",
+        error,
+      },
+      {
+        seq: 6,
+        runId: "run-1",
+        type: "run_failed",
+        at: AT,
+        error,
+      },
+    ];
+
+    const view = buildRunViewState("run-1", events);
+    expect(view.status).toBe("failed");
+    expect(view.error).toEqual(error);
+    expect(view.steps).toHaveLength(1);
+    expect(view.steps[0]?.status).toBe("failed");
+    expect(view.steps[0]?.error).toEqual(error);
+    expect(view.steps[0]?.agentEpisodes[0]?.status).toBe("failed");
+    expect(view.steps[0]?.agentEpisodes[0]?.error).toEqual(error);
+  });
+
+  it("settles in-flight steps when the run fails without a step_failed event", () => {
+    const events: RunEvent[] = [
+      {
+        seq: 1,
+        runId: "run-1",
+        type: "run_started",
+        at: AT,
+        workflowId: "demo",
+        input: {},
+      },
+      {
+        seq: 2,
+        runId: "run-1",
+        type: "step_started",
+        at: AT,
+        stepId: "step-1",
+        parentStepId: null,
+        name: "work",
+        path: ["work"],
+      },
+      {
+        seq: 3,
+        runId: "run-1",
+        type: "run_failed",
+        at: AT,
+        error: { message: "boom" },
+      },
+    ];
+
+    const view = buildRunViewState("run-1", events);
+    expect(view.steps[0]?.status).toBe("failed");
+  });
+
+  it("keeps a still-running sibling episode after the other agent finishes", () => {
+    const events: RunEvent[] = [
+      {
+        seq: 1,
+        runId: "run-1",
+        type: "run_started",
+        at: AT,
+        workflowId: "literature-review",
+        input: { topic: "x" },
+      },
+      {
+        seq: 2,
+        runId: "run-1",
+        type: "step_started",
+        at: AT,
+        stepId: "step-1",
+        parentStepId: null,
+        name: "research",
+        path: ["research"],
+      },
+      {
+        seq: 3,
+        runId: "run-1",
+        type: "agent_started",
+        at: AT,
+        stepId: "step-1",
+        agentId: "researcher",
+        memoryScope: "notes",
+        episodeId: "ep-researcher",
+      },
+      {
+        seq: 4,
+        runId: "run-1",
+        type: "agent_started",
+        at: AT,
+        stepId: "step-1",
+        agentId: "critic",
+        memoryScope: "critique",
+        episodeId: "ep-critic",
+      },
+      {
+        seq: 5,
+        runId: "run-1",
+        type: "text_delta",
+        at: AT,
+        stepId: "step-1",
+        episodeId: "ep-researcher",
+        delta: "partial",
+      },
+      {
+        seq: 6,
+        runId: "run-1",
+        type: "agent_finished",
+        at: AT,
+        stepId: "step-1",
+        episodeId: "ep-critic",
+        durationMs: 100,
+      },
+    ];
+
+    const view = buildRunViewState("run-1", events);
+    const episodes = view.steps[0]?.agentEpisodes ?? [];
+    expect(episodes).toHaveLength(2);
+    expect(episodes.find((e) => e.episodeId === "ep-critic")?.status).toBe("completed");
+    expect(episodes.find((e) => e.episodeId === "ep-researcher")?.status).toBe("running");
+    expect(episodes.find((e) => e.episodeId === "ep-researcher")?.streamingText).toBe("partial");
+  });
+});

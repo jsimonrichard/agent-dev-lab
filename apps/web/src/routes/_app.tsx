@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
+import { NotFoundPage } from "@/components/app/not-found";
 import { ResizableAppShell } from "@/components/app/resizable-app-shell";
 import { fetchAgentSessions, fetchProjectMeta, fetchWorkflowRuns } from "#/lib/inspector-server";
 
@@ -13,6 +14,11 @@ export const Route = createFileRoute("/_app")({
     return { project, runs, sessions };
   },
   component: AppLayout,
+  notFoundComponent: () => (
+    <ResizableAppShell>
+      <NotFoundPage inAppShell />
+    </ResizableAppShell>
+  ),
 });
 
 function AppLayout() {

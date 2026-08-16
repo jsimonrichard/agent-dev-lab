@@ -1,18 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import type { MockMessage } from "#/lib/mock/types";
+
 import {
   forkAgentFromWorkflow,
+  forkLinkedAgentConversation,
   getProjectInspectorMeta,
   getWorkflowRunSummary,
   getWorkflowRunUiEvents,
   listWorkflowRunSummaries,
   loadMessagesForScope,
+  loadMessagesForWorkflowRun,
   resolveAgentConversation,
   startAgentTurn,
   startWorkflowRun,
+  cancelWorkflowRun,
   createStandaloneAgentSession,
   listAgentSessionsForUi,
-} from "#/lib/run-service";
+  renameAgentSession,
+  deleteAgentSession,
+  renameWorkflowRun,
+  deleteWorkflowRun,
+} from "#/lib/run-service.server";
 
 export const fetchProjectMeta = createServerFn({ method: "GET" }).handler(async () => {
   return getProjectInspectorMeta();
@@ -34,9 +43,19 @@ export const fetchWorkflowRun = createServerFn({ method: "GET" })
   });
 
 export const startInspectionWorkflowRun = createServerFn({ method: "POST" })
-  .validator((payload: { workflowId: string; input?: unknown }) => payload)
+  .validator((payload: { workflowId: string; input?: unknown; title?: string }) => payload)
   .handler(async ({ data }) => {
-    return startWorkflowRun(data.workflowId, data.input ?? {});
+    try {
+      return await startWorkflowRun(data.workflowId, data.input ?? {}, data.title);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+export const cancelInspectionWorkflowRun = createServerFn({ method: "POST" })
+  .validator((runId: string) => runId)
+  .handler(async ({ data: runId }) => {
+    return cancelWorkflowRun(runId);
   });
 
 export const fetchAgentConversation = createServerFn({ method: "GET" })
@@ -68,11 +87,17 @@ export const forkAgentConversation = createServerFn({ method: "POST" })
       sourceStepId: string;
       sourceEpisodeId: string;
       sourceMemoryScope: string;
-      messages: { id: string; role: "system" | "user" | "assistant"; content: string }[];
+      messages: MockMessage[];
     }) => payload,
   )
   .handler(async ({ data }) => {
     return forkAgentFromWorkflow(data);
+  });
+
+export const forkLinkedConversation = createServerFn({ method: "POST" })
+  .validator((memoryScope: string) => memoryScope)
+  .handler(async ({ data: memoryScope }) => {
+    return forkLinkedAgentConversation(memoryScope);
   });
 
 export const createAgentSession = createServerFn({ method: "POST" })
@@ -81,8 +106,38 @@ export const createAgentSession = createServerFn({ method: "POST" })
     return createStandaloneAgentSession(agentId);
   });
 
+export const renameAgentConversation = createServerFn({ method: "POST" })
+  .validator((payload: { memoryScope: string; title: string }) => payload)
+  .handler(async ({ data }) => {
+    return renameAgentSession(data.memoryScope, data.title);
+  });
+
+export const deleteAgentConversation = createServerFn({ method: "POST" })
+  .validator((memoryScope: string) => memoryScope)
+  .handler(async ({ data: memoryScope }) => {
+    return deleteAgentSession(memoryScope);
+  });
+
+export const renameInspectionWorkflowRun = createServerFn({ method: "POST" })
+  .validator((payload: { runId: string; title: string }) => payload)
+  .handler(async ({ data }) => {
+    return renameWorkflowRun(data.runId, data.title);
+  });
+
+export const deleteInspectionWorkflowRun = createServerFn({ method: "POST" })
+  .validator((runId: string) => runId)
+  .handler(async ({ data: runId }) => {
+    return deleteWorkflowRun(runId);
+  });
+
 export const fetchMessagesForScope = createServerFn({ method: "GET" })
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return loadMessagesForScope(memoryScope);
+  });
+
+export const fetchMessagesForWorkflowRun = createServerFn({ method: "GET" })
+  .validator((runId: string) => runId)
+  .handler(async ({ data: runId }) => {
+    return loadMessagesForWorkflowRun(runId);
   });

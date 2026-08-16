@@ -1,10 +1,10 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
 import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 export function MasterSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -32,7 +32,7 @@ export function MasterSidebar() {
             icon={GitBranch}
           />
           <MasterNavItem
-            label="Agents"
+            label="Agent conversations"
             active={mode === "agents"}
             to="/agent"
             icon={MessageSquare}
@@ -70,8 +70,8 @@ function MasterNavItem({
 }: {
   label: string;
   active: boolean;
-  to: string;
-  params?: Record<string, string>;
+  to: LinkProps["to"];
+  params?: LinkProps["params"];
   icon: React.ComponentType<{ className?: string }>;
   className?: string;
 }) {

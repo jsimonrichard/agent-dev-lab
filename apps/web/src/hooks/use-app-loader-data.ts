@@ -2,7 +2,7 @@ import { getRouteApi } from "@tanstack/react-router";
 
 import type { AgentSession } from "#/lib/agent-sessions";
 import type { MockRunSummary } from "#/lib/mock/types";
-import type { ProjectInspectorMeta } from "#/lib/run-service";
+import type { ProjectInspectorMeta } from "#/lib/inspector-types";
 
 const appRoute = getRouteApi("/_app");
 

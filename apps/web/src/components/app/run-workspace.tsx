@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { PanelRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, PanelRight } from "lucide-react";
 
-import { fetchMessagesForScope, forkAgentConversation } from "#/lib/inspector-server";
+import { cancelInspectionWorkflowRun, forkAgentConversation } from "#/lib/inspector-server";
 import { buildRunViewState, findStepInTree } from "@/lib/mock/run-projection";
-import type { AgentEpisode, MockMessage, MockRunSummary, RunEvent } from "@/lib/mock/types";
+import type {
+  AgentEpisode,
+  MockMessage,
+  MockRunSummary,
+  PrefetchedRunMessages,
+  RunEvent,
+} from "@/lib/mock/types";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
+import { ErrorIndicator } from "@/components/app/error-details";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
 import { WorkflowTreePanel } from "@/components/app/workflow-tree-panel";
 import { StepInspectorPanel } from "@/components/app/step-inspector-panel";
@@ -13,60 +20,47 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { workflowRunLabel } from "@/lib/workflow-location";
 
 interface RunWorkspaceProps {
   summary: MockRunSummary;
   initialEvents: RunEvent[];
+  messagesPromise: Promise<PrefetchedRunMessages>;
 }
 
-export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
+export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWorkspaceProps) {
   const navigate = useNavigate();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
 
-  const initialStep = findFirstEpisodeStep(view.steps) ?? view.steps[0];
+  const initialStep = findFirstEpisodeStep(view.steps);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(initialStep?.stepId ?? null);
-  const [selectedEpisode, setSelectedEpisode] = useState<AgentEpisode | null>(
-    initialStep?.agentEpisodes[initialStep.agentEpisodes.length - 1] ?? null,
-  );
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [messages, setMessages] = useState<MockMessage[]>([]);
 
   const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
-
-  const activeEpisode =
-    selectedEpisode ?? selectedStep?.agentEpisodes[selectedStep.agentEpisodes.length - 1] ?? null;
-
-  useEffect(() => {
-    if (!activeEpisode?.memoryScope) {
-      setMessages([]);
-      return;
-    }
-    let cancelled = false;
-    void fetchMessagesForScope({ data: activeEpisode.memoryScope }).then((loaded) => {
-      if (!cancelled) {
-        setMessages(loaded);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeEpisode?.memoryScope, activeEpisode?.episodeId]);
+  const activeEpisode = selectedEpisodeId
+    ? (selectedStep?.agentEpisodes.find((e) => e.episodeId === selectedEpisodeId) ?? null)
+    : null;
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
 
+  function handleSelectWorkflow() {
+    setSelectedStepId(null);
+    setSelectedEpisodeId(null);
+  }
+
   function handleSelectStep(stepId: string) {
     setSelectedStepId(stepId);
-    const step = findStepInTree(view.steps, stepId);
-    const ep = step?.agentEpisodes[step.agentEpisodes.length - 1];
-    if (ep) setSelectedEpisode(ep);
+    setSelectedEpisodeId(null);
   }
 
-  function handleSelectEpisode(ep: AgentEpisode) {
-    setSelectedEpisode(ep);
+  function handleSelectEpisode(stepId: string, ep: AgentEpisode) {
+    setSelectedStepId(stepId);
+    setSelectedEpisodeId(ep.episodeId);
   }
 
-  async function handleFork() {
+  async function handleFork(messages: MockMessage[]) {
     if (!activeEpisode || !selectedStepId) return;
     const { memoryScope } = await forkAgentConversation({
       data: {
@@ -80,7 +74,7 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
       },
     });
     void navigate({
-      to: "/agent/$agentId/r/$runId",
+      to: "/agent/$agentId/run/$runId",
       params: { agentId: activeEpisode.agentId, runId: memoryScope },
     });
   }
@@ -90,16 +84,43 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/workflows/$workflowId" params={{ workflowId: summary.workflowId }}>
+            <ArrowLeft className="size-4" />
+            {summary.workflowId}
+          </Link>
+        </Button>
+        <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate font-mono text-sm font-semibold">{summary.runId}</h1>
+            <h1
+              className={
+                summary.title
+                  ? "truncate text-sm font-semibold"
+                  : "truncate font-mono text-sm font-semibold"
+              }
+            >
+              {workflowRunLabel(summary)}
+            </h1>
             <RunStatusBadge status={view.status} />
           </div>
           <p className="truncate text-xs text-muted-foreground">
+            {summary.title ? `${summary.runId} · ` : ""}
             {view.workflowId}
             {view.status === "running" ? " · live" : ""}
           </p>
         </div>
+        {view.status === "running" ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void cancelInspectionWorkflowRun({ data: summary.runId });
+            }}
+          >
+            Cancel
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
@@ -110,6 +131,15 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
           {inspectorOpen ? "Hide inspector" : "Show inspector"}
         </Button>
       </header>
+
+      {view.status === "failed" ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-1.5">
+          <span className="text-[10px] font-medium tracking-wide text-destructive uppercase">
+            Failed
+          </span>
+          <ErrorIndicator error={view.error ?? "Workflow run failed."} className="min-w-0 flex-1" />
+        </div>
+      ) : null}
 
       <ResizablePanelGroup
         orientation="horizontal"
@@ -125,6 +155,8 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
             view={view}
             selectedStepId={selectedStepId}
             selectedEpisodeId={activeEpisode?.episodeId ?? null}
+            workflowSelected={selectedStepId === null}
+            onSelectWorkflow={handleSelectWorkflow}
             onSelectStep={handleSelectStep}
             onSelectEpisode={handleSelectEpisode}
           />
@@ -137,10 +169,15 @@ export function RunWorkspace({ summary, initialEvents }: RunWorkspaceProps) {
               <StepInspectorPanel
                 step={selectedStep}
                 episode={activeEpisode}
-                messages={messages}
+                events={events}
+                messagesPromise={messagesPromise}
                 streamingText={streamingText}
-                artifacts={undefined}
-                onFork={() => void handleFork()}
+                workflowId={view.workflowId}
+                workflowInput={view.input}
+                workflowOutput={view.output}
+                runStatus={view.status}
+                runError={view.error}
+                onFork={(messages) => void handleFork(messages)}
               />
             </ResizablePanel>
           </>

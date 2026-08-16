@@ -1,6 +1,7 @@
 {
   "extends": "@agent-dev-lab/common/tsconfig/node.json",
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["**/*.test.ts"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "paths": {

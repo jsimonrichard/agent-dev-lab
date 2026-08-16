@@ -1,8 +1,12 @@
 import { useCallback, useState } from "react";
-import { Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, GitBranch, PanelRight } from "lucide-react";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
-import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
+import {
+  fetchMessagesForScope,
+  forkLinkedConversation,
+  sendAgentMessage,
+} from "#/lib/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   MockAgentSettings,
@@ -13,6 +17,7 @@ import type {
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
+import { ErrorDetails } from "@/components/app/error-details";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
@@ -28,10 +33,13 @@ interface AgentRunWorkspaceProps {
 
 export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
   const router = useRouter();
+  const navigate = useNavigate();
   const forkSession = conversation.forkSession;
+  const workflowLink = conversation.workflowLink;
   const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
+  const [forking, setForking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamEnabled, setStreamEnabled] = useState(false);
 
@@ -48,10 +56,34 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
     },
   });
 
+  async function handleFork() {
+    if (!workflowLink || forking) {
+      return;
+    }
+    setForking(true);
+    setError(null);
+    try {
+      const { memoryScope } = await forkLinkedConversation({
+        data: conversation.runId,
+      });
+      await router.invalidate();
+      await navigate({
+        to: "/agent/$agentId/run/$runId",
+        params: { agentId: agent.id, runId: memoryScope },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fork failed");
+      setForking(false);
+    }
+  }
+
   async function handleSend(text: string) {
     setSending(true);
     setError(null);
-    setMessages((prev) => [...prev, { id: `pending-${Date.now()}`, role: "user", content: text }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `pending-${Date.now()}`, role: "user", content: text, parts: [{ type: "text", text }] },
+    ]);
     try {
       await sendAgentMessage({
         data: {
@@ -73,14 +105,28 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/agent/$agentId" params={{ agentId: agent.id }}>
+            <ArrowLeft className="size-4" />
+            <Bot className="size-3.5" />
+            {agent.id}
+          </Link>
+        </Button>
+        <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
             <h1 className="truncate text-sm font-semibold">{conversation.title}</h1>
-            <span className="font-mono text-xs text-muted-foreground">{agent.id}</span>
             {forkSession ? (
               <Badge variant="secondary" className="gap-1 text-[10px]">
                 <GitBranch className="size-3" />
                 Forked
+              </Badge>
+            ) : null}
+            {workflowLink ? (
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <GitBranch className="size-3" />
+                Workflow run
               </Badge>
             ) : null}
           </div>
@@ -98,7 +144,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         {forkSession ? (
           <Button variant="outline" size="sm" asChild>
             <Link
-              to="/workflows/$workflowId/r/$runId"
+              to="/workflows/$workflowId/run/$runId"
               params={{
                 workflowId: forkSession.sourceWorkflowId,
                 runId: forkSession.sourceRunId,
@@ -107,6 +153,21 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
             >
               <ArrowLeft className="size-4" />
               Source run
+            </Link>
+          </Button>
+        ) : null}
+        {workflowLink ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to="/workflows/$workflowId/run/$runId"
+              params={{
+                workflowId: workflowLink.workflowId,
+                runId: workflowLink.workflowRunId,
+              }}
+              className="gap-2"
+            >
+              <ArrowLeft className="size-4" />
+              Open run
             </Link>
           </Button>
         ) : null}
@@ -122,13 +183,8 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       ) : null}
 
       {error ? (
-        <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
-          {error}
-          {!agent.id ? null : (
-            <span className="block text-muted-foreground">
-              Agent runs require a configured model and API credentials in the project.
-            </span>
-          )}
+        <div className="shrink-0 px-4 py-2">
+          <ErrorDetails error={error} compact />
         </div>
       ) : null}
 
@@ -149,13 +205,32 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
                 streamingText={isRunning || sending ? streamingText : null}
               />
             </ScrollArea>
-            <ChatComposer
-              onSend={(text) => void handleSend(text)}
-              disabled={sending || isRunning}
-              placeholder={
-                forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
-              }
-            />
+            {workflowLink ? (
+              <div className="shrink-0 border-t border-border/40 bg-background p-4">
+                <div className="mx-auto flex max-w-lg flex-col items-stretch gap-3">
+                  <p className="text-center text-sm text-muted-foreground">
+                    Read-only in workflow context. Fork to continue in a standalone agent run.
+                  </p>
+                  <Button
+                    size="lg"
+                    className="h-12 w-full gap-2 text-base"
+                    disabled={forking}
+                    onClick={() => void handleFork()}
+                  >
+                    <GitBranch className="size-5" />
+                    {forking ? "Forking…" : "Fork to agent run"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <ChatComposer
+                onSend={(text) => void handleSend(text)}
+                disabled={sending || isRunning}
+                placeholder={
+                  forkSession ? `Continue conversation with ${agent.id}…` : `Message ${agent.id}…`
+                }
+              />
+            )}
           </div>
         </ResizablePanel>
 

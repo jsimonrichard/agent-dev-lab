@@ -1,16 +1,19 @@
-import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, GitBranch, Plus } from "lucide-react";
+import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { GitBranch, Plus } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { useWorkflowRuns } from "@/hooks/use-workflow-runs";
-import { parseWorkflowPath } from "@/lib/inspector-path";
-import { startInspectionWorkflowRun } from "#/lib/inspector-server";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
-import { Button } from "@/components/ui/button";
+import { ItemActionsMenu } from "@/components/app/item-actions-menu";
+import { StartWorkflowButton } from "@/components/app/start-workflow-dialog";
 import type { RunStatus } from "@/lib/mock/types";
+import {
+  parseWorkflowLocation,
+  workflowRunLabel,
+  workflowRunSubtitle,
+} from "@/lib/workflow-location";
+import { deleteInspectionWorkflowRun, renameInspectionWorkflowRun } from "#/lib/inspector-server";
 import { cn } from "@/lib/utils";
 import { ContextSidebar } from "@/components/app/context-sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarContent,
   SidebarGroup,
@@ -20,45 +23,47 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
-export function WorkflowRunsSidebar() {
-  const { project, runs: initialRuns } = useAppLoaderData();
-  const { runs, refresh } = useWorkflowRuns(initialRuns);
-  const router = useRouter();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { workflowId: activeWorkflowId, runId: activeRunId } = parseWorkflowPath(pathname);
-  const onRegistry = pathname === "/workflows";
+const devModeLabel = {
+  "framework-dev": "Framework dev",
+  "project-dev": "Project dev",
+  serve: "Serve",
+} as const;
 
-  async function handleNewRun(workflowId: string) {
-    const { runId } = await startInspectionWorkflowRun({
-      data: { workflowId, input: {} },
-    });
-    await refresh();
-    await router.invalidate();
-    void router.navigate({
-      to: "/workflows/$workflowId/r/$runId",
-      params: { workflowId, runId },
-    });
-  }
+export function WorkflowRunsSidebar() {
+  const navigate = useNavigate();
+  const router = useRouter();
+  const { project, runs } = useAppLoaderData();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { workflowId: selectedWorkflowId, runId: activeRunId } = parseWorkflowLocation(pathname);
+  const selectedRuns = selectedWorkflowId
+    ? runs.filter((run) => run.workflowId === selectedWorkflowId)
+    : [];
 
   return (
     <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild isActive={onRegistry}>
-              <Link to="/workflows">
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              tooltip={selectedWorkflowId ? selectedWorkflowId : "All workflows"}
+            >
+              <Link
+                to={selectedWorkflowId ? "/workflows/$workflowId" : "/workflows"}
+                params={selectedWorkflowId ? { workflowId: selectedWorkflowId } : undefined}
+              >
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <GitBranch className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Workflows</span>
+                  <span className="truncate font-semibold">
+                    {selectedWorkflowId ?? project.name}
+                  </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {project.workflowIds.length} registered
+                    {selectedWorkflowId ? "Workflow" : devModeLabel[project.devMode]}
                   </span>
                 </div>
               </Link>
@@ -68,99 +73,138 @@ export function WorkflowRunsSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{project.name}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {project.workflowIds.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-muted-foreground">
-                  No workflows in <code className="text-[10px]">adl.config.ts</code>.
-                </p>
-              ) : (
-                project.workflowIds.map((id) => {
-                  const workflowRuns = runs.filter((run) => run.workflowId === id);
-                  const isActiveWorkflow = activeWorkflowId === id;
-                  const open = isActiveWorkflow || workflowRuns.length > 0;
-
-                  return (
-                    <Collapsible key={id} defaultOpen={open} className="group/collapsible">
-                      <SidebarMenuItem>
-                        <div className="flex items-center gap-0.5">
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActiveWorkflow && !activeRunId}
-                            tooltip={id}
-                            className="min-w-0 flex-1"
+        {selectedWorkflowId ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center justify-between">
+              <span>Runs</span>
+              <StartWorkflowButton
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                title="Start workflow"
+                workflowId={selectedWorkflowId}
+              >
+                <Plus className="size-3.5" />
+                <span className="sr-only">New run</span>
+              </StartWorkflowButton>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1.5">
+                {selectedRuns.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-muted-foreground">
+                    No runs yet. Start this workflow with the + button.
+                  </p>
+                ) : (
+                  selectedRuns.map((run) => (
+                    <SidebarMenuItem key={run.runId}>
+                      <ItemActionsMenu
+                        name={workflowRunLabel(run)}
+                        deleteDescription="Delete this run and its trace. Linked conversations are removed from the list. This cannot be undone."
+                        onRename={async (title) => {
+                          await renameInspectionWorkflowRun({
+                            data: { runId: run.runId, title },
+                          });
+                          await router.invalidate();
+                        }}
+                        onDelete={async () => {
+                          await deleteInspectionWorkflowRun({ data: run.runId });
+                          if (activeRunId === run.runId) {
+                            await navigate({
+                              to: "/workflows/$workflowId",
+                              params: { workflowId: run.workflowId },
+                            });
+                          }
+                          await router.invalidate();
+                        }}
+                      >
+                        <SidebarMenuButton
+                          asChild
+                          isActive={activeRunId === run.runId}
+                          tooltip={run.runId}
+                          className="h-auto min-h-10 py-2"
+                        >
+                          <Link
+                            to="/workflows/$workflowId/run/$runId"
+                            params={{ workflowId: run.workflowId, runId: run.runId }}
                           >
-                            <Link to="/workflows/$workflowId" params={{ workflowId: id }}>
-                              <GitBranch className="size-4 shrink-0" />
+                            <GitBranch className="size-4 shrink-0" />
+                            <div className="grid min-w-0 flex-1 gap-0.5 text-left">
+                              <span
+                                className={
+                                  run.title ? "truncate text-xs" : "truncate font-mono text-xs"
+                                }
+                              >
+                                {workflowRunLabel(run)}
+                              </span>
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {run.status} · {workflowRunSubtitle(run)}
+                              </span>
+                            </div>
+                            <RunStatusDot status={run.status} />
+                          </Link>
+                        </SidebarMenuButton>
+                      </ItemActionsMenu>
+                    </SidebarMenuItem>
+                  ))
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center justify-between">
+              <span>Workflows</span>
+              <StartWorkflowButton
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                title="Start workflow"
+              >
+                <Plus className="size-3.5" />
+                <span className="sr-only">New run</span>
+              </StartWorkflowButton>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1.5">
+                {project.workflowIds.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-muted-foreground">
+                    No workflows registered in this project.
+                  </p>
+                ) : (
+                  project.workflowIds.map((id) => {
+                    const workflowRuns = runs.filter((run) => run.workflowId === id);
+                    const latest = workflowRuns[0];
+                    return (
+                      <SidebarMenuItem key={id}>
+                        <SidebarMenuButton asChild tooltip={id} className="h-auto min-h-10 py-2">
+                          <Link to="/workflows/$workflowId" params={{ workflowId: id }}>
+                            <GitBranch className="size-4 shrink-0" />
+                            <div className="grid min-w-0 flex-1 text-left">
                               <span className="truncate font-mono text-xs">{id}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                          <CollapsibleTrigger className="flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-sidebar-accent">
-                            <ChevronRight className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                            <span className="sr-only">Toggle runs</span>
-                          </CollapsibleTrigger>
-                        </div>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                              <div className="flex items-center justify-between px-2 py-1">
-                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                  Runs
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-5"
-                                  title={`Start ${id}`}
-                                  onClick={() => void handleNewRun(id)}
-                                >
-                                  <Plus className="size-3" />
-                                  <span className="sr-only">Start run</span>
-                                </Button>
-                              </div>
-                            </SidebarMenuSubItem>
-                            {workflowRuns.length === 0 ? (
-                              <SidebarMenuSubItem>
-                                <p className="px-3 py-2 text-[11px] text-muted-foreground">
-                                  No runs yet.
-                                </p>
-                              </SidebarMenuSubItem>
-                            ) : (
-                              workflowRuns.map((run) => (
-                                <SidebarMenuSubItem key={run.runId}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={activeRunId === run.runId}
-                                    className="h-auto min-h-8 py-1.5"
-                                  >
-                                    <Link
-                                      to="/workflows/$workflowId/r/$runId"
-                                      params={{ workflowId: id, runId: run.runId }}
-                                    >
-                                      <span className="truncate font-mono text-[11px]">
-                                        {run.runId}
-                                      </span>
-                                      <RunStatusDot status={run.status} />
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))
-                            )}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {workflowRuns.length === 0
+                                  ? "No runs yet"
+                                  : `${workflowRuns.length} run${
+                                      workflowRuns.length === 1 ? "" : "s"
+                                    }${latest ? ` · latest ${latest.status}` : ""}`}
+                              </span>
+                            </div>
+                          </Link>
+                        </SidebarMenuButton>
                       </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                })
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    );
+                  })
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
-      <SidebarBackFooter />
+      <SidebarBackFooter
+        label={selectedWorkflowId ? "All workflows" : "Back to overview"}
+        to={selectedWorkflowId ? "/workflows" : "/"}
+      />
     </ContextSidebar>
   );
 }
@@ -169,7 +213,7 @@ function RunStatusDot({ status }: { status: RunStatus }) {
   return (
     <span
       className={cn(
-        "ml-auto size-2 shrink-0 rounded-full",
+        "size-2 shrink-0 rounded-full",
         status === "running" && "animate-pulse bg-primary",
         status === "completed" && "bg-muted-foreground",
         status === "failed" && "bg-destructive",

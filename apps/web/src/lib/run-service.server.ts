@@ -1,0 +1,522 @@
+import {
+  AdlError,
+  type CoreMessage,
+  type RunEvent as CoreRunEvent,
+  type WorkflowRunHandle,
+} from "@agent-dev-lab/core";
+import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-lab/core";
+
+import { getLoadedAdlProject } from "#/lib/adl-project.server";
+import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
+import { inspectAgentTools } from "#/lib/agent-tools";
+import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
+import type { ProjectInspectorMeta } from "#/lib/inspector-types";
+import {
+  createMemoryScope,
+  getAgentSessionByMemoryScope,
+  hydrateDeletedMemoryScopes,
+  hydrateInspectorSessions,
+  isWorkflowLinkedConversation,
+  linkAgentCallId,
+  listAgentSessions,
+  registerAgentSession,
+  registerForkSession,
+  renameAgentSessionTitle,
+  touchAgentSession,
+  unregisterAgentSession,
+  type AgentSession,
+} from "#/lib/agent-sessions";
+import {
+  adaptCoreEventsForWorkflowRun,
+  formatInputPreview,
+  mapWorkflowRunStatus,
+} from "#/lib/event-adapter";
+import type { MockRunSummary, MockMessage } from "#/lib/mock/types";
+import { describeWorkflowInput } from "#/lib/workflow-input-schema";
+
+export type { ProjectInspectorMeta };
+
+export function resolveDevMode(): ProjectInspectorMeta["devMode"] {
+  if (process.env.ADL_FRAMEWORK_DEV === "1") {
+    return "framework-dev";
+  }
+  if (process.env.ADL_INSPECTOR_SERVE === "1") {
+    return "serve";
+  }
+  return "project-dev";
+}
+
+const activeWorkflowRuns = new Map<string, WorkflowRunHandle<unknown>>();
+let sessionsHydrated = false;
+
+async function inspectorSessionStore() {
+  const project = await getLoadedAdlProject();
+  return sqliteInspectorSessionStore({ path: resolveAdlSqlitePath(project.root) });
+}
+
+async function persistInspectorSession(session: AgentSession, deletedAt?: string): Promise<void> {
+  const store = await inspectorSessionStore();
+  store.upsert({
+    memoryScope: session.memoryScope,
+    agentId: session.agentId,
+    agentCallId: session.agentCallId,
+    title: session.title,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    fork: session.fork,
+    deletedAt,
+  });
+}
+
+async function ensureSessionsHydrated(): Promise<void> {
+  if (sessionsHydrated) {
+    return;
+  }
+  sessionsHydrated = true;
+  const sessionsStore = await inspectorSessionStore();
+  hydrateInspectorSessions(sessionsStore.list());
+  hydrateDeletedMemoryScopes(sessionsStore.listDeletedScopes());
+
+  const store = await getWorkflowStore();
+  const episodes = await store.listAgentEpisodes();
+  for (const episode of episodes) {
+    const existing = getAgentSessionByMemoryScope(episode.memoryScope);
+    if (existing) {
+      if (episode.workflowRunId) {
+        existing.workflowRunId = episode.workflowRunId;
+      }
+      continue;
+    }
+    registerAgentSession({
+      agentCallId: episode.agentCallId,
+      agentId: episode.agentId,
+      memoryScope: episode.memoryScope,
+      title: `Chat · ${episode.agentId}`,
+      createdAt: episode.startedAt,
+      updatedAt: episode.startedAt,
+      workflowRunId: episode.workflowRunId,
+    });
+  }
+}
+
+export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
+  const project = await getLoadedAdlProject();
+  const workflowIds = project.listWorkflowIds();
+  const workflows = workflowIds.map((id) => ({
+    id,
+    inputFields: describeWorkflowInput(project.getWorkflow(id)?.input),
+  }));
+  const agents = project.listAgentIds().map((id) => ({
+    id,
+    tools: inspectAgentTools(project.getAgent(id)),
+  }));
+  return {
+    name: project.config.name,
+    root: project.root,
+    configPath: project.configPath,
+    devMode: resolveDevMode(),
+    workflowIds,
+    workflows,
+    agentIds: agents.map((agent) => agent.id),
+    agents,
+  };
+}
+
+export async function listWorkflowRunSummaries(): Promise<MockRunSummary[]> {
+  const store = await getWorkflowStore();
+  const runs = await store.listRuns();
+  const summaries: MockRunSummary[] = [];
+
+  for (const run of runs) {
+    const input = await store.getRunInput(run.workflowRunId);
+    summaries.push({
+      runId: run.workflowRunId,
+      workflowId: run.workflowId,
+      status: mapWorkflowRunStatus(run.status),
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      inputPreview: formatInputPreview(input),
+      title: run.title,
+    });
+  }
+
+  return summaries.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
+export async function getWorkflowRunSummary(runId: string): Promise<MockRunSummary | null> {
+  const store = await getWorkflowStore();
+  const run = await store.getRun(runId);
+  if (!run) {
+    return null;
+  }
+  const input = await store.getRunInput(runId);
+  return {
+    runId: run.workflowRunId,
+    workflowId: run.workflowId,
+    status: mapWorkflowRunStatus(run.status),
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    inputPreview: formatInputPreview(input),
+    title: run.title,
+  };
+}
+
+export async function getWorkflowRunEvents(runId: string): Promise<CoreRunEvent[]> {
+  const store = await getWorkflowStore();
+  return store.listEvents({ workflowRunId: runId });
+}
+
+export async function getWorkflowRunUiEvents(runId: string) {
+  const events = await getWorkflowRunEvents(runId);
+  return adaptCoreEventsForWorkflowRun(runId, events);
+}
+
+export async function startWorkflowRun(
+  workflowId: string,
+  input: unknown = {},
+  title?: string,
+): Promise<{ runId: string }> {
+  const project = await getLoadedAdlProject();
+  const workflow = project.getWorkflow(workflowId);
+  if (!workflow) {
+    throw new Error(`Unknown workflow: ${workflowId}`);
+  }
+
+  let parsedInput = input;
+  if (workflow.input) {
+    const parsed = workflow.input.safeParse(input);
+    if (!parsed.success) {
+      throw new AdlError(
+        "INVALID_INPUT",
+        `Invalid input for workflow "${workflowId}": ${parsed.error.message}`,
+      );
+    }
+    parsedInput = parsed.data;
+  }
+
+  const handle = workflow.run(parsedInput);
+  activeWorkflowRuns.set(handle.workflowRunId, handle);
+  void handle.result
+    .catch((error) => {
+      console.warn(`[adl-web] workflow run ${handle.workflowRunId} failed:`, error);
+    })
+    .finally(() => {
+      activeWorkflowRuns.delete(handle.workflowRunId);
+    });
+
+  const trimmedTitle = title?.trim();
+  if (trimmedTitle) {
+    await applyRunTitleWhenReady(handle.workflowRunId, trimmedTitle);
+  }
+
+  return { runId: handle.workflowRunId };
+}
+
+async function applyRunTitleWhenReady(runId: string, title: string): Promise<void> {
+  const store = await getWorkflowStore();
+  const deadline = Date.now() + 1000;
+  while (Date.now() < deadline) {
+    if (await store.getRun(runId)) {
+      await store.setRunTitle(runId, title);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  await store.setRunTitle(runId, title);
+}
+
+export function cancelWorkflowRun(runId: string): { cancelled: boolean } {
+  const handle = activeWorkflowRuns.get(runId);
+  if (!handle) {
+    return { cancelled: false };
+  }
+  handle.cancel();
+  return { cancelled: true };
+}
+
+export async function getAgentRunEvents(agentCallId: string): Promise<CoreRunEvent[]> {
+  const store = await getWorkflowStore();
+  return store.listEvents({ agentCallId });
+}
+
+export async function loadMessagesForScope(memoryScope: string): Promise<MockMessage[]> {
+  const store = await getMessageStore();
+  const messages = await store.load(memoryScope);
+  return messages.map((message, index) => coreMessageToMock(message, index));
+}
+
+export async function loadMessagesForWorkflowRun(runId: string): Promise<{
+  messagesByScope: Record<string, MockMessage[]>;
+  eventSeq: number;
+}> {
+  const events = await getWorkflowRunEvents(runId);
+  const eventSeq = events.reduce((max, event) => Math.max(max, event.seq), 0);
+  const scopes = new Set<string>();
+  for (const event of events) {
+    if (event.type === "agent_started" || event.type === "agent_messages_committed") {
+      scopes.add(event.memoryScope);
+    }
+  }
+
+  const store = await getMessageStore();
+  const entries = await Promise.all(
+    [...scopes].map(async (scope) => {
+      const messages = await store.load(scope);
+      return [scope, messages.map((message, index) => coreMessageToMock(message, index))] as const;
+    }),
+  );
+
+  return { messagesByScope: Object.fromEntries(entries), eventSeq };
+}
+
+export async function startAgentTurn(options: {
+  agentId: string;
+  memoryScope: string;
+  user: string;
+  workflow?: { workflowRunId: string; stepId: string | null };
+}): Promise<{ agentCallId: string }> {
+  await ensureSessionsHydrated();
+  const existingSession = getAgentSessionByMemoryScope(options.memoryScope);
+  if (existingSession && isWorkflowLinkedConversation(existingSession)) {
+    throw new Error(
+      "Conversations linked to a workflow run are read-only. Fork the conversation to continue chatting.",
+    );
+  }
+
+  const project = await getLoadedAdlProject();
+  const agent = project.getAgent(options.agentId);
+  if (!agent) {
+    throw new Error(`Unknown agent: ${options.agentId}`);
+  }
+
+  touchAgentSession(options.memoryScope);
+
+  const handle = agent.run({
+    memoryScope: options.memoryScope,
+    user: options.user,
+    workflow: options.workflow,
+  });
+
+  linkAgentCallId(options.memoryScope, handle.agentCallId);
+  const session = getAgentSessionByMemoryScope(options.memoryScope);
+  if (session) {
+    await persistInspectorSession(session);
+  }
+
+  void handle.result.catch((error) => {
+    console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
+  });
+
+  return { agentCallId: handle.agentCallId };
+}
+
+export function createForkMemoryScope(): string {
+  return createMemoryScope("fork");
+}
+
+export async function forkAgentFromWorkflow(options: {
+  agentId: string;
+  sourceWorkflowId: string;
+  sourceRunId: string;
+  sourceStepId: string;
+  sourceEpisodeId: string;
+  sourceMemoryScope: string;
+  messages: MockMessage[];
+}): Promise<{ memoryScope: string }> {
+  const memoryScope = createForkMemoryScope();
+  const messageStore = await getMessageStore();
+
+  const coreMessages: CoreMessage[] = options.messages.map(mockMessageToCore);
+
+  await messageStore.save(memoryScope, coreMessages);
+
+  const session = registerForkSession({
+    memoryScope,
+    agentId: options.agentId,
+    title: `Fork · ${options.sourceEpisodeId}`,
+    fork: {
+      sourceWorkflowId: options.sourceWorkflowId,
+      sourceWorkflowRunId: options.sourceRunId,
+      sourceStepId: options.sourceStepId,
+      sourceAgentCallId: options.sourceEpisodeId,
+      sourceMemoryScope: options.sourceMemoryScope,
+    },
+  });
+  await persistInspectorSession(session);
+
+  return { memoryScope };
+}
+
+export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
+  await ensureSessionsHydrated();
+  return listAgentSessions();
+}
+
+export async function resolveAgentConversation(memoryScope: string) {
+  await ensureSessionsHydrated();
+  const session = getAgentSessionByMemoryScope(memoryScope);
+  if (!session) {
+    return null;
+  }
+  const messages = await loadMessagesForScope(memoryScope);
+  return {
+    runId: memoryScope,
+    agentId: session.agentId,
+    title: session.title,
+    messages,
+    workflowLink: await resolveWorkflowLink(session),
+    forkSession: session.fork
+      ? {
+          forkId: memoryScope,
+          agentId: session.agentId,
+          sourceWorkflowId: session.fork.sourceWorkflowId,
+          sourceRunId: session.fork.sourceWorkflowRunId,
+          sourceStepId: session.fork.sourceStepId,
+          sourceEpisodeId: session.fork.sourceAgentCallId,
+          sourceMemoryScope: session.fork.sourceMemoryScope,
+          createdAt: session.createdAt,
+          messages,
+        }
+      : null,
+  };
+}
+
+export async function forkLinkedAgentConversation(
+  memoryScope: string,
+): Promise<{ memoryScope: string }> {
+  await ensureSessionsHydrated();
+  const session = getAgentSessionByMemoryScope(memoryScope);
+  if (!session || !isWorkflowLinkedConversation(session)) {
+    throw new Error("Only conversations linked to a workflow run can be forked.");
+  }
+  const link = await resolveWorkflowLink(session);
+  if (!link) {
+    throw new Error("Could not resolve the connected workflow run.");
+  }
+  const messages = await loadMessagesForScope(memoryScope);
+  return forkAgentFromWorkflow({
+    agentId: session.agentId,
+    sourceWorkflowId: link.workflowId,
+    sourceRunId: link.workflowRunId,
+    sourceStepId: link.stepId ?? link.episodeId,
+    sourceEpisodeId: link.episodeId,
+    sourceMemoryScope: session.memoryScope,
+    messages,
+  });
+}
+
+async function resolveWorkflowLink(session: AgentSession) {
+  if (!isWorkflowLinkedConversation(session) || !session.workflowRunId) {
+    return null;
+  }
+  const store = await getWorkflowStore();
+  const run = await store.getRun(session.workflowRunId);
+  if (!run) {
+    return null;
+  }
+  const episodes = await store.listAgentEpisodes({ agentId: session.agentId });
+  const episode =
+    episodes.find((item) => item.memoryScope === session.memoryScope) ??
+    episodes.find((item) => item.agentCallId === session.agentCallId);
+  return {
+    workflowId: run.workflowId,
+    workflowRunId: session.workflowRunId,
+    stepId: episode?.stepId ?? null,
+    episodeId: episode?.agentCallId ?? session.agentCallId,
+  };
+}
+
+export async function createStandaloneAgentSession(
+  agentId: string,
+): Promise<{ memoryScope: string }> {
+  const memoryScope = createMemoryScope("conv");
+  const now = new Date().toISOString();
+  const session = {
+    agentCallId: `pending:${memoryScope}`,
+    agentId,
+    memoryScope,
+    title: `New ${agentId} chat`,
+    createdAt: now,
+    updatedAt: now,
+  };
+  registerAgentSession(session);
+  await persistInspectorSession(session);
+  return { memoryScope };
+}
+
+export async function renameAgentSession(
+  memoryScope: string,
+  title: string,
+): Promise<{ memoryScope: string; title: string }> {
+  await ensureSessionsHydrated();
+  const trimmed = title.trim();
+  if (!trimmed) {
+    throw new Error("Title is required");
+  }
+  const session = renameAgentSessionTitle(memoryScope, trimmed);
+  if (!session) {
+    throw new Error(`Unknown conversation: ${memoryScope}`);
+  }
+  await persistInspectorSession(session);
+  return { memoryScope, title: session.title };
+}
+
+export async function deleteAgentSession(memoryScope: string): Promise<{ memoryScope: string }> {
+  await ensureSessionsHydrated();
+  const session = getAgentSessionByMemoryScope(memoryScope);
+  if (!session) {
+    throw new Error(`Unknown conversation: ${memoryScope}`);
+  }
+  if (isWorkflowLinkedConversation(session)) {
+    throw new Error(
+      "Conversations linked to a workflow run cannot be deleted. Delete the workflow run instead.",
+    );
+  }
+  const now = new Date().toISOString();
+  session.updatedAt = now;
+  await persistInspectorSession(session, now);
+  const messageStore = await getMessageStore();
+  await messageStore.delete(memoryScope);
+  unregisterAgentSession(memoryScope);
+  return { memoryScope };
+}
+
+export async function renameWorkflowRun(
+  runId: string,
+  title: string,
+): Promise<{ runId: string; title: string }> {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    throw new Error("Title is required");
+  }
+  const store = await getWorkflowStore();
+  const run = await store.getRun(runId);
+  if (!run) {
+    throw new Error(`Unknown workflow run: ${runId}`);
+  }
+  await store.setRunTitle(runId, trimmed);
+  return { runId, title: trimmed };
+}
+
+export async function deleteWorkflowRun(runId: string): Promise<{ runId: string }> {
+  await ensureSessionsHydrated();
+  cancelWorkflowRun(runId);
+  const store = await getWorkflowStore();
+  const run = await store.getRun(runId);
+  if (!run) {
+    throw new Error(`Unknown workflow run: ${runId}`);
+  }
+
+  const linkedSessions = listAgentSessions().filter(
+    (session) => isWorkflowLinkedConversation(session) && session.workflowRunId === runId,
+  );
+  const now = new Date().toISOString();
+  for (const session of linkedSessions) {
+    session.updatedAt = now;
+    await persistInspectorSession(session, now);
+    unregisterAgentSession(session.memoryScope);
+  }
+
+  await store.deleteRun(runId);
+  return { runId };
+}

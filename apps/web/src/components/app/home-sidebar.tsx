@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Bot, GitBranch, MessageSquare } from "lucide-react";
+import { GitBranch, LayoutDashboard, MessageSquare } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ContextSidebar } from "@/components/app/context-sidebar";
@@ -12,9 +12,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
@@ -34,7 +31,7 @@ export function HomeSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Bot className="size-4" />
+                  <LayoutDashboard className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{project.name}</span>
@@ -54,46 +51,20 @@ export function HomeSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Workflow definitions">
+                <SidebarMenuButton asChild tooltip="Workflows">
                   <Link to="/workflows">
                     <GitBranch className="size-4" />
                     <span>Workflows</span>
                   </Link>
                 </SidebarMenuButton>
-                {project.workflowIds.length > 0 ? (
-                  <SidebarMenuSub>
-                    {project.workflowIds.map((id) => (
-                      <SidebarMenuSubItem key={id}>
-                        <SidebarMenuSubButton asChild>
-                          <Link to="/workflows/$workflowId" params={{ workflowId: id }}>
-                            <span className="truncate font-mono text-xs">{id}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                ) : null}
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Agent definitions">
+                <SidebarMenuButton asChild tooltip="Agent conversations">
                   <Link to="/agent">
                     <MessageSquare className="size-4" />
-                    <span>Agents</span>
+                    <span>Agent conversations</span>
                   </Link>
                 </SidebarMenuButton>
-                {project.agentIds.length > 0 ? (
-                  <SidebarMenuSub>
-                    {project.agentIds.map((id) => (
-                      <SidebarMenuSubItem key={id}>
-                        <SidebarMenuSubButton asChild>
-                          <Link to="/agent/$agentId" params={{ agentId: id }}>
-                            <span className="truncate font-mono text-xs">{id}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                ) : null}
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>

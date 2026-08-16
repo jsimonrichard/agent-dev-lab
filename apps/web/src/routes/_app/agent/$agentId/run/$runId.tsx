@@ -1,11 +1,11 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
-import { NotFoundPage } from "@/components/app/not-found";
 import { fetchAgentConversation } from "#/lib/inspector-server";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import type { MockAgentSettings, MockAgentSummary } from "@/lib/mock/types";
 
-export const Route = createFileRoute("/_app/agent/$agentId/r/$runId")({
+export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   component: AgentRunPage,
   loader: async ({ params }) => {
     const conversation = await fetchAgentConversation({ data: params.runId });
@@ -26,16 +26,17 @@ export const Route = createFileRoute("/_app/agent/$agentId/r/$runId")({
     };
     return { agent, conversation, settings };
   },
-  notFoundComponent: () => (
-    <NotFoundPage
-      inAppShell
-      title="Session not found"
-      description="This agent conversation does not exist or does not match the requested agent."
-    />
-  ),
 });
 
 function AgentRunPage() {
   const { agent, conversation, settings } = Route.useLoaderData();
-  return <AgentRunWorkspace agent={agent} conversation={conversation} settings={settings} />;
+  const { project } = useAppLoaderData();
+  const tools = project.agents.find((item) => item.id === agent.id)?.tools ?? [];
+  return (
+    <AgentRunWorkspace
+      agent={agent}
+      conversation={conversation}
+      settings={{ ...settings, tools }}
+    />
+  );
 }

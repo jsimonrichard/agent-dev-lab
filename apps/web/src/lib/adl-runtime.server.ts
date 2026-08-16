@@ -1,6 +1,6 @@
 import type { AdlRuntime, MessageStore, WorkflowStore } from "@agent-dev-lab/core";
 
-import { getLoadedAdlProject } from "#/lib/adl-project";
+import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { registerAgentSessionFromEvent } from "#/lib/agent-sessions";
 
 let observersRegistered = false;

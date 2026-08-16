@@ -1,4 +1,4 @@
-import type { RunEvent } from "@agent-dev-lab/core";
+import type { InspectorSessionRecord, RunEvent } from "@agent-dev-lab/core";
 
 export interface AgentSession {
   agentCallId: string;
@@ -7,6 +7,8 @@ export interface AgentSession {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** Present when this conversation ran inside a workflow (not a standalone chat). */
+  workflowRunId?: string;
   /** When forked from a workflow step. */
   fork?: {
     sourceWorkflowId: string;
@@ -17,11 +19,58 @@ export interface AgentSession {
   };
 }
 
+/** Workflow registry id when this conversation is tied to a workflow (in-run or fork). */
+export function workflowIdForAgentSession(
+  session: Pick<AgentSession, "workflowRunId" | "fork">,
+  runs: ReadonlyArray<{ runId: string; workflowId: string }>,
+): string | undefined {
+  if (session.fork?.sourceWorkflowId) {
+    return session.fork.sourceWorkflowId;
+  }
+  if (!session.workflowRunId) {
+    return undefined;
+  }
+  return runs.find((run) => run.runId === session.workflowRunId)?.workflowId;
+}
+
+/** True when this conversation belongs to a workflow run (not a standalone chat or fork). */
+export function isWorkflowLinkedConversation(
+  session: Pick<AgentSession, "workflowRunId" | "fork">,
+): boolean {
+  return Boolean(session.workflowRunId && !session.fork);
+}
+
+/** Target for `/workflows/$workflowId/run/$runId` when this conversation is tied to a run. */
+export function workflowRunLocationForSession(
+  session: Pick<AgentSession, "workflowRunId" | "fork">,
+  runs: ReadonlyArray<{ runId: string; workflowId: string }>,
+): { workflowId: string; runId: string } | undefined {
+  const workflowId = workflowIdForAgentSession(session, runs);
+  const runId = session.fork?.sourceWorkflowRunId ?? session.workflowRunId;
+  if (!workflowId || !runId) {
+    return undefined;
+  }
+  return { workflowId, runId };
+}
+
+/** Agent id, with workflow name when the conversation is connected to a workflow. */
+export function formatAgentSessionIdentity(
+  session: AgentSession,
+  runs: ReadonlyArray<{ runId: string; workflowId: string }>,
+): string {
+  const workflowId = workflowIdForAgentSession(session, runs);
+  return workflowId ? `${session.agentId} · ${workflowId}` : session.agentId;
+}
+
 const byMemoryScope = new Map<string, AgentSession>();
 const byAgentCallId = new Map<string, AgentSession>();
+const deletedMemoryScopes = new Set<string>();
 
 export function registerAgentSessionFromEvent(event: RunEvent): void {
   if (event.type !== "agent_started") {
+    return;
+  }
+  if (deletedMemoryScopes.has(event.memoryScope)) {
     return;
   }
 
@@ -29,6 +78,9 @@ export function registerAgentSessionFromEvent(event: RunEvent): void {
   if (pending) {
     linkAgentCallId(event.memoryScope, event.agentCallId);
     pending.updatedAt = event.at;
+    if (event.workflowRunId) {
+      pending.workflowRunId = event.workflowRunId;
+    }
     return;
   }
 
@@ -45,14 +97,35 @@ export function registerAgentSessionFromEvent(event: RunEvent): void {
     title: `Chat · ${event.agentId}`,
     createdAt: event.at,
     updatedAt: event.at,
+    workflowRunId: event.workflowRunId,
   };
   byMemoryScope.set(event.memoryScope, session);
   byAgentCallId.set(event.agentCallId, session);
 }
 
 export function registerAgentSession(session: AgentSession): void {
+  if (deletedMemoryScopes.has(session.memoryScope)) {
+    return;
+  }
   byMemoryScope.set(session.memoryScope, session);
   byAgentCallId.set(session.agentCallId, session);
+}
+
+export function hydrateInspectorSessions(records: InspectorSessionRecord[]): void {
+  for (const record of records) {
+    if (byMemoryScope.has(record.memoryScope)) {
+      continue;
+    }
+    registerAgentSession({
+      agentCallId: record.agentCallId,
+      agentId: record.agentId,
+      memoryScope: record.memoryScope,
+      title: record.title,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      fork: record.fork,
+    });
+  }
 }
 
 export function getAgentSessionByMemoryScope(memoryScope: string): AgentSession | undefined {
@@ -88,6 +161,36 @@ export function registerForkSession(options: {
     fork: options.fork,
   };
   registerAgentSession(session);
+  return session;
+}
+
+export function hydrateDeletedMemoryScopes(scopes: string[]): void {
+  for (const scope of scopes) {
+    deletedMemoryScopes.add(scope);
+  }
+}
+
+export function renameAgentSessionTitle(
+  memoryScope: string,
+  title: string,
+): AgentSession | undefined {
+  const session = byMemoryScope.get(memoryScope);
+  if (!session) {
+    return undefined;
+  }
+  session.title = title;
+  session.updatedAt = new Date().toISOString();
+  return session;
+}
+
+export function unregisterAgentSession(memoryScope: string): AgentSession | undefined {
+  const session = byMemoryScope.get(memoryScope);
+  deletedMemoryScopes.add(memoryScope);
+  if (!session) {
+    return undefined;
+  }
+  byMemoryScope.delete(memoryScope);
+  byAgentCallId.delete(session.agentCallId);
   return session;
 }
 

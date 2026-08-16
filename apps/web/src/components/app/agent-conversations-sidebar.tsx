@@ -1,13 +1,21 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, MessageSquare, Plus } from "lucide-react";
+import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { Bot, GitBranch, MessageSquare, Plus, Wrench } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { parseAgentPath } from "@/lib/inspector-path";
-import { createAgentSession } from "#/lib/inspector-server";
+import { parseAgentLocation } from "@/lib/agent-location";
+import { AgentSessionIdentity } from "@/components/app/agent-session-identity";
+import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
-import { Button } from "@/components/ui/button";
+import { NewConversationButton } from "@/components/app/new-conversation-button";
 import { ContextSidebar } from "@/components/app/context-sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  deleteAgentConversation,
+  forkLinkedConversation,
+  renameAgentConversation,
+} from "#/lib/inspector-server";
+import { isWorkflowLinkedConversation, workflowRunLocationForSession } from "@/lib/agent-sessions";
+import { formatRunTimestamp } from "@/lib/workflow-location";
+import { Badge } from "@/components/ui/badge";
 import {
   SidebarContent,
   SidebarGroup,
@@ -17,36 +25,48 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 
-export function AgentConversationsSidebar() {
-  const { project, sessions } = useAppLoaderData();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { agentId: activeAgentId, runId: activeRunId } = parseAgentPath(pathname);
-  const onRegistry = pathname === "/agent";
+const devModeLabel = {
+  "framework-dev": "Framework dev",
+  "project-dev": "Project dev",
+  serve: "Serve",
+} as const;
 
-  async function handleNewConversation(agentId: string) {
-    const { memoryScope } = await createAgentSession({ data: agentId });
-    window.location.href = `/agent/${agentId}/r/${memoryScope}`;
-  }
+export function AgentConversationsSidebar() {
+  const navigate = useNavigate();
+  const router = useRouter();
+  const { project, sessions, runs } = useAppLoaderData();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { agentId: selectedAgentId, runId: activeRunId } = parseAgentLocation(pathname);
+  const selectedSessions = selectedAgentId
+    ? sessions.filter((session) => session.agentId === selectedAgentId)
+    : [];
+  const agentMeta = selectedAgentId
+    ? project.agents.find((agent) => agent.id === selectedAgentId)
+    : undefined;
 
   return (
     <ContextSidebar>
       <SidebarHeader className="border-b border-sidebar-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild isActive={onRegistry}>
-              <Link to="/agent">
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              tooltip={selectedAgentId ? selectedAgentId : "All agents"}
+            >
+              <Link
+                to={selectedAgentId ? "/agent/$agentId" : "/agent"}
+                params={selectedAgentId ? { agentId: selectedAgentId } : undefined}
+              >
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <MessageSquare className="size-4" />
+                  <Bot className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Agents</span>
+                  <span className="truncate font-semibold">{selectedAgentId ?? project.name}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {project.agentIds.length} registered
+                    {selectedAgentId ? "Agent" : devModeLabel[project.devMode]}
                   </span>
                 </div>
               </Link>
@@ -56,98 +76,207 @@ export function AgentConversationsSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{project.name}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
-              {project.agentIds.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-muted-foreground">
-                  No agents in <code className="text-[10px]">adl.config.ts</code>.
-                </p>
-              ) : (
-                project.agentIds.map((id) => {
-                  const agentSessions = sessions.filter((session) => session.agentId === id);
-                  const isActiveAgent = activeAgentId === id;
-                  const open = isActiveAgent || agentSessions.length > 0;
-
-                  return (
-                    <Collapsible key={id} defaultOpen={open} className="group/collapsible">
-                      <SidebarMenuItem>
-                        <div className="flex items-center gap-0.5">
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActiveAgent && !activeRunId}
-                            tooltip={id}
-                            className="min-w-0 flex-1"
+        {selectedAgentId ? (
+          <>
+            <SidebarGroup>
+              <SidebarGroupLabel className="flex items-center justify-between">
+                <span>Conversations</span>
+                <NewConversationButton
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  title="New conversation"
+                  agentId={selectedAgentId}
+                >
+                  <Plus className="size-3.5" />
+                  <span className="sr-only">New conversation</span>
+                </NewConversationButton>
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1.5">
+                  {selectedSessions.length === 0 ? (
+                    <p className="px-3 py-4 text-xs text-muted-foreground">
+                      No conversations yet. Start a new chat with the + button.
+                    </p>
+                  ) : (
+                    selectedSessions.map((session) => {
+                      const workflowRun = workflowRunLocationForSession(session, runs);
+                      return (
+                        <SidebarMenuItem key={session.memoryScope}>
+                          <ItemActionsMenu
+                            name={session.title}
+                            deleteDescription="Delete this conversation and its messages. This cannot be undone."
+                            extraActions={[
+                              ...(workflowRun
+                                ? [
+                                    {
+                                      label: "Open workflow run",
+                                      icon: GitBranch,
+                                      onSelect: () => {
+                                        void navigate({
+                                          to: "/workflows/$workflowId/run/$runId",
+                                          params: {
+                                            workflowId: workflowRun.workflowId,
+                                            runId: workflowRun.runId,
+                                          },
+                                        });
+                                      },
+                                    },
+                                  ]
+                                : []),
+                              ...(isWorkflowLinkedConversation(session)
+                                ? [
+                                    {
+                                      label: "Fork to agent run",
+                                      icon: GitBranch,
+                                      onSelect: () => {
+                                        void (async () => {
+                                          const { memoryScope } = await forkLinkedConversation({
+                                            data: session.memoryScope,
+                                          });
+                                          await router.invalidate();
+                                          await navigate({
+                                            to: "/agent/$agentId/run/$runId",
+                                            params: {
+                                              agentId: session.agentId,
+                                              runId: memoryScope,
+                                            },
+                                          });
+                                        })();
+                                      },
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            onRename={async (title) => {
+                              await renameAgentConversation({
+                                data: { memoryScope: session.memoryScope, title },
+                              });
+                              await router.invalidate();
+                            }}
+                            onDelete={
+                              isWorkflowLinkedConversation(session)
+                                ? undefined
+                                : async () => {
+                                    await deleteAgentConversation({ data: session.memoryScope });
+                                    if (activeRunId === session.memoryScope) {
+                                      await navigate({
+                                        to: "/agent/$agentId",
+                                        params: { agentId: session.agentId },
+                                      });
+                                    }
+                                    await router.invalidate();
+                                  }
+                            }
                           >
-                            <Link to="/agent/$agentId" params={{ agentId: id }}>
-                              <MessageSquare className="size-4 shrink-0" />
+                            <SidebarMenuButton
+                              asChild
+                              isActive={activeRunId === session.memoryScope}
+                              tooltip={session.title}
+                              className="h-auto min-h-14 items-start py-2.5"
+                            >
+                              <Link
+                                to="/agent/$agentId/run/$runId"
+                                params={{ agentId: session.agentId, runId: session.memoryScope }}
+                              >
+                                <MessageSquare className="mt-0.5 size-4 shrink-0" />
+                                <div className="grid min-w-0 flex-1 gap-1 text-left leading-snug">
+                                  <span className="line-clamp-2 text-xs font-medium leading-snug">
+                                    {session.title}
+                                  </span>
+                                  <AgentSessionIdentity
+                                    session={session}
+                                    runs={runs}
+                                    className="font-mono text-[10px] text-muted-foreground"
+                                  />
+                                  <span className="truncate text-[10px] text-muted-foreground">
+                                    {formatRunTimestamp(session.updatedAt)}
+                                    {session.fork ? " · Forked" : ""}
+                                  </span>
+                                </div>
+                              </Link>
+                            </SidebarMenuButton>
+                          </ItemActionsMenu>
+                        </SidebarMenuItem>
+                      );
+                    })
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel className="gap-1.5">
+                <Wrench className="size-3" />
+                Tools
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                {!agentMeta || agentMeta.tools.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    No tools registered for this agent.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5 px-2 pb-1">
+                    {agentMeta.tools.map((tool) => (
+                      <li
+                        key={tool.name}
+                        className="rounded-md border border-sidebar-border/60 px-2 py-1.5"
+                      >
+                        <Badge variant="outline" className="font-mono text-[10px]">
+                          {tool.name}
+                        </Badge>
+                        {tool.description ? (
+                          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                            {tool.description}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        ) : (
+          <SidebarGroup>
+            <SidebarGroupLabel>Agents</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1.5">
+                {project.agentIds.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-muted-foreground">
+                    No agents registered in this project.
+                  </p>
+                ) : (
+                  project.agentIds.map((id) => {
+                    const count = sessions.filter((session) => session.agentId === id).length;
+                    return (
+                      <SidebarMenuItem key={id}>
+                        <SidebarMenuButton asChild tooltip={id} className="h-auto min-h-10 py-2">
+                          <Link to="/agent/$agentId" params={{ agentId: id }}>
+                            <Bot className="size-4 shrink-0" />
+                            <div className="grid min-w-0 flex-1 text-left">
                               <span className="truncate font-mono text-xs">{id}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                          <CollapsibleTrigger className="flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-sidebar-accent">
-                            <ChevronRight className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                            <span className="sr-only">Toggle conversations</span>
-                          </CollapsibleTrigger>
-                        </div>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                              <div className="flex items-center justify-between px-2 py-1">
-                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                  Chats
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-5"
-                                  title={`New ${id} chat`}
-                                  onClick={() => void handleNewConversation(id)}
-                                >
-                                  <Plus className="size-3" />
-                                  <span className="sr-only">New chat</span>
-                                </Button>
-                              </div>
-                            </SidebarMenuSubItem>
-                            {agentSessions.length === 0 ? (
-                              <SidebarMenuSubItem>
-                                <p className="px-3 py-2 text-[11px] text-muted-foreground">
-                                  No conversations yet.
-                                </p>
-                              </SidebarMenuSubItem>
-                            ) : (
-                              agentSessions.map((session) => (
-                                <SidebarMenuSubItem key={session.memoryScope}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={activeRunId === session.memoryScope}
-                                    className="h-auto min-h-8 py-1.5"
-                                  >
-                                    <Link
-                                      to="/agent/$agentId/r/$runId"
-                                      params={{ agentId: id, runId: session.memoryScope }}
-                                    >
-                                      <span className="line-clamp-2 text-[11px] leading-snug">
-                                        {session.title}
-                                      </span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))
-                            )}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {count === 0
+                                  ? "No conversations yet"
+                                  : `${count} conversation${count === 1 ? "" : "s"}`}
+                              </span>
+                            </div>
+                          </Link>
+                        </SidebarMenuButton>
                       </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                })
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    );
+                  })
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
-      <SidebarBackFooter />
+      <SidebarBackFooter
+        label={selectedAgentId ? "All agents" : "Back to overview"}
+        to={selectedAgentId ? "/agent" : "/"}
+      />
     </ContextSidebar>
   );
 }

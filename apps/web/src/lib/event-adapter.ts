@@ -45,13 +45,14 @@ export function adaptCoreEventsForWorkflowRun(
           runId: event.workflowRunId,
           type: "run_failed",
           at: event.at,
+          error: asJson(event.error),
         });
         break;
       case "workflow_cancelled":
         out.push({
           seq: event.seq,
           runId: event.workflowRunId,
-          type: "run_failed",
+          type: "run_cancelled",
           at: event.at,
         });
         break;
@@ -89,6 +90,7 @@ export function adaptCoreEventsForWorkflowRun(
           type: "step_failed",
           at: event.at,
           stepId: event.stepId,
+          error: asJson(event.error),
         });
         break;
       case "agent_started":
@@ -149,6 +151,18 @@ export function adaptCoreEventsForWorkflowRun(
           stepId: event.stepId,
           memoryScope: event.memoryScope,
           messageCount: event.count,
+        });
+        break;
+      case "agent_failed":
+        if (!event.workflowRunId || !event.stepId) break;
+        out.push({
+          seq: event.seq,
+          runId: event.workflowRunId,
+          type: "agent_failed",
+          at: event.at,
+          stepId: event.stepId,
+          episodeId: event.agentCallId,
+          error: asJson(event.error),
         });
         break;
       case "agent_tool_call":

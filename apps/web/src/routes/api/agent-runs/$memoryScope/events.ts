@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getAgentSessionByMemoryScope } from "#/lib/agent-sessions";
-import { getWorkflowStore } from "#/lib/adl-runtime";
-import { encodeRunEventSse, runEventStreamIsTerminal } from "#/lib/sse";
+import { getWorkflowStore } from "#/lib/adl-runtime.server";
+import { encodeRunEventSse, agentRunStreamIsTerminal } from "#/lib/sse.server";
 
 export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
   server: {
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               for (const event of events) {
                 cursor = event.seq;
                 controller.enqueue(encoder.encode(encodeRunEventSse(event)));
-                if (runEventStreamIsTerminal(event)) {
+                if (agentRunStreamIsTerminal(event)) {
                   closed = true;
                   controller.close();
                   return;

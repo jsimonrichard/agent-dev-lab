@@ -4,6 +4,15 @@ function formatStepLabel(name: string, key?: string): string {
   return key ? `${name}:${key}` : name;
 }
 
+/** Compact tree label: strip `{runId}:` so the run id stays in the inspector. */
+function formatMemoryScopeLabel(memoryScope: string, runId: string): string {
+  const prefix = `${runId}:`;
+  if (memoryScope.startsWith(prefix)) {
+    return memoryScope.slice(prefix.length);
+  }
+  return memoryScope;
+}
+
 function upsertStep(
   map: Map<string, StepNode>,
   roots: StepNode[],
@@ -37,6 +46,19 @@ function findEpisode(node: StepNode, episodeId: string): AgentEpisode | undefine
   return node.agentEpisodes.find((e) => e.episodeId === episodeId);
 }
 
+function settleOpenWork(stepMap: Map<string, StepNode>, as: "failed" | "completed"): void {
+  for (const step of stepMap.values()) {
+    if (step.status === "running") {
+      step.status = as;
+    }
+    for (const episode of step.agentEpisodes) {
+      if (episode.status === "running") {
+        episode.status = as;
+      }
+    }
+  }
+}
+
 /**
  * Pure reducer over RunEvents — mirrors notes/inspection-ui.md sketch.
  * Wire to SSE batches later.
@@ -49,6 +71,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
   let status: RunViewState["status"] = "running";
   let input: unknown = {};
   let output: unknown;
+  let error: unknown;
   let startedAt = new Date().toISOString();
   let finishedAt: string | undefined;
   let lastSeq = 0;
@@ -73,13 +96,6 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
           step.status = "completed";
           step.durationMs = event.durationMs;
           step.output = event.output;
-        }
-        break;
-      }
-      case "step_failed": {
-        const step = stepMap.get(event.stepId);
-        if (step) {
-          step.status = "failed";
         }
         break;
       }
@@ -110,6 +126,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         const ep = step ? findEpisode(step, event.episodeId) : undefined;
         if (ep) {
           ep.status = "failed";
+          ep.error = event.error;
         }
         break;
       }
@@ -123,11 +140,33 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         status = "completed";
         output = event.output;
         finishedAt = event.at;
+        settleOpenWork(stepMap, "completed");
         break;
       case "run_failed":
         status = "failed";
+        error = event.error;
         finishedAt = event.at;
+        settleOpenWork(stepMap, "failed");
         break;
+      case "run_cancelled":
+        status = "cancelled";
+        finishedAt = event.at;
+        settleOpenWork(stepMap, "completed");
+        break;
+      case "step_failed": {
+        const step = stepMap.get(event.stepId);
+        if (step) {
+          step.status = "failed";
+          step.error = event.error;
+          for (const episode of step.agentEpisodes) {
+            if (episode.status === "running") {
+              episode.status = "failed";
+              episode.error ??= event.error;
+            }
+          }
+        }
+        break;
+      }
       case "messages_committed":
         break;
     }
@@ -139,6 +178,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
     status,
     input,
     output,
+    error,
     lastSeq,
     steps: roots,
     startedAt,
@@ -166,4 +206,4 @@ export function stepStatusClass(status: StepNodeStatus): string {
   }
 }
 
-export { formatStepLabel };
+export { formatMemoryScopeLabel, formatStepLabel };
