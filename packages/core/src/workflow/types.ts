@@ -44,7 +44,11 @@ export interface WorkflowContext {
    */
   step: StepFn;
 
-  readonly memoryScope: (suffix: string) => string;
+  /**
+   * Build a {@link AgentRunInput.memoryScope} namespaced to this workflow run:
+   * `${workflowRunId}:${suffix}`.
+   */
+  readonly memoryScopeWithSuffix: (suffix: string) => string;
 
   /**
    * Emit a custom run event. `stepId` on the persisted event is omitted at workflow root
@@ -59,11 +63,15 @@ export type StepFn = <T>(
   options?: StepOptions,
 ) => Promise<T>;
 
-export type WorkflowDefinition<TInput, TOutput> = {
+/**
+ * `TInput` is the parsed schema output (defaults applied). `TRawInput` is what
+ * {@link Workflow.run} / {@link Workflow.stream} accept before parse.
+ */
+export type WorkflowDefinition<TInput, TOutput, TRawInput = TInput> = {
   id: string;
-  input?: z.ZodType<TInput>;
+  input?: z.ZodType<TInput, z.ZodTypeDef, TRawInput>;
   output?: z.ZodType<TOutput>;
-  /** Author implementation — receives `ctx` from the runtime, not from the caller. */
+  /** Author implementation — receives parsed input and `ctx` from the runtime. */
   run: (input: TInput, ctx: WorkflowContext) => Promise<TOutput>;
 };
 
@@ -100,17 +108,19 @@ export type WorkflowRunStartOptions = {
   };
 };
 
-export interface Workflow<TInput, TOutput> {
+export interface Workflow<TInput, TOutput, TRawInput = TInput> {
   readonly id: string;
+  /** Optional Zod schema used to validate {@link run} / {@link stream} input. */
+  readonly input?: z.ZodType<TInput, z.ZodTypeDef, TRawInput>;
   /**
    * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    */
-  run(input: TInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
+  run(input: TRawInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
   /**
    * Start a run and expose live run events (steps, agents, lifecycle) for in-process consumers.
    * Persisted history still goes through {@link WorkflowStore}; production UI may use
    * `run` + SSE instead.
    */
-  stream(input: TInput): WorkflowStreamHandle<TOutput>;
+  stream(input: TRawInput): WorkflowStreamHandle<TOutput>;
 }

@@ -20,6 +20,8 @@ export function resolveDefinitionServices(
       ...services.stores,
       message: messageStore,
     },
+    defaults: services.defaults,
+    tools: services.tools,
   };
 }
 
@@ -35,6 +37,8 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     },
     templateEngine: new TemplateEngine(),
     workflowContextScope: new WorkflowContextScope(),
+    defaults: config.defaults ?? {},
+    tools: config.tools ?? {},
   };
 }
 
@@ -58,5 +62,7 @@ export function resolveRuntimeOverrides(
     },
     templateEngine: base.templateEngine,
     workflowContextScope: base.workflowContextScope,
+    defaults: base.defaults,
+    tools: base.tools,
   };
 }

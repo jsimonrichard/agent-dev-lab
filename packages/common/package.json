@@ -1,16 +1,38 @@
 {
   "name": "@agent-dev-lab/common",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "types": "./src/index.ts",
+  "files": [
+    "dist",
+    "src",
+    "eslint.config.js",
+    "tsconfig.node.json"
+  ],
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
     "./eslint": "./eslint.config.js",
     "./tsconfig/node.json": "./tsconfig.node.json",
-    "./db": "./src/db/index.ts",
-    "./logging": "./src/logging/index.ts"
+    "./db": {
+      "types": "./src/db/index.ts",
+      "bun": "./src/db/index.ts",
+      "default": "./dist/db/index.js"
+    },
+    "./logging": {
+      "types": "./src/logging/index.ts",
+      "bun": "./src/logging/index.ts",
+      "default": "./dist/logging/index.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

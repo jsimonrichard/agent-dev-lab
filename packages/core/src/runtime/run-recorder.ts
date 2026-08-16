@@ -6,6 +6,7 @@ import type {
   RunEventEmit,
   WorkflowObserverEvent,
 } from "../observability/events";
+import { EVENT_SCHEMA_VERSION } from "../observability/events";
 import type { RuntimeServices } from "./types";
 
 const TRACER_NAME = "agent-dev-lab";
@@ -84,6 +85,7 @@ export class RunRecorder {
         ...event,
         seq: ++this.workflowSeq,
         at: this.now(),
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
       } as RunEvent;
     }
     if ("agentCallId" in event) {
@@ -91,6 +93,7 @@ export class RunRecorder {
         ...event,
         seq: ++this.agentSeq,
         at: this.now(),
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
       } as RunEvent;
     }
     return event as RunEvent;

@@ -1,3 +1,6 @@
+import type { z } from "zod";
+
+import { AdlError } from "../errors";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -17,11 +20,15 @@ import type {
  * Default workflow implementation: definition plus resolved runtime services.
  * Execution logic lives on this class (parallel to {@link AgentImpl}).
  */
-export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> {
+export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workflow<
+  TInput,
+  TOutput,
+  TRawInput
+> {
   readonly id: string;
 
   constructor(
-    readonly definition: WorkflowDefinition<TInput, TOutput>,
+    readonly definition: WorkflowDefinition<TInput, TOutput, TRawInput>,
     readonly services: RuntimeServices,
   ) {
     if (!definition.id || typeof definition.id !== "string") {
@@ -30,7 +37,11 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     this.id = definition.id;
   }
 
-  run(input: TInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput> {
+  get input(): z.ZodType<TInput, z.ZodTypeDef, TRawInput> | undefined {
+    return this.definition.input;
+  }
+
+  run(input: TRawInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput> {
     const handle = this.startRunWithCancel(input, options);
     return {
       workflowRunId: handle.workflowRunId,
@@ -39,7 +50,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
     };
   }
 
-  stream(input: TInput): WorkflowStreamHandle<TOutput> {
+  stream(input: TRawInput): WorkflowStreamHandle<TOutput> {
     const workflowRunId = createId();
     const channel = new WorkflowRunEventChannel(workflowRunId);
     const handle = this.startRunWithCancel(input, {
@@ -59,14 +70,24 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
   }
 
   #executeRun(
-    input: TInput,
+    input: TRawInput,
     options?: WorkflowRunStartOptions,
     abortController?: AbortController,
   ): Promise<TOutput> {
     const parentCtx = resolveParentContext(this.services, options);
     const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
 
-    const parsedInput = this.definition.input ? this.definition.input.parse(input) : input;
+    let parsedInput = input as unknown as TInput;
+    if (this.definition.input) {
+      try {
+        parsedInput = this.definition.input.parse(input);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new AdlError("INVALID_INPUT", `Invalid input for workflow "${this.id}": ${detail}`, {
+          cause: error,
+        });
+      }
+    }
     const controller = abortController ?? new AbortController();
 
     const effectiveServices = mergeServicesForRun(this.services, options?.extraObservers);
@@ -141,7 +162,7 @@ export class WorkflowImpl<TInput, TOutput> implements Workflow<TInput, TOutput> 
   }
 
   private startRunWithCancel(
-    input: TInput,
+    input: TRawInput,
     options?: WorkflowRunStartOptions,
   ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
     const parentCtx = resolveParentContext(this.services, options);

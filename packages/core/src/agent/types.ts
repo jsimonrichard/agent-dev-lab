@@ -13,7 +13,8 @@ export type AgentMemoryConfig = {
 export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
   id: string;
   instructions: AgentInstructions;
-  model: LanguageModel;
+  /** Required unless {@link AdlRuntimeConfig.defaults.model} is set. */
+  model?: LanguageModel;
   tools?: Tools;
   /** Default Zod schema for structured output on every episode. */
   outputSchema?: z.ZodType<TOutput>;

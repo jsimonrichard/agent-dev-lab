@@ -5,10 +5,12 @@ import path from "node:path";
 import type { ToolSet } from "ai";
 
 import type { Agent } from "../agent/types";
+import { AdlError } from "../errors";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
 import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config";
 import { importAdlConfigModule } from "./load-config";
+import { loadAdlProjectEnv } from "./load-env";
 
 export const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
@@ -50,7 +52,8 @@ export function findAdlProjectRootFromCwd(cwd: string = process.cwd()): string {
     dir = path.dirname(dir);
   }
 
-  throw new Error(
+  throw new AdlError(
+    "PROJECT_NOT_FOUND",
     `No ADL project found from ${cwd}. Run from a project directory containing adl.config.*, or pass --project.`,
   );
 }
@@ -64,7 +67,7 @@ export interface LoadedAdlProject {
    * Process runtime from `adl.config` (`config.adl`).
    * CLI, inspection UI, and scripts should use this — not import a project runtime file directly.
    */
-  getAdl(): AdlProjectConfig["adl"];
+  getAdl(): NonNullable<AdlProjectConfig["adl"]>;
 
   getWorkflow(id: string): Workflow<unknown, unknown> | undefined;
   getAgent(id: string): Agent<unknown, ToolSet> | undefined;
@@ -76,15 +79,20 @@ export interface LoadedAdlProject {
 
 /**
  * Loads `adl.config.*` from `projectRoot` via dynamic import (TS/JS) or JSON parse.
+ *
+ * Before evaluating the config, Next.js-style `.env*` files at the project root are
+ * applied to `process.env` (existing values are not overwritten).
  */
 export async function loadAdlProject(options?: {
   root?: string;
   cwd?: string;
 }): Promise<LoadedAdlProject> {
   const root = resolveProjectRoot(options);
+  loadAdlProjectEnv(root);
   const configFilename = findAdlConfigPath(root);
   if (!configFilename) {
-    throw new Error(
+    throw new AdlError(
+      "PROJECT_NOT_FOUND",
       `No ADL project config found in ${root}. Expected one of: ${ADL_CONFIG_FILENAMES.join(", ")}`,
     );
   }
@@ -107,14 +115,18 @@ async function loadConfigModule(configPath: string, filename: string): Promise<A
 
 function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
   if (!value || typeof value !== "object" || !("name" in value)) {
-    throw new Error(
+    throw new AdlError(
+      "INVALID_CONFIG",
       `Invalid ADL config at ${configPath}: expected an object with a string "name" field`,
     );
   }
   const record = value as Record<string, unknown>;
   const name = record.name;
   if (typeof name !== "string" || name.length === 0) {
-    throw new Error(`Invalid ADL config at ${configPath}: "name" must be a non-empty string`);
+    throw new AdlError(
+      "INVALID_CONFIG",
+      `Invalid ADL config at ${configPath}: "name" must be a non-empty string`,
+    );
   }
 
   const agents = record.agents;
@@ -122,13 +134,22 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
   const templates = record.templates;
 
   if (agents !== undefined && !Array.isArray(agents)) {
-    throw new Error(`Invalid ADL config at ${configPath}: "agents" must be an array`);
+    throw new AdlError(
+      "INVALID_CONFIG",
+      `Invalid ADL config at ${configPath}: "agents" must be an array`,
+    );
   }
   if (workflows !== undefined && !Array.isArray(workflows)) {
-    throw new Error(`Invalid ADL config at ${configPath}: "workflows" must be an array`);
+    throw new AdlError(
+      "INVALID_CONFIG",
+      `Invalid ADL config at ${configPath}: "workflows" must be an array`,
+    );
   }
   if (templates !== undefined && !Array.isArray(templates)) {
-    throw new Error(`Invalid ADL config at ${configPath}: "templates" must be an array`);
+    throw new AdlError(
+      "INVALID_CONFIG",
+      `Invalid ADL config at ${configPath}: "templates" must be an array`,
+    );
   }
 
   return {
@@ -138,7 +159,6 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
     workflows: workflows as AdlProjectConfig["workflows"],
     templates: templates as AdlProjectConfig["templates"],
     tools: record.tools as AdlProjectConfig["tools"],
-    defaults: record.defaults as AdlProjectConfig["defaults"],
   };
 }
 
@@ -154,6 +174,12 @@ function buildLoadedProject(parts: {
   return {
     ...parts,
     getAdl() {
+      if (!parts.config.adl) {
+        throw new AdlError(
+          "MISSING_RUNTIME",
+          `ADL project config at ${parts.configPath} is missing \`adl\`. Export createAdlRuntime() as config.adl.`,
+        );
+      }
       return parts.config.adl;
     },
     getWorkflow(id) {

@@ -1,4 +1,4 @@
-import type { ToolSet } from "ai";
+import type { LanguageModel, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
@@ -31,8 +31,17 @@ export type AdlRuntimeOptions = {
   observers?: Partial<RuntimeObservers>;
 };
 
+/** Process-wide defaults applied when an agent omits the field. */
+export type AdlRuntimeDefaults = {
+  model?: LanguageModel;
+};
+
 /** Options for {@link createAdlRuntime}. */
-export type AdlRuntimeConfig = AdlRuntimeOptions;
+export type AdlRuntimeConfig = AdlRuntimeOptions & {
+  defaults?: AdlRuntimeDefaults;
+  /** Merged under each agent's `tools` (agent keys win). */
+  tools?: ToolSet;
+};
 
 /** Per-call overrides when creating agents or workflows on a runtime. */
 export type AdlRuntimeOverrides = AdlRuntimeOptions;
@@ -46,6 +55,8 @@ export type RuntimeServices = {
   observers: RuntimeObservers;
   templateEngine: TemplateEngine;
   workflowContextScope: WorkflowContextScope;
+  defaults: AdlRuntimeDefaults;
+  tools: ToolSet;
 };
 
 /**
@@ -62,19 +73,19 @@ export interface AdlRuntime {
     overrides?: AdlRuntimeOverrides,
   ): Agent<Context, Tools>;
 
-  createWorkflow<TInput, TOutput>(
-    definition: WorkflowDefinition<TInput, TOutput>,
+  createWorkflow<TInput, TOutput, TRawInput = TInput>(
+    definition: WorkflowDefinition<TInput, TOutput, TRawInput>,
     overrides?: AdlRuntimeOverrides,
-  ): Workflow<TInput, TOutput>;
+  ): Workflow<TInput, TOutput, TRawInput>;
 
   createToolFromAgent<Context>(
     agent: Agent<Context>,
     options: CreateToolFromAgentOptions<Context>,
   ): ToolSet[string];
 
-  createToolFromWorkflow<TInput, TOutput>(
-    workflow: Workflow<TInput, TOutput>,
-    options: CreateToolFromWorkflowOptions<TInput>,
+  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput>(
+    workflow: Workflow<TInput, TOutput, TRawInput>,
+    options: CreateToolFromWorkflowOptions<TRawInput>,
   ): ToolSet[string];
 
   createTemplate<TSchema extends z.ZodType>(

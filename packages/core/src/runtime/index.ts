@@ -1,4 +1,5 @@
 export { createAdlRuntime } from "./create";
+export { createTestRuntime } from "./create-test";
 export {
   resolveDefinitionServices,
   resolveRuntimeConfig,
@@ -7,6 +8,7 @@ export {
 export type {
   AdlRuntime,
   AdlRuntimeConfig,
+  AdlRuntimeDefaults,
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
   RuntimeObservers,

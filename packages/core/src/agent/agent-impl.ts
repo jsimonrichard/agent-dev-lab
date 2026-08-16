@@ -8,6 +8,7 @@ import {
 } from "ai";
 import type { z } from "zod";
 
+import { AdlError } from "../errors";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -145,11 +146,20 @@ export class AgentImpl<
           );
           const system = resolveInstructionsText(this.definition.instructions);
 
+          const model = this.definition.model ?? this.services.defaults.model;
+          if (!model) {
+            throw new AdlError(
+              "MISSING_MODEL",
+              `Agent "${this.id}" has no model. Set agent.model or createAdlRuntime({ defaults: { model } }).`,
+            );
+          }
+
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const streamResult = streamText({
-            model: this.definition.model,
+            model,
             ...(system ? { system } : {}),
-            tools: this.definition.tools,
+            allowSystemInMessages: false,
+            tools: { ...this.services.tools, ...this.definition.tools },
             messages,
             experimental_context: input.context,
             abortSignal,

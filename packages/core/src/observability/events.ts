@@ -6,11 +6,15 @@
  * `agentCallId`. Both `agent.run` and `agent.stream` use `streamText` internally.
  */
 
+/** Current persisted {@link RunEvent} schema. Bump when the wire shape changes. */
+export const EVENT_SCHEMA_VERSION = 1;
+
 /** Workflow + step events (always tied to a workflow invocation). */
 export type WorkflowRunEventBase = {
   workflowRunId: string;
   seq: number;
   at: string;
+  eventSchemaVersion: number;
 };
 
 /**
@@ -24,6 +28,7 @@ export type AgentEventBase = {
   stepId?: string | null;
   seq: number;
   at: string;
+  eventSchemaVersion: number;
 };
 
 export type WorkflowStartedEvent = WorkflowRunEventBase & {
@@ -160,9 +165,9 @@ export type RunEventType = RunEvent["type"];
 
 export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
 
-/** Event payload before {@link RunRecorder} assigns `seq` / `at` for store persistence. */
+/** Event payload before {@link RunRecorder} assigns `seq` / `at` / schema version. */
 export type RunEventEmit = {
-  [T in RunEvent as T["type"]]: Omit<T, "seq" | "at">;
+  [T in RunEvent as T["type"]]: Omit<T, "seq" | "at" | "eventSchemaVersion">;
 }[RunEventType];
 
 /** Workflow + step + in-workflow custom events. */
@@ -193,6 +198,8 @@ export type WorkflowRunSummary = {
   status: "running" | "ok" | "error" | "cancelled";
   startedAt: string;
   finishedAt?: string;
+  /** Inspector display name; omitted until the user renames the run. */
+  title?: string;
 };
 
 export type StepRecord = {

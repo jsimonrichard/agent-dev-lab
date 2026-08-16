@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { z } from "zod";
 
 import { createAdlRuntime, createWorkflow, inMemoryWorkflowStore } from "../index";
 
@@ -96,6 +97,35 @@ describe("workflow.run", () => {
 
     expect(output).toEqual({ nested: true });
     expect(childRunId).toBe(parentHandle.workflowRunId);
+  });
+
+  it("exposes the input schema for hosts to collect run input", async () => {
+    const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    const input = z.object({ topic: z.string().min(1) });
+    const workflow = createWorkflow(runtime, {
+      id: "typed-input",
+      input,
+      run: async (value) => value,
+    });
+
+    expect(workflow.input).toBe(input);
+    expect(workflow.input?.parse({ topic: "CRISPR" })).toEqual({ topic: "CRISPR" });
+  });
+
+  it("applies Zod defaults and bounds before the run body", async () => {
+    const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    const workflow = createWorkflow(runtime, {
+      id: "defaulted-steps",
+      input: z.object({
+        steps: z.number().int().min(1).max(8).default(3),
+      }),
+      run: async (input) => input.steps,
+    });
+
+    await expect(workflow.run({}).result).resolves.toBe(3);
+    await expect(workflow.run({ steps: 2 }).result).resolves.toBe(2);
+    expect(() => workflow.run({ steps: 0 })).toThrow(/Invalid input/);
+    expect(() => workflow.run({ steps: 9 })).toThrow(/Invalid input/);
   });
 
   it("stream yields run events for the workflow run", async () => {

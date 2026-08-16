@@ -42,16 +42,25 @@ export type {
   WorkflowStreamHandle,
 } from "./workflow";
 
-export { createAdlRuntime, resolveRuntimeConfig, resolveRuntimeOverrides } from "./runtime";
+export {
+  createAdlRuntime,
+  createTestRuntime,
+  resolveRuntimeConfig,
+  resolveRuntimeOverrides,
+} from "./runtime";
 export type {
   AdlRuntime,
   AdlRuntimeConfig,
+  AdlRuntimeDefaults,
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
   RuntimeObservers,
   RuntimeServices,
   RuntimeStores,
 } from "./runtime";
+
+export { AdlError, isAdlError } from "./errors";
+export type { AdlErrorCode } from "./errors";
 
 export { createTemplate, TemplateEngine } from "./template";
 export { WorkflowContextScope } from "./workflow/workflow-context-scope";
@@ -62,9 +71,15 @@ export type {
   TemplateFromSourceConfig,
 } from "./template";
 
-export { inMemoryMessageStore } from "./memory";
-export { inMemoryWorkflowStore } from "./observability";
-export type { MessageStore } from "./memory";
+export { inMemoryMessageStore, sqliteInspectorSessionStore, sqliteMessageStore } from "./memory";
+export type {
+  InspectorSessionFork,
+  InspectorSessionRecord,
+  MessageStore,
+  SqliteStoreOptions,
+} from "./memory";
+export { EVENT_SCHEMA_VERSION, inMemoryWorkflowStore, sqliteWorkflowStore } from "./observability";
+export type { AgentEpisodeSummary } from "./observability";
 
 export type {
   AgentEventBase,
@@ -101,12 +116,14 @@ export {
   findAdlConfigPath,
   findAdlProjectRootFromCwd,
   loadAdlProject,
+  loadAdlProjectEnv,
   resolveProjectRoot,
   type AdlConfigFilename,
   type AdlProjectConfig,
-  type AdlProjectDefaults,
   type LoadedAdlProject,
 } from "./project";
+
+export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "@agent-dev-lab/common";
 
 export { generateText, streamText, tool } from "ai";
 export type { CoreMessage, LanguageModel, ToolSet } from "ai";

@@ -6,7 +6,12 @@ import type {
   StepSlot,
   WorkflowRunSummary,
 } from "./events";
-import type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
+import type {
+  AgentEpisodeSummary,
+  ListEventsFilter,
+  ListEventsScope,
+  WorkflowStore,
+} from "./workflow-store";
 
 type StepKey = string;
 
@@ -32,11 +37,13 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       this.eventsByWorkflowRun.set(wfId, list);
 
       if (event.type === "workflow_started") {
+        const existing = this.runs.get(wfId);
         this.runs.set(wfId, {
           workflowRunId: wfId,
           workflowId: event.workflowId,
           status: "running",
           startedAt: event.at,
+          title: existing?.title,
         });
         this.runInputs.set(wfId, event.input);
       }
@@ -153,6 +160,65 @@ export class InMemoryWorkflowStore implements WorkflowStore {
 
   async getStepById(workflowRunId: string, stepId: string): Promise<StepRecord | null> {
     return this.stepRecords.get(workflowRunId)?.get(stepId) ?? null;
+  }
+
+  async setRunTitle(workflowRunId: string, title: string): Promise<void> {
+    const run = this.runs.get(workflowRunId);
+    if (run) {
+      this.runs.set(workflowRunId, { ...run, title });
+      return;
+    }
+    this.runs.set(workflowRunId, {
+      workflowRunId,
+      workflowId: "",
+      status: "running",
+      startedAt: new Date().toISOString(),
+      title,
+    });
+  }
+
+  async deleteRun(workflowRunId: string): Promise<void> {
+    const events = this.eventsByWorkflowRun.get(workflowRunId) ?? [];
+    for (const event of events) {
+      if ("agentCallId" in event) {
+        this.eventsByAgentCall.delete(event.agentCallId);
+      }
+    }
+    this.eventsByWorkflowRun.delete(workflowRunId);
+    this.runs.delete(workflowRunId);
+    this.runInputs.delete(workflowRunId);
+    this.runOutputs.delete(workflowRunId);
+    this.stepOutputs.delete(workflowRunId);
+    this.stepRecords.delete(workflowRunId);
+  }
+
+  async listAgentEpisodes(filter?: {
+    agentId?: string;
+    limit?: number;
+  }): Promise<AgentEpisodeSummary[]> {
+    const episodes: AgentEpisodeSummary[] = [];
+    for (const list of this.eventsByAgentCall.values()) {
+      const started = list.find((event) => event.type === "agent_started");
+      if (!started || started.type !== "agent_started") {
+        continue;
+      }
+      if (filter?.agentId && started.agentId !== filter.agentId) {
+        continue;
+      }
+      episodes.push({
+        agentCallId: started.agentCallId,
+        agentId: started.agentId,
+        memoryScope: started.memoryScope,
+        startedAt: started.at,
+        workflowRunId: started.workflowRunId,
+        stepId: started.stepId,
+      });
+    }
+    episodes.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    if (filter?.limit !== undefined) {
+      return episodes.slice(0, filter.limit);
+    }
+    return episodes;
   }
 }
 

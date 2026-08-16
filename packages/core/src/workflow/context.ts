@@ -38,7 +38,7 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.registry = new StepRegistry(this.registryParentKey);
   }
 
-  memoryScope = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
+  memoryScopeWithSuffix = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
 
   emit = (event: CustomWorkflowEvent): void => {
     void this.runRecorder.emit({

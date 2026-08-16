@@ -7,6 +7,16 @@ import type {
   WorkflowRunSummary,
 } from "./events";
 
+/** One `agent_started` episode, used to rebuild inspector chats after restart. */
+export type AgentEpisodeSummary = {
+  agentCallId: string;
+  agentId: string;
+  memoryScope: string;
+  startedAt: string;
+  workflowRunId?: string;
+  stepId?: string | null;
+};
+
 /**
  * Scope for reading events — workflow log vs standalone agent episode.
  */
@@ -48,4 +58,12 @@ export interface WorkflowStore {
   getRunOutput(workflowRunId: string): Promise<unknown | null>;
   getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null>;
   getStepById(workflowRunId: string, stepId: string): Promise<StepRecord | null>;
+
+  /** Set a display title without changing {@link WorkflowRunSummary.workflowRunId}. */
+  setRunTitle(workflowRunId: string, title: string): Promise<void>;
+  /** Remove a run and its events / step records. */
+  deleteRun(workflowRunId: string): Promise<void>;
+
+  /** Standalone and in-workflow agent episodes, newest first. */
+  listAgentEpisodes(filter?: { agentId?: string; limit?: number }): Promise<AgentEpisodeSummary[]>;
 }

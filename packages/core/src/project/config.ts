@@ -27,13 +27,13 @@ export interface AdlProjectConfig {
   workflows?: Workflow<unknown, unknown>[];
   /** Registry key is `template.name` (filename basename). */
   templates?: Template<unknown>[];
+  /**
+   * Registry-only shared tools (documentation / future UI). Runtime merge uses
+   * {@link AdlRuntimeConfig.tools} on `createAdlRuntime` — agents are created
+   * before this config object is finished loading.
+   */
   tools?: ToolSet;
-
-  defaults?: AdlProjectDefaults;
 }
-
-/** Optional project-wide defaults (model router, etc.) — TBD. */
-export type AdlProjectDefaults = Record<string, unknown>;
 
 export const ADL_CONFIG_FILENAMES = [
   "adl.config.ts",

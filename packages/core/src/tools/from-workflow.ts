@@ -11,10 +11,10 @@ export type CreateToolFromWorkflowOptions<TInput> = {
 };
 
 /** Expose a workflow as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromWorkflow}. */
-export function createToolFromWorkflow<TInput, TOutput>(
+export function createToolFromWorkflow<TInput, TOutput, TRawInput = TInput>(
   runtime: AdlRuntime,
-  workflow: Workflow<TInput, TOutput>,
-  options: CreateToolFromWorkflowOptions<TInput>,
+  workflow: Workflow<TInput, TOutput, TRawInput>,
+  options: CreateToolFromWorkflowOptions<TRawInput>,
 ): ToolSet[string] {
   return tool({
     ...(options.name !== undefined ? { name: options.name } : {}),
@@ -26,7 +26,7 @@ export function createToolFromWorkflow<TInput, TOutput>(
           "createToolFromWorkflow: no WorkflowContext — call from within a workflow run or step",
         );
       }
-      const input = options.mapInput ? options.mapInput(toolArgs) : (toolArgs as TInput);
+      const input = options.mapInput ? options.mapInput(toolArgs) : (toolArgs as TRawInput);
       const output = await workflow.run(input).result;
       return output as unknown;
     },

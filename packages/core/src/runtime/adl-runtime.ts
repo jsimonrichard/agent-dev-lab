@@ -35,11 +35,11 @@ export class AdlRuntimeImpl implements AdlRuntime {
     );
   }
 
-  createWorkflow<TInput, TOutput>(
-    definition: WorkflowDefinition<TInput, TOutput>,
+  createWorkflow<TInput, TOutput, TRawInput = TInput>(
+    definition: WorkflowDefinition<TInput, TOutput, TRawInput>,
     overrides?: AdlRuntimeOverrides,
-  ): Workflow<TInput, TOutput> {
-    return new WorkflowImpl<TInput, TOutput>(
+  ): Workflow<TInput, TOutput, TRawInput> {
+    return new WorkflowImpl<TInput, TOutput, TRawInput>(
       definition,
       resolveRuntimeOverrides(this.services, overrides),
     );
@@ -52,9 +52,9 @@ export class AdlRuntimeImpl implements AdlRuntime {
     return createToolFromAgent(this, agent, options);
   }
 
-  createToolFromWorkflow<TInput, TOutput>(
-    workflow: Workflow<TInput, TOutput>,
-    options: CreateToolFromWorkflowOptions<TInput>,
+  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput>(
+    workflow: Workflow<TInput, TOutput, TRawInput>,
+    options: CreateToolFromWorkflowOptions<TRawInput>,
   ): ToolSet[string] {
     return createToolFromWorkflow(this, workflow, options);
   }

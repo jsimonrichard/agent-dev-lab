@@ -16,5 +16,11 @@ export function inMemoryMessageStore(): MessageStore {
     async save(memoryScope, messages) {
       scopes.set(memoryScope, [...messages]);
     },
+    async delete(memoryScope) {
+      scopes.delete(memoryScope);
+    },
+    async listScopes() {
+      return [...scopes.keys()];
+    },
   };
 }

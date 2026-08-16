@@ -33,4 +33,11 @@ export type {
   WorkflowObservers,
 } from "./observers";
 export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
-export type { ListEventsFilter, ListEventsScope, WorkflowStore } from "./workflow-store";
+export { sqliteWorkflowStore } from "./sqlite-workflow-store";
+export type {
+  AgentEpisodeSummary,
+  ListEventsFilter,
+  ListEventsScope,
+  WorkflowStore,
+} from "./workflow-store";
+export { EVENT_SCHEMA_VERSION } from "./events";
