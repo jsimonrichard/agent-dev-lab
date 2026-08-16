@@ -1,13 +1,22 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 import { webPackageRoot } from "./paths.js";
 
 /** How the packaged inspection UI is started. */
 export type UiLaunchMode = "framework-dev" | "project-dev" | "serve";
 
+export function hasViteDevTree(webRoot: string): boolean {
+  return (
+    existsSync(path.join(webRoot, "src/routes")) && existsSync(path.join(webRoot, "vite.config.ts"))
+  );
+}
+
 export function resolveUiLaunchMode(options: {
   serve: boolean;
   frameworkDev: boolean;
+  webRoot?: string;
 }): UiLaunchMode {
   if (options.frameworkDev) {
     return "framework-dev";
@@ -15,7 +24,10 @@ export function resolveUiLaunchMode(options: {
   if (options.serve) {
     return "serve";
   }
-  return "project-dev";
+  if (hasViteDevTree(options.webRoot ?? webPackageRoot())) {
+    return "project-dev";
+  }
+  return "serve";
 }
 
 export function spawnInspectionUi(options: {
@@ -42,7 +54,7 @@ export function spawnInspectionUi(options: {
     case "serve":
       return spawn("bun", ["run", "start"], {
         cwd: webRoot,
-        env,
+        env: { ...env, ADL_INSPECTOR_SERVE: "1" },
         stdio: "inherit",
       });
   }

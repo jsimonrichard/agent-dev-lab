@@ -110,14 +110,25 @@ export function resolveWorkspacePackageRoot(packageName: string): string {
   );
 }
 
+export interface LoadedProjectForCli {
+  root: string;
+  configPath: string;
+  config: { name: string };
+  getWorkflow(id: string):
+    | {
+        id: string;
+        run: (input: unknown) => { workflowRunId: string; result: Promise<unknown> };
+      }
+    | undefined;
+  getAgent(id: string): { id: string } | undefined;
+  listWorkflowIds(): string[];
+  listAgentIds(): string[];
+}
+
 export interface ProjectRuntimeProjectModule {
   ADL_PROJECT_ROOT_ENV: string;
   findAdlProjectRootFromCwd: (cwd?: string) => string;
-  loadAdlProject: (options?: { root?: string; cwd?: string }) => Promise<{
-    root: string;
-    configPath: string;
-    config: { name: string };
-  }>;
+  loadAdlProject: (options?: { root?: string; cwd?: string }) => Promise<LoadedProjectForCli>;
 }
 
 /** Load `@agent-dev-lab/core/project` from the target project's dependency tree. */

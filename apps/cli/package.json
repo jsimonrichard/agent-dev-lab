@@ -1,7 +1,11 @@
 {
   "name": "@agent-dev-lab/cli",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Agent Development Lab command-line interface",
   "type": "module",
   "bin": {
@@ -13,13 +17,15 @@
   "scripts": {
     "dev": "bun run src/bin/cli.ts",
     "prebuild": "bun run verify:web-output && tsc -p tsconfig.json --noEmit",
-    "build": "tsup --silent",
+    "build": "tsup --silent && bun run package-scaffold",
+    "package-scaffold": "bun run scripts/package-playground-scaffold.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "verify:web-output": "bun run scripts/verify-web-output.ts",
     "test": "bun test src"
   },
   "dependencies": {
+    "@agent-dev-lab/core": "workspace:*",
     "@agent-dev-lab/web": "workspace:*",
     "@stricli/core": "^1.2.7"
   },
