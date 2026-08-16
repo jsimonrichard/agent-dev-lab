@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",
-    "@ai-sdk/openai": "^2.0.0",
+    "@ai-sdk/openai": "^2.0.42",
     "zod": "^3.25.76"
   },
   "devDependencies": {
