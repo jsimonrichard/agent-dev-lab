@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
@@ -42,6 +42,18 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
   const [forking, setForking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamEnabled, setStreamEnabled] = useState(false);
+
+  useEffect(() => {
+    setMessages(conversation.messages);
+    setError(null);
+    setSending(false);
+    setForking(false);
+    setStreamEnabled(false);
+  }, [conversation.runId]);
+
+  useEffect(() => {
+    setMessages(conversation.messages);
+  }, [conversation.messages]);
 
   const refreshMessages = useCallback(async () => {
     const updated = await fetchMessagesForScope({ data: conversation.runId });

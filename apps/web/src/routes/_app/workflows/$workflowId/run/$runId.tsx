@@ -8,6 +8,7 @@ import { fetchMessagesForWorkflowRun, fetchWorkflowRun } from "#/lib/inspector-s
 import { parseWorkflowRunSearch } from "@/lib/workflow-location";
 
 export const Route = createFileRoute("/_app/workflows/$workflowId/run/$runId")({
+  gcTime: 0,
   pendingMs: 150,
   pendingComponent: RunWorkspacePending,
   errorComponent: WorkflowRunError,
@@ -33,6 +34,7 @@ function WorkflowRunPage() {
   const search = Route.useSearch();
   return (
     <RunWorkspace
+      key={summary.runId}
       summary={summary}
       initialEvents={events}
       messagesPromise={messagesPromise}

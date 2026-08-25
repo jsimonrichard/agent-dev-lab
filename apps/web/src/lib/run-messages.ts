@@ -1,4 +1,4 @@
-import type { RunEvent } from "@/lib/mock/types";
+import type { MessagesByScope, RunEvent } from "@/lib/mock/types";
 
 export function memoryScopesFromEvents(events: RunEvent[]): string[] {
   const scopes: string[] = [];
@@ -24,4 +24,20 @@ export function latestCommitSeqByScope(events: RunEvent[]): Record<string, numbe
     }
   }
   return latest;
+}
+
+/** Keep live-fetched transcripts only when they are newer than a refreshed prefetch snapshot. */
+export function overlayNewerThanPrefetch(
+  overlay: MessagesByScope,
+  overlaySeqByScope: Record<string, number>,
+  prefetchEventSeq: number,
+): MessagesByScope {
+  const next: MessagesByScope = {};
+  for (const [scope, messages] of Object.entries(overlay)) {
+    const overlaySeq = overlaySeqByScope[scope];
+    if (overlaySeq !== undefined && overlaySeq > prefetchEventSeq) {
+      next[scope] = messages;
+    }
+  }
+  return next;
 }

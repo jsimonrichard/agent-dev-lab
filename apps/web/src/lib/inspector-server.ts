@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createMiddleware, createServerFn } from "@tanstack/react-start";
 
 import type { MockMessage } from "#/lib/mock/types";
 
@@ -23,15 +23,26 @@ import {
   deleteWorkflowRun,
 } from "#/lib/run-service.server";
 
-export const fetchProjectMeta = createServerFn({ method: "GET" }).handler(async () => {
-  return getProjectInspectorMeta();
+const noStore = createMiddleware({ type: "function" }).client(async ({ next }) => {
+  return next({
+    fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+  });
 });
 
-export const fetchWorkflowRuns = createServerFn({ method: "GET" }).handler(async () => {
-  return listWorkflowRunSummaries();
-});
+export const fetchProjectMeta = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .handler(async () => {
+    return getProjectInspectorMeta();
+  });
+
+export const fetchWorkflowRuns = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .handler(async () => {
+    return listWorkflowRunSummaries();
+  });
 
 export const fetchWorkflowRun = createServerFn({ method: "GET" })
+  .middleware([noStore])
   .validator((runId: string) => runId)
   .handler(async ({ data: runId }) => {
     const summary = await getWorkflowRunSummary(runId);
@@ -59,14 +70,17 @@ export const cancelInspectionWorkflowRun = createServerFn({ method: "POST" })
   });
 
 export const fetchAgentConversation = createServerFn({ method: "GET" })
+  .middleware([noStore])
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return resolveAgentConversation(memoryScope);
   });
 
-export const fetchAgentSessions = createServerFn({ method: "GET" }).handler(async () => {
-  return listAgentSessionsForUi();
-});
+export const fetchAgentSessions = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .handler(async () => {
+    return listAgentSessionsForUi();
+  });
 
 export const sendAgentMessage = createServerFn({ method: "POST" })
   .validator((payload: { agentId: string; memoryScope: string; user: string }) => payload)
@@ -131,12 +145,14 @@ export const deleteInspectionWorkflowRun = createServerFn({ method: "POST" })
   });
 
 export const fetchMessagesForScope = createServerFn({ method: "GET" })
+  .middleware([noStore])
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return loadMessagesForScope(memoryScope);
   });
 
 export const fetchMessagesForWorkflowRun = createServerFn({ method: "GET" })
+  .middleware([noStore])
   .validator((runId: string) => runId)
   .handler(async ({ data: runId }) => {
     return loadMessagesForWorkflowRun(runId);

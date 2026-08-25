@@ -185,7 +185,7 @@ function ConversationPanel({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           <CatchBoundary
-            getResetKey={() => episode.episodeId}
+            getResetKey={() => `${runId}:${episode.episodeId}`}
             errorComponent={({ error }) => (
               <div className="p-3">
                 <ErrorDetails error={error} compact />
@@ -193,6 +193,7 @@ function ConversationPanel({
             )}
           >
             <Await
+              key={runId}
               promise={messagesPromise}
               fallback={
                 runSettled || episode.status === "failed" ? (
@@ -207,6 +208,7 @@ function ConversationPanel({
                   prefetched={prefetched}
                   events={events}
                   episode={episode}
+                  runId={runId}
                   streamingText={streamingText}
                   fallbackError={episodeError}
                   onFork={onFork}
@@ -251,6 +253,7 @@ function EpisodeConversation({
   prefetched,
   events,
   episode,
+  runId,
   streamingText,
   fallbackError,
   onFork,
@@ -258,11 +261,12 @@ function EpisodeConversation({
   prefetched: PrefetchedRunMessages;
   events: RunEvent[];
   episode: AgentEpisode;
+  runId: string;
   streamingText: string | null;
   fallbackError: unknown;
   onFork: (messages: MockMessage[]) => void;
 }) {
-  const { messagesByScope, pendingScopes } = useLiveRunMessages(prefetched, events);
+  const { messagesByScope, pendingScopes } = useLiveRunMessages(runId, prefetched, events);
   const messages = messagesByScope[episode.memoryScope] ?? [];
   const episodeFailed = episode.status === "failed";
   const waitingForScope =

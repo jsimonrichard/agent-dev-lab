@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchMessagesForScope } from "#/lib/inspector-server";
-import { latestCommitSeqByScope, memoryScopesFromEvents } from "@/lib/run-messages";
+import {
+  latestCommitSeqByScope,
+  memoryScopesFromEvents,
+  overlayNewerThanPrefetch,
+} from "@/lib/run-messages";
 import type { MessagesByScope, PrefetchedRunMessages, RunEvent } from "@/lib/mock/types";
 
 export function useLiveRunMessages(
+  runId: string,
   initial: PrefetchedRunMessages,
   events: RunEvent[],
 ): { messagesByScope: MessagesByScope; pendingScopes: ReadonlySet<string> } {
@@ -15,8 +20,24 @@ export function useLiveRunMessages(
   eventsRef.current = events;
 
   useEffect(() => {
+    setOverlay({});
+    setPendingScopes(new Set());
+    loadedSeqRef.current = {};
+  }, [runId]);
+
+  useEffect(() => {
+    setOverlay((prev) => {
+      const next = overlayNewerThanPrefetch(prev, loadedSeqRef.current, initial.eventSeq);
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length === nextKeys.length && nextKeys.every((key) => prev[key] === next[key])) {
+        return prev;
+      }
+      return next;
+    });
     for (const scope of Object.keys(initial.messagesByScope)) {
-      if (loadedSeqRef.current[scope] === undefined) {
+      const loaded = loadedSeqRef.current[scope];
+      if (loaded === undefined || initial.eventSeq >= loaded) {
         loadedSeqRef.current[scope] = initial.eventSeq;
       }
     }

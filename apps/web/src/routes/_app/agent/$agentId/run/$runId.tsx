@@ -7,6 +7,7 @@ import type { MockAgentSettings, MockAgentSummary } from "@/lib/mock/types";
 
 export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   component: AgentRunPage,
+  gcTime: 0,
   loader: async ({ params }) => {
     const conversation = await fetchAgentConversation({ data: params.runId });
     if (!conversation || conversation.agentId !== params.agentId) {
@@ -32,6 +33,7 @@ function AgentRunPage() {
   };
   return (
     <AgentRunWorkspace
+      key={conversation.runId}
       agent={agent}
       conversation={conversation}
       settings={settings}
