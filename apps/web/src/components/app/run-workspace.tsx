@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
-import { cancelInspectionWorkflowRun, forkAgentConversation } from "#/lib/inspector-server";
+import { cancelInspectionWorkflowRun } from "#/lib/inspector-server";
 import { buildRunViewState, findStepInTree, resolveRunSelection } from "@/lib/mock/run-projection";
 import type {
   AgentEpisode,
-  MockMessage,
   MockRunSummary,
   PrefetchedRunMessages,
   RunEvent,
@@ -37,7 +36,6 @@ export function RunWorkspace({
   initialStepId,
   initialEpisodeId,
 }: RunWorkspaceProps) {
-  const navigate = useNavigate();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
   const runTitle = view.title ?? summary.title;
@@ -78,25 +76,6 @@ export function RunWorkspace({
   function handleSelectEpisode(stepId: string, ep: AgentEpisode) {
     setSelectedStepId(stepId);
     setSelectedEpisodeId(ep.episodeId);
-  }
-
-  async function handleFork(messages: MockMessage[]) {
-    if (!activeEpisode || !selectedStepId) return;
-    const { memoryScope } = await forkAgentConversation({
-      data: {
-        agentId: activeEpisode.agentId,
-        sourceWorkflowId: summary.workflowId,
-        sourceRunId: summary.runId,
-        sourceStepId: selectedStepId,
-        sourceEpisodeId: activeEpisode.episodeId,
-        sourceMemoryScope: activeEpisode.memoryScope,
-        messages,
-      },
-    });
-    void navigate({
-      to: "/agent/$agentId/run/$runId",
-      params: { agentId: activeEpisode.agentId, runId: memoryScope },
-    });
   }
 
   return (
@@ -204,7 +183,6 @@ export function RunWorkspace({
                 workflowOutput={view.output}
                 runStatus={view.status}
                 runError={view.error}
-                onFork={(messages) => void handleFork(messages)}
               />
             </ResizablePanel>
           </>

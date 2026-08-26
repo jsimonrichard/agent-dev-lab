@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
-import {
-  fetchMessagesForScope,
-  forkLinkedConversation,
-  sendAgentMessage,
-} from "#/lib/inspector-server";
+import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   MockAgentSettings,
@@ -33,13 +29,11 @@ interface AgentRunWorkspaceProps {
 
 export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
   const router = useRouter();
-  const navigate = useNavigate();
   const forkSession = conversation.forkSession;
   const workflowLink = conversation.workflowLink;
   const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
-  const [forking, setForking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamEnabled, setStreamEnabled] = useState(false);
 
@@ -47,7 +41,6 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
     setMessages(conversation.messages);
     setError(null);
     setSending(false);
-    setForking(false);
     setStreamEnabled(false);
   }, [conversation.runId]);
 
@@ -67,27 +60,6 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       void refreshMessages();
     },
   });
-
-  async function handleFork() {
-    if (!workflowLink || forking) {
-      return;
-    }
-    setForking(true);
-    setError(null);
-    try {
-      const { memoryScope } = await forkLinkedConversation({
-        data: conversation.runId,
-      });
-      await router.invalidate();
-      await navigate({
-        to: "/agent/$agentId/run/$runId",
-        params: { agentId: agent.id, runId: memoryScope },
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Fork failed");
-      setForking(false);
-    }
-  }
 
   async function handleSend(text: string) {
     setSending(true);
@@ -214,20 +186,9 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
             </ScrollArea>
             {workflowLink ? (
               <div className="shrink-0 border-t border-border/40 bg-background p-4">
-                <div className="mx-auto flex max-w-lg flex-col items-stretch gap-3">
-                  <p className="text-center text-sm text-muted-foreground">
-                    Read-only in workflow context. Fork to continue in a standalone agent run.
-                  </p>
-                  <Button
-                    size="lg"
-                    className="h-12 w-full gap-2 text-base"
-                    disabled={forking}
-                    onClick={() => void handleFork()}
-                  >
-                    <GitBranch className="size-5" />
-                    {forking ? "Forking…" : "Fork to agent run"}
-                  </Button>
-                </div>
+                <p className="text-center text-sm text-muted-foreground">
+                  Read-only. This conversation is part of a workflow run.
+                </p>
               </div>
             ) : (
               <ChatComposer

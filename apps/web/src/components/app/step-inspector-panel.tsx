@@ -3,7 +3,6 @@ import { Bot, GitBranch, Layers, MessageSquare } from "lucide-react";
 
 import type {
   AgentEpisode,
-  MockMessage,
   PrefetchedRunMessages,
   RunEvent,
   RunStatus,
@@ -38,7 +37,6 @@ interface StepInspectorPanelProps {
   workflowOutput: unknown;
   runStatus: RunStatus;
   runError?: unknown;
-  onFork: (messages: MockMessage[]) => void;
 }
 
 export function StepInspectorPanel({
@@ -53,7 +51,6 @@ export function StepInspectorPanel({
   workflowOutput,
   runStatus,
   runError,
-  onFork,
 }: StepInspectorPanelProps) {
   if (!step) {
     return (
@@ -78,7 +75,6 @@ export function StepInspectorPanel({
         runStatus={runStatus}
         runError={runError}
         runId={runId}
-        onFork={onFork}
       />
     );
   }
@@ -135,7 +131,6 @@ function ConversationInspector({
   runStatus,
   runError,
   runId,
-  onFork,
 }: {
   step: StepNode;
   episode: AgentEpisode;
@@ -145,7 +140,6 @@ function ConversationInspector({
   runStatus: RunStatus;
   runError?: unknown;
   runId: string;
-  onFork: (messages: MockMessage[]) => void;
 }) {
   const stepLabel = formatStepLabel(step.name, step.key);
   const stepError = step.error ?? (step.status === "failed" ? runError : undefined);
@@ -189,7 +183,6 @@ function ConversationInspector({
         episodeError={episodeError}
         runSettled={runSettled}
         runId={runId}
-        onFork={onFork}
       />
     </div>
   );
@@ -203,7 +196,6 @@ function ConversationPanel({
   episodeError,
   runSettled,
   runId,
-  onFork,
 }: {
   episode: AgentEpisode;
   events: RunEvent[];
@@ -212,7 +204,6 @@ function ConversationPanel({
   episodeError: unknown;
   runSettled: boolean;
   runId: string;
-  onFork: (messages: MockMessage[]) => void;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
@@ -243,7 +234,6 @@ function ConversationPanel({
               runId={runId}
               streamingText={streamingText}
               fallbackError={episodeError}
-              onFork={onFork}
             />
           )}
         </Await>
@@ -270,7 +260,6 @@ function EpisodeConversation({
   runId,
   streamingText,
   fallbackError,
-  onFork,
 }: {
   prefetched: PrefetchedRunMessages;
   events: RunEvent[];
@@ -278,12 +267,10 @@ function EpisodeConversation({
   runId: string;
   streamingText: string | null;
   fallbackError: unknown;
-  onFork: (messages: MockMessage[]) => void;
 }) {
   const { messagesByScope, pendingScopes } = useLiveRunMessages(runId, prefetched, events);
   const messages = messagesByScope[episode.memoryScope] ?? [];
   const { prior, current, later } = partitionScopeTranscript(messages, events, episode);
-  const forkMessages = [...prior, ...current];
   const episodeFailed = episode.status === "failed";
   const waitingForScope =
     !episodeFailed &&
@@ -347,17 +334,16 @@ function EpisodeConversation({
       </ScrollArea>
       <div className="shrink-0 space-y-2 border-t border-border/40 p-2">
         <p className="text-[10px] leading-snug text-muted-foreground">
-          Read-only in workflow context. Fork to continue in a standalone agent run.
+          Read-only in this workflow view. Open the conversation to view it in full.
         </p>
-        <Button
-          size="sm"
-          className="w-full gap-2"
-          variant="secondary"
-          disabled={waitingForScope}
-          onClick={() => onFork(forkMessages)}
-        >
-          <GitBranch className="size-3.5" />
-          Fork to agent run
+        <Button size="sm" className="w-full gap-2" variant="secondary" asChild>
+          <Link
+            to="/agent/$agentId/run/$runId"
+            params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+          >
+            <MessageSquare className="size-3.5" />
+            View Conversation
+          </Link>
         </Button>
       </div>
     </div>

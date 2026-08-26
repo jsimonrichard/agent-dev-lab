@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { Bot, GitBranch, MessageSquare, Plus } from "lucide-react";
+import { Bot, MessageSquare, Plus } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { parseAgentLocation } from "@/lib/agent-location";
@@ -8,11 +8,7 @@ import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { NewConversationButton } from "@/components/app/new-conversation-button";
 import { ContextSidebar } from "@/components/app/context-sidebar";
-import {
-  deleteAgentConversation,
-  forkLinkedConversation,
-  renameAgentConversation,
-} from "#/lib/inspector-server";
+import { deleteAgentConversation, renameAgentConversation } from "#/lib/inspector-server";
 import { isWorkflowLinkedConversation } from "@/lib/agent-sessions";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { formatRunTimestamp } from "@/lib/workflow-location";
@@ -108,31 +104,6 @@ export function AgentConversationsSidebar() {
                       <SidebarMenuItem key={session.memoryScope}>
                         <ItemActionsMenu
                           name={session.title}
-                          extraActions={[
-                            ...(isWorkflowLinkedConversation(session)
-                              ? [
-                                  {
-                                    label: "Fork to agent run",
-                                    icon: GitBranch,
-                                    onSelect: () => {
-                                      void (async () => {
-                                        const { memoryScope } = await forkLinkedConversation({
-                                          data: session.memoryScope,
-                                        });
-                                        await router.invalidate();
-                                        await navigate({
-                                          to: "/agent/$agentId/run/$runId",
-                                          params: {
-                                            agentId: session.agentId,
-                                            runId: memoryScope,
-                                          },
-                                        });
-                                      })();
-                                    },
-                                  },
-                                ]
-                              : []),
-                          ]}
                           onRename={async (title) => {
                             await renameAgentConversation({
                               data: { memoryScope: session.memoryScope, title },
