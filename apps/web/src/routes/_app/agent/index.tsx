@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { EmptySelectionPage } from "@/components/app/empty-selection";
+import { AgentRegistryPage } from "@/components/app/agent-config-page";
 
 export const Route = createFileRoute("/_app/agent/")({
   component: AgentIndexPage,
 });
 
 function AgentIndexPage() {
-  return <EmptySelectionPage message="No conversation selected" />;
+  return <AgentRegistryPage />;
 }

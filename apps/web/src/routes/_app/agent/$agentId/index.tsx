@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { EmptySelectionPage } from "@/components/app/empty-selection";
+import { AgentDefinitionPage } from "@/components/app/agent-config-page";
 import { NotFoundPage } from "@/components/app/not-found";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 
@@ -22,5 +22,5 @@ function AgentDetailPage() {
     );
   }
 
-  return <EmptySelectionPage message="No conversation selected" />;
+  return <AgentDefinitionPage agentId={agentId} />;
 }

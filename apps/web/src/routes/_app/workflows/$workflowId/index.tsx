@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { EmptySelectionPage } from "@/components/app/empty-selection";
+import { WorkflowDefinitionPage } from "@/components/app/workflow-config-page";
 import { NotFoundPage } from "@/components/app/not-found";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 
@@ -22,5 +22,5 @@ function WorkflowDetailPage() {
     );
   }
 
-  return <EmptySelectionPage message="No workflow run selected" />;
+  return <WorkflowDefinitionPage workflowId={workflowId} />;
 }

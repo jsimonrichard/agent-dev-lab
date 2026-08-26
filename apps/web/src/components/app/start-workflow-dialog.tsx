@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 const selectClassName = cn(
   "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none",
-  "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30",
+  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 dark:bg-input/30",
   "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
 );
 
@@ -32,32 +32,46 @@ async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, tit
   window.location.href = `/workflows/${workflowId}/run/${runId}`;
 }
 
+function startWorkflowDescription(workflowId: string | undefined, fieldCount: number): string {
+  if (workflowId) {
+    return fieldCount > 0
+      ? `Optionally name this run and provide input for ${workflowId}.`
+      : `Optionally name this run of ${workflowId}.`;
+  }
+  return fieldCount > 0
+    ? "Choose a workflow, optionally name the run, and provide any required input."
+    : "Choose a workflow and optionally name the run.";
+}
+
 export function StartWorkflowButton({
   workflowId,
   children,
   ...props
 }: {
-  workflowId?: string;
+  workflowId: string;
 } & Omit<ComponentProps<typeof Button>, "onClick">) {
   const [open, setOpen] = useState(false);
   const { project } = useAppLoaderData();
+  const workflow = project.workflows.find((item) => item.id === workflowId);
 
   return (
     <>
       <Button
         {...props}
         type="button"
-        disabled={props.disabled || project.workflows.length === 0}
+        disabled={props.disabled || !workflow}
         onClick={() => setOpen(true)}
       >
         {children}
       </Button>
-      <StartWorkflowDialog
-        open={open}
-        onOpenChange={setOpen}
-        workflows={project.workflows}
-        workflowId={workflowId}
-      />
+      {workflow ? (
+        <StartWorkflowDialog
+          open={open}
+          onOpenChange={setOpen}
+          workflows={project.workflows}
+          workflowId={workflowId}
+        />
+      ) : null}
     </>
   );
 }
@@ -71,10 +85,41 @@ export function StartWorkflowDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workflows: WorkflowInspectorMeta[];
+  workflowId: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <StartWorkflowForm
+          workflows={workflows}
+          workflowId={workflowId}
+          active={open}
+          variant="dialog"
+          onCancel={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function StartWorkflowForm({
+  workflows,
+  workflowId,
+  active = true,
+  variant = "page",
+  onCancel,
+}: {
+  workflows: WorkflowInspectorMeta[];
   workflowId?: string;
+  /** When false, skip resetting — used so a closed dialog does not clobber state. */
+  active?: boolean;
+  variant?: "dialog" | "page";
+  onCancel?: () => void;
 }) {
   const lockedId = workflowId;
-  const nameId = useId();
+  const formId = useId();
+  const nameId = `${formId}-name`;
+  const workflowSelectId = `${formId}-workflow`;
   const [selectedId, setSelectedId] = useState(lockedId ?? workflows[0]?.id ?? "");
   const [runName, setRunName] = useState("");
   const [values, setValues] = useState<Record<string, string | boolean>>({});
@@ -86,9 +131,11 @@ export function StartWorkflowDialog({
     [workflows, lockedId, selectedId],
   );
   const fields = selected?.inputFields ?? [];
+  const description = startWorkflowDescription(lockedId, fields.length);
+  const autoFocus = variant === "dialog";
 
   useEffect(() => {
-    if (!open) {
+    if (!active) {
       return;
     }
     setSelectedId(lockedId ?? workflows[0]?.id ?? "");
@@ -96,7 +143,7 @@ export function StartWorkflowDialog({
     setValues({});
     setError(null);
     setSubmitting(false);
-  }, [open, lockedId, workflows]);
+  }, [active, lockedId, workflows]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -116,102 +163,111 @@ export function StartWorkflowDialog({
     }
   }
 
-  const description = lockedId
-    ? fields.length > 0
-      ? `Optionally name this run and provide input for ${lockedId}.`
-      : `Optionally name this run of ${lockedId}.`
-    : fields.length > 0
-      ? "Choose a workflow, optionally name the run, and provide any required input."
-      : "Choose a workflow and optionally name the run.";
+  const heading =
+    variant === "dialog" ? (
+      <DialogHeader>
+        <DialogTitle>Start workflow</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+      </DialogHeader>
+    ) : (
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold">Start workflow</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    );
+
+  const actions =
+    variant === "dialog" ? (
+      <DialogFooter>
+        {onCancel ? (
+          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={submitting || !selected}>
+          {submitting ? "Starting…" : "Start run"}
+        </Button>
+      </DialogFooter>
+    ) : (
+      <div className="flex justify-end">
+        <Button type="submit" disabled={submitting || !selected}>
+          {submitting ? "Starting…" : "Start run"}
+        </Button>
+      </div>
+    );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
-          <DialogHeader>
-            <DialogTitle>Start workflow</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-          </DialogHeader>
+    <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
+      {heading}
 
-          {lockedId ? null : (
-            <div className="grid gap-2">
-              <Label htmlFor="start-workflow-id">Workflow</Label>
-              <select
-                id="start-workflow-id"
-                className={selectClassName}
-                value={selectedId}
-                onChange={(event) => {
-                  setSelectedId(event.target.value);
-                  setValues({});
-                  setError(null);
-                }}
-              >
-                {workflows.map((workflow) => (
-                  <option key={workflow.id} value={workflow.id}>
-                    {workflow.id}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+      {lockedId ? null : (
+        <div className="grid gap-2">
+          <Label htmlFor={workflowSelectId}>Workflow</Label>
+          <select
+            id={workflowSelectId}
+            className={selectClassName}
+            value={selectedId}
+            onChange={(event) => {
+              setSelectedId(event.target.value);
+              setValues({});
+              setError(null);
+            }}
+          >
+            {workflows.map((workflow) => (
+              <option key={workflow.id} value={workflow.id}>
+                {workflow.id}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-          <div className="grid gap-2">
-            <Label htmlFor={nameId}>Name (optional)</Label>
-            <Input
-              id={nameId}
-              autoFocus={fields.length === 0}
-              value={runName}
-              onChange={(event) => setRunName(event.target.value)}
-              placeholder="Leave blank to use the run id"
-            />
-            <p className="text-xs text-muted-foreground">
-              Shown in the run list. The run id stays the same.
-            </p>
-          </div>
+      <div className="grid gap-2">
+        <Label htmlFor={nameId}>Name (optional)</Label>
+        <Input
+          id={nameId}
+          autoFocus={autoFocus && fields.length === 0}
+          value={runName}
+          onChange={(event) => setRunName(event.target.value)}
+          placeholder="Leave blank to use the run id"
+        />
+        <p className="text-xs text-muted-foreground">
+          Shown in the run list. The run id stays the same.
+        </p>
+      </div>
 
-          {fields.map((field, index) => (
-            <WorkflowInputControl
-              key={field.name}
-              field={field}
-              autoFocus={index === 0}
-              value={values[field.name]}
-              onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
-            />
-          ))}
+      {fields.map((field, index) => (
+        <WorkflowInputControl
+          key={field.name}
+          idPrefix={formId}
+          field={field}
+          autoFocus={autoFocus && index === 0}
+          value={values[field.name]}
+          onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+        />
+      ))}
 
-          {error ? <ErrorDetails error={error} compact /> : null}
+      {error ? <ErrorDetails error={error} compact /> : null}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || !selected}>
-              {submitting ? "Starting…" : "Start run"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {actions}
+    </form>
   );
 }
 
 function WorkflowInputControl({
+  idPrefix,
   field,
   value,
   onChange,
   autoFocus,
 }: {
+  idPrefix: string;
   field: WorkflowInputField;
   value: string | boolean | undefined;
   onChange: (value: string | boolean) => void;
   autoFocus?: boolean;
 }) {
-  const id = `workflow-input-${field.name}`;
+  const id = `${idPrefix}-${field.name}`;
   const label = field.required ? field.name : `${field.name} (optional)`;
 
   if (field.kind === "boolean") {
@@ -220,7 +276,7 @@ function WorkflowInputControl({
         <input
           id={id}
           type="checkbox"
-          className="size-4 rounded border border-input"
+          className="size-4 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           checked={value === true}
           onChange={(event) => onChange(event.target.checked)}
         />

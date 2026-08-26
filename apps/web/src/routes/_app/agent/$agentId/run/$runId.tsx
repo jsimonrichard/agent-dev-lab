@@ -2,8 +2,9 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
 import { fetchAgentConversation } from "#/lib/inspector-server";
+import { agentSettingsFromMeta } from "@/components/app/agent-settings-panel";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import type { MockAgentSettings, MockAgentSummary } from "@/lib/mock/types";
+import type { MockAgentSummary } from "@/lib/mock/types";
 
 export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   component: AgentRunPage,
@@ -25,12 +26,15 @@ function AgentRunPage() {
   const { agent, conversation } = Route.useLoaderData();
   const { project } = useAppLoaderData();
   const agentMeta = project.agents.find((item) => item.id === agent.id);
-  const settings: MockAgentSettings = {
-    agentId: conversation.agentId,
-    model: agentMeta?.model ?? null,
-    memoryMode: agentMeta?.memoryMode ?? "custom",
-    tools: agentMeta?.tools ?? [],
-  };
+  const settings = agentMeta
+    ? agentSettingsFromMeta(agentMeta)
+    : {
+        agentId: conversation.agentId,
+        model: null,
+        memoryMode: "custom",
+        tools: [],
+        titleWorkflowId: null,
+      };
   return (
     <AgentRunWorkspace
       key={conversation.runId}
