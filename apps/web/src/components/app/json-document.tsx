@@ -4,7 +4,7 @@ import { CopyTextButton } from "@/components/app/copy-text-button";
 import { MarkdownContent } from "@/components/app/markdown-content";
 import { JsonTokens } from "@/components/app/json-tokens";
 import { JSON_TOKEN_CLASS } from "@/lib/highlight-json";
-import { isPlainObject, looksLikeProse, valueToClipboardText } from "@/lib/json-document";
+import { isPlainObject, valueToClipboardText } from "@/lib/json-document";
 import { cn } from "@/lib/utils";
 
 const MAX_DEPTH = 8;
@@ -58,11 +58,7 @@ function JsonNode({
   }
 
   if (typeof value === "string") {
-    return looksLikeProse(value) ? (
-      <ProseString value={value} compact={compact} copyable={copySelf} />
-    ) : (
-      <PrimitiveValue value={value} copyable={copySelf} label="string" />
-    );
+    return <ProseString value={value} compact={compact} copyable={copySelf} />;
   }
 
   if (Array.isArray(value)) {
@@ -184,7 +180,7 @@ function ArrayItem({
 }) {
   const object = isPlainObject(value);
   const array = Array.isArray(value);
-  const prose = typeof value === "string" && looksLikeProse(value);
+  const prose = typeof value === "string";
   const label = `item ${index}`;
   const copyButton = <CopyTextButton text={valueToClipboardText(value)} label={label} />;
   const marker = (
@@ -254,7 +250,7 @@ function Field({
 }) {
   const object = isPlainObject(value);
   const array = Array.isArray(value);
-  const block = (typeof value === "string" && looksLikeProse(value)) || array || object;
+  const block = typeof value === "string" || array || object;
   const copyButton = <CopyTextButton text={valueToClipboardText(value)} label={name} />;
   const count = object ? Object.keys(value).length : array ? value.length : null;
 
