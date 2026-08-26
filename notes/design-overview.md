@@ -41,6 +41,7 @@ Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTempla
 | [`resumability.md`](./resumability.md)           | Run retry / step skip (not chat memory) |
 | [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                        |
 | [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                        |
+| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper framing                        |
 
 Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.md`](./README.md).
 
