@@ -118,17 +118,6 @@ export function adaptCoreEventsForWorkflowRun(
           durationMs: 0,
         });
         break;
-      case "agent_failed":
-        if (!event.workflowRunId || !event.stepId) break;
-        out.push({
-          seq: event.seq,
-          runId: event.workflowRunId,
-          type: "agent_failed",
-          at: event.at,
-          stepId: event.stepId,
-          episodeId: event.agentCallId,
-        });
-        break;
       case "agent_text_delta":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({

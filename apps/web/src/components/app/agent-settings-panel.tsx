@@ -56,9 +56,11 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
                         {tool.name}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      {tool.description}
-                    </p>
+                    {tool.description ? (
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                        {tool.description}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

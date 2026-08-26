@@ -29,4 +29,16 @@ describe("inspectAgentTools", () => {
   it("returns an empty list when the agent has no inspectable tools", () => {
     expect(inspectAgentTools({ id: "researcher" })).toEqual([]);
   });
+
+  it("falls back to provider tool id when description is missing", () => {
+    expect(
+      inspectAgentTools({
+        definition: {
+          tools: {
+            web_search: { type: "provider-defined", id: "openai.web_search", name: "web_search" },
+          },
+        },
+      }),
+    ).toEqual([{ name: "web_search", description: "openai.web_search" }]);
+  });
 });

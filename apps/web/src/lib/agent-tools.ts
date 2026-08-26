@@ -8,10 +8,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function toolDescription(tool: unknown): string {
-  if (!isRecord(tool) || typeof tool.description !== "string") {
+  if (!isRecord(tool)) {
     return "";
   }
-  return tool.description;
+  if (typeof tool.description === "string" && tool.description.length > 0) {
+    return tool.description;
+  }
+  // Provider-defined tools (e.g. openai.tools.webSearch) expose `id`, not `description`.
+  if (typeof tool.id === "string") {
+    return tool.id;
+  }
+  return "";
 }
 
 function toolSetEntries(value: unknown): AgentToolSummary[] {
