@@ -12,6 +12,7 @@ import {
   workflowRunSubtitle,
 } from "@/lib/workflow-location";
 import { deleteInspectionWorkflowRun, renameInspectionWorkflowRun } from "#/lib/inspector-server";
+import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { cn } from "@/lib/utils";
 import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
@@ -40,10 +41,18 @@ export function WorkflowRunsSidebar() {
   const selectedRuns = selectedWorkflowId
     ? runs.filter((run) => run.workflowId === selectedWorkflowId)
     : [];
+  const workflowIds = sortByLastUsedThenAlpha(
+    project.workflowIds,
+    latestTimestampById(
+      runs,
+      (run) => run.workflowId,
+      (run) => run.startedAt,
+    ),
+  );
 
   return (
     <ContextSidebar>
-      <SidebarHeader className="border-b border-sidebar-border/50">
+      <SidebarHeader className="border-b border-sidebar-border/40">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -152,26 +161,15 @@ export function WorkflowRunsSidebar() {
           </SidebarGroup>
         ) : (
           <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center justify-between">
-              <span>Workflows</span>
-              <StartWorkflowButton
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                title="Start workflow"
-              >
-                <Plus className="size-3.5" />
-                <span className="sr-only">New run</span>
-              </StartWorkflowButton>
-            </SidebarGroupLabel>
+            <SidebarGroupLabel>Workflows</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1.5">
-                {project.workflowIds.length === 0 ? (
+                {workflowIds.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground">
                     No workflows registered in this project.
                   </p>
                 ) : (
-                  project.workflowIds.map((id) => {
+                  workflowIds.map((id) => {
                     const workflowRuns = runs.filter((run) => run.workflowId === id);
                     const latest = workflowRuns[0];
                     return (
@@ -210,14 +208,13 @@ export function WorkflowRunsSidebar() {
 }
 
 function RunStatusDot({ status }: { status: RunStatus }) {
+  if (status === "completed" || status === "cancelled") return null;
   return (
     <span
       className={cn(
         "size-2 shrink-0 rounded-full",
         status === "running" && "animate-pulse bg-primary",
-        status === "completed" && "bg-muted-foreground",
         status === "failed" && "bg-destructive",
-        status === "cancelled" && "bg-border",
       )}
       title={status}
     />
