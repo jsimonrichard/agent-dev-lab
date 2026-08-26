@@ -2,7 +2,7 @@ import { memo, useMemo, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
-import { JsonTokens } from "@/components/app/json-preview";
+import { JsonTokens } from "@/components/app/json-tokens";
 import { cn } from "@/lib/utils";
 
 const sanitizeSchema = {
@@ -48,7 +48,7 @@ export const MarkdownContent = memo(function MarkdownContent({
   return (
     <div
       className={cn(
-        "prose max-w-none",
+        "prose max-w-none min-w-0 wrap-anywhere",
         compact ? "prose-xs" : "prose-sm",
         toneClasses[tone],
         "prose-headings:font-semibold prose-headings:tracking-tight",
@@ -74,12 +74,17 @@ export const MarkdownContent = memo(function MarkdownContent({
 
 function markdownComponents(tone: MarkdownTone) {
   return {
+    table: ({ children }: { children?: ReactNode }) => (
+      <div className="my-2 w-full min-w-0 max-w-full overflow-x-auto">
+        <table>{children}</table>
+      </div>
+    ),
     a: ({ href, children }: { href?: string; children?: ReactNode }) => (
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="font-medium underline underline-offset-2"
+        className="rounded-sm font-medium underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       >
         {children}
       </a>
@@ -87,7 +92,7 @@ function markdownComponents(tone: MarkdownTone) {
     pre: ({ children }: { children?: ReactNode }) => (
       <pre
         className={cn(
-          "my-2 overflow-x-auto rounded-md border p-3 text-xs leading-relaxed",
+          "my-2 max-w-full overflow-x-auto rounded-md border p-3 text-xs leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
           tone === "on-primary"
             ? "border-primary-foreground/25 bg-primary-foreground/10"
             : "border-border/40 bg-muted/40",

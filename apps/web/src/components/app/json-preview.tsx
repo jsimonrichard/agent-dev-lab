@@ -1,6 +1,9 @@
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Check, Copy, Maximize2 } from "lucide-react";
 
+import { CopyTextButton } from "@/components/app/copy-text-button";
+import { JsonDocument } from "@/components/app/json-document";
+import { JsonTokens } from "@/components/app/json-tokens";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { highlightJson, JSON_TOKEN_CLASS } from "@/lib/highlight-json";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { valueToClipboardText } from "@/lib/json-document";
 import { cn } from "@/lib/utils";
 
 function stringifyJson(value: unknown): string {
@@ -20,19 +24,7 @@ function stringifyJson(value: unknown): string {
   }
 }
 
-export const JsonTokens = memo(function JsonTokens({ text }: { text: string }) {
-  const tokens = useMemo(() => highlightJson(text), [text]);
-
-  return (
-    <>
-      {tokens.map((token, index) => (
-        <span key={index} className={JSON_TOKEN_CLASS[token.type] || undefined}>
-          {token.value}
-        </span>
-      ))}
-    </>
-  );
-});
+type PreviewMode = "document" | "json";
 
 export const JsonPreview = memo(function JsonPreview({
   value,
@@ -41,6 +33,7 @@ export const JsonPreview = memo(function JsonPreview({
   label,
   title,
   expandable = true,
+  fill = false,
   children,
 }: {
   value: unknown;
@@ -51,10 +44,13 @@ export const JsonPreview = memo(function JsonPreview({
   /** Expand dialog title when `label` is omitted. */
   title?: string;
   expandable?: boolean;
+  /** Stretch the preview to fill a flex parent instead of using a max-height. */
+  fill?: boolean;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [mode, setMode] = useState<PreviewMode>("document");
   const text = useMemo(() => (value === undefined ? null : stringifyJson(value)), [value]);
   const dialogTitle = title ?? label ?? "JSON";
 
@@ -86,28 +82,44 @@ export const JsonPreview = memo(function JsonPreview({
         <p className="text-xs text-muted-foreground">{empty}</p>
       ) : null
     ) : (
-      <div className="relative">
-        <pre
-          className={cn(
-            "overflow-auto rounded-md border border-border/40 bg-card p-2 font-mono text-[10px] leading-relaxed",
-            canExpand && !label && "pr-8",
-            className,
-          )}
-        >
-          <JsonTokens text={text} />
-        </pre>
-        {canExpand && !label ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon-xs"
-            className="absolute top-1.5 right-1.5 shadow-sm"
-            aria-label={`Expand ${dialogTitle}`}
-            onClick={() => setOpen(true)}
-          >
-            <Maximize2 />
-          </Button>
-        ) : null}
+      <div
+        className={cn(
+          "flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-md border border-border/40 bg-card",
+          fill && "h-full min-h-0 flex-1",
+          className,
+        )}
+      >
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-1 border-b border-border/40 px-1.5 py-0.5">
+          <ModeToggle mode={mode} onChange={setMode} />
+          <div className="flex items-center">
+            <CopyTextButton
+              text={mode === "json" ? text : valueToClipboardText(value)}
+              label={mode === "json" ? "JSON" : "value"}
+            />
+            {canExpand ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="text-muted-foreground"
+                aria-label={`Expand ${dialogTitle}`}
+                onClick={() => setOpen(true)}
+              >
+                <Maximize2 />
+                {label ? "Expand" : null}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        {mode === "json" ? (
+          <pre className="min-h-0 min-w-0 max-w-full flex-1 overflow-auto p-2 font-mono text-[10px] leading-relaxed wrap-anywhere whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+            <JsonTokens text={text} />
+          </pre>
+        ) : (
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2 text-xs leading-relaxed wrap-anywhere outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+            <JsonDocument value={value} compact />
+          </div>
+        )}
       </div>
     );
 
@@ -118,53 +130,104 @@ export const JsonPreview = memo(function JsonPreview({
           <DialogHeader className="flex-row items-start justify-between gap-3 pr-8 text-left">
             <div className="min-w-0 space-y-1">
               <DialogTitle className="truncate font-mono text-base">{dialogTitle}</DialogTitle>
-              <DialogDescription>Full JSON value for closer review.</DialogDescription>
+              <DialogDescription>
+                Rendered markdown for string fields, plus raw JSON.
+              </DialogDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={() => void copyJson()}>
               {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : "Copy"}
+              {copied ? "Copied" : "Copy JSON"}
             </Button>
           </DialogHeader>
-          <pre className="min-h-0 max-h-[min(70vh,40rem)] flex-1 overflow-auto rounded-md border border-border/40 bg-card p-4 font-mono text-xs leading-relaxed">
-            <JsonTokens text={text} />
-          </pre>
+          <Tabs
+            value={mode}
+            onValueChange={(next) => setMode(next as PreviewMode)}
+            className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+          >
+            <TabsList variant="line" className="w-full shrink-0 justify-start">
+              <TabsTrigger value="document" className="flex-none px-3">
+                Rendered
+              </TabsTrigger>
+              <TabsTrigger value="json" className="flex-none px-3">
+                JSON
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent
+              value="document"
+              className="min-h-0 flex-1 overflow-auto rounded-md border border-border/40 bg-card p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <JsonDocument value={value} />
+            </TabsContent>
+            <TabsContent
+              value="json"
+              className="min-h-0 flex-1 overflow-auto rounded-md border border-border/40 bg-card p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <pre className="font-mono text-xs leading-relaxed">
+                <JsonTokens text={text} />
+              </pre>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     ) : null;
 
   if (!label && !children) {
     return (
-      <>
+      <div className={cn("w-full min-w-0 max-w-full overflow-hidden", fill && "h-full min-h-0")}>
         {preview}
         {dialog}
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div
+      className={cn(
+        "w-full min-w-0 max-w-full overflow-hidden",
+        fill ? "flex h-full min-h-0 flex-col gap-2" : "space-y-2",
+      )}
+    >
       {label ? (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-            {label}
-          </p>
-          {canExpand ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className="text-muted-foreground"
-              onClick={() => setOpen(true)}
-            >
-              <Maximize2 />
-              Expand
-            </Button>
-          ) : null}
-        </div>
+        <p className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+          {label}
+        </p>
       ) : null}
-      {children}
+      {children ? <div className="shrink-0">{children}</div> : null}
       {preview}
       {dialog}
     </div>
   );
 });
+
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: PreviewMode;
+  onChange: (mode: PreviewMode) => void;
+}) {
+  return (
+    <div className="flex items-center rounded-md bg-muted/60 p-0.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-pressed={mode === "document"}
+        className={cn("h-5 px-1.5 text-[10px]", mode === "document" && "bg-background shadow-sm")}
+        onClick={() => onChange("document")}
+      >
+        Rendered
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-pressed={mode === "json"}
+        className={cn("h-5 px-1.5 text-[10px]", mode === "json" && "bg-background shadow-sm")}
+        onClick={() => onChange("json")}
+      >
+        JSON
+      </Button>
+    </div>
+  );
+}
