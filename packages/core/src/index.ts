@@ -71,7 +71,13 @@ export type {
   TemplateFromSourceConfig,
 } from "./template";
 
-export { inMemoryMessageStore, sqliteInspectorSessionStore, sqliteMessageStore } from "./memory";
+export {
+  CUSTOM_MESSAGE_STORE_KIND,
+  inMemoryMessageStore,
+  inspectMessageStoreKind,
+  sqliteInspectorSessionStore,
+  sqliteMessageStore,
+} from "./memory";
 export type {
   InspectorSessionFork,
   InspectorSessionRecord,

@@ -11,6 +11,7 @@ import type { z } from "zod";
 import { AdlError } from "../errors";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
+import { inspectMessageStoreKind } from "../memory/inspect";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { resolveInstructionsText } from "./resolve-instructions";
@@ -43,6 +44,10 @@ export class AgentImpl<
       throw new Error('AgentImpl: "id" must be a non-empty string');
     }
     this.id = definition.id;
+  }
+
+  get memoryKind(): string {
+    return inspectMessageStoreKind(this.services.stores.message);
   }
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools> {

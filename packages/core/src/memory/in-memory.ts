@@ -10,6 +10,7 @@ export function inMemoryMessageStore(): MessageStore {
   const scopes = new Map<string, CoreMessage[]>();
 
   return {
+    kind: "in-memory",
     async load(memoryScope) {
       return scopes.get(memoryScope) ?? [];
     },

@@ -20,6 +20,11 @@ async function uniqueDbPath(): Promise<string> {
 
 function messageStoreContract(name: string, createStore: () => Promise<MessageStore>) {
   describe(`MessageStore (${name})`, () => {
+    it("identifies its backend kind", async () => {
+      const store = await createStore();
+      expect(store.kind).toBe(name);
+    });
+
     it("saves, loads, and lists scopes", async () => {
       const store = await createStore();
       expect(await store.load("s1")).toEqual([]);

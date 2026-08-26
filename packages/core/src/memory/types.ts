@@ -17,8 +17,16 @@ import type { CoreMessage } from "ai";
  * `adl.createAgent({ memory: { store } })`.
  *
  * @see {@link inMemoryMessageStore}
+ * @see {@link inspectMessageStoreKind}
  */
 export interface MessageStore {
+  /**
+   * Inspector-facing backend id. Built-ins set `"in-memory"` or `"sqlite"`.
+   * Custom stores may set any string; {@link inspectMessageStoreKind} reports
+   * `"custom"` when this is omitted.
+   */
+  readonly kind?: string;
+
   /** Full transcript for this scope (empty array when new). */
   load(memoryScope: string): Promise<CoreMessage[]>;
 

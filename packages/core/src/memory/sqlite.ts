@@ -16,6 +16,7 @@ export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageSto
   const sqlite = openAdlSqlite(options.path ?? resolveAdlSqlitePath());
 
   return {
+    kind: "sqlite",
     async load(memoryScope) {
       const row = sqlite
         .query<

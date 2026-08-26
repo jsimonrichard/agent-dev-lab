@@ -86,6 +86,12 @@ export type AgentStreamHandle<
 
 export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
   readonly id: string;
+  /**
+   * Message-store backend this agent persists transcripts to.
+   * Built-ins: `"in-memory"` | `"sqlite"`. Custom stores: their {@link MessageStore.kind},
+   * or `"custom"` if omitted.
+   */
+  readonly memoryKind: string;
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
 }
