@@ -757,7 +757,7 @@ function useLiveNow(active: boolean): number {
   return now;
 }
 
-const TREE_COL_MIN = 256;
+const TREE_COL_MIN = 224;
 const WATERFALL_COL_MIN = 192;
 const TREE_COL_DEFAULT_RATIO = 0.4;
 const WATERFALL_ZOOM_MIN = 1;
