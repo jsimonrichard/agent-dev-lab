@@ -1,3 +1,18 @@
+export type WorkflowRunSearch = {
+  step?: string;
+  episode?: string;
+};
+
+export function parseWorkflowRunSearch(search: Record<string, unknown>): WorkflowRunSearch {
+  const step = typeof search.step === "string" && search.step.length > 0 ? search.step : undefined;
+  const episode =
+    typeof search.episode === "string" && search.episode.length > 0 ? search.episode : undefined;
+  return {
+    ...(step ? { step } : {}),
+    ...(episode ? { episode } : {}),
+  };
+}
+
 export function parseWorkflowLocation(pathname: string): {
   workflowId?: string;
   runId?: string;
@@ -27,7 +42,7 @@ export function workflowRunLabel(run: { runId: string; title?: string }): string
   return title ? title : run.runId;
 }
 
-/** Secondary line for a run: id (when titled), timestamp, and input preview. */
+/** Secondary line for a run: timestamp and input preview. */
 export function workflowRunSubtitle(run: {
   runId: string;
   title?: string;
@@ -35,7 +50,6 @@ export function workflowRunSubtitle(run: {
   inputPreview?: string;
 }): string {
   const parts = [
-    run.title?.trim() ? run.runId : null,
     formatRunTimestamp(run.startedAt),
     run.inputPreview && run.inputPreview !== "{}" ? run.inputPreview : null,
   ].filter((part): part is string => Boolean(part));

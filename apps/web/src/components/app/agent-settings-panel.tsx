@@ -1,8 +1,11 @@
-import { Braces, Cpu, Database, FileText, GitBranch, Wrench } from "lucide-react";
+import { Braces, Cpu, Database, FileText, GitBranch, MessageSquare, Wrench } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { MockAgentSettings, ResolvedAgentConversation } from "@/lib/mock/types";
 import { Badge } from "@/components/ui/badge";
+import { InspectorNoun } from "@/components/app/inspector-noun";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 
 interface AgentSettingsPanelProps {
   settings: MockAgentSettings;
@@ -10,6 +13,10 @@ interface AgentSettingsPanelProps {
 }
 
 export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPanelProps) {
+  const fork = conversation.forkSession;
+  const sourceScopeLabel = fork
+    ? formatMemoryScopeLabel(fork.sourceMemoryScope, fork.sourceRunId)
+    : null;
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border/40 bg-muted/10">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
@@ -91,23 +98,67 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
             </>
           ) : null}
 
-          {conversation.forkSession ? (
+          {fork && sourceScopeLabel ? (
             <>
               <Separator className="bg-border/40" />
-              <SettingsSection icon={GitBranch} title="Fork provenance">
-                <dl className="space-y-2 text-xs">
-                  <SettingRow
-                    label="Source run"
-                    value={conversation.forkSession.sourceRunId}
-                    mono
-                  />
-                  <SettingRow
-                    label="Source episode"
-                    value={conversation.forkSession.sourceEpisodeId}
-                    mono
-                  />
-                </dl>
-              </SettingsSection>
+              <dl className="text-xs">
+                <SettingRow
+                  label="Forked from"
+                  value={
+                    <Link
+                      to="/agent/$agentId/run/$runId"
+                      params={{
+                        agentId: fork.agentId,
+                        runId: fork.sourceMemoryScope,
+                      }}
+                      className="group max-w-full min-w-0"
+                    >
+                      <InspectorNoun
+                        icon={MessageSquare}
+                        noun="Conversation"
+                        title={fork.sourceMemoryScope}
+                      >
+                        {sourceScopeLabel}
+                      </InspectorNoun>
+                    </Link>
+                  }
+                />
+              </dl>
+            </>
+          ) : null}
+
+          {conversation.workflowLink ? (
+            <>
+              <Separator className="bg-border/40" />
+              <dl className="text-xs">
+                <SettingRow
+                  label="Workflow"
+                  value={
+                    <Link
+                      to="/workflows/$workflowId/run/$runId"
+                      params={{
+                        workflowId: conversation.workflowLink.workflowId,
+                        runId: conversation.workflowLink.workflowRunId,
+                      }}
+                      search={{
+                        ...(conversation.workflowLink.stepId
+                          ? { step: conversation.workflowLink.stepId }
+                          : {}),
+                        episode: conversation.workflowLink.episodeId,
+                      }}
+                      className="group max-w-full min-w-0"
+                    >
+                      <InspectorNoun
+                        icon={GitBranch}
+                        noun="Workflow"
+                        title={conversation.workflowLink.workflowRunId}
+                      >
+                        {conversation.workflowLink.workflowId}
+                      </InspectorNoun>
+                    </Link>
+                  }
+                />
+              </dl>
             </>
           ) : null}
         </div>
@@ -142,7 +193,7 @@ function SettingRow({
   mono = false,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   mono?: boolean;
 }) {
   return (

@@ -10,6 +10,7 @@ import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
 import { inspectAgentTools } from "#/lib/agent-tools";
 import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
+import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector-types";
 import {
   createMemoryScope,
@@ -22,6 +23,7 @@ import {
   registerAgentSession,
   registerForkSession,
   renameAgentSessionTitle,
+  sessionDisplayTitle,
   touchAgentSession,
   unregisterAgentSession,
   type AgentSession,
@@ -315,10 +317,6 @@ export async function startAgentTurn(options: {
   return { agentCallId: handle.agentCallId };
 }
 
-export function createForkMemoryScope(): string {
-  return createMemoryScope("fork");
-}
-
 export async function forkAgentFromWorkflow(options: {
   agentId: string;
   sourceWorkflowId: string;
@@ -328,7 +326,7 @@ export async function forkAgentFromWorkflow(options: {
   sourceMemoryScope: string;
   messages: MockMessage[];
 }): Promise<{ memoryScope: string }> {
-  const memoryScope = createForkMemoryScope();
+  const memoryScope = createMemoryScope();
   const messageStore = await getMessageStore();
 
   const coreMessages: CoreMessage[] = options.messages.map(mockMessageToCore);
@@ -338,7 +336,7 @@ export async function forkAgentFromWorkflow(options: {
   const session = registerForkSession({
     memoryScope,
     agentId: options.agentId,
-    title: `Fork · ${options.sourceEpisodeId}`,
+    title: generatedForkTitle(options.sourceMemoryScope, options.sourceRunId),
     fork: {
       sourceWorkflowId: options.sourceWorkflowId,
       sourceWorkflowRunId: options.sourceRunId,
@@ -354,7 +352,10 @@ export async function forkAgentFromWorkflow(options: {
 
 export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
   await ensureSessionsHydrated();
-  return listAgentSessions();
+  return listAgentSessions().map((session) => ({
+    ...session,
+    title: sessionDisplayTitle(session),
+  }));
 }
 
 export async function resolveAgentConversation(memoryScope: string) {
@@ -367,7 +368,7 @@ export async function resolveAgentConversation(memoryScope: string) {
   return {
     runId: memoryScope,
     agentId: session.agentId,
-    title: session.title,
+    title: sessionDisplayTitle(session),
     messages,
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
@@ -434,7 +435,7 @@ async function resolveWorkflowLink(session: AgentSession) {
 export async function createStandaloneAgentSession(
   agentId: string,
 ): Promise<{ memoryScope: string }> {
-  const memoryScope = createMemoryScope("conv");
+  const memoryScope = createMemoryScope();
   const now = new Date().toISOString();
   const session = {
     agentCallId: `pending:${memoryScope}`,

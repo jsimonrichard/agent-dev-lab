@@ -135,7 +135,7 @@ function WaterfallStep({
           <Layers className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="font-mono font-medium">{label}</span>
           {step.durationMs != null ? (
-            <span className="text-muted-foreground">{(step.durationMs / 1000).toFixed(1)}s</span>
+            <span className="text-muted-foreground">{formatDuration(step.durationMs)}</span>
           ) : null}
         </div>
         {step.status === "failed" && step.error ? (
@@ -160,7 +160,7 @@ function WaterfallStep({
               <button
                 key={ep.episodeId}
                 type="button"
-                title={scopeLabel}
+                title={ep.memoryScope}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectEpisode(step.stepId, ep);
@@ -198,6 +198,10 @@ function WaterfallStep({
       ))}
     </div>
   );
+}
+
+function formatDuration(durationMs: number): string {
+  return durationMs < 1000 ? `${Math.round(durationMs)}ms` : `${(durationMs / 1000).toFixed(1)}s`;
 }
 
 function StepStatusDot({ status }: { status: StepNode["status"] }) {

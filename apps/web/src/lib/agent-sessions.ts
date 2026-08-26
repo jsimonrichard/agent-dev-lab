@@ -1,5 +1,7 @@
 import type { InspectorSessionRecord, RunEvent } from "@agent-dev-lab/core";
 
+import { displayConversationTitle } from "./memory-scope-label";
+
 export interface AgentSession {
   agentCallId: string;
   agentId: string;
@@ -40,17 +42,19 @@ export function isWorkflowLinkedConversation(
   return Boolean(session.workflowRunId && !session.fork);
 }
 
-/** Target for `/workflows/$workflowId/run/$runId` when this conversation is tied to a run. */
+/** Target for `/workflows/$workflowId/run/$runId` when this conversation ran inside a workflow. */
 export function workflowRunLocationForSession(
   session: Pick<AgentSession, "workflowRunId" | "fork">,
   runs: ReadonlyArray<{ runId: string; workflowId: string }>,
 ): { workflowId: string; runId: string } | undefined {
-  const workflowId = workflowIdForAgentSession(session, runs);
-  const runId = session.fork?.sourceWorkflowRunId ?? session.workflowRunId;
-  if (!workflowId || !runId) {
+  if (session.fork || !session.workflowRunId) {
     return undefined;
   }
-  return { workflowId, runId };
+  const workflowId = workflowIdForAgentSession(session, runs);
+  if (!workflowId) {
+    return undefined;
+  }
+  return { workflowId, runId: session.workflowRunId };
 }
 
 /** Agent id, with workflow name when the conversation is connected to a workflow. */
@@ -60,6 +64,19 @@ export function formatAgentSessionIdentity(
 ): string {
   const workflowId = workflowIdForAgentSession(session, runs);
   return workflowId ? `${session.agentId} · ${workflowId}` : session.agentId;
+}
+
+export function sessionDisplayTitle(session: Pick<AgentSession, "title" | "fork">): string {
+  return displayConversationTitle(
+    session.title,
+    session.fork
+      ? {
+          sourceEpisodeId: session.fork.sourceAgentCallId,
+          sourceMemoryScope: session.fork.sourceMemoryScope,
+          sourceRunId: session.fork.sourceWorkflowRunId,
+        }
+      : null,
+  );
 }
 
 const byMemoryScope = new Map<string, AgentSession>();
@@ -140,8 +157,8 @@ export function listAgentSessions(): AgentSession[] {
   return [...byMemoryScope.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function createMemoryScope(prefix = "inspector"): string {
-  return `${prefix}:${Date.now().toString(36)}`;
+export function createMemoryScope(): string {
+  return crypto.randomUUID();
 }
 
 export function registerForkSession(options: {

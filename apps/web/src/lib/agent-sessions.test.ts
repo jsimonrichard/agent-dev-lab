@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  createMemoryScope,
   formatAgentSessionIdentity,
   getAgentSessionByMemoryScope,
   isWorkflowLinkedConversation,
   registerAgentSession,
   renameAgentSessionTitle,
+  sessionDisplayTitle,
   unregisterAgentSession,
   workflowRunLocationForSession,
   type AgentSession,
@@ -72,7 +74,7 @@ describe("workflowRunLocationForSession", () => {
     ).toBeUndefined();
   });
 
-  it("uses fork provenance for conversations forked from a workflow", () => {
+  it("is undefined for conversations forked from a workflow", () => {
     expect(
       workflowRunLocationForSession(
         session({
@@ -86,10 +88,7 @@ describe("workflowRunLocationForSession", () => {
         }),
         [],
       ),
-    ).toEqual({
-      workflowId: "literature-review",
-      runId: "run-1",
-    });
+    ).toBeUndefined();
   });
 });
 
@@ -116,6 +115,33 @@ describe("isWorkflowLinkedConversation", () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("sessionDisplayTitle", () => {
+  it("rewrites generated fork titles that used the episode id", () => {
+    expect(
+      sessionDisplayTitle(
+        session({
+          title: "Fork · call-0",
+          fork: {
+            sourceWorkflowId: "literature-review",
+            sourceWorkflowRunId: "run-1",
+            sourceStepId: "step-1",
+            sourceAgentCallId: "call-0",
+            sourceMemoryScope: "run-1:notes",
+          },
+        }),
+      ),
+    ).toBe("Fork · notes");
+  });
+});
+
+describe("createMemoryScope", () => {
+  it("is a UUID", () => {
+    expect(createMemoryScope()).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
 import { cancelInspectionWorkflowRun, forkAgentConversation } from "#/lib/inspector-server";
-import { buildRunViewState, findStepInTree } from "@/lib/mock/run-projection";
+import { buildRunViewState, findStepInTree, resolveRunSelection } from "@/lib/mock/run-projection";
 import type {
   AgentEpisode,
   MockMessage,
@@ -26,16 +26,35 @@ interface RunWorkspaceProps {
   summary: MockRunSummary;
   initialEvents: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
+  initialStepId?: string;
+  initialEpisodeId?: string;
 }
 
-export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWorkspaceProps) {
+export function RunWorkspace({
+  summary,
+  initialEvents,
+  messagesPromise,
+  initialStepId,
+  initialEpisodeId,
+}: RunWorkspaceProps) {
   const navigate = useNavigate();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
 
-  const initialStep = findFirstEpisodeStep(view.steps);
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(initialStep?.stepId ?? null);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(
+    () =>
+      resolveRunSelection(view.steps, {
+        stepId: initialStepId,
+        episodeId: initialEpisodeId,
+      }).stepId,
+  );
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
+    () =>
+      resolveRunSelection(view.steps, {
+        stepId: initialStepId,
+        episodeId: initialEpisodeId,
+      }).episodeId,
+  );
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
   const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
@@ -94,6 +113,7 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1
+              title={summary.runId}
               className={
                 summary.title
                   ? "truncate text-sm font-semibold"
@@ -105,7 +125,6 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
             <RunStatusBadge status={view.status} />
           </div>
           <p className="truncate text-xs text-muted-foreground">
-            {summary.title ? `${summary.runId} · ` : ""}
             {view.workflowId}
             {view.status === "running" ? " · live" : ""}
           </p>
@@ -173,6 +192,7 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
                 messagesPromise={messagesPromise}
                 streamingText={streamingText}
                 workflowId={view.workflowId}
+                runId={view.runId}
                 workflowInput={view.input}
                 workflowOutput={view.output}
                 runStatus={view.status}
@@ -185,15 +205,4 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
       </ResizablePanelGroup>
     </div>
   );
-}
-
-function findFirstEpisodeStep(
-  steps: ReturnType<typeof buildRunViewState>["steps"],
-): (typeof steps)[number] | undefined {
-  for (const step of steps) {
-    if (step.agentEpisodes.length > 0) return step;
-    const nested = findFirstEpisodeStep(step.children);
-    if (nested) return nested;
-  }
-  return undefined;
 }

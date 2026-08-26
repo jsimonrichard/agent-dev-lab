@@ -1,6 +1,24 @@
 import { describe, expect, it } from "bun:test";
 
-import { formatRunTimestamp, workflowRunLabel, workflowRunSubtitle } from "./workflow-location";
+import {
+  formatRunTimestamp,
+  parseWorkflowRunSearch,
+  workflowRunLabel,
+  workflowRunSubtitle,
+} from "./workflow-location";
+
+describe("parseWorkflowRunSearch", () => {
+  it("keeps step and episode ids", () => {
+    expect(parseWorkflowRunSearch({ step: "s1", episode: "e1", extra: 1 })).toEqual({
+      step: "s1",
+      episode: "e1",
+    });
+  });
+
+  it("drops empty or non-string values", () => {
+    expect(parseWorkflowRunSearch({ step: "", episode: 2 })).toEqual({});
+  });
+});
 
 describe("workflowRunLabel", () => {
   it("uses the title when set", () => {
@@ -19,9 +37,9 @@ describe("workflowRunSubtitle", () => {
     expect(workflowRunSubtitle({ runId: "run-1", startedAt })).toBe(formatRunTimestamp(startedAt));
   });
 
-  it("prefixes the run id when a title is set", () => {
+  it("does not repeat the run id when a title is set", () => {
     expect(workflowRunSubtitle({ runId: "run-1", title: "My run", startedAt })).toBe(
-      `run-1 · ${formatRunTimestamp(startedAt)}`,
+      formatRunTimestamp(startedAt),
     );
   });
 

@@ -1,16 +1,8 @@
 import type { AgentEpisode, RunEvent, RunViewState, StepNode, StepNodeStatus } from "./types";
+import { formatMemoryScopeLabel } from "../memory-scope-label";
 
 function formatStepLabel(name: string, key?: string): string {
   return key ? `${name}:${key}` : name;
-}
-
-/** Compact tree label: strip `{runId}:` so the run id stays in the inspector. */
-function formatMemoryScopeLabel(memoryScope: string, runId: string): string {
-  const prefix = `${runId}:`;
-  if (memoryScope.startsWith(prefix)) {
-    return memoryScope.slice(prefix.length);
-  }
-  return memoryScope;
 }
 
 function upsertStep(
@@ -193,6 +185,48 @@ export function findStepInTree(steps: StepNode[], stepId: string): StepNode | un
     if (nested) return nested;
   }
   return undefined;
+}
+
+export function findEpisodeInTree(
+  steps: StepNode[],
+  episodeId: string,
+): { step: StepNode; episode: AgentEpisode } | undefined {
+  for (const step of steps) {
+    const episode = step.agentEpisodes.find((item) => item.episodeId === episodeId);
+    if (episode) {
+      return { step, episode };
+    }
+    const nested = findEpisodeInTree(step.children, episodeId);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function findFirstEpisodeStep(steps: StepNode[]): StepNode | undefined {
+  for (const step of steps) {
+    if (step.agentEpisodes.length > 0) return step;
+    const nested = findFirstEpisodeStep(step.children);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+/** Pick the step/episode to inspect: preferred ids, else the first conversation. */
+export function resolveRunSelection(
+  steps: StepNode[],
+  preferred: { stepId?: string; episodeId?: string } = {},
+): { stepId: string | null; episodeId: string | null } {
+  if (preferred.episodeId) {
+    const found = findEpisodeInTree(steps, preferred.episodeId);
+    if (found) {
+      return { stepId: found.step.stepId, episodeId: preferred.episodeId };
+    }
+  }
+  if (preferred.stepId && findStepInTree(steps, preferred.stepId)) {
+    return { stepId: preferred.stepId, episodeId: null };
+  }
+  const first = findFirstEpisodeStep(steps);
+  return { stepId: first?.stepId ?? null, episodeId: null };
 }
 
 export function stepStatusClass(status: StepNodeStatus): string {

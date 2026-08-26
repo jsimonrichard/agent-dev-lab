@@ -16,6 +16,8 @@ import { JsonPreview } from "@/components/app/json-preview";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatStepLabel } from "@/lib/mock/run-projection";
+import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
+import { InspectorNoun } from "@/components/app/inspector-noun";
 import { useLiveRunMessages } from "@/hooks/use-live-run-messages";
 
 interface StepInspectorPanelProps {
@@ -25,6 +27,7 @@ interface StepInspectorPanelProps {
   messagesPromise: Promise<PrefetchedRunMessages>;
   streamingText: string | null;
   workflowId: string;
+  runId: string;
   workflowInput: unknown;
   workflowOutput: unknown;
   runStatus: RunStatus;
@@ -39,6 +42,7 @@ export function StepInspectorPanel({
   messagesPromise,
   streamingText,
   workflowId,
+  runId,
   workflowInput,
   workflowOutput,
   runStatus,
@@ -117,6 +121,7 @@ export function StepInspectorPanel({
         streamingText={streamingText}
         episodeError={episodeError}
         runSettled={runSettled}
+        runId={runId}
         onFork={onFork}
       />
     </div>
@@ -131,6 +136,7 @@ function ConversationPanel({
   streamingText,
   episodeError,
   runSettled,
+  runId,
   onFork,
 }: {
   step: StepNode;
@@ -140,6 +146,7 @@ function ConversationPanel({
   streamingText: string | null;
   episodeError: unknown;
   runSettled: boolean;
+  runId: string;
   onFork: (messages: MockMessage[]) => void;
 }) {
   return (
@@ -150,22 +157,24 @@ function ConversationPanel({
         </p>
         {episode ? (
           <div className="space-y-2">
-            <p className="flex min-w-0 items-start gap-1.5 text-xs">
-              <MessageSquare className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 break-all font-mono font-medium" title={episode.memoryScope}>
-                {episode.memoryScope}
-              </span>
-            </p>
-            <p className="flex min-w-0 items-center gap-1.5 text-[10px]">
-              <Bot className="size-3 shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground">Agent</span>
+            <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+              <Link
+                to="/agent/$agentId/run/$runId"
+                params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+                className="group max-w-full min-w-0"
+              >
+                <InspectorNoun icon={MessageSquare} noun="Conversation" title={episode.memoryScope}>
+                  {formatMemoryScopeLabel(episode.memoryScope, runId)}
+                </InspectorNoun>
+              </Link>
               <Link
                 to="/agent/$agentId"
                 params={{ agentId: episode.agentId }}
-                title="View agent definition"
-                className="truncate font-mono text-foreground hover:underline"
+                className="group max-w-full min-w-0"
               >
-                {episode.agentId}
+                <InspectorNoun icon={Bot} noun="Agent" title={episode.agentId}>
+                  {episode.agentId}
+                </InspectorNoun>
               </Link>
             </p>
           </div>

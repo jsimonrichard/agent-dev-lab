@@ -13,7 +13,7 @@ import {
   forkLinkedConversation,
   renameAgentConversation,
 } from "#/lib/inspector-server";
-import { isWorkflowLinkedConversation, workflowRunLocationForSession } from "@/lib/agent-sessions";
+import { isWorkflowLinkedConversation } from "@/lib/agent-sessions";
 import { formatRunTimestamp } from "@/lib/workflow-location";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -100,30 +100,12 @@ export function AgentConversationsSidebar() {
                     </p>
                   ) : (
                     selectedSessions.map((session) => {
-                      const workflowRun = workflowRunLocationForSession(session, runs);
                       return (
                         <SidebarMenuItem key={session.memoryScope}>
                           <ItemActionsMenu
                             name={session.title}
                             deleteDescription="Delete this conversation and its messages. This cannot be undone."
                             extraActions={[
-                              ...(workflowRun
-                                ? [
-                                    {
-                                      label: "Open workflow run",
-                                      icon: GitBranch,
-                                      onSelect: () => {
-                                        void navigate({
-                                          to: "/workflows/$workflowId/run/$runId",
-                                          params: {
-                                            workflowId: workflowRun.workflowId,
-                                            runId: workflowRun.runId,
-                                          },
-                                        });
-                                      },
-                                    },
-                                  ]
-                                : []),
                               ...(isWorkflowLinkedConversation(session)
                                 ? [
                                     {

@@ -144,15 +144,15 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
         {forkSession ? (
           <Button variant="outline" size="sm" asChild>
             <Link
-              to="/workflows/$workflowId/run/$runId"
+              to="/agent/$agentId/run/$runId"
               params={{
-                workflowId: forkSession.sourceWorkflowId,
-                runId: forkSession.sourceRunId,
+                agentId: forkSession.agentId,
+                runId: forkSession.sourceMemoryScope,
               }}
               className="gap-2"
             >
-              <ArrowLeft className="size-4" />
-              Source run
+              <MessageSquare className="size-4" />
+              Forked from
             </Link>
           </Button>
         ) : null}
@@ -164,23 +164,18 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
                 workflowId: workflowLink.workflowId,
                 runId: workflowLink.workflowRunId,
               }}
+              search={{
+                ...(workflowLink.stepId ? { step: workflowLink.stepId } : {}),
+                episode: workflowLink.episodeId,
+              }}
               className="gap-2"
             >
-              <ArrowLeft className="size-4" />
-              Open run
+              <GitBranch className="size-4" />
+              View in Workflow
             </Link>
           </Button>
         ) : null}
       </header>
-
-      {forkSession ? (
-        <div className="shrink-0 border-b border-border/40 bg-muted/15 px-4 py-2 text-[11px] text-muted-foreground">
-          Continued from{" "}
-          <span className="font-mono text-foreground">{forkSession.sourceEpisodeId}</span>
-          {" · "}
-          <span className="font-mono">{forkSession.sourceMemoryScope}</span>
-        </div>
-      ) : null}
 
       {error ? (
         <div className="shrink-0 px-4 py-2">
