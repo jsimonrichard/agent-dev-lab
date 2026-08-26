@@ -1,12 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { GitBranch, MessageSquare, Settings2 } from "lucide-react";
 
-import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { StartWorkflowButton } from "@/components/app/start-workflow-dialog";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
-import { Separator } from "@/components/ui/separator";
+import { RunStatusBadge } from "@/components/app/run-status-badge";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { formatRunTimestamp, workflowRunLabel } from "@/lib/workflow-location";
+
+const RECENT_LIMIT = 6;
 
 const devModeLabel = {
   "framework-dev": "Framework dev",
@@ -14,14 +17,17 @@ const devModeLabel = {
   serve: "Serve",
 } as const;
 
+const recentLinkClassName =
+  "block rounded-md px-2 py-2 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40";
+
 export function InspectorDashboard() {
   const { project, runs, sessions } = useAppLoaderData();
-  const recentRun = runs[0];
-  const recentSession = sessions[0];
+  const recentRuns = runs.slice(0, RECENT_LIMIT);
+  const recentSessions = sessions.slice(0, RECENT_LIMIT);
 
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-auto">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 px-4">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <div className="min-w-0 flex-1">
@@ -30,12 +36,11 @@ export function InspectorDashboard() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-3xl flex-1 space-y-8 p-6 md:p-8">
+      <div className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-6 md:p-8">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Overview</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Inspect workflow runs, agent conversations, and project configuration — backed by{" "}
-            <code className="text-xs">@agent-dev-lab/core</code>.
+            Recent workflow runs and agent conversations for this project.
           </p>
         </div>
 
@@ -52,28 +57,54 @@ export function InspectorDashboard() {
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{runs.length} runs</Badge>
-                <Badge variant="outline">{project.workflowIds.length} workflows</Badge>
+                <Badge variant="secondary">
+                  {runs.length} run{runs.length === 1 ? "" : "s"}
+                </Badge>
+                <Badge variant="outline">
+                  {project.workflowIds.length} workflow
+                  {project.workflowIds.length === 1 ? "" : "s"}
+                </Badge>
               </div>
-              {project.workflows.length > 0 ? (
-                <StartWorkflowButton size="sm" variant="secondary">
-                  Start workflow
-                </StartWorkflowButton>
-              ) : null}
-              {recentRun ? (
-                <Link
-                  to="/workflows/$workflowId"
-                  params={{ workflowId: recentRun.workflowId }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Open latest workflow →
-                </Link>
-              ) : null}
+              {recentRuns.length > 0 ? (
+                <ul className="-mx-2">
+                  {recentRuns.map((run) => (
+                    <li key={run.runId}>
+                      <Link
+                        to="/workflows/$workflowId/run/$runId"
+                        params={{ workflowId: run.workflowId, runId: run.runId }}
+                        className={recentLinkClassName}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={
+                              run.title
+                                ? "truncate text-sm font-medium"
+                                : "truncate font-mono text-sm"
+                            }
+                          >
+                            {workflowRunLabel(run)}
+                          </p>
+                          <RunStatusBadge status={run.status} />
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          <span className="font-mono">{run.workflowId}</span>
+                          {" · "}
+                          {formatRunTimestamp(run.startedAt)}
+                        </p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No runs yet. Open a workflow to start one.
+                </p>
+              )}
               <Link
                 to="/workflows"
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                className="rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                Browse workflow registry
+                Browse workflows
               </Link>
             </div>
           </Card>
@@ -84,29 +115,47 @@ export function InspectorDashboard() {
                 <MessageSquare className="size-4" />
               </div>
               <CardTitle className="text-base">Agent conversations</CardTitle>
-              <CardDescription>
-                Standalone agent chats and forks continued outside a workflow.
-              </CardDescription>
+              <CardDescription>Recent chats with registered agents.</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{sessions.length} sessions</Badge>
-                <Badge variant="outline">{project.agentIds.length} agents</Badge>
+                <Badge variant="secondary">
+                  {sessions.length} session{sessions.length === 1 ? "" : "s"}
+                </Badge>
+                <Badge variant="outline">
+                  {project.agentIds.length} agent{project.agentIds.length === 1 ? "" : "s"}
+                </Badge>
               </div>
-              {recentSession ? (
-                <Link
-                  to="/agent/$agentId"
-                  params={{ agentId: recentSession.agentId }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Open latest agent →
-                </Link>
-              ) : null}
+              {recentSessions.length > 0 ? (
+                <ul className="-mx-2">
+                  {recentSessions.map((session) => (
+                    <li key={session.memoryScope}>
+                      <Link
+                        to="/agent/$agentId/run/$runId"
+                        params={{ agentId: session.agentId, runId: session.memoryScope }}
+                        className={recentLinkClassName}
+                      >
+                        <p className="truncate text-sm font-medium">{session.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          <span className="font-mono">{session.agentId}</span>
+                          {session.fork ? " · Forked" : ""}
+                          {" · "}
+                          {formatRunTimestamp(session.updatedAt)}
+                        </p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No conversations yet. Open an agent to start one.
+                </p>
+              )}
               <Link
                 to="/agent"
-                className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                className="rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
               >
-                Browse agent registry
+                Browse agents
               </Link>
             </div>
           </Card>
@@ -125,7 +174,10 @@ export function InspectorDashboard() {
             </div>
           </CardHeader>
           <div className="px-6 pb-6">
-            <Link to="/settings" className="text-sm font-medium text-primary hover:underline">
+            <Link
+              to="/settings"
+              className="rounded-sm text-sm font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
               Project settings →
             </Link>
           </div>
