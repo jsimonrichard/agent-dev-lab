@@ -38,4 +38,5 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate) |
 | [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                           |
 | [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                           |
+| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing      |
 | [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan   |

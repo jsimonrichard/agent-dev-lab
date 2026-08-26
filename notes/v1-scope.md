@@ -85,12 +85,14 @@ Design: [`inspection-ui.md`](./inspection-ui.md)
 | **Human approval**            | ⏸      | [`future-extensions.md`](./future-extensions.md)           |
 | **Memory pipeline**           | ⏸      | [`memory-pipeline.md`](./memory-pipeline.md)               |
 | **Checkpoints**               | ⏸      | [`resumability.md`](./resumability.md)                     |
+| **Workflow catalog grouping** | ⏸      | [`workflow-catalog.md`](./workflow-catalog.md)             |
 
 ---
 
 ## Likely not v1
 
 - Dynamic config registration
+- Workflow / agent catalog folders, tags, or namespaced ids ([`workflow-catalog.md`](./workflow-catalog.md))
 - `RunHandle`
 - Auto workflow resume mid-closure
 - Mid-stream token resume
