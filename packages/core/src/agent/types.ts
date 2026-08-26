@@ -3,6 +3,7 @@ import type { z } from "zod";
 
 import type { MessageStore } from "../memory/types";
 import type { Template } from "../template/types";
+import type { AgentModelInfo } from "./inspect";
 
 export type AgentInstructions<TInput = unknown> = string | Template<TInput>;
 
@@ -92,6 +93,12 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
    * or `"custom"` if omitted.
    */
   readonly memoryKind: string;
+  /**
+   * Effective model for this agent's episodes (`definition.model`, falling back to the
+   * runtime's `defaults.model`). `null` when no model is configured or the model object
+   * reveals neither id nor provider — inspectors should omit the field in that case.
+   */
+  readonly modelInfo: AgentModelInfo | null;
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
 }

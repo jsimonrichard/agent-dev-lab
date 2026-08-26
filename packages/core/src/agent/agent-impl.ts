@@ -14,6 +14,7 @@ import { serializeError } from "../internal/serialize-error";
 import { inspectMessageStoreKind } from "../memory/inspect";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import { resolveInstructionsText } from "./resolve-instructions";
 import type {
   Agent,
@@ -48,6 +49,10 @@ export class AgentImpl<
 
   get memoryKind(): string {
     return inspectMessageStoreKind(this.services.stores.message);
+  }
+
+  get modelInfo(): AgentModelInfo | null {
+    return inspectLanguageModel(this.definition.model ?? this.services.defaults.model);
   }
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools> {

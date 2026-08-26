@@ -13,12 +13,13 @@
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
-export { createAgent } from "./agent";
+export { createAgent, CUSTOM_MODEL_ID, inspectLanguageModel } from "./agent";
 export type {
   Agent,
   AgentDefinition,
   AgentInstructions,
   AgentMemoryConfig,
+  AgentModelInfo,
   AgentRunHandle,
   AgentRunInput,
   AgentRunResult,
