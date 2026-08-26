@@ -29,12 +29,12 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 
 ## Still in notes
 
-| File                                             | Purpose                  |
-| ------------------------------------------------ | ------------------------ |
-| [`v1-scope.md`](./v1-scope.md)                   | Implementation checklist |
-| [`design-overview.md`](./design-overview.md)     | Repo orientation         |
-| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE          |
-| [`tracing.md`](./tracing.md)                     | OTEL packaging           |
-| [`resumability.md`](./resumability.md)           | Deferred resume          |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping         |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks         |
+| File                                             | Purpose                                    |
+| ------------------------------------------------ | ------------------------------------------ |
+| [`v1-scope.md`](./v1-scope.md)                   | Implementation checklist                   |
+| [`design-overview.md`](./design-overview.md)     | Repo orientation                           |
+| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE                            |
+| [`tracing.md`](./tracing.md)                     | OTEL packaging                             |
+| [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate) |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                           |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                           |

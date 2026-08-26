@@ -33,14 +33,14 @@ Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTempla
 
 ## Agent note index
 
-| Still in `notes/`                                | Topic            |
-| ------------------------------------------------ | ---------------- |
-| [`v1-scope.md`](./v1-scope.md)                   | Checklist        |
-| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE  |
-| [`tracing.md`](./tracing.md)                     | OTEL packaging   |
-| [`resumability.md`](./resumability.md)           | Deferred resume  |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks |
+| Still in `notes/`                                | Topic                                   |
+| ------------------------------------------------ | --------------------------------------- |
+| [`v1-scope.md`](./v1-scope.md)                   | Checklist                               |
+| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE                         |
+| [`tracing.md`](./tracing.md)                     | OTEL packaging                          |
+| [`resumability.md`](./resumability.md)           | Run retry / step skip (not chat memory) |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                        |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                        |
 
 Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.md`](./README.md).
 

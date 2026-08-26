@@ -82,7 +82,10 @@ const review = adl.createWorkflow({
   id: "literature-review",
   run: async (input: { topic: string }, ctx) => {
     await ctx.step("research", async ({ ctx: child }) => {
-      await researcher.run({ memoryScope: child.memoryScopeWithSuffix("notes"), user: input.topic });
+      await researcher.run({
+        memoryScope: child.memoryScopeWithSuffix("notes"),
+        user: input.topic,
+      });
     });
     return { topic: input.topic };
   },

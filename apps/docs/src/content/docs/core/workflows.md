@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: adl.createWorkflow, ctx.step, nesting, keys, step caching, and resumability.
+description: adl.createWorkflow, ctx.step, nesting, keys, step caching, and run retry.
 ---
 
 Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `Promise.all` — no graph DSL. **Steps** mark observable, retryable units whose outputs are cached on [`WorkflowStore`](/api/interfaces/workflowstore/); nested workflows provide typed, reusable modules.
@@ -92,15 +92,9 @@ for (const topic of topics) {
 
 ## Resumability
 
-“Resume” in ADL is **not one feature**. Steps participate in **run-level retry**; agents participate in **conversation continuity** via [`MessageStore`](/api/interfaces/messagestore/). Both stores can matter on the same workflow, but they answer different questions.
+**Resume** here means **re-entering a workflow run**: skip completed steps via cached output, re-run the rest. That uses [`WorkflowStore`](/api/interfaces/workflowstore/). Inspection replay also reads this store; it does not re-execute the workflow.
 
-| Scenario                        | What the user wants              | Primary store       |
-| ------------------------------- | -------------------------------- | ------------------- |
-| **Continue a conversation**     | Same chat, next turn             | **`MessageStore`**  |
-| **Retry a failed workflow**     | Re-run from start or past a step | **`WorkflowStore`** |
-| **Inspect / replay a past run** | Waterfall UI, audit log          | **`WorkflowStore`** |
-
-See [Agents — memoryScope](/core/agents/#memoryscope) for conversational resume. This section covers **steps and run retry**.
+[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — memoryScope](/core/agents/#memoryscope). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
 
 ### Steps are atomic retry units
 
@@ -161,15 +155,15 @@ Use this when inputs changed, you need to invalidate a prior success, or you are
 
 ### Agents on retry
 
-Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). That is **conversation resume** (model sees prior turns), not skipping the model.
+Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). That is **memory** (model sees prior turns), not skipping the model and not restoring the workflow.
 
 On step retry, choose a policy explicitly:
 
-| Policy             | Behavior                                                         |
-| ------------------ | ---------------------------------------------------------------- |
-| **Continue scope** | Same `memoryScope`; model sees prior attempt                     |
+| Policy             | Behavior                                                                   |
+| ------------------ | -------------------------------------------------------------------------- |
+| **Continue scope** | Same `memoryScope`; model sees prior attempt                               |
 | **Fork scope**     | New suffix per attempt, e.g. `ctx.memoryScopeWithSuffix("search:retry-1")` |
-| **Clear scope**    | Wipe store for that scope before `agent.run`                     |
+| **Clear scope**    | Wipe store for that scope before `agent.run`                               |
 
 ### Not in v1
 

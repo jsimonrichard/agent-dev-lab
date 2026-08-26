@@ -80,7 +80,7 @@ Opaque string selecting a **conversation message list** in the store:
 
 Same agent + same `memoryScope` → shared history. New scope → new conversation (new system bootstrap when store is empty).
 
-This is ADL’s **conversational resume** path — independent of workflow step retry, which uses [`WorkflowStore`](/api/interfaces/workflowstore/) step outputs. See [Workflows — Resumability](/core/workflows/#resumability).
+This is **conversation memory**, not workflow resume: the runner `load`s the transcript, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
 
 ## Run context
 
