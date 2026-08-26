@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 /**
  * @packageDocumentation
  *
@@ -27,6 +29,8 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
+  ConversationTitleInput,
+  ConversationTitleOutput,
 } from "./agent";
 
 export { createWorkflow } from "./workflow";
@@ -108,6 +112,8 @@ export type {
   WorkflowRunSummary,
   WorkflowStartedEvent,
   WorkflowStore,
+  WorkflowTitleSetEvent,
+  AgentTitleSetEvent,
 } from "./observability";
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
@@ -135,10 +141,17 @@ export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "@agent-dev-l
 export { generateText, streamText, tool } from "ai";
 export type { CoreMessage, LanguageModel, ToolSet } from "ai";
 
+const corePackage = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+) as {
+  version: string;
+};
+
 /** Package identity for health checks and dev tooling. */
 export function createCoreShell() {
   return {
     name: "agent-development-lab/core",
+    version: corePackage.version,
     capabilities: [
       "v1 API surface (draft)",
       "createAdlRuntime + explicit runtime wiring",

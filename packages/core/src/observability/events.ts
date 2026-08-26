@@ -2,8 +2,8 @@
  * Append-only event union for waterfall UI and {@link WorkflowStore.listEvents}.
  *
  * Includes workflow lifecycle, step tree, agent episodes (`agent_text_delta` when streaming),
- * and `custom` events from `WorkflowContext.emit`. `seq` is monotonic per `workflowRunId` or
- * `agentCallId`. Both `agent.run` and `agent.stream` use `streamText` internally.
+ * `custom` events from `WorkflowContext.emit`, and title events (`workflow_title_set`,
+ * `agent_title_set`). `seq` is monotonic per `workflowRunId` or `agentCallId`.
  */
 
 /** Current persisted {@link RunEvent} schema. Bump when the wire shape changes. */
@@ -100,6 +100,13 @@ export type WorkflowCustomEvent = WorkflowRunEventBase & {
   payload: unknown;
 };
 
+export type WorkflowTitleSetEvent = WorkflowRunEventBase & {
+  type: "workflow_title_set";
+  /** Omitted when set at workflow root (no active step). */
+  stepId?: string | null;
+  title: string;
+};
+
 export type AgentStartedEvent = AgentEventBase & {
   type: "agent_started";
   agentId: string;
@@ -140,7 +147,16 @@ export type AgentTextDeltaEvent = AgentEventBase & {
 export type AgentMessagesCommittedEvent = AgentEventBase & {
   type: "agent_messages_committed";
   memoryScope: string;
+  /** Model response messages appended this episode (excludes the user turn). */
   count: number;
+  /** MessageStore transcript length after this commit. */
+  total: number;
+};
+
+export type AgentTitleSetEvent = AgentEventBase & {
+  type: "agent_title_set";
+  memoryScope: string;
+  title: string;
 };
 
 export type RunEvent =
@@ -153,13 +169,15 @@ export type RunEvent =
   | StepSkippedEvent
   | StepFailedEvent
   | WorkflowCustomEvent
+  | WorkflowTitleSetEvent
   | AgentStartedEvent
   | AgentFinishedEvent
   | AgentFailedEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
-  | AgentMessagesCommittedEvent;
+  | AgentMessagesCommittedEvent
+  | AgentTitleSetEvent;
 
 export type RunEventType = RunEvent["type"];
 
@@ -180,7 +198,8 @@ export type WorkflowObserverEvent =
   | StepFinishedEvent
   | StepSkippedEvent
   | StepFailedEvent
-  | WorkflowCustomEvent;
+  | WorkflowCustomEvent
+  | WorkflowTitleSetEvent;
 
 /** Agent episodes — may omit `workflowRunId` when not started from a workflow. */
 export type AgentObserverEvent =
@@ -190,7 +209,8 @@ export type AgentObserverEvent =
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
-  | AgentMessagesCommittedEvent;
+  | AgentMessagesCommittedEvent
+  | AgentTitleSetEvent;
 
 export type WorkflowRunSummary = {
   workflowRunId: string;

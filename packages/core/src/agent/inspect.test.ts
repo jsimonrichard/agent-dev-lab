@@ -4,6 +4,7 @@ import type { LanguageModel } from "ai";
 import { createAdlRuntime } from "../runtime/create";
 import { createTestRuntime } from "../runtime/create-test";
 import { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
+import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
 function fakeModel(overrides: Partial<{ provider: string; modelId: string }> = {}): LanguageModel {
   return {
@@ -67,5 +68,27 @@ describe("Agent.modelInfo", () => {
     const adl = createTestRuntime();
     const agent = adl.createAgent({ id: "researcher", instructions: "Be brief." });
     expect(agent.modelInfo).toBeNull();
+  });
+});
+
+describe("Agent.titleWorkflowId", () => {
+  it("is null when no title workflow is configured", () => {
+    const adl = createTestRuntime();
+    const agent = adl.createAgent({ id: "researcher", instructions: "Be brief." });
+    expect(agent.titleWorkflowId).toBeNull();
+  });
+
+  it("reports the configured title workflow id", () => {
+    const adl = createTestRuntime();
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async () => ({ title: "Named" }),
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+      titleWorkflow,
+    });
+    expect(agent.titleWorkflowId).toBe("conversation-title");
   });
 });

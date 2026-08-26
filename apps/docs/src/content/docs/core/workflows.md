@@ -43,6 +43,46 @@ await ctx.step("search", async ({ ctx: child }) => {
 
 Calling `searchPapers.run` **without** `step` is valid when you do not need an extra span.
 
+## Isolated runs
+
+By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), shares that `workflowRunId`, and records inner steps on the parent's event stream — they show up in that run's inspector tree.
+
+`{ isolated: true }` starts a **separate** run instead of nesting:
+
+|                 | Nested (default)             | `{ isolated: true }`                                         |
+| --------------- | ---------------------------- | ------------------------------------------------------------ |
+| Parent          | Joins ALS / `parentCtx`      | Ignores parent                                               |
+| `workflowRunId` | Shared with parent           | New id                                                       |
+| Persistence     | Events on the parent run     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
+| Inspector tree  | Inner steps under the parent | Own tree, not folded into the caller                         |
+
+Isolated does **not** mean “skip the database.” The run is persisted. Whether it appears in the inspection UI is the project registry: only workflows in `adl.config` `workflows` are listed as startable targets and run history. Leave a helper out of that array to keep its runs stored but hidden.
+
+```ts
+// Inside a parent workflow (or an agent episode that happens to be in one):
+await helper.run(input, { isolated: true }).result;
+```
+
+Conversation [`titleWorkflow`](/core/agents/#conversation-titles) uses this so naming a chat does not inject steps into another workflow's tree.
+
+## Input and output types
+
+Zod `input` / `output` on `createWorkflow` both **validate at runtime** and **infer TypeScript types**. Zod is optional. Pin types with generics (or by annotating `run`) when you do not want a runtime schema:
+
+```ts
+type SearchInput = { topic: string };
+type SearchOutput = { papers: string[] };
+
+export const searchPapers = adl.createWorkflow<SearchInput, SearchOutput>({
+  id: "search-papers",
+  async run(input, ctx) {
+    return { papers: [] };
+  },
+});
+```
+
+`workflow.run` then type-checks callers against `SearchInput` and `handle.result` is `Promise<SearchOutput>`. Add Zod later if you want parse/defaults without changing those types.
+
 ## Step callback shape
 
 ```ts
@@ -187,6 +227,7 @@ type WorkflowContext = {
   step: StepFn;
   memoryScopeWithSuffix: (suffix: string) => string;
   emit(event: { type: "custom"; name: string; payload: unknown }): void;
+  setTitle(title: string): Promise<void>;
 };
 ```
 
@@ -198,6 +239,21 @@ handle.cancel();
 ```
 
 `workflow.stream(input)` yields live `RunEvent`s via an async iterator while the run executes.
+
+### Run titles
+
+`ctx.setTitle(title)` sets the inspector display name for this workflow run. Call it at the start of `run`, after a first step, or just before returning — blank titles are ignored.
+
+```ts
+export const literatureReview = adl.createWorkflow({
+  id: "literature-review",
+  input: z.object({ topic: z.string() }),
+  async run(input, ctx) {
+    await ctx.setTitle(`Literature review: ${input.topic}`);
+    // ...
+  },
+});
+```
 
 ## Events
 

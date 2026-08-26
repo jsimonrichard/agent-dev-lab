@@ -43,9 +43,11 @@ export const writeArticle = adl.createWorkflow({
     // input type is the pre-parse shape, where defaulted fields are optional.
     const { topic, audience } = writeArticleInput.parse(input);
 
+    await ctx.setTitle(`Article: ${topic}`);
+
     const outline = await ctx.step("outline", async ({ ctx: child }) => {
       const handle = outliner.run({
-        memoryScope: child.memoryScope("outline"),
+        memoryScope: child.memoryScopeWithSuffix("outline"),
         user: articleBriefPrompt.render({ topic, audience }),
         workflow: { workflowRunId: child.workflowRunId, stepId: child.stepId },
       });
@@ -53,13 +55,15 @@ export const writeArticle = adl.createWorkflow({
       return outlineSchema.parse(result.output);
     });
 
+    await ctx.setTitle(outline.title);
+
     ctx.emit({
       type: "custom",
       name: "outline-ready",
       payload: { title: outline.title, sections: outline.sections.length },
     });
 
-    const draftScope = ctx.memoryScope("draft");
+    const draftScope = ctx.memoryScopeWithSuffix("draft");
 
     let article = await ctx.step("draft", async ({ ctx: child }) => {
       const handle = writer.run({
@@ -76,7 +80,7 @@ export const writeArticle = adl.createWorkflow({
 
     const review = await ctx.step("review", async ({ ctx: child }) => {
       const handle = editor.run({
-        memoryScope: child.memoryScope("review"),
+        memoryScope: child.memoryScopeWithSuffix("review"),
         user: `Title: ${outline.title}\n\n${article}`,
         workflow: { workflowRunId: child.workflowRunId, stepId: child.stepId },
       });

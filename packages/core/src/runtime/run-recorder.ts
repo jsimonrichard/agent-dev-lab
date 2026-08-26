@@ -150,7 +150,8 @@ export class RunRecorder {
       event.type === "workflow_failed" ||
       event.type === "workflow_cancelled" ||
       event.type.startsWith("step_") ||
-      event.type === "custom"
+      event.type === "custom" ||
+      event.type === "workflow_title_set"
     );
   }
 

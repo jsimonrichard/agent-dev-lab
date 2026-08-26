@@ -1,5 +1,7 @@
 import { adl } from "#adl";
 
+import { conversationTitle } from "./conversation-title";
+
 import { model } from "../model";
 import { knowledgeTools } from "../tools/knowledge";
 
@@ -17,4 +19,5 @@ export const researchAssistant = adl.createAgent({
     "Call tools when helpful, then give a concise final answer that cites what you found.",
   model,
   tools: knowledgeTools,
+  titleWorkflow: conversationTitle,
 });

@@ -18,6 +18,8 @@ export const literatureReview = adl.createWorkflow({
     summary: z.string(),
   }),
   run: async (input, ctx) => {
+    await ctx.setTitle(`Literature review: ${input.topic}`);
+
     const sources = await ctx.step("search", async ({ ctx: child }) => {
       const episode = await researcher.run({
         memoryScope: child.memoryScopeWithSuffix("notes"),

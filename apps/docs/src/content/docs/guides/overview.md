@@ -31,7 +31,7 @@ Cross-cutting concepts and project layout:
 - [Project setup](/guides/project-setup/) — required vs recommended layout; `#adl` import alias; how tooling gets `config.adl`
 - [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
 - [Agents](/core/agents/) — `adl.createAgent`, memory, structured output
-- [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting
+- [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
 - [Project config](/core/project/) — registry, `loadAdlProject`
 
 ### API reference (TypeDoc)

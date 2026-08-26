@@ -79,12 +79,33 @@ export function sessionDisplayTitle(session: Pick<AgentSession, "title" | "fork"
   );
 }
 
+/** True when the title is still the inspector default, not a user or auto-generated name. */
+export function isPlaceholderConversationTitle(title: string, agentId: string): boolean {
+  const trimmed = title.trim();
+  return trimmed === `New ${agentId} chat` || trimmed === `Chat · ${agentId}`;
+}
+
 const byMemoryScope = new Map<string, AgentSession>();
 const byAgentCallId = new Map<string, AgentSession>();
 const deletedMemoryScopes = new Set<string>();
 
-export function registerAgentSessionFromEvent(event: RunEvent): void {
+/**
+ * Open a conversation from an `agent_started` event, or apply `agent_title_set`.
+ * Pass `listedAgentIds` (the project `agents` registry) to hide helper agents that
+ * are not exported — for example a conversation-title namer.
+ */
+export function registerAgentSessionFromEvent(
+  event: RunEvent,
+  options?: { listedAgentIds?: ReadonlySet<string> },
+): void {
+  if (event.type === "agent_title_set") {
+    applyGeneratedConversationTitle(event.memoryScope, event.title);
+    return;
+  }
   if (event.type !== "agent_started") {
+    return;
+  }
+  if (options?.listedAgentIds && !options.listedAgentIds.has(event.agentId)) {
     return;
   }
   if (deletedMemoryScopes.has(event.memoryScope)) {
@@ -196,6 +217,30 @@ export function renameAgentSessionTitle(
     return undefined;
   }
   session.title = title;
+  session.updatedAt = new Date().toISOString();
+  return session;
+}
+
+/**
+ * Apply an auto-generated title from `agent_title_set`. Does not overwrite a
+ * user rename or a fork title.
+ */
+export function applyGeneratedConversationTitle(
+  memoryScope: string,
+  title: string,
+): AgentSession | undefined {
+  const session = byMemoryScope.get(memoryScope);
+  if (!session) {
+    return undefined;
+  }
+  if (!isPlaceholderConversationTitle(session.title, session.agentId)) {
+    return session;
+  }
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return session;
+  }
+  session.title = trimmed;
   session.updatedAt = new Date().toISOString();
   return session;
 }

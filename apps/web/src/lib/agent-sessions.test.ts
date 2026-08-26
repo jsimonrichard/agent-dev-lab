@@ -6,7 +6,9 @@ import {
   getAgentSessionByMemoryScope,
   isWorkflowLinkedConversation,
   registerAgentSession,
+  registerAgentSessionFromEvent,
   renameAgentSessionTitle,
+  applyGeneratedConversationTitle,
   sessionDisplayTitle,
   unregisterAgentSession,
   workflowRunLocationForSession,
@@ -158,6 +160,21 @@ describe("rename and delete sessions", () => {
     unregisterAgentSession(memoryScope);
   });
 
+  it("applies a generated title only over placeholder names", () => {
+    const placeholderScope = "conv:auto-title";
+    registerAgentSession(session({ memoryScope: placeholderScope, title: "Chat · researcher" }));
+    expect(applyGeneratedConversationTitle(placeholderScope, "CRISPR delivery")?.title).toBe(
+      "CRISPR delivery",
+    );
+
+    const customScope = "conv:keep-custom";
+    registerAgentSession(session({ memoryScope: customScope, title: "My notes" }));
+    expect(applyGeneratedConversationTitle(customScope, "Should not win")?.title).toBe("My notes");
+
+    unregisterAgentSession(placeholderScope);
+    unregisterAgentSession(customScope);
+  });
+
   it("hides a deleted session and does not re-register that scope", () => {
     const memoryScope = "conv:delete-keep-hidden";
     registerAgentSession(session({ memoryScope, title: "Gone" }));
@@ -167,5 +184,44 @@ describe("rename and delete sessions", () => {
 
     registerAgentSession(session({ memoryScope, title: "Should stay gone" }));
     expect(getAgentSessionByMemoryScope(memoryScope)).toBeUndefined();
+  });
+});
+
+describe("registerAgentSessionFromEvent listed agents", () => {
+  const listedAgentIds = new Set(["researcher"]);
+
+  it("skips conversations for agents omitted from the project registry", () => {
+    const memoryScope = "conv:hidden-namer";
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-hidden",
+        agentId: "conversation-title-namer",
+        memoryScope,
+        seq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds },
+    );
+    expect(getAgentSessionByMemoryScope(memoryScope)).toBeUndefined();
+  });
+
+  it("registers conversations for agents listed in the project registry", () => {
+    const memoryScope = "conv:listed-researcher";
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-listed",
+        agentId: "researcher",
+        memoryScope,
+        seq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds },
+    );
+    expect(getAgentSessionByMemoryScope(memoryScope)?.agentId).toBe("researcher");
+    unregisterAgentSession(memoryScope);
   });
 });

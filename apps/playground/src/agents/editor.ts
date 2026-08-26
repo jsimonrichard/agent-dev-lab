@@ -3,6 +3,7 @@ import { z } from "zod";
 import { adl } from "#adl";
 
 import { model } from "../model";
+import { conversationTitle } from "./conversation-title";
 
 export const reviewSchema = z.object({
   score: z.number().min(0).max(10).describe("Overall quality from 0-10."),
@@ -24,4 +25,5 @@ export const editor = adl.createAgent({
     "Be specific and fair. Return a score, a verdict, concrete strengths, and concrete issues.",
   model,
   outputSchema: reviewSchema,
+  titleWorkflow: conversationTitle,
 });

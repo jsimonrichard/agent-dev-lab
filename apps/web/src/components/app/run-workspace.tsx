@@ -40,6 +40,7 @@ export function RunWorkspace({
   const navigate = useNavigate();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
+  const runTitle = view.title ?? summary.title;
 
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
     () =>
@@ -100,7 +101,7 @@ export function RunWorkspace({
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <Button variant="ghost" size="sm" asChild>
@@ -115,12 +116,12 @@ export function RunWorkspace({
             <h1
               title={summary.runId}
               className={
-                summary.title
+                runTitle
                   ? "truncate text-sm font-semibold"
                   : "truncate font-mono text-sm font-semibold"
               }
             >
-              {workflowRunLabel(summary)}
+              {workflowRunLabel({ runId: summary.runId, title: runTitle })}
             </h1>
             <RunStatusBadge status={view.status} />
           </div>
@@ -183,8 +184,14 @@ export function RunWorkspace({
 
         {inspectorOpen ? (
           <>
-            <ResizableHandle withHandle />
-            <ResizablePanel id="step-inspector" defaultSize="42%" minSize="24%" maxSize="72%">
+            <ResizableHandle className="self-stretch" />
+            <ResizablePanel
+              id="step-inspector"
+              defaultSize="42%"
+              minSize="24%"
+              maxSize="72%"
+              className="min-w-0 overflow-hidden"
+            >
               <StepInspectorPanel
                 step={selectedStep}
                 episode={activeEpisode}

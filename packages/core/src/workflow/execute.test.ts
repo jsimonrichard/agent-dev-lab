@@ -151,4 +151,92 @@ describe("workflow.run", () => {
     expect(collected).toContain("step_started");
     expect(collected).toContain("workflow_finished");
   });
+
+  it("sets a run title from ctx.setTitle", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const workflow = createWorkflow(runtime, {
+      id: "named-run",
+      run: async (_input, ctx) => {
+        await ctx.setTitle("CRISPR delivery");
+        await ctx.step("work", async () => "ok");
+        return { done: true };
+      },
+    });
+
+    const handle = workflow.run({});
+    await handle.result;
+
+    const named = await store.getRun(handle.workflowRunId);
+    expect(named?.title).toBe("CRISPR delivery");
+    const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+    expect(events.some((event) => event.type === "workflow_title_set")).toBe(true);
+  });
+
+  it("ignores a blank ctx.setTitle", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const workflow = createWorkflow(runtime, {
+      id: "blank-title",
+      run: async (_input, ctx) => {
+        await ctx.setTitle("   ");
+        return { done: true };
+      },
+    });
+
+    const handle = workflow.run({});
+    await handle.result;
+
+    const named = await store.getRun(handle.workflowRunId);
+    expect(named?.title).toBeUndefined();
+  });
+
+  it("pins input and output types without Zod", async () => {
+    type In = { n: number };
+    type Out = { doubled: number };
+    const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    const workflow = createWorkflow<In, Out>(runtime, {
+      id: "double",
+      run: async (input) => ({ doubled: input.n * 2 }),
+    });
+
+    await expect(workflow.run({ n: 3 }).result).resolves.toEqual({ doubled: 6 });
+  });
+
+  it("persists an isolated run as its own workflow run, not nested under the parent", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const helper = createWorkflow(runtime, {
+      id: "helper",
+      run: async (_input, ctx) => {
+        await ctx.step("inner", async () => 1);
+        return { ok: true };
+      },
+    });
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async (_input, ctx) => {
+        await ctx.step("call-helper", async () => helper.run({}, { isolated: true }).result);
+        return {};
+      },
+    });
+
+    const parentHandle = parent.run({});
+    await parentHandle.result;
+
+    const runs = await store.listRuns();
+    expect(runs.map((run) => run.workflowId).sort()).toEqual(["helper", "parent"]);
+    const helperRun = runs.find((run) => run.workflowId === "helper");
+    expect(helperRun?.workflowRunId).not.toBe(parentHandle.workflowRunId);
+
+    const parentEvents = await store.listEvents({ workflowRunId: parentHandle.workflowRunId });
+    expect(
+      parentEvents.some(
+        (event) => event.type === "workflow_started" && event.workflowId === "helper",
+      ),
+    ).toBe(false);
+    expect(
+      parentEvents.some((event) => event.type === "step_started" && event.name === "inner"),
+    ).toBe(false);
+  });
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { adl } from "#adl";
 
 import { model } from "../model";
+import { conversationTitle } from "./conversation-title";
 
 /**
  * Drafts (and later revises) the article. Plain-text output — the workflow keeps the
@@ -21,4 +22,5 @@ export const writer = adl.createAgent({
     inputData: z.object({}),
   }),
   model,
+  titleWorkflow: conversationTitle,
 });

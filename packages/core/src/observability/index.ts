@@ -25,6 +25,8 @@ export type {
   WorkflowRunEventBase,
   WorkflowRunSummary,
   WorkflowStartedEvent,
+  WorkflowTitleSetEvent,
+  AgentTitleSetEvent,
 } from "./events";
 export type {
   AgentObserver,

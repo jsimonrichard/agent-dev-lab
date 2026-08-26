@@ -20,6 +20,7 @@ function upsertStep(
     key: event.key,
     path: event.path,
     status: "running",
+    startedAt: event.at,
     children: [],
     agentEpisodes: [],
   };
@@ -38,14 +39,34 @@ function findEpisode(node: StepNode, episodeId: string): AgentEpisode | undefine
   return node.agentEpisodes.find((e) => e.episodeId === episodeId);
 }
 
-function settleOpenWork(stepMap: Map<string, StepNode>, as: "failed" | "completed"): void {
+function durationFromSpan(
+  startedAt: string | undefined,
+  endedAt: string,
+  fallbackMs?: number,
+): number | undefined {
+  if (startedAt) {
+    const durationMs = Date.parse(endedAt) - Date.parse(startedAt);
+    if (Number.isFinite(durationMs) && durationMs >= 0) return durationMs;
+  }
+  return fallbackMs != null && fallbackMs > 0 ? fallbackMs : undefined;
+}
+
+function settleOpenWork(
+  stepMap: Map<string, StepNode>,
+  as: "failed" | "completed",
+  settledAt: string,
+): void {
   for (const step of stepMap.values()) {
     if (step.status === "running") {
       step.status = as;
+      step.finishedAt ??= settledAt;
+      step.durationMs ??= durationFromSpan(step.startedAt, settledAt);
     }
     for (const episode of step.agentEpisodes) {
       if (episode.status === "running") {
         episode.status = as;
+        episode.finishedAt ??= settledAt;
+        episode.durationMs ??= durationFromSpan(episode.startedAt, settledAt);
       }
     }
   }
@@ -67,6 +88,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
   let startedAt = new Date().toISOString();
   let finishedAt: string | undefined;
   let lastSeq = 0;
+  let title: string | undefined;
 
   for (const event of events) {
     if (event.seq <= lastSeq) continue;
@@ -87,6 +109,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         if (step) {
           step.status = "completed";
           step.durationMs = event.durationMs;
+          step.finishedAt = event.at;
           step.output = event.output;
         }
         break;
@@ -99,6 +122,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
             agentId: event.agentId,
             memoryScope: event.memoryScope,
             status: "running",
+            startedAt: event.at,
             streamingText: "",
           });
         }
@@ -109,7 +133,8 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         const ep = step ? findEpisode(step, event.episodeId) : undefined;
         if (ep) {
           ep.status = "completed";
-          ep.durationMs = event.durationMs;
+          ep.finishedAt = event.at;
+          ep.durationMs = durationFromSpan(ep.startedAt, event.at, event.durationMs);
         }
         break;
       }
@@ -119,6 +144,8 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         if (ep) {
           ep.status = "failed";
           ep.error = event.error;
+          ep.finishedAt = event.at;
+          ep.durationMs ??= durationFromSpan(ep.startedAt, event.at);
         }
         break;
       }
@@ -132,28 +159,35 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         status = "completed";
         output = event.output;
         finishedAt = event.at;
-        settleOpenWork(stepMap, "completed");
+        settleOpenWork(stepMap, "completed", event.at);
         break;
       case "run_failed":
         status = "failed";
         error = event.error;
         finishedAt = event.at;
-        settleOpenWork(stepMap, "failed");
+        settleOpenWork(stepMap, "failed", event.at);
         break;
       case "run_cancelled":
         status = "cancelled";
         finishedAt = event.at;
-        settleOpenWork(stepMap, "completed");
+        settleOpenWork(stepMap, "completed", event.at);
+        break;
+      case "run_title_set":
+        title = event.title;
         break;
       case "step_failed": {
         const step = stepMap.get(event.stepId);
         if (step) {
           step.status = "failed";
           step.error = event.error;
+          step.finishedAt = event.at;
+          step.durationMs ??= durationFromSpan(step.startedAt, event.at);
           for (const episode of step.agentEpisodes) {
             if (episode.status === "running") {
               episode.status = "failed";
               episode.error ??= event.error;
+              episode.finishedAt ??= event.at;
+              episode.durationMs ??= durationFromSpan(episode.startedAt, event.at);
             }
           }
         }
@@ -175,6 +209,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
     steps: roots,
     startedAt,
     finishedAt,
+    title,
   };
 }
 

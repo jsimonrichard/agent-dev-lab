@@ -48,6 +48,10 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
           setStreamingText((prev) => prev + event.delta);
         }
 
+        if (event.type === "agent_title_set") {
+          onFinishedRef.current?.();
+        }
+
         if (event.type === "agent_finished") {
           setIsRunning(false);
           onFinishedRef.current?.();

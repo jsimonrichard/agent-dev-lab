@@ -118,7 +118,7 @@ await handle.result;
 ```
 
 - **Public API:** `run(input)` for root runs (CLI, UI).
-- **Author API:** inside a workflow, `otherWorkflow.run(input)` nests via ALS.
+- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (shared `workflowRunId`). Pass `{ isolated: true }` for a separate persisted run that is not included in the parent's tree — see [Isolated runs](/core/workflows/#isolated-runs).
 - **No `{ project }`** on the execution path.
 
 Nested runs can pass `parentCtx` explicitly:

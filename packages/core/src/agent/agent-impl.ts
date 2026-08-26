@@ -14,6 +14,7 @@ import { serializeError } from "../internal/serialize-error";
 import { inspectMessageStoreKind } from "../memory/inspect";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import { resolveInstructionsText } from "./resolve-instructions";
 import type {
@@ -53,6 +54,10 @@ export class AgentImpl<
 
   get modelInfo(): AgentModelInfo | null {
     return inspectLanguageModel(this.definition.model ?? this.services.defaults.model);
+  }
+
+  get titleWorkflowId(): string | null {
+    return this.definition.titleWorkflow?.id ?? null;
   }
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools> {
@@ -210,6 +215,8 @@ export class AgentImpl<
           const newMessages = responseMessages.length > 0 ? responseMessages : [];
           const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
 
+          const persistedMessages = newMessages.length > 0 ? allMessages : storedMessages;
+
           if (newMessages.length > 0) {
             await messageStore.save(input.memoryScope, allMessages);
           }
@@ -221,11 +228,24 @@ export class AgentImpl<
             stepId,
             memoryScope: input.memoryScope,
             count: newMessages.length,
+            total: persistedMessages.length,
           });
 
           const text = await streamResult.text;
           const structuredOutput = structuredPromise ? await structuredPromise : undefined;
           const sdk = streamResult;
+
+          if (!isGeneratingConversationTitle()) {
+            await this.maybeSetConversationTitle({
+              runRecorder,
+              agentCallId,
+              workflowRunId,
+              stepId,
+              memoryScope: input.memoryScope,
+              isFirstTurn: storedMessages.length === 0 && turnMessages.length > 0,
+              messages: allMessages,
+            });
+          }
 
           await runRecorder.emit({
             type: "agent_finished",
@@ -255,6 +275,38 @@ export class AgentImpl<
         }
       },
     );
+  }
+
+  private async maybeSetConversationTitle(options: {
+    runRecorder: RunRecorder;
+    agentCallId: string;
+    workflowRunId: string | undefined;
+    stepId: string | null;
+    memoryScope: string;
+    isFirstTurn: boolean;
+    messages: CoreMessage[];
+  }): Promise<void> {
+    const titleWorkflow = this.definition.titleWorkflow;
+    if (!options.isFirstTurn || !titleWorkflow) {
+      return;
+    }
+
+    try {
+      const title = await generateConversationTitle(titleWorkflow, options.messages);
+      if (!title) {
+        return;
+      }
+      await options.runRecorder.emit({
+        type: "agent_title_set",
+        agentCallId: options.agentCallId,
+        workflowRunId: options.workflowRunId,
+        stepId: options.stepId,
+        memoryScope: options.memoryScope,
+        title,
+      });
+    } catch {
+      // Title generation is best-effort and must not fail the conversation turn.
+    }
   }
 }
 

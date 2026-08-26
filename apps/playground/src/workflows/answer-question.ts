@@ -52,7 +52,8 @@ export const answerQuestion = adl.createWorkflow({
   async run(input, ctx) {
     // Re-parse to recover the post-default (required) field type.
     const { question } = answerQuestionInput.parse(input);
-    const scope = ctx.memoryScope("research");
+    await ctx.setTitle(question);
+    const scope = ctx.memoryScopeWithSuffix("research");
     let answer = "";
     let turns = 0;
     let toolCalls = 0;

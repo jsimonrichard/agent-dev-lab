@@ -40,4 +40,6 @@ export interface AgentInspectorMeta {
   memoryMode: string;
   /** `null` when no model is configured or it reveals nothing — hide it in the UI. */
   model: AgentModelInspectorMeta | null;
+  /** Id of the optional conversation-title workflow, when configured. */
+  titleWorkflowId: string | null;
 }

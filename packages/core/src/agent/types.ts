@@ -3,12 +3,23 @@ import type { z } from "zod";
 
 import type { MessageStore } from "../memory/types";
 import type { Template } from "../template/types";
+import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
 export type AgentInstructions<TInput = unknown> = string | Template<TInput>;
 
 export type AgentMemoryConfig = {
   store?: MessageStore;
+};
+
+/** Input contract for {@link AgentDefinition.titleWorkflow}. */
+export type ConversationTitleInput = {
+  messages: CoreMessage[];
+};
+
+/** Typed result of {@link AgentDefinition.titleWorkflow}. */
+export type ConversationTitleOutput = {
+  title: string;
 };
 
 export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
@@ -20,6 +31,17 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> 
   /** Default Zod schema for structured output on every episode. */
   outputSchema?: z.ZodType<TOutput>;
   memory?: AgentMemoryConfig;
+  /**
+   * Optional workflow that names the conversation after the first successful episode
+   * on a new `memoryScope`. It receives the transcript and must return `{ title: string }`.
+   * Pin those types with `adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>`
+   * (Zod `input` / `output` are optional). Failures are ignored.
+   *
+   * The runtime runs this workflow with `{ isolated: true }` so it is a separate
+   * persisted run and is not nested inside another workflow's tree. Omit it from
+   * `adl.config` `workflows` if it should not appear in the inspection UI.
+   */
+  titleWorkflow?: Workflow<ConversationTitleInput, ConversationTitleOutput>;
 };
 
 /** Links agent events to the active workflow step when called inside `ctx.step`. */
@@ -99,6 +121,10 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
    * reveals neither id nor provider — inspectors should omit the field in that case.
    */
   readonly modelInfo: AgentModelInfo | null;
+  /**
+   * Id of {@link AgentDefinition.titleWorkflow} when this agent auto-titles conversations.
+   */
+  readonly titleWorkflowId: string | null;
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
 }

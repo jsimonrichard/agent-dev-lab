@@ -2,14 +2,15 @@ import { describe, expect, it } from "bun:test";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
 
 import { createTestRuntime } from "../runtime/create-test";
+import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
-function mockTextModel() {
+function mockTextModel(text = "briefing") {
   return new MockLanguageModelV2({
     doStream: async () => ({
       stream: convertArrayToReadableStream([
         { type: "stream-start", warnings: [] },
         { type: "text-start", id: "text-1" },
-        { type: "text-delta", id: "text-1", delta: "briefing" },
+        { type: "text-delta", id: "text-1", delta: text },
         { type: "text-end", id: "text-1" },
         {
           type: "finish",
@@ -49,5 +50,152 @@ describe("AgentImpl streamText prompt", () => {
     } finally {
       console.warn = originalWarn;
     }
+  });
+});
+
+describe("AgentImpl titleWorkflow", () => {
+  it("emits agent_title_set after the first episode", async () => {
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async () => ({ title: "CRISPR delivery" }),
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+      titleWorkflow,
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "Summarize CRISPR delivery papers",
+    });
+    await handle.result;
+
+    const events = await adl.services.stores.workflow?.listEvents({
+      agentCallId: handle.agentCallId,
+    });
+    const titleEvent = events?.find((event) => event.type === "agent_title_set");
+    expect(titleEvent).toMatchObject({
+      type: "agent_title_set",
+      memoryScope: "notes",
+      title: "CRISPR delivery",
+    });
+    expect(agent.titleWorkflowId).toBe("conversation-title");
+    expect((await adl.services.stores.workflow?.listRuns())?.map((run) => run.workflowId)).toEqual([
+      "conversation-title",
+    ]);
+  });
+
+  it("does not title a follow-up turn on the same memoryScope", async () => {
+    let titleCalls = 0;
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async () => {
+        titleCalls += 1;
+        return { title: "Named once" };
+      },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+      titleWorkflow,
+    });
+
+    await agent.run({ memoryScope: "notes", user: "First" }).result;
+    await agent.run({ memoryScope: "notes", user: "Second" }).result;
+
+    expect(titleCalls).toBe(1);
+  });
+
+  it("does not fail the episode when title generation throws", async () => {
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async () => {
+        throw new Error("title workflow down");
+      },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+      titleWorkflow,
+    });
+
+    const result = await agent.run({
+      memoryScope: "notes",
+      user: "Summarize CRISPR",
+    }).result;
+
+    expect(result.text).toContain("briefing");
+  });
+
+  it("records title-helper agent episodes on the isolated title run", async () => {
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const namer = adl.createAgent({
+      id: "conversation-title-namer",
+      instructions: "Name it.",
+    });
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async (_input, ctx) => {
+        const episode = await namer.run({
+          memoryScope: ctx.memoryScopeWithSuffix("namer"),
+          user: "title please",
+        }).result;
+        return { title: episode.text };
+      },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+      titleWorkflow,
+    });
+
+    await agent.run({ memoryScope: "notes", user: "Summarize CRISPR" }).result;
+
+    const runs = await adl.services.stores.workflow?.listRuns();
+    expect(runs?.map((run) => run.workflowId)).toEqual(["conversation-title"]);
+    const titleRunId = runs?.[0]?.workflowRunId;
+    const episodes = await adl.services.stores.workflow?.listAgentEpisodes();
+    const namerEpisodes = episodes?.filter((item) => item.agentId === "conversation-title-namer");
+    expect(namerEpisodes).toHaveLength(1);
+    expect(namerEpisodes?.[0]?.workflowRunId).toBe(titleRunId);
+  });
+});
+
+describe("AgentImpl shared memoryScope commits", () => {
+  it("records transcript length after each episode so inspectors can slice history", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      instructions: "Be brief.",
+    });
+
+    const first = agent.run({ memoryScope: "notes", user: "first" });
+    await first.result;
+    const second = agent.run({ memoryScope: "notes", user: "second" });
+    await second.result;
+
+    const firstEvents = await adl.services.stores.workflow?.listEvents({
+      agentCallId: first.agentCallId,
+    });
+    const secondEvents = await adl.services.stores.workflow?.listEvents({
+      agentCallId: second.agentCallId,
+    });
+    const firstCommit = firstEvents?.find((event) => event.type === "agent_messages_committed");
+    const secondCommit = secondEvents?.find((event) => event.type === "agent_messages_committed");
+
+    expect(firstCommit).toMatchObject({ type: "agent_messages_committed", total: 2, count: 1 });
+    expect(secondCommit).toMatchObject({ type: "agent_messages_committed", total: 4, count: 1 });
   });
 });

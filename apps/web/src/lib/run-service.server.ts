@@ -12,6 +12,7 @@ import { inspectAgentTools } from "#/lib/agent-tools";
 import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector-types";
+import { persistInspectorSession } from "#/lib/inspector-session-persist.server";
 import {
   createMemoryScope,
   getAgentSessionByMemoryScope,
@@ -56,32 +57,25 @@ async function inspectorSessionStore() {
   return sqliteInspectorSessionStore({ path: resolveAdlSqlitePath(project.root) });
 }
 
-async function persistInspectorSession(session: AgentSession, deletedAt?: string): Promise<void> {
-  const store = await inspectorSessionStore();
-  store.upsert({
-    memoryScope: session.memoryScope,
-    agentId: session.agentId,
-    agentCallId: session.agentCallId,
-    title: session.title,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-    fork: session.fork,
-    deletedAt,
-  });
-}
-
 async function ensureSessionsHydrated(): Promise<void> {
   if (sessionsHydrated) {
     return;
   }
   sessionsHydrated = true;
+  const project = await getLoadedAdlProject();
+  const listedAgentIds = new Set(project.listAgentIds());
   const sessionsStore = await inspectorSessionStore();
-  hydrateInspectorSessions(sessionsStore.list());
+  hydrateInspectorSessions(
+    sessionsStore.list().filter((record) => listedAgentIds.has(record.agentId)),
+  );
   hydrateDeletedMemoryScopes(sessionsStore.listDeletedScopes());
 
   const store = await getWorkflowStore();
   const episodes = await store.listAgentEpisodes();
   for (const episode of episodes) {
+    if (!listedAgentIds.has(episode.agentId)) {
+      continue;
+    }
     const existing = getAgentSessionByMemoryScope(episode.memoryScope);
     if (existing) {
       if (episode.workflowRunId) {
@@ -115,6 +109,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       tools: inspectAgentTools(agent),
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
+      titleWorkflowId: agent?.titleWorkflowId ?? null,
     };
   });
   return {
@@ -130,11 +125,16 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
 }
 
 export async function listWorkflowRunSummaries(): Promise<MockRunSummary[]> {
+  const project = await getLoadedAdlProject();
+  const listedWorkflowIds = new Set(project.listWorkflowIds());
   const store = await getWorkflowStore();
   const runs = await store.listRuns();
   const summaries: MockRunSummary[] = [];
 
   for (const run of runs) {
+    if (!listedWorkflowIds.has(run.workflowId)) {
+      continue;
+    }
     const input = await store.getRunInput(run.workflowRunId);
     summaries.push({
       runId: run.workflowRunId,
@@ -352,10 +352,14 @@ export async function forkAgentFromWorkflow(options: {
 
 export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
   await ensureSessionsHydrated();
-  return listAgentSessions().map((session) => ({
-    ...session,
-    title: sessionDisplayTitle(session),
-  }));
+  const project = await getLoadedAdlProject();
+  const listedAgentIds = new Set(project.listAgentIds());
+  return listAgentSessions()
+    .filter((session) => listedAgentIds.has(session.agentId))
+    .map((session) => ({
+      ...session,
+      title: sessionDisplayTitle(session),
+    }));
 }
 
 export async function resolveAgentConversation(memoryScope: string) {

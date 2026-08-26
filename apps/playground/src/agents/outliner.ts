@@ -4,6 +4,7 @@ import { adl } from "#adl";
 
 import { model } from "../model";
 import { outlinerInstructions } from "../prompts";
+import { conversationTitle } from "./conversation-title";
 
 export const outlineSchema = z.object({
   title: z.string().describe("A specific, compelling article title."),
@@ -28,4 +29,5 @@ export const outliner = adl.createAgent({
   instructions: outlinerInstructions,
   model,
   outputSchema: outlineSchema,
+  titleWorkflow: conversationTitle,
 });

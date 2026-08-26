@@ -66,6 +66,20 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           this.runs.set(wfId, { ...run, status: "cancelled", finishedAt: event.at });
         }
       }
+      if (event.type === "workflow_title_set") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, { ...run, title: event.title });
+        } else {
+          this.runs.set(wfId, {
+            workflowRunId: wfId,
+            workflowId: "",
+            status: "running",
+            startedAt: event.at,
+            title: event.title,
+          });
+        }
+      }
       if (event.type === "step_finished") {
         const slot: StepSlot = {
           parentStepId: event.parentStepId,

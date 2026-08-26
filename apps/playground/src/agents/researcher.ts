@@ -3,6 +3,8 @@ import type { ToolSet } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
 
+import { conversationTitle } from "./conversation-title";
+
 /** Sample agent for the inspection UI and `adl run` demos. */
 export const researcher = adl.createAgent({
   id: "researcher",
@@ -11,4 +13,5 @@ export const researcher = adl.createAgent({
   tools: {
     web_search: openai.tools.webSearch({ searchContextSize: "low" }),
   } as ToolSet,
+  titleWorkflow: conversationTitle,
 });

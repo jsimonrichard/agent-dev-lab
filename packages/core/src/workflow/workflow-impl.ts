@@ -90,7 +90,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     }
     const controller = abortController ?? new AbortController();
 
-    const effectiveServices = mergeServicesForRun(this.services, options?.extraObservers);
+    const effectiveServices = servicesForRun(this.services, options);
     const runRecorder = new RunRecorder(effectiveServices);
 
     const rootCtx = parentCtx
@@ -180,7 +180,17 @@ function resolveParentContext(
   services: RuntimeServices,
   options?: WorkflowRunStartOptions,
 ): WorkflowContext | undefined {
+  if (options?.isolated) {
+    return undefined;
+  }
   return options?.parentCtx ?? services.workflowContextScope.peek();
+}
+
+function servicesForRun(
+  services: RuntimeServices,
+  options?: WorkflowRunStartOptions,
+): RuntimeServices {
+  return mergeServicesForRun(services, options?.extraObservers);
 }
 
 function mergeServicesForRun(

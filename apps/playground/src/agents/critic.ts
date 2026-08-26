@@ -3,6 +3,8 @@ import type { ToolSet } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
 
+import { conversationTitle } from "./conversation-title";
+
 /** Second sample agent so a single step can host two selectable episodes. */
 export const critic = adl.createAgent({
   id: "critic",
@@ -11,4 +13,5 @@ export const critic = adl.createAgent({
   tools: {
     web_search: openai.tools.webSearch({ searchContextSize: "low" }),
   } as ToolSet,
+  titleWorkflow: conversationTitle,
 });

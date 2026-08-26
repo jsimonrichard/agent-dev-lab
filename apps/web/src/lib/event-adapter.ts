@@ -139,7 +139,9 @@ export function adaptCoreEventsForWorkflowRun(
           at: event.at,
           stepId: event.stepId,
           memoryScope: event.memoryScope,
+          episodeId: event.agentCallId,
           messageCount: event.count,
+          ...("total" in event && typeof event.total === "number" ? { total: event.total } : {}),
         });
         break;
       case "agent_failed":
@@ -158,6 +160,16 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_tool_result":
       case "step_skipped":
       case "custom":
+      case "agent_title_set":
+        break;
+      case "workflow_title_set":
+        out.push({
+          seq: event.seq,
+          runId: event.workflowRunId,
+          type: "run_title_set",
+          at: event.at,
+          title: event.title,
+        });
         break;
     }
   }

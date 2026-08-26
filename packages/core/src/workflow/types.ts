@@ -55,6 +55,12 @@ export interface WorkflowContext {
    * (when {@link stepId} is null).
    */
   emit(event: CustomWorkflowEvent): void;
+
+  /**
+   * Set the inspector display title for this workflow run. Safe to call at the start
+   * of `run`, after a first step, or just before returning — blank titles are ignored.
+   */
+  setTitle(title: string): Promise<void>;
 }
 
 export type StepFn = <T>(
@@ -66,10 +72,24 @@ export type StepFn = <T>(
 /**
  * `TInput` is the parsed schema output (defaults applied). `TRawInput` is what
  * {@link Workflow.run} / {@link Workflow.stream} accept before parse.
+ *
+ * Pin types with Zod (`input` / `output`) **or** with explicit generics and no
+ * runtime schema:
+ *
+ * ```ts
+ * type In = { topic: string };
+ * type Out = { papers: string[] };
+ * adl.createWorkflow<In, Out>({
+ *   id: "search",
+ *   run: async (input, ctx) => ({ papers: [] }),
+ * });
+ * ```
  */
 export type WorkflowDefinition<TInput, TOutput, TRawInput = TInput> = {
   id: string;
+  /** Optional Zod schema. Omit when `TInput` is pinned by generics or `run` annotations. */
   input?: z.ZodType<TInput, z.ZodTypeDef, TRawInput>;
+  /** Optional Zod schema. Omit when `TOutput` is pinned by generics or `run`'s return type. */
   output?: z.ZodType<TOutput>;
   /** Author implementation — receives parsed input and `ctx` from the runtime. */
   run: (input: TInput, ctx: WorkflowContext) => Promise<TOutput>;
@@ -106,6 +126,24 @@ export type WorkflowRunStartOptions = {
     workflows?: WorkflowObservers;
     agents?: AgentObservers;
   };
+  /**
+   * When true, start a **separate** workflow run instead of nesting under the caller.
+   *
+   * Default (omitted / `false`): inside a workflow body or step, `run()` joins the
+   * active parent via ALS (or {@link parentCtx} when passed). The child shares that
+   * `workflowRunId`, step cache, and event stream — inner steps show up on the
+   * parent's inspector tree.
+   *
+   * `{ isolated: true }`:
+   * - Ignores ALS and {@link parentCtx}; allocates a new `workflowRunId`
+   * - Still recorded on {@link WorkflowStore} (own run row, events, step cache)
+   * - Does not appear in another run's tree
+   *
+   * Inspection UI lists runs only for workflows in the project's `workflows` array.
+   * Leave a helper out of that array to persist it without listing it as a startable
+   * workflow (conversation `titleWorkflow` helpers use this).
+   */
+  isolated?: boolean;
 };
 
 export interface Workflow<TInput, TOutput, TRawInput = TInput> {
@@ -115,6 +153,8 @@ export interface Workflow<TInput, TOutput, TRawInput = TInput> {
   /**
    * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
+   * Nested `run()` inside another workflow joins the parent; pass
+   * {@link WorkflowRunStartOptions.isolated} for a separate persisted run.
    */
   run(input: TRawInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
   /**

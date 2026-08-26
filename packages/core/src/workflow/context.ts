@@ -50,6 +50,20 @@ export class WorkflowContextImpl implements WorkflowContext {
     });
   };
 
+  setTitle = async (title: string): Promise<void> => {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+    await this.services.stores.workflow?.setRunTitle(this.workflowRunId, trimmed);
+    await this.runRecorder.emit({
+      type: "workflow_title_set",
+      workflowRunId: this.workflowRunId,
+      stepId: this.stepId,
+      title: trimmed,
+    });
+  };
+
   step = async <T>(
     name: string,
     fn: (args: { ctx: WorkflowContext }) => Promise<T>,

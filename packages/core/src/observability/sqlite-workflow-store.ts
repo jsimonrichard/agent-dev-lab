@@ -111,6 +111,16 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
       .run(event.at, event.workflowRunId);
   }
 
+  if (event.type === "workflow_title_set") {
+    sqlite
+      .query(
+        `INSERT INTO adl_workflow_runs (workflow_run_id, workflow_id, status, started_at, title)
+         VALUES (?, '', 'running', ?, ?)
+         ON CONFLICT(workflow_run_id) DO UPDATE SET title = excluded.title`,
+      )
+      .run(event.workflowRunId, event.at, event.title);
+  }
+
   if (event.type === "step_finished") {
     const slot = stepSlotKey({
       parentStepId: event.parentStepId,

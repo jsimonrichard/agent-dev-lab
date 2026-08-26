@@ -38,6 +38,9 @@ export const researcher = adl.createAgent({
 
   outputSchema: z.object({ summary: z.string() }),
 
+  // Optional: a workflow names the conversation after the first reply.
+  // titleWorkflow: conversationTitle,
+
   // memory.store defaults to runtime stores.message when omitted
 });
 ```
@@ -45,6 +48,38 @@ export const researcher = adl.createAgent({
 `id` is the registry key listed in `adl.config` `agents` array.
 
 Install a model provider package (e.g. `@ai-sdk/openai`) in your project for `model`.
+
+### Conversation titles
+
+Optional **`titleWorkflow`** is a workflow that names the conversation after the first successful episode on a new `memoryScope`. It does not run on follow-up turns. The workflow is typed: it receives the transcript and must return `{ title: string }`. Title generation is best-effort — failures do not fail the conversation turn.
+
+Pin those types with generics (Zod on the workflow is optional):
+
+```ts
+import type { ConversationTitleInput, ConversationTitleOutput } from "@agent-dev-lab/core";
+
+export const conversationTitle = adl.createWorkflow<
+  ConversationTitleInput,
+  ConversationTitleOutput
+>({
+  id: "conversation-title",
+  async run(input, ctx) {
+    const episode = await namer.run({
+      memoryScope: ctx.memoryScopeWithSuffix("namer"),
+      user: `Write a short title.\n\n${format(input.messages)}`,
+    }).result;
+    return { title: episode.output?.title ?? episode.text };
+  },
+});
+
+export const researcher = adl.createAgent({
+  id: "researcher",
+  instructions: "You are a research assistant.",
+  titleWorkflow: conversationTitle,
+});
+```
+
+Keep the title workflow out of the `adl.config` `workflows` array if you do not want those runs listed in the inspection UI. Keep any inner title-namer agent out of the `agents` array unless you want those helper conversations listed. The runtime starts the title workflow with [`{ isolated: true }`](/core/workflows/#isolated-runs) so it is a separate persisted run and is not nested inside another workflow's tree.
 
 ### Instructions
 

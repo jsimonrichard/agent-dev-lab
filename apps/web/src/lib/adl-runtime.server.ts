@@ -1,7 +1,8 @@
 import type { AdlRuntime, MessageStore, WorkflowStore } from "@agent-dev-lab/core";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
-import { registerAgentSessionFromEvent } from "#/lib/agent-sessions";
+import { getAgentSessionByMemoryScope, registerAgentSessionFromEvent } from "#/lib/agent-sessions";
+import { persistInspectorSession } from "#/lib/inspector-session-persist.server";
 
 let observersRegistered = false;
 
@@ -15,9 +16,16 @@ export async function getAdlRuntime(): Promise<AdlRuntime> {
     );
   }
   if (!observersRegistered) {
+    const listedAgentIds = new Set(project.listAgentIds());
     runtime.services.observers.agents.push({
       onEvent: (event) => {
-        registerAgentSessionFromEvent(event);
+        registerAgentSessionFromEvent(event, { listedAgentIds });
+        if (event.type === "agent_title_set") {
+          const session = getAgentSessionByMemoryScope(event.memoryScope);
+          if (session) {
+            void persistInspectorSession(session);
+          }
+        }
       },
     });
     observersRegistered = true;

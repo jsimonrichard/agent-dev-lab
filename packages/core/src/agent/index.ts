@@ -13,4 +13,6 @@ export type {
   AgentStreamInput,
   AgentStreamResult,
   AgentWorkflowScope,
+  ConversationTitleInput,
+  ConversationTitleOutput,
 } from "./types";

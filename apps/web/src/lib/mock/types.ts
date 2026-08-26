@@ -50,6 +50,7 @@ export interface MockAgentSettings {
   model: MockAgentModel | null;
   memoryMode: string;
   tools: MockAgentToolDefinition[];
+  titleWorkflowId?: string | null;
   outputSchema?: string;
   systemPromptPath?: string;
 }
@@ -76,7 +77,8 @@ export type RunEventType =
   | "run_finished"
   | "run_failed"
   | "run_cancelled"
-  | "agent_failed";
+  | "agent_failed"
+  | "run_title_set";
 
 export interface RunEventBase {
   seq: number;
@@ -133,7 +135,10 @@ export interface MessagesCommittedEvent extends RunEventBase {
   type: "messages_committed";
   stepId: string;
   memoryScope: string;
+  episodeId: string;
   messageCount: number;
+  /** Transcript length after this commit; omitted on events recorded before this field existed. */
+  total?: number;
 }
 
 export interface RunStartedEvent extends RunEventBase {
@@ -156,6 +161,11 @@ export interface RunCancelledEvent extends RunEventBase {
   type: "run_cancelled";
 }
 
+export interface RunTitleSetEvent extends RunEventBase {
+  type: "run_title_set";
+  title: string;
+}
+
 export interface AgentFailedEvent extends RunEventBase {
   type: "agent_failed";
   stepId: string;
@@ -175,7 +185,8 @@ export type RunEvent =
   | MessagesCommittedEvent
   | RunFinishedEvent
   | RunFailedEvent
-  | RunCancelledEvent;
+  | RunCancelledEvent
+  | RunTitleSetEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";
 
@@ -186,6 +197,8 @@ export interface StepNode {
   key?: string;
   path: string[];
   status: StepNodeStatus;
+  startedAt?: string;
+  finishedAt?: string;
   durationMs?: number;
   output?: unknown;
   error?: unknown;
@@ -198,6 +211,8 @@ export interface AgentEpisode {
   agentId: string;
   memoryScope: string;
   status: "running" | "completed" | "failed";
+  startedAt?: string;
+  finishedAt?: string;
   durationMs?: number;
   streamingText: string;
   error?: unknown;
@@ -254,6 +269,7 @@ export interface RunViewState {
   steps: StepNode[];
   startedAt: string;
   finishedAt?: string;
+  title?: string;
 }
 
 export type ChatTextPart = {
@@ -266,6 +282,9 @@ export type ChatToolCallPart = {
   toolCallId: string;
   toolName: string;
   args: JsonValue;
+  providerExecuted?: boolean;
+  /** Display-only: args were taken from a hosted `action` (e.g. OpenAI web_search). */
+  providerAction?: boolean;
 };
 
 export type ChatToolResultPart = {
@@ -274,6 +293,7 @@ export type ChatToolResultPart = {
   toolName: string;
   result: JsonValue;
   isError?: boolean;
+  providerExecuted?: boolean;
 };
 
 export type ChatMessagePart = ChatTextPart | ChatToolCallPart | ChatToolResultPart;
