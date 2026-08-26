@@ -13,8 +13,11 @@ describe("loadAdlProject", () => {
     const project = await loadAdlProject({ root: playgroundRoot });
     expect(project.config.name).toBe("playground");
     expect(project.configPath).toEndWith("adl.config.ts");
-    expect(project.config.adl).toBeDefined();
-    expect(project.getAdl()).toBe(project.config.adl);
+    const adl = project.config.adl;
+    if (!adl) {
+      throw new Error("expected playground config to define adl");
+    }
+    expect(project.getAdl()).toBe(adl);
   });
 });
 
