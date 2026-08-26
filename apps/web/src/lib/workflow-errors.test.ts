@@ -84,6 +84,36 @@ describe("adaptCoreEventsForWorkflowRun", () => {
       },
     ]);
   });
+
+  it("maps message commits with episode id and transcript length", () => {
+    const adapted = adaptCoreEventsForWorkflowRun("run-1", [
+      {
+        type: "agent_messages_committed",
+        workflowRunId: "run-1",
+        stepId: "step-1",
+        agentCallId: "ep-1",
+        seq: 1,
+        at: AT,
+        eventSchemaVersion: 1,
+        memoryScope: "notes",
+        count: 2,
+        total: 5,
+      },
+    ]);
+    expect(adapted).toEqual([
+      {
+        seq: 1,
+        runId: "run-1",
+        type: "messages_committed",
+        at: AT,
+        stepId: "step-1",
+        memoryScope: "notes",
+        episodeId: "ep-1",
+        messageCount: 2,
+        total: 5,
+      },
+    ]);
+  });
 });
 
 describe("buildRunViewState", () => {
@@ -149,8 +179,12 @@ describe("buildRunViewState", () => {
     expect(view.error).toEqual(error);
     expect(view.steps).toHaveLength(1);
     expect(view.steps[0]?.status).toBe("failed");
+    expect(view.steps[0]?.startedAt).toBe(AT);
+    expect(view.steps[0]?.finishedAt).toBe(AT);
     expect(view.steps[0]?.error).toEqual(error);
     expect(view.steps[0]?.agentEpisodes[0]?.status).toBe("failed");
+    expect(view.steps[0]?.agentEpisodes[0]?.startedAt).toBe(AT);
+    expect(view.steps[0]?.agentEpisodes[0]?.finishedAt).toBe(AT);
     expect(view.steps[0]?.agentEpisodes[0]?.error).toEqual(error);
   });
 
