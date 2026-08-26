@@ -108,7 +108,6 @@ export function AgentConversationsSidebar() {
                       <SidebarMenuItem key={session.memoryScope}>
                         <ItemActionsMenu
                           name={session.title}
-                          deleteDescription="Delete this conversation and its messages. This cannot be undone."
                           extraActions={[
                             ...(isWorkflowLinkedConversation(session)
                               ? [

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Pencil, Trash2, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ export function ItemActionsMenu({
   name,
   renameLabel = "Rename",
   deleteLabel = "Delete",
-  deleteDescription = "This cannot be undone.",
   extraActions,
   onRename,
   onDelete,
@@ -40,19 +39,16 @@ export function ItemActionsMenu({
   name: string;
   renameLabel?: string;
   deleteLabel?: string;
-  deleteDescription?: string;
   extraActions?: ReadonlyArray<ItemActionsMenuExtraAction>;
   onRename: (name: string) => Promise<void>;
   onDelete?: () => Promise<void>;
 }) {
   const nameId = useId();
-  const deleteFormRef = useRef<HTMLFormElement>(null);
-  const deleteSubmitRef = useRef<HTMLButtonElement>(null);
   const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [draft, setDraft] = useState(name);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (renameOpen) {
@@ -80,18 +76,16 @@ export function ItemActionsMenu({
     }
   }
 
-  async function handleDelete(event: React.FormEvent) {
-    event.preventDefault();
+  async function handleDelete() {
     if (!onDelete || pending) {
       return;
     }
     setPending(true);
-    setError(null);
+    setDeleteError(null);
     try {
       await onDelete();
-      setDeleteOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setPending(false);
     }
@@ -124,8 +118,9 @@ export function ItemActionsMenu({
               <ContextMenuSeparator />
               <ContextMenuItem
                 variant="destructive"
+                disabled={pending}
                 onSelect={() => {
-                  setDeleteOpen(true);
+                  void handleDelete();
                 }}
               >
                 <Trash2 />
@@ -167,52 +162,26 @@ export function ItemActionsMenu({
         </DialogContent>
       </Dialog>
 
-      {onDelete ? (
-        <Dialog
-          open={deleteOpen}
-          onOpenChange={(open) => {
-            setDeleteOpen(open);
-            if (!open) {
-              setError(null);
-            }
-          }}
-        >
-          <DialogContent
-            onOpenAutoFocus={(event) => {
-              event.preventDefault();
-              deleteSubmitRef.current?.focus();
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.nativeEvent.isComposing || event.repeat) {
-                return;
-              }
-              event.preventDefault();
-              deleteFormRef.current?.requestSubmit();
-            }}
-          >
-            <form ref={deleteFormRef} onSubmit={(event) => void handleDelete(event)}>
-              <DialogHeader>
-                <DialogTitle>{deleteLabel}</DialogTitle>
-                <DialogDescription>{deleteDescription}</DialogDescription>
-              </DialogHeader>
-              {error && deleteOpen ? <p className="text-xs text-destructive">{error}</p> : null}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  ref={deleteSubmitRef}
-                  type="submit"
-                  variant="destructive"
-                  disabled={pending}
-                >
-                  Delete
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+      <Dialog
+        open={deleteError !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete failed</DialogTitle>
+            <DialogDescription>{deleteError}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" onClick={() => setDeleteError(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

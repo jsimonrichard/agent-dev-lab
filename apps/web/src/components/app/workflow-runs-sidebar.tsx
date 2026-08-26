@@ -108,7 +108,6 @@ export function WorkflowRunsSidebar() {
                     <SidebarMenuItem key={run.runId}>
                       <ItemActionsMenu
                         name={workflowRunLabel(run)}
-                        deleteDescription="Delete this run and its trace. Linked conversations are removed from the list. This cannot be undone."
                         onRename={async (title) => {
                           await renameInspectionWorkflowRun({
                             data: { runId: run.runId, title },
