@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useRouter } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
 import type { AgentInspectorMeta } from "#/lib/inspector-types";
-import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
+import {
+  fetchAgentCallEvents,
+  fetchMessagesForScope,
+  forkLinkedConversation,
+  sendAgentMessage,
+} from "#/lib/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type { MockAgentSummary, MockMessage, ResolvedAgentConversation } from "@/lib/mock/types";
+import { messageIdsForAgentCall } from "@/lib/agent-call-focus";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
   extractSystemPromptFromMessages,
@@ -27,24 +33,52 @@ interface AgentRunWorkspaceProps {
   agent: MockAgentSummary;
   conversation: ResolvedAgentConversation;
   settings: AgentInspectorMeta;
+  callId?: string;
 }
 
-export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
+export function AgentRunWorkspace({
+  agent,
+  conversation,
+  settings,
+  callId,
+}: AgentRunWorkspaceProps) {
   const router = useRouter();
+  const navigate = useNavigate();
   const forkSession = conversation.forkSession;
   const workflowLink = conversation.workflowLink;
   const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
+  const [forking, setForking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamEnabled, setStreamEnabled] = useState(false);
+  const [callEvents, setCallEvents] = useState<
+    Array<{ type: string; total?: number; count?: number }>
+  >([]);
 
   useEffect(() => {
     setMessages(conversation.messages);
     setError(null);
     setSending(false);
+    setForking(false);
     setStreamEnabled(false);
   }, [conversation.runId]);
+
+  useEffect(() => {
+    if (!callId) {
+      setCallEvents([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchAgentCallEvents({ data: callId }).then((events) => {
+      if (!cancelled) {
+        setCallEvents(events);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [callId]);
 
   useEffect(() => {
     setMessages((current) => mergeConversationMessages(current, conversation.messages));
@@ -64,6 +98,9 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
     onFinished: () => {
       void refreshMessages();
       refreshConversationMeta();
+      if (callId) {
+        void fetchAgentCallEvents({ data: callId }).then(setCallEvents);
+      }
     },
     onTitleSet: refreshConversationMeta,
   });
@@ -72,6 +109,18 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
     isRunning,
     sending,
   });
+  const focusStreaming = Boolean(
+    callId && showStreamingAssistant && conversation.latestAgentCallId === callId,
+  );
+  const focusMessageIds = useMemo(() => {
+    if (!callId) {
+      return undefined;
+    }
+    const ids = messageIdsForAgentCall(messages, callEvents, {
+      fallbackToLast: conversation.latestAgentCallId === callId,
+    });
+    return ids.length > 0 ? new Set(ids) : undefined;
+  }, [callEvents, callId, conversation.latestAgentCallId, messages]);
 
   async function handleSend(text: string) {
     setSending(true);
@@ -94,6 +143,23 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       setError(err instanceof Error ? err.message : "Agent run failed");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleFork() {
+    setForking(true);
+    setError(null);
+    try {
+      const { memoryScope } = await forkLinkedConversation({ data: conversation.runId });
+      await router.invalidate();
+      void navigate({
+        to: "/agent/$agentId/run/$runId",
+        params: { agentId: agent.id, runId: memoryScope },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fork conversation");
+    } finally {
+      setForking(false);
     }
   }
 
@@ -199,13 +265,25 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
                 streamingText={showStreamingAssistant ? streamingText : null}
                 isStreaming={isRunning || sending}
                 systemPrompt={storedSystemPrompt ? null : settings.systemPrompt}
+                focusMessageIds={focusMessageIds}
+                focusStreaming={focusStreaming}
               />
             </ScrollArea>
             {workflowLink ? (
-              <div className="shrink-0 border-t border-border/40 bg-background p-4">
+              <div className="flex shrink-0 flex-col items-center gap-3 border-t border-border/40 bg-background p-4">
                 <p className="text-center text-sm text-muted-foreground">
                   Read-only. This conversation is part of a workflow run.
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={forking}
+                  onClick={() => void handleFork()}
+                >
+                  <GitBranch className="size-4" />
+                  {forking ? "Forking…" : "Fork conversation"}
+                </Button>
               </div>
             ) : (
               <ChatComposer

@@ -5,11 +5,13 @@ import type { AgentInspectorMeta } from "#/lib/inspector-types";
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
 import { fetchAgentConversation } from "#/lib/inspector-server";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { parseAgentRunSearch } from "@/lib/agent-location";
 import type { MockAgentSummary } from "@/lib/mock/types";
 
 export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   component: AgentRunPage,
   gcTime: 0,
+  validateSearch: parseAgentRunSearch,
   loader: async ({ params }) => {
     const conversation = await fetchAgentConversation({ data: params.runId });
     if (!conversation || conversation.agentId !== params.agentId) {
@@ -25,6 +27,7 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
 
 function AgentRunPage() {
   const { agent, conversation } = Route.useLoaderData();
+  const { call } = Route.useSearch();
   const { project } = useAppLoaderData();
   const agentMeta = project.agents.find((item) => item.id === agent.id);
   const settings: AgentInspectorMeta = agentMeta ?? {
@@ -43,6 +46,7 @@ function AgentRunPage() {
       agent={agent}
       conversation={conversation}
       settings={settings}
+      callId={call}
     />
   );
 }

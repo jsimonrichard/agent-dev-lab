@@ -10,6 +10,7 @@ import type {
 } from "@/lib/mock/types";
 import { ChatMessageList, SystemPromptBanner } from "@/components/app/chat-message-list";
 import { ConversationSkeleton } from "@/components/app/conversation-skeleton";
+import { agentRunSearch } from "@/lib/agent-location";
 import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
 import {
@@ -158,6 +159,7 @@ function ConversationInspector({
           <Link
             to="/agent/$agentId/run/$runId"
             params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+            search={agentRunSearch({ call: episode.episodeId })}
             className="min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
             title={episode.memoryScope}
           >
@@ -352,6 +354,7 @@ function EpisodeConversation({
           <Link
             to="/agent/$agentId/run/$runId"
             params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+            search={agentRunSearch({ call: episode.episodeId })}
           >
             <MessageSquare className="size-3.5" />
             View Conversation

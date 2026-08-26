@@ -636,17 +636,45 @@ function WaterfallTrack({
       ) : (
         <span className="sr-only">No timing yet</span>
       )}
-      {bar ? (
-        <span
-          className="absolute top-1/2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground"
-          style={{
-            left: `min(calc(${bar.leftPct + bar.widthPct}% + 6px), calc(100% - 2.75rem))`,
-          }}
-        >
-          {formatDuration(bar.durationMs)}
-        </span>
-      ) : null}
+      {bar ? <WaterfallDuration bar={bar} status={status} /> : null}
     </div>
+  );
+}
+
+function waterfallDurationOffset(bar: WaterfallBar): string {
+  return `min(calc(${bar.leftPct + bar.widthPct}% + 6px), calc(100% - 2.75rem))`;
+}
+
+function WaterfallDuration({ bar, status }: { bar: WaterfallBar; status: StepNodeStatus }) {
+  const duration = formatDuration(bar.durationMs);
+  const left = waterfallDurationOffset(bar);
+  const rightClipPct = Math.max(0, 100 - bar.leftPct - bar.widthPct);
+  const labelClass =
+    "absolute top-1/2 -translate-y-1/2 font-mono text-[10px] leading-none tabular-nums";
+
+  return (
+    <>
+      <span
+        className={cn("pointer-events-none z-1 text-muted-foreground", labelClass)}
+        style={{ left }}
+      >
+        {duration}
+      </span>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-1 overflow-hidden"
+        style={{
+          clipPath: `inset(0 ${rightClipPct}% 0 ${bar.leftPct}%)`,
+        }}
+      >
+        <span
+          className={cn(labelClass, status === "failed" ? "text-white" : "text-black")}
+          style={{ left }}
+        >
+          {duration}
+        </span>
+      </span>
+    </>
   );
 }
 

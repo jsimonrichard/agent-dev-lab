@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import type { Result } from "@agent-dev-lab/core/result";
 
 import { cn } from "@/lib/utils";
 import type { MockMessage } from "@/lib/mock/types";
-import { parseStructuredJson, toChatDisplayItems } from "@/lib/chat-messages";
+import { type ChatDisplayItem, parseStructuredJson, toChatDisplayItems } from "@/lib/chat-messages";
 import { ChatToolCall } from "@/components/app/chat-tool-call";
 import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
@@ -23,6 +24,10 @@ interface ChatMessageListProps {
   showEmpty?: boolean;
   /** Fallback overlay when the transcript has no pinned system message (legacy scopes). */
   systemPrompt?: Result<string, string> | null;
+  /** Highlight every stored bubble that belongs to these message ids (one agent call). */
+  focusMessageIds?: ReadonlySet<string>;
+  /** When true, include the live streaming bubble in the same call highlight. */
+  focusStreaming?: boolean;
 }
 
 export function ChatMessageList({
@@ -34,11 +39,67 @@ export function ChatMessageList({
   muted = false,
   showEmpty = true,
   systemPrompt,
+  focusMessageIds,
+  focusStreaming = false,
 }: ChatMessageListProps) {
   const hasStoredSystem = messages[0]?.role === "system";
   const items = toChatDisplayItems(messages);
   const overlayPrompt = !hasStoredSystem ? systemPrompt : null;
   const streamingJson = streamingText ? parseStructuredJson(streamingText) : undefined;
+  const focusRef = useRef<HTMLDivElement>(null);
+  const focusIds = focusMessageIds && focusMessageIds.size > 0 ? focusMessageIds : undefined;
+  const groups = groupDisplayItemsByFocus(items, focusIds);
+  const lastGroup = groups.at(-1);
+  const streamingInsideLastBand = Boolean(focusStreaming && streamingText && lastGroup?.focused);
+  const lastFocusKey =
+    !focusStreaming && focusIds
+      ? [...items].reverse().find((item) => displayItemBelongsToFocus(item, focusIds))?.key
+      : undefined;
+
+  useEffect(() => {
+    focusRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusIds, focusStreaming, lastFocusKey, streamingText]);
+
+  function renderItem(item: ChatDisplayItem) {
+    return (
+      <ChatDisplayItemView
+        key={item.key}
+        item={item}
+        compact={compact}
+        rowRef={lastFocusKey === item.key ? focusRef : undefined}
+      />
+    );
+  }
+
+  function renderStreaming() {
+    if (!streamingText) {
+      return null;
+    }
+    const rowRef = focusStreaming ? focusRef : undefined;
+    if (streamingJson !== undefined) {
+      return (
+        <ChatBubble
+          role="assistant"
+          streaming={isStreaming}
+          compact={compact}
+          structured
+          rowRef={rowRef}
+        >
+          <JsonPreview
+            value={streamingJson}
+            label="Structured Output"
+            scroll={false}
+            className="bg-card/80"
+          />
+        </ChatBubble>
+      );
+    }
+    return (
+      <ChatBubble role="assistant" streaming={isStreaming} compact={compact} rowRef={rowRef}>
+        <MarkdownContent content={streamingText} compact={compact} />
+      </ChatBubble>
+    );
+  }
 
   return (
     <div
@@ -49,59 +110,26 @@ export function ChatMessageList({
       )}
     >
       {overlayPrompt ? <LiveSystemPromptOverlay prompt={overlayPrompt} compact={compact} /> : null}
-      {items.map((item) => {
-        if (item.type === "text") {
-          return (
-            <ChatBubble key={item.key} role={item.role} compact={compact}>
-              <MarkdownContent
-                content={item.text}
-                compact={compact}
-                tone={
-                  item.role === "user" ? "on-primary" : item.role === "system" ? "muted" : "default"
-                }
-              />
-            </ChatBubble>
-          );
-        }
-        if (item.type === "json") {
-          return (
-            <ChatBubble key={item.key} role={item.role} compact={compact} structured>
-              <JsonPreview
-                value={item.value}
-                label="Structured Output"
-                scroll={false}
-                className="bg-card/80"
-              />
-            </ChatBubble>
-          );
-        }
-        if (item.type === "tool-call") {
-          return (
-            <ToolMessage key={item.key} compact={compact}>
-              <ChatToolCall call={item.call} pending={item.pending} compact={compact} />
-            </ToolMessage>
-          );
+      {groups.map((group, index) => {
+        const includeStreaming = streamingInsideLastBand && index === groups.length - 1;
+        const content = (
+          <>
+            {group.items.map(renderItem)}
+            {includeStreaming ? renderStreaming() : null}
+          </>
+        );
+        if (!group.focused) {
+          return <Fragment key={group.items[0]?.key ?? index}>{content}</Fragment>;
         }
         return (
-          <ToolMessage key={item.key} compact={compact}>
-            <ChatToolCall result={item.result} compact={compact} />
-          </ToolMessage>
+          <AgentCallHighlight key={group.items[0]?.key ?? index}>{content}</AgentCallHighlight>
         );
       })}
-      {streamingText ? (
-        streamingJson !== undefined ? (
-          <ChatBubble role="assistant" streaming={isStreaming} compact={compact} structured>
-            <JsonPreview
-              value={streamingJson}
-              label="Structured Output"
-              scroll={false}
-              className="bg-card/80"
-            />
-          </ChatBubble>
+      {streamingText && !streamingInsideLastBand ? (
+        focusStreaming ? (
+          <AgentCallHighlight>{renderStreaming()}</AgentCallHighlight>
         ) : (
-          <ChatBubble role="assistant" streaming={isStreaming} compact={compact}>
-            <MarkdownContent content={streamingText} compact={compact} />
-          </ChatBubble>
+          renderStreaming()
         )
       ) : null}
       {showEmpty && items.length === 0 && !streamingText ? (
@@ -113,13 +141,112 @@ export function ChatMessageList({
   );
 }
 
+function groupDisplayItemsByFocus(
+  items: ChatDisplayItem[],
+  focusIds: ReadonlySet<string> | undefined,
+): Array<{ focused: boolean; items: ChatDisplayItem[] }> {
+  const groups: Array<{ focused: boolean; items: ChatDisplayItem[] }> = [];
+  for (const item of items) {
+    const focused = displayItemBelongsToFocus(item, focusIds);
+    const last = groups.at(-1);
+    if (last && last.focused === focused) {
+      last.items.push(item);
+    } else {
+      groups.push({ focused, items: [item] });
+    }
+  }
+  return groups;
+}
+
+function displayItemBelongsToFocus(
+  item: ChatDisplayItem,
+  focusIds: ReadonlySet<string> | undefined,
+): boolean {
+  if (!focusIds) {
+    return false;
+  }
+  for (const id of focusIds) {
+    if (item.key.startsWith(`${id}-`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function ChatDisplayItemView({
+  item,
+  compact,
+  rowRef,
+}: {
+  item: ChatDisplayItem;
+  compact: boolean;
+  rowRef?: Ref<HTMLDivElement>;
+}) {
+  if (item.type === "text") {
+    return (
+      <ChatBubble role={item.role} compact={compact} rowRef={rowRef}>
+        <MarkdownContent
+          content={item.text}
+          compact={compact}
+          tone={item.role === "user" ? "on-primary" : item.role === "system" ? "muted" : "default"}
+        />
+      </ChatBubble>
+    );
+  }
+  if (item.type === "json") {
+    return (
+      <ChatBubble role={item.role} compact={compact} structured rowRef={rowRef}>
+        <JsonPreview
+          value={item.value}
+          label="Structured Output"
+          scroll={false}
+          className="bg-card/80"
+        />
+      </ChatBubble>
+    );
+  }
+  if (item.type === "tool-call") {
+    return (
+      <ToolMessage compact={compact} rowRef={rowRef}>
+        <ChatToolCall call={item.call} pending={item.pending} compact={compact} />
+      </ToolMessage>
+    );
+  }
+  return (
+    <ToolMessage compact={compact} rowRef={rowRef}>
+      <ChatToolCall result={item.result} compact={compact} />
+    </ToolMessage>
+  );
+}
+
+function AgentCallHighlight({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="group"
+      aria-label="This agent call"
+      data-agent-call-highlight=""
+      className="-mx-1 flex flex-col gap-4 rounded-2xl bg-primary/10 px-3 py-3 ring-1 ring-inset ring-primary/20"
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Opposite-side inset so user/assistant rows don't share the same left/right edges. */
 const USER_GUTTER = "pl-[clamp(1.5rem,18%,6rem)]";
 const ASSISTANT_GUTTER = "pr-[clamp(1.5rem,18%,6rem)]";
 
-function ToolMessage({ children, compact }: { children: ReactNode; compact?: boolean }) {
+function ToolMessage({
+  children,
+  compact,
+  rowRef,
+}: {
+  children: ReactNode;
+  compact?: boolean;
+  rowRef?: Ref<HTMLDivElement>;
+}) {
   return (
-    <div className={cn("flex w-full min-w-0 justify-start", ASSISTANT_GUTTER)}>
+    <div ref={rowRef} className={cn("flex w-full min-w-0 justify-start", ASSISTANT_GUTTER)}>
       <div className={cn("min-w-0 w-full max-w-full", !compact && "max-w-[min(100%,42rem)]")}>
         {children}
       </div>
@@ -133,6 +260,7 @@ function ChatBubble({
   streaming = false,
   compact = false,
   structured = false,
+  rowRef,
 }: {
   role: MockMessage["role"];
   children: ReactNode;
@@ -140,15 +268,21 @@ function ChatBubble({
   compact?: boolean;
   /** Structured JSON fills the blob width and must not overflow it. */
   structured?: boolean;
+  rowRef?: Ref<HTMLDivElement>;
 }) {
   const isUser = role === "user";
 
   if (role === "system") {
-    return <SystemPromptFrame compact={compact}>{children}</SystemPromptFrame>;
+    return (
+      <div ref={rowRef}>
+        <SystemPromptFrame compact={compact}>{children}</SystemPromptFrame>
+      </div>
+    );
   }
 
   return (
     <div
+      ref={rowRef}
       className={cn(
         "flex w-full min-w-0",
         isUser ? cn("justify-end", USER_GUTTER) : cn("justify-start", ASSISTANT_GUTTER),

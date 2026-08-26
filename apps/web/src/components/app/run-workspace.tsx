@@ -1,9 +1,14 @@
-import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
 import { cancelInspectionWorkflowRun } from "#/lib/inspector-server";
-import { buildRunViewState, findStepInTree, resolveRunSelection } from "@/lib/mock/run-projection";
+import {
+  buildRunViewState,
+  findEpisodeInTree,
+  findStepInTree,
+  resolveRunSelection,
+} from "@/lib/mock/run-projection";
 import type {
   AgentEpisode,
   MockRunSummary,
@@ -19,23 +24,19 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { workflowRunLabel } from "@/lib/workflow-location";
+import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow-location";
+
+const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 
 interface RunWorkspaceProps {
   summary: MockRunSummary;
   initialEvents: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
-  initialStepId?: string;
-  initialEpisodeId?: string;
 }
 
-export function RunWorkspace({
-  summary,
-  initialEvents,
-  messagesPromise,
-  initialStepId,
-  initialEpisodeId,
-}: RunWorkspaceProps) {
+export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWorkspaceProps) {
+  const search = runRoute.useSearch();
+  const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
   const runTitle = view.title ?? summary.title;
@@ -43,18 +44,32 @@ export function RunWorkspace({
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
     () =>
       resolveRunSelection(view.steps, {
-        stepId: initialStepId,
-        episodeId: initialEpisodeId,
+        stepId: search.step,
+        episodeId: search.episode,
       }).stepId,
   );
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
     () =>
       resolveRunSelection(view.steps, {
-        stepId: initialStepId,
-        episodeId: initialEpisodeId,
+        stepId: search.step,
+        episodeId: search.episode,
       }).episodeId,
   );
   const [inspectorOpen, setInspectorOpen] = useState(true);
+
+  useEffect(() => {
+    if (!search.step && !search.episode) {
+      return;
+    }
+    if (search.episode) {
+      const found = findEpisodeInTree(view.steps, search.episode);
+      setSelectedStepId(found?.step.stepId ?? search.step ?? null);
+      setSelectedEpisodeId(search.episode);
+      return;
+    }
+    setSelectedStepId(search.step ?? null);
+    setSelectedEpisodeId(null);
+  }, [search.episode, search.step, view.steps]);
 
   const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
   const activeEpisode = selectedEpisodeId
@@ -63,19 +78,30 @@ export function RunWorkspace({
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
 
+  function setRunSearch(selection: { step?: string | null; episode?: string | null }) {
+    void navigate({
+      search: () => workflowRunSearch(selection),
+      replace: true,
+      resetScroll: false,
+    });
+  }
+
   function handleSelectWorkflow() {
     setSelectedStepId(null);
     setSelectedEpisodeId(null);
+    setRunSearch({});
   }
 
   function handleSelectStep(stepId: string) {
     setSelectedStepId(stepId);
     setSelectedEpisodeId(null);
+    setRunSearch({ step: stepId });
   }
 
   function handleSelectEpisode(stepId: string, ep: AgentEpisode) {
     setSelectedStepId(stepId);
     setSelectedEpisodeId(ep.episodeId);
+    setRunSearch({ step: stepId, episode: ep.episodeId });
   }
 
   return (

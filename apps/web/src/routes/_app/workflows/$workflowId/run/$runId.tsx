@@ -31,15 +31,12 @@ function WorkflowRunError({ error }: ErrorComponentProps) {
 
 function WorkflowRunPage() {
   const { summary, events, messagesPromise } = Route.useLoaderData();
-  const search = Route.useSearch();
   return (
     <RunWorkspace
       key={summary.runId}
       summary={summary}
       initialEvents={events}
       messagesPromise={messagesPromise}
-      initialStepId={search.step}
-      initialEpisodeId={search.episode}
     />
   );
 }
