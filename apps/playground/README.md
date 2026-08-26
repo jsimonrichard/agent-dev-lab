@@ -50,15 +50,18 @@ cp .env.example .env
 bun run start
 adl run demo-counter --input '{"steps":3}'
 
+# Inspection UI for this project (from apps/playground)
+bun run dashboard
+
 # with OPENAI_API_KEY set — run an AI workflow end-to-end with a live event trace
 bun run start answer-question
 bun run start write-article
 bun run start literature-review
 ```
 
-From the repo root, `bun run dev:web` points the inspection UI at this directory via
-`ADL_PROJECT_ROOT` and loads `.env*` from here (not `apps/web`). The registered
-workflows and agents appear there to start and inspect.
+From the repo root, `bun run dev:web` points the framework inspection UI at this directory via
+`ADL_FRAMEWORK_DEV=1` (playground default). `bun run dashboard` here runs `adl dashboard` against this
+project the same way an `adl init` project would.
 
 ## Layout
 

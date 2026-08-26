@@ -35,7 +35,7 @@ bun install
 export OPENAI_API_KEY=sk-...          # needed for the sample LLM workflow
 adl run demo-counter --input '{"steps":3}'
 adl run literature-review --input '{"topic":"CRISPR delivery"}'
-adl dev                               # inspection UI on :3000
+adl dashboard                         # inspection UI on :3000
 ```
 
 Or add the packages to an existing project:
@@ -46,7 +46,7 @@ bun add @agent-dev-lab/core @agent-dev-lab/cli @ai-sdk/openai
 
 ### Environment variables
 
-ADL loads `.env` files from the project root (the directory with `adl.config.*`), the same way [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) does — including `.env.local` and `.env.[mode]`. Existing process environment values are not overwritten. This applies to `adl dev`, `adl run`, and `bun run dev:web` (playground `.env`).
+ADL loads `.env` files from the project root (the directory with `adl.config.*`), the same way [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) does — including `.env.local` and `.env.[mode]`. Existing process environment values are not overwritten. This applies to `adl dashboard`, `adl run`, and `bun run dev:web` (playground `.env`).
 
 | Variable           | Purpose                                                                   |
 | ------------------ | ------------------------------------------------------------------------- |
@@ -75,7 +75,7 @@ export const adl = createAdlRuntime({
 const researcher = adl.createAgent({
   id: "researcher",
   model: openai("gpt-4o"),
-  instructions: "You are a research assistant.",
+  systemPrompt: "You are a research assistant.",
 });
 
 const review = adl.createWorkflow({
@@ -107,7 +107,7 @@ bun run dev:docs   # docs site on :4321
 bun run dev:web    # inspection UI on :3000
 ```
 
-No `.env` file or external services are required. LLM provider API keys are needed once agent execution is wired up.
+No external services are required. Put LLM provider keys in the playground (or your project) `.env` when you want to execute agents.
 
 All standard scripts live in the root `package.json` and run through Turbo:
 
@@ -116,7 +116,7 @@ All standard scripts live in the root `package.json` and run through Turbo:
 | `bun install`          | Install dependencies                              |
 | `bun run dev`          | Run web + docs in parallel                        |
 | `bun run dev:web`      | Framework UI dev against `apps/playground`        |
-| `bun run dev:cli`      | `adl dev` using the nearest user project from cwd |
+| `bun run dev:cli`      | `adl dashboard` using the nearest user project from cwd |
 | `bun run dev:docs`     | Docs site on port 4321                            |
 | `bun run build`        | Build all packages                                |
 | `bun run lint`         | ESLint across all packages                        |
@@ -129,17 +129,19 @@ All standard scripts live in the root `package.json` and run through Turbo:
 
 The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI or CLI execution path.
 
-| Area                                                         | Status      |
-| ------------------------------------------------------------ | ----------- |
-| `createAdlRuntime`, agents, workflows, templates             | Implemented |
-| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented |
-| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented |
-| `MessageStore` + `WorkflowStore` (in-memory + SQLite)        | Implemented |
-| Observers, `RunRecorder`, run events                         | Implemented |
-| `loadAdlProject` + registry indexes                          | Implemented |
-| CLI `adl init` / `adl run` / list / `adl dev`                | Implemented |
-| Inspection UI run waterfall / SSE / cancel                   | Implemented |
-| Playground sample agent + workflow                           | Implemented |
+| Area                                                                      | Status      |
+| ------------------------------------------------------------------------- | ----------- |
+| `createAdlRuntime`, agents, workflows, templates                          | Implemented |
+| `agent.run` / `agent.stream` via AI SDK `streamText`                      | Implemented |
+| `workflow.run` / `workflow.stream`, `ctx.step`, nesting, isolated runs    | Implemented |
+| Conversation titles (`titleWorkflow`, `ctx.setTitle`)                     | Implemented |
+| `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
+| Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
+| `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
+| CLI `adl run` / list / `adl dashboard`                                          | Implemented |
+| CLI `adl init`                                                            | Scaffold    |
+| Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
+| Playground multi-agent samples                                            | Implemented |
 
 ## Documentation
 
@@ -147,12 +149,13 @@ Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com). 
 
 - [Overview](https://agent-dev-lab.com/guides/overview/) — high-level orientation
 - [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias
+- [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context propagation
-- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, memory, structured output
-- [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting
+- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
+- [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
 - [Project config](https://agent-dev-lab.com/core/project/) — registry, `loadAdlProject`
 
-Coding-agent tracking notes (v1 gaps, deferred design) live in [`notes/`](notes/).
+Coding-agent tracking notes (RC remaining work, deferred design) live in [`notes/`](notes/).
 
 ## License
 

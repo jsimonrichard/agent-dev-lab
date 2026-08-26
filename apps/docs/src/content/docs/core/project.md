@@ -7,7 +7,7 @@ The project config module is the **discovery surface** for CLI, inspection UI, a
 
 ## Design decisions
 
-- **Static registry** at load time — no dynamic registration or runtime plugin scan.
+- **Registry arrays** at load time — agents, workflows, and templates are indexed when `loadAdlProject()` runs (or on hot reload in dev).
 - **Arrays** of definitions; each carries its own **`id`** (agents/workflows) or **`name`** (templates from filename).
 - **Runtime via config** — tooling reads `config.adl` from the loaded config; it does not import a project runtime file by convention path.
 - **JSON config** (`adl.config.json`) suits `name` only — registries and `adl` need TS/JS for imports.
@@ -62,6 +62,30 @@ Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`)
 
 Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project setup](/guides/project-setup/#environment-variables).
 
+## Hot reload (dev)
+
+During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches the ADL project tree and re-imports `adl.config.*` when registry source changes (`.ts`, `.js`, prompt `.md`, etc.). Use `LoadedAdlProject.reload()` or `watchAdlProject()` from `@agent-dev-lab/core` in custom tooling.
+
+**Production / serve:** `adl dashboard --serve` and published installs run the Nitro build with `ADL_INSPECTOR_SERVE=1`. The file watcher is disabled; registry and catalog metadata are fixed until the process restarts.
+
+**CLI execution (`adl run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
+
+**What updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of `src/adl.ts`. In dev, file-backed prompt templates may also re-read from disk on each `render()` while the project watcher is active (`ADL_PROJECT_WATCH=1`).
+
+**Prompt caching:** production serve, `adl run`, and other one-shot CLI invocations load each prompt `.md` once when the template is created. Dev hot reload still picks up `.md` edits via registry reload or render-time re-read.
+
+**What stays pinned:** the same `MessageStore` and `WorkflowStore` object identities so transcripts, run history, and SQLite data are preserved. Per-conversation system prompts are pinned on first episode (see [Agents](/core/agents/)).
+
+**In-flight runs:** workflows and agent episodes that already started keep the definitions they were created with; new runs use the reloaded registry.
+
+**Failed reload:** syntax errors or duplicate ids leave the previous registry in place; the UI reports `lastReloadError`.
+
+**Ignored paths:** `node_modules`, `.git`, `.data` (including SQLite WAL files), `dist`, `.output`, `.turbo`.
+
+**Not hot-reloaded:** `.env*` files (`loadAdlProjectEnv` does not overwrite existing `process.env` values). Restart the dev server after changing secrets or `ADL_SQLITE_PATH`.
+
+The UI subscribes to `GET /api/project/events` (SSE) and refreshes sidebars and agent/workflow catalog metadata automatically.
+
 ## Execution
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
@@ -70,7 +94,7 @@ Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-sty
 | ------------------------- | ----------------------------------------- |
 | **`workflow.run(input)`** | The execution primitive                   |
 | **`adl run <id>`**        | Load project → `getWorkflow(id).run(...)` |
-| **`adl dev` / UI**        | List ids + start / inspect runs           |
+| **`adl dashboard` / UI**  | List ids + start / inspect runs           |
 | **Direct import**         | Skip registry; still use `.run`           |
 
 ```ts
@@ -103,7 +127,7 @@ adl init my-research
 adl run literature-review --input '{"topic":"…"}'
 adl workflows list
 adl agents list
-adl dev
+adl dashboard
 ```
 
 ## Why registries stay static
@@ -114,4 +138,4 @@ adl dev
 | A/B two workflows                | List both; choose at CLI or `getWorkflow(id).run(...)` |
 | Monorepo multiple projects       | Multiple roots; `loadAdlProject({ root })` each        |
 
-See [Project setup](/guides/project-setup/) and [Runtime](/core/runtime/).
+See [Project setup](/guides/project-setup/), [Inspection UI](/guides/inspection-ui/), and [Runtime](/core/runtime/).

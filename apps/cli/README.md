@@ -1,6 +1,6 @@
 # @agent-dev-lab/cli
 
-Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/).
+Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/). Requires **Bun** — project configs that use SQLite stores load through `bun:sqlite`.
 
 ## Commands
 
@@ -10,9 +10,9 @@ Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/).
 | `adl run <workflow-id> --input '{}'` | Run a registered workflow                                     |
 | `adl workflows list`                 | Print workflow ids                                            |
 | `adl agents list`                    | Print agent ids                                               |
-| `adl dev`                            | Inspection UI for the nearest `adl.config.*`                  |
-| `adl dev --serve`                    | Serve the prebuilt Nitro UI from `@agent-dev-lab/web/.output` |
-| `adl dev --project <path>`           | Explicit ADL project root                                     |
+| `adl dashboard` (`adl d`, `adl dash`) | Inspection UI for the nearest `adl.config.*`                  |
+| `adl dashboard --serve`               | Serve the prebuilt Nitro UI from `@agent-dev-lab/web/.output` |
+| `adl dashboard --project <path>`      | Explicit ADL project root                                     |
 
 Published installs default to the Nitro build when the web package has no Vite tree. Framework UI development against `apps/playground` uses `bun run dev:web` (sets `ADL_FRAMEWORK_DEV=1`).
 

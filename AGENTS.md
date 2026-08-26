@@ -22,7 +22,7 @@ All standard commands are in root `package.json`:
 - **Install**: `bun install`
 - **Dev (all)**: `bun run dev` — runs web + docs in parallel via Turbo
 - **Dev (web only)**: `bun run dev:web` — framework UI dev against `apps/playground` (`ADL_FRAMEWORK_DEV=1`)
-- **Dev (CLI)**: `bun run dev:cli` — `adl dev` using the nearest user project from cwd
+- **Dev (CLI)**: `bun run dev:cli` — `adl dashboard` using the nearest user project from cwd
 - **Dev (docs only)**: `bun run dev:docs` — docs on port 4321
 - **Format**: `bun run format` — Prettier write across repo
 - **Format check**: `bun run format:check` — Prettier check (CI uses this)
@@ -37,11 +37,11 @@ All standard commands are in root `package.json`:
 - Nitro is the published `nitro` package (v3), pinned to `3.0.260610-beta` in root + `apps/web` + `overrides` to match [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) (`npm install nitro`). Do not mix `nitro` and `nitro-nightly` — Bun will nest two copies and Vite/Nitro fail (`setModuleRunner`, `h3/rules`).
 - Inspection UI **dev** must run under the Bun runtime (`bun --bun vite`) because SQLite stores import `bun:sqlite`. Production `vite build` stays on Node; `start` runs `.output` with Bun.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
-- **End-user / CLI dev** (`adl dev`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
+- **End-user / CLI** (`adl dashboard`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`.
 - SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`.
 - `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).
 - `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.
 - CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
-- No `.env` file is required for basic development. LLM API keys will be needed later when agent execution is wired up.
+- No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).

@@ -4,13 +4,16 @@ import type { AdlCliContext } from "../../context";
 import { importProjectCore } from "../../resolve-packages";
 import { resolveUiLaunchMode, spawnInspectionUi } from "../../ui-launch";
 
-interface DevFlags {
+interface DashboardFlags {
   project?: string;
   port: number;
   serve: boolean;
 }
 
-export default async function dev(this: AdlCliContext, flags: DevFlags): Promise<void> {
+export default async function dashboard(
+  this: AdlCliContext,
+  flags: DashboardFlags,
+): Promise<void> {
   const core = await importProjectCore(this.process.cwd());
   const projectRoot = path.resolve(
     flags.project ?? core.findAdlProjectRootFromCwd(this.process.cwd()),

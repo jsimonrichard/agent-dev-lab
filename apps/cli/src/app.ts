@@ -1,7 +1,7 @@
 import { buildApplication, buildRouteMap } from "@stricli/core";
 
 import { agentsListCommand } from "./commands/agents/list/command";
-import { devCommand } from "./commands/dev/command";
+import { dashboardCommand } from "./commands/dashboard/command";
 import { initCommand } from "./commands/init/command";
 import { runCommand } from "./commands/run/command";
 import { workflowsListCommand } from "./commands/workflows/list/command";
@@ -26,11 +26,15 @@ const agents = buildRouteMap({
 
 const routes = buildRouteMap({
   routes: {
-    dev: devCommand,
+    dashboard: dashboardCommand,
     run: runCommand,
     init: initCommand,
     workflows,
     agents,
+  },
+  aliases: {
+    d: "dashboard",
+    dash: "dashboard",
   },
   docs: {
     brief: "Agent Development Lab — author, run, and inspect agent workflows",

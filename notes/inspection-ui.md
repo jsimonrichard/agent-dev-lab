@@ -1,8 +1,8 @@
 # Inspection UI (`apps/web`) — implementation notes
 
-How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) to apply when we build the web UI.
+How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) that shaped the SSE + reducer design.
 
-**Status:** v1 implemented (server functions + SSE + waterfall + cancel). Template playground and live token pane remain deferred.
+**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork). Template playground and a dedicated raw-token debug pane remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
 
 **Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
 
@@ -75,32 +75,34 @@ Optional small helper in `@agent-dev-lab/common` or `apps/web`: `encodeRunEventS
 
 ## v1 web UI checklist
 
-Aligns with [`v1-scope.md`](./v1-scope.md#inspection-ui-apps-web--implement-for-v1-minimal).
+Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, not as a todo list.
 
 ### Server (`apps/web`)
 
-- [ ] Reuse [`getLoadedAdlProject`](../../apps/web/src/lib/adl-project.ts) in all wrappers
-- [ ] `startInspectionRun` server fn → `createRunContext`, background `workflow.run`, return `{ runId }`
-- [ ] `GET /api/runs` — list runs from `WorkflowStore`
-- [ ] `GET /api/runs/:runId` — snapshot (status, step tree summary, error)
-- [ ] `GET /api/runs/:runId/events` — SSE tail + `afterSeq`
-- [ ] `cancelRun` server fn — `AbortSignal` wired through runtime
-- [ ] Framework dev: `ADL_PROJECT_ROOT` / playground (see root `AGENTS.md`)
+- [x] Reuse loaded project in wrappers (`adl-project.server.ts`)
+- [x] Start-run server fn → background `workflow.run`, return `{ runId }`
+- [x] `GET /api/runs` — list runs from `WorkflowStore`
+- [x] `GET /api/runs/:runId` — snapshot
+- [x] `GET /api/runs/:runId/events` — SSE tail + `afterSeq`
+- [x] Cancel server fn — calls `handle.cancel()` (runtime abort still incomplete — see v1-scope)
+- [x] Framework dev: `ADL_PROJECT_ROOT` / playground (see root `AGENTS.md`)
+- [x] Agent conversation SSE, inspector session store, fork from a step
 
 ### Client (`apps/web`)
 
-- [ ] Run list + run detail route(s)
-- [ ] `EventSource` (or fetch stream) subscribed after `runId` known
-- [ ] In-memory **reducer**: apply `RunEvent[]` → view model (step tree, agent rows)
-- [ ] On reconnect: pass `afterSeq` from last applied `seq`
-- [ ] Project banner from existing `/api/project`
-- [ ] ⏸ Live token pane (`agent_text_delta`) — nice-to-have after waterfall
+- [x] Run list + run detail route(s)
+- [x] `EventSource` subscribed after `runId` known
+- [x] In-memory **reducer**: apply `RunEvent[]` → view model (step tree, agent rows)
+- [x] On reconnect: pass `afterSeq` from last applied `seq`
+- [x] Project banner from `/api/project`
+- [x] Live assistant text via `agent_text_delta` (chat / run views — not a dedicated token-debug pane)
+- [ ] ⏸ Dedicated live token debug pane
 - [ ] ⏸ `@agent-dev-lab/hooks` — later
 
 ### Runtime prerequisite (not in `apps/web`)
 
-- [ ] `WorkflowStore` append + `listEvents(runId, afterSeq?)` ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
-- [ ] Observers / internal bridge: `streamText` `onChunk` → `agent_text_delta` ([`RunEvent`](../packages/core/src/observability/events.ts))
+- [x] `WorkflowStore` append + `listEvents` ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
+- [x] `streamText` `onChunk` → `agent_text_delta` ([`RunEvent`](../packages/core/src/observability/events.ts))
 
 ---
 
@@ -196,21 +198,19 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 
 ## Open questions (web-specific)
 
-- [ ] Server fn vs `POST /api/runs` for start (either ok; pick one primary, mirror in docs).
+- [x] Start via server fn (not `POST /api/runs`); SSE is the data plane.
 - [ ] Single SSE connection per tab vs per visible run (HTTP/1.1 connection limits).
-- [ ] Whether first SSE message is a **snapshot** (`events[]` + `latestSeq`) or client GETs snapshot separately.
-- [ ] Version skew: framework dev uses workspace runtime; user `adl dev` uses project `node_modules`—surface in UI banner if versions differ.
+- [x] Snapshot via run GET / loader; SSE tails with `afterSeq` (not a bundled first-message snapshot).
+- [ ] Version skew: framework dev uses workspace runtime; user `adl dashboard` uses project `node_modules`—surface in UI banner if versions differ.
 
 ---
 
 ## Phasing (web work)
 
-| Order | Work                                                            |
-| ----- | --------------------------------------------------------------- |
-| 1     | Runtime: `WorkflowStore` + emit `RunEvent`s on `workflow.run`   |
-| 2     | `GET /api/runs/:id/events` SSE + manual `EventSource` test page |
-| 3     | `startInspectionRun` server fn + minimal waterfall UI           |
-| 4     | `agent_text_delta` transcript pane                              |
-| 5     | Optional: hooks package, playground async-generator route       |
-
-Matches [Phasing (web work)](#phasing-web-work) phases 1–2 for UI.
+| Order | Work                                                           | Status   |
+| ----- | -------------------------------------------------------------- | -------- |
+| 1     | Runtime: `WorkflowStore` + emit `RunEvent`s on `workflow.run`  | Done     |
+| 2     | `GET /api/runs/:id/events` SSE                                 | Done     |
+| 3     | Start-run server fn + waterfall UI                             | Done     |
+| 4     | `agent_text_delta` in chat / run transcripts                   | Done     |
+| 5     | Optional: hooks package, template playground, token-debug pane | Deferred |

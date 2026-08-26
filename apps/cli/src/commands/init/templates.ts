@@ -41,7 +41,7 @@ adl workflows list
 adl agents list
 adl run demo-counter --input '{"steps":3}'
 adl run literature-review --input '{"topic":"CRISPR delivery"}'
-adl dev
+adl dashboard
 \`\`\`
 
 Runs and chats persist in \`.data/agent-dev-lab.sqlite\`.

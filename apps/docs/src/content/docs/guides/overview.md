@@ -9,18 +9,21 @@ The **Agent Dev Lab** is a TypeScript-first workspace for experimenting with age
 
 The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CLI execution path:
 
-| Area                                                         | Status      |
-| ------------------------------------------------------------ | ----------- |
-| `createAdlRuntime`, agents, workflows, templates             | Implemented |
-| `agent.run` / `agent.stream` via AI SDK `streamText`         | Implemented |
-| `workflow.run` / `workflow.stream`, `ctx.step`, step caching | Implemented |
-| `MessageStore` + `WorkflowStore` (in-memory + SQLite)        | Implemented |
-| Observers, `RunRecorder`, run events                         | Implemented |
-| `loadAdlProject` + registry indexes                          | Implemented |
-| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`     | Implemented |
-| CLI `adl init` / `adl run` / list / `adl dev`                | Implemented |
-| Inspection UI run waterfall / SSE / cancel                   | Implemented |
-| Playground sample agent + workflow                           | Implemented |
+| Area                                                                      | Status      |
+| ------------------------------------------------------------------------- | ----------- |
+| `createAdlRuntime`, agents, workflows, templates                          | Implemented |
+| `agent.run` / `agent.stream` via AI SDK `streamText`                      | Implemented |
+| `workflow.run` / `workflow.stream`, `ctx.step`, nesting, isolated runs    | Implemented |
+| Conversation titles (`titleWorkflow`, `ctx.setTitle`)                     | Implemented |
+| `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
+| Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
+| `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
+| Project hot reload (`reload`, `watchAdlProject`) in dev                   | Implemented |
+| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`                  | Implemented |
+| CLI `adl run` / list / `adl dashboard`                                     | Implemented |
+| CLI `adl init`                                                            | Scaffold    |
+| Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
+| Playground multi-agent samples                                            | Implemented |
 
 ## Documentation map
 
@@ -29,8 +32,9 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 Cross-cutting concepts and project layout:
 
 - [Project setup](/guides/project-setup/) — required vs recommended layout; `#adl` import alias; how tooling gets `config.adl`
+- [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
 - [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
-- [Agents](/core/agents/) — `adl.createAgent`, memory, structured output
+- [Agents](/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
 - [Project config](/core/project/) — registry, `loadAdlProject`
 
@@ -74,4 +78,4 @@ bun run dev:docs   # this site on :4321
 bun run dev:web    # inspection UI on :3000
 ```
 
-Coding-agent tracking notes (v1 gaps, deferred design) live in the repo `notes/` directory.
+Coding-agent tracking notes (RC remaining work, deferred design) live in the repo `notes/` directory.

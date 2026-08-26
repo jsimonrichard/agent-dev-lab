@@ -79,7 +79,7 @@ import { adl } from "#adl";
 export const researcher = adl.createAgent({
   id: "researcher",
   model: openai("gpt-4o"),
-  instructions: "You are a research assistant.",
+  systemPrompt: "You are a research assistant.",
 });
 ```
 
@@ -133,7 +133,7 @@ import { adl } from "#adl";
 
 export const researcher = adl.createAgent({
   id: "researcher",
-  instructions: "You are a research assistant.",
+  systemPrompt: "You are a research assistant.",
 });
 ```
 
@@ -161,12 +161,12 @@ adl init my-research
 adl workflows list
 adl agents list
 adl run literature-review --input '{"topic":"CRISPR delivery"}'
-adl dev
+adl dashboard
 ```
 
 - **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, and sample agent/workflow
 - **`adl run`** — `loadAdlProject()` → `getWorkflow(id).run(input)`
-- **`adl dev`** — inspection UI; sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
+- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
 
 ### Environment variables
 

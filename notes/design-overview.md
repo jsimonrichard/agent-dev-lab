@@ -1,6 +1,6 @@
 # Agent Development Lab — agent orientation
 
-Concise summary for coding agents working in this repo. **User-facing API docs:** `apps/docs` (run `bun run dev:docs`). **Gap tracking:** [`v1-scope.md`](./v1-scope.md).
+Concise summary for coding agents working in this repo. **User-facing API docs:** `apps/docs` (run `bun run dev:docs`). **RC / remaining work:** [`v1-scope.md`](./v1-scope.md).
 
 ## Purpose
 
@@ -8,41 +8,39 @@ TypeScript-first toolkit to **author, run, and inspect** multi-agent workflows: 
 
 ## Monorepo (Bun)
 
-| Path              | Role                                                                  |
-| ----------------- | --------------------------------------------------------------------- |
-| `apps/web`        | TanStack Start — inspection UI (scaffolding; run waterfall not built) |
-| `apps/docs`       | Astro Starlight + starlight-typedoc — **stable docs**                 |
-| `apps/cli`        | `adl` CLI — `adl dev` only today                                      |
-| `apps/playground` | Framework dev ADL project                                             |
-| `packages/core`   | Headless library — agents, workflows, runtime (implemented)           |
-| `packages/common` | Drizzle + SQLite helpers, logging, ESLint                             |
+| Path              | Role                                                         |
+| ----------------- | ------------------------------------------------------------ |
+| `apps/web`        | TanStack Start inspection UI (waterfall, chats, SSE, cancel) |
+| `apps/docs`       | Astro Starlight + starlight-typedoc                          |
+| `apps/cli`        | `adl` CLI — `init`, `run`, list, `dev`                       |
+| `apps/playground` | Framework-dev ADL project (`bun run dev:web`)                |
+| `packages/core`   | Headless library — agents, workflows, runtime, stores        |
+| `packages/common` | Drizzle + SQLite helpers, logging, ESLint                    |
 
 ## Principles
 
-- **Runtime/UI split** — core executes; UI reads `WorkflowStore` / events.
+- **Runtime/UI split** — core executes; UI reads `WorkflowStore` / `MessageStore` / events.
 - **AI SDK native** — `streamText`, `CoreMessage`, `tool()`.
-- **Notes vs docs** — implemented APIs documented in `apps/docs`; this folder tracks gaps and deferred design.
+- **Notes vs docs** — implemented APIs in `apps/docs`; this folder tracks RC gaps and deferred design.
 
-## Core runtime (implemented)
+## What is built
 
-See [`apps/docs/src/content/docs/guides/overview.md`](../apps/docs/src/content/docs/guides/overview.md) for the current status table.
+Headless runtime is usable without the UI. Inspection UI and CLI are wired: SQLite stores, `adl run` / `adl dashboard`, waterfall + agent conversations, playground multi-agent samples.
 
-Key packages: `createAdlRuntime`, `createAgent`, `createWorkflow`, `createTemplate`, in-memory `MessageStore` + `WorkflowStore`, `loadAdlProject`.
-
-**Implemented for v1:** SQLite stores, CLI `adl init` / `adl run` / list, inspection SSE + waterfall, playground sample agent + workflow.
+**Do not treat playground as the `adl init` tree.** Init currently copies a subset of playground files plus the **full** playground `adl.config.ts` — that combination does not typecheck. RC work: dedicated init scaffold + a complex example **outside** playground. See [`v1-scope.md`](./v1-scope.md).
 
 ## Agent note index
 
-| Still in `notes/`                                | Topic                                   |
-| ------------------------------------------------ | --------------------------------------- |
-| [`v1-scope.md`](./v1-scope.md)                   | Checklist                               |
-| [`inspection-ui.md`](./inspection-ui.md)         | Planned web SSE                         |
-| [`tracing.md`](./tracing.md)                     | OTEL packaging                          |
-| [`resumability.md`](./resumability.md)           | Run retry / step skip (not chat memory) |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                        |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                        |
-| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing   |
-| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper framing                        |
+| Still in `notes/`                                | Topic                                         |
+| ------------------------------------------------ | --------------------------------------------- |
+| [`v1-scope.md`](./v1-scope.md)                   | RC inventory, remaining work, validation      |
+| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, client reducer    |
+| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK `experimental_telemetry` |
+| [`resumability.md`](./resumability.md)           | Run retry / step skip (not chat memory)       |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                              |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                              |
+| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing         |
+| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper framing                              |
 
 Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.md`](./README.md).
 
@@ -50,4 +48,4 @@ Implemented APIs live in `apps/docs` (Starlight guides + TypeDoc). See [`README.
 
 `bun install`, `bun run dev`, `bun run dev:web`, `bun run dev:docs`, `bun run build`, `bun run lint`, `bun run test`.
 
-`apps/docs` gitignores `src/content/docs/api/` — generated by `astro dev` / `astro build`.
+`apps/docs` gitignores `src/content/docs/api/` — generated by `astro dev` / `astro build`. LLM provider keys are needed to **execute** agents (playground `.env`); the repo loads without them.

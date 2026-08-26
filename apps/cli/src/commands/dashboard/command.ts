@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
 
-export const devCommand = buildCommand({
+export const dashboardCommand = buildCommand({
   loader: async () => import("./impl"),
   parameters: {
     flags: {

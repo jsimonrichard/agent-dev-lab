@@ -64,7 +64,7 @@ export function buildInitPackageJson(
     type: "module",
     imports: playgroundPkg.imports ?? { "#adl": "./src/adl.ts" },
     scripts: {
-      dev: "adl dev",
+      dashboard: "adl dashboard",
       typecheck: "tsc --noEmit",
     },
     dependencies: {
