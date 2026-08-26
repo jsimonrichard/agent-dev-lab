@@ -1,30 +1,46 @@
-import { tool, zodSchema, type ToolSet } from "ai";
+import { tool, type Tool, type ToolSet } from "ai";
 import { z } from "zod";
 
 import type { Agent, AgentRunInput } from "../agent/types";
 import type { AdlRuntime } from "../runtime/types";
 import type { WorkflowContext } from "../workflow/types";
 
-export type CreateToolFromAgentOptions<Context> = {
+/** Loose object the model may fill when {@link CreateToolFromAgentOptions.inputSchema} is omitted. */
+export type DefaultToolInput = Record<string, unknown>;
+
+export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> = {
   name?: string;
   description: string;
+  /**
+   * Zod schema for the LLM-facing tool arguments. Inferred as {@link TToolInput}.
+   * When omitted, arguments are a catch-all object (`Record<string, unknown>`).
+   */
+  inputSchema?: z.ZodType<TToolInput>;
   mapRun: (
-    toolArgs: unknown,
+    toolArgs: TToolInput,
     meta: { ctx: WorkflowContext },
   ) => Pick<AgentRunInput<Context>, "memoryScope" | "user" | "context" | "messages" | "workflow">;
 };
 
+const defaultInputSchema: z.ZodType<DefaultToolInput> = z.object({}).catchall(z.unknown());
+
 /** Expose a single agent episode as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}. */
-export function createToolFromAgent<Context>(
+export function createToolFromAgent<
+  Context,
+  Tools extends ToolSet = ToolSet,
+  TOutput = string,
+  TToolInput = DefaultToolInput,
+>(
   runtime: AdlRuntime,
-  agent: Agent<Context>,
-  options: CreateToolFromAgentOptions<Context>,
-): ToolSet[string] {
-  return tool({
+  agent: Agent<Context, Tools, TOutput>,
+  options: CreateToolFromAgentOptions<Context, TToolInput>,
+): Tool<TToolInput, TOutput> {
+  // AI SDK `NeverOptional<OUTPUT, …>` does not resolve while OUTPUT is generic.
+  return tool<TToolInput, TOutput>({
     ...(options.name !== undefined ? { name: options.name } : {}),
     description: options.description,
-    inputSchema: zodSchema(z.object({}).catchall(z.unknown())),
-    execute: async (toolArgs) => {
+    inputSchema: options.inputSchema ?? (defaultInputSchema as z.ZodType<TToolInput>),
+    execute: async (toolArgs: TToolInput) => {
       const workflowCtx = runtime.services.workflowContextScope.peek();
       if (!workflowCtx) {
         throw new Error(
@@ -34,10 +50,7 @@ export function createToolFromAgent<Context>(
       const runInput = options.mapRun(toolArgs, { ctx: workflowCtx });
       const handle = agent.run(runInput);
       const result = await handle.result;
-      if (result.output !== undefined) {
-        return result.output;
-      }
-      return { text: result.text, messages: result.newMessages };
+      return result.output;
     },
-  }) as ToolSet[string];
+  } as unknown as Tool<TToolInput, TOutput>);
 }

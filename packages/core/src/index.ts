@@ -117,7 +117,11 @@ export type {
 } from "./observability";
 
 export { createToolFromAgent, createToolFromWorkflow } from "./tools";
-export type { CreateToolFromAgentOptions, CreateToolFromWorkflowOptions } from "./tools";
+export type {
+  CreateToolFromAgentOptions,
+  CreateToolFromWorkflowOptions,
+  DefaultToolInput,
+} from "./tools";
 
 export { loadPromptFile, resolvePromptPath } from "./prompt/load";
 export { renderPromptTemplate } from "./prompt/render";
@@ -139,7 +143,14 @@ export {
 export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "@agent-dev-lab/common";
 
 export { generateText, streamText, tool } from "ai";
-export type { CoreMessage, LanguageModel, ToolSet } from "ai";
+export type {
+  CoreMessage,
+  InferToolInput,
+  InferToolOutput,
+  LanguageModel,
+  Tool,
+  ToolSet,
+} from "ai";
 
 const corePackage = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),

@@ -1,11 +1,11 @@
-import type { ToolSet } from "ai";
+import type { ToolSet, Tool } from "ai";
 
 import { AgentImpl } from "../agent/agent-impl";
 import type { Agent, AgentDefinition } from "../agent/types";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
 import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
-import type { CreateToolFromAgentOptions } from "../tools/from-agent";
+import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import {
   resolveDefinitionServices,
@@ -45,17 +45,22 @@ export class AdlRuntimeImpl implements AdlRuntime {
     );
   }
 
-  createToolFromAgent<Context>(
-    agent: Agent<Context>,
-    options: CreateToolFromAgentOptions<Context>,
-  ): ToolSet[string] {
+  createToolFromAgent<
+    Context,
+    Tools extends ToolSet = ToolSet,
+    TOutput = string,
+    TToolInput = DefaultToolInput,
+  >(
+    agent: Agent<Context, Tools, TOutput>,
+    options: CreateToolFromAgentOptions<Context, TToolInput>,
+  ): Tool<TToolInput, TOutput> {
     return createToolFromAgent(this, agent, options);
   }
 
-  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput>(
+  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToolInput = TRawInput>(
     workflow: Workflow<TInput, TOutput, TRawInput>,
-    options: CreateToolFromWorkflowOptions<TRawInput>,
-  ): ToolSet[string] {
+    options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
+  ): Tool<TToolInput, TOutput> {
     return createToolFromWorkflow(this, workflow, options);
   }
 

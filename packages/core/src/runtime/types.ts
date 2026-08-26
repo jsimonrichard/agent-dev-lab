@@ -1,11 +1,11 @@
-import type { LanguageModel, ToolSet } from "ai";
+import type { LanguageModel, Tool, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
 import type { MessageStore } from "../memory/types";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { WorkflowStore } from "../observability/workflow-store";
-import type { CreateToolFromAgentOptions } from "../tools/from-agent";
+import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Template, TemplateConfig } from "../template/types";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
@@ -78,15 +78,20 @@ export interface AdlRuntime {
     overrides?: AdlRuntimeOverrides,
   ): Workflow<TInput, TOutput, TRawInput>;
 
-  createToolFromAgent<Context>(
-    agent: Agent<Context>,
-    options: CreateToolFromAgentOptions<Context>,
-  ): ToolSet[string];
+  createToolFromAgent<
+    Context,
+    Tools extends ToolSet = ToolSet,
+    TOutput = string,
+    TToolInput = DefaultToolInput,
+  >(
+    agent: Agent<Context, Tools, TOutput>,
+    options: CreateToolFromAgentOptions<Context, TToolInput>,
+  ): Tool<TToolInput, TOutput>;
 
-  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput>(
+  createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToolInput = TRawInput>(
     workflow: Workflow<TInput, TOutput, TRawInput>,
-    options: CreateToolFromWorkflowOptions<TRawInput>,
-  ): ToolSet[string];
+    options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
+  ): Tool<TToolInput, TOutput>;
 
   createTemplate<TSchema extends z.ZodType>(
     config: TemplateConfig<TSchema>,

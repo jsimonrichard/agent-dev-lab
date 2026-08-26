@@ -187,6 +187,7 @@ After `run()`, extend the store with messages from `result.response.messages` â€
 ```ts
 // agents/orchestrator.ts â€” register tools on an agent that runs inside a workflow
 import { adl } from "#adl";
+import { z } from "zod";
 
 import { researcher } from "./researcher";
 import { literatureReview } from "../workflows/literature-review";
@@ -197,12 +198,18 @@ const literatureReviewTool = adl.createToolFromWorkflow(literatureReview, {
 
 const researcherTool = adl.createToolFromAgent(researcher, {
   description: "Run one research episode",
+  inputSchema: z.object({
+    threadId: z.string(),
+    query: z.string(),
+  }),
   mapRun: (toolArgs, { ctx }) => ({
-    memoryScope: ctx.memoryScopeWithSuffix(`tool:${(toolArgs as { threadId: string }).threadId}`),
-    user: (toolArgs as { query: string }).query,
+    memoryScope: ctx.memoryScopeWithSuffix(`tool:${toolArgs.threadId}`),
+    user: toolArgs.query,
   }),
 });
 ```
+
+`createToolFromAgent` / `createToolFromWorkflow` return an AI SDK `Tool<TInput, TOutput>`. Agent tools use the agent's `TOutput` (inferred from `outputSchema`, otherwise `string`). Pass `inputSchema` so `mapRun` / `mapInput` receive typed arguments instead of a catch-all object.
 
 These helpers require an active workflow context (ALS).
 
