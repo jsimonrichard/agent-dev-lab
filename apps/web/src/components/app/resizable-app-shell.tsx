@@ -20,31 +20,28 @@ export function ResizableAppShell({ children }: ResizableAppShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const hideContextSidebar = inspectorModeFromPath(pathname) === "events";
 
-  if (hideContextSidebar) {
-    return (
-      <div className="flex h-svh w-full overflow-hidden">
-        <MasterSidebar />
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
-      </div>
-    );
-  }
-
   if (isMobile) {
     return (
       <div className="flex h-svh w-full overflow-hidden">
         <MasterSidebar />
         <SidebarProvider defaultOpen className="min-h-0 min-w-0 flex-1">
-          <AppSidebar />
+          {hideContextSidebar ? null : <AppSidebar />}
           <SidebarInset className="min-h-svh overflow-hidden">{children}</SidebarInset>
         </SidebarProvider>
       </div>
     );
   }
 
-  return <DesktopAppShell>{children}</DesktopAppShell>;
+  return <DesktopAppShell hideContextSidebar={hideContextSidebar}>{children}</DesktopAppShell>;
 }
 
-function DesktopAppShell({ children }: { children: ReactNode }) {
+function DesktopAppShell({
+  children,
+  hideContextSidebar,
+}: {
+  children: ReactNode;
+  hideContextSidebar: boolean;
+}) {
   const contextPanelRef = usePanelRef();
 
   const toggleContextSidebar = useCallback(() => {
@@ -72,27 +69,31 @@ function DesktopAppShell({ children }: { children: ReactNode }) {
             } as React.CSSProperties
           }
         >
-          <ResizablePanelGroup
-            orientation="horizontal"
-            id="inspector-context-sidebar"
-            className="min-h-0 min-w-0 flex-1"
-          >
-            <ResizablePanel
-              id="context-sidebar"
-              panelRef={contextPanelRef}
-              collapsible
-              defaultSize="20%"
-              minSize="14%"
-              maxSize="40%"
-              className="min-w-0"
+          {hideContextSidebar ? (
+            <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
+          ) : (
+            <ResizablePanelGroup
+              orientation="horizontal"
+              id="inspector-context-sidebar"
+              className="min-h-0 min-w-0 flex-1"
             >
-              <AppSidebar />
-            </ResizablePanel>
-            <ResizableHandle className="z-20" />
-            <ResizablePanel id="main-content" minSize="50%" defaultSize="80%" className="min-w-0">
-              <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+              <ResizablePanel
+                id="context-sidebar"
+                panelRef={contextPanelRef}
+                collapsible
+                defaultSize="20%"
+                minSize="14%"
+                maxSize="40%"
+                className="min-w-0"
+              >
+                <AppSidebar />
+              </ResizablePanel>
+              <ResizableHandle className="z-20" />
+              <ResizablePanel id="main-content" minSize="50%" defaultSize="80%" className="min-w-0">
+                <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          )}
         </SidebarProvider>
       </InspectorShellProvider>
     </div>

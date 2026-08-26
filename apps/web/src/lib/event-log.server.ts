@@ -28,15 +28,47 @@ export async function hydrateEventLogFromWorkflowStore(
   store: WorkflowStore,
   eventLog: InMemoryEventLog = getEventLog(),
 ): Promise<void> {
-  if (eventLog === getEventLog()) {
-    if (!markInspectorEventLogHydrated()) {
+  const isProcessLog = eventLog === getEventLog();
+  if (isProcessLog && !markInspectorEventLogHydrated()) {
+    // Already filled this process. An empty log means the user cleared — leave it.
+    // A non-empty log may be missing episodes that persisted after the first fill
+    // (standalone agent.run while observers were not yet attached).
+    if (eventLog.list().length === 0) {
       return;
     }
+    await mergeStoredRunEvents(store, eventLog);
+    return;
   }
   if (eventLog.list().length > 0) {
+    await mergeStoredRunEvents(store, eventLog);
     return;
   }
   for (const event of await collectStoredRunEvents(store)) {
+    eventLog.onEvent(event);
+  }
+}
+
+function storedEventKey(event: RunEvent): string {
+  if ("workflowRunId" in event && event.workflowRunId) {
+    return `wf:${event.workflowRunId}:${event.seq}:${event.type}:${event.at}`;
+  }
+  if ("agentCallId" in event) {
+    return `ag:${event.agentCallId}:${event.seq}:${event.type}:${event.at}`;
+  }
+  return `other:${event.type}:${event.seq}:${event.at}`;
+}
+
+async function mergeStoredRunEvents(
+  store: WorkflowStore,
+  eventLog: InMemoryEventLog,
+): Promise<void> {
+  const seen = new Set(eventLog.list().map((entry) => storedEventKey(entry.event)));
+  for (const event of await collectStoredRunEvents(store)) {
+    const key = storedEventKey(event);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
     eventLog.onEvent(event);
   }
 }

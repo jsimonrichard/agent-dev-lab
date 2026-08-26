@@ -14,7 +14,10 @@ export function InspectorSidebarTrigger({
   const isMobile = useIsMobile();
   const shell = useInspectorShell();
 
-  if (isMobile || !shell) {
+  // Desktop uses the resizable context panel. Do not fall back to SidebarTrigger
+  // when the shell is missing — that throws outside SidebarProvider (e.g. while
+  // navigating onto the event log, which hides the context panel).
+  if (isMobile) {
     return <SidebarTrigger className={className} {...props} />;
   }
 
@@ -27,7 +30,7 @@ export function InspectorSidebarTrigger({
       className={cn("size-7", className)}
       onClick={(event) => {
         props.onClick?.(event);
-        shell.toggleContextSidebar();
+        shell?.toggleContextSidebar();
       }}
       {...props}
     >

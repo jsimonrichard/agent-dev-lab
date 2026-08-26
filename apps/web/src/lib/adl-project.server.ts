@@ -63,11 +63,9 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   bindInspectorWatchListeners(project);
   ensureAdlProjectFileWatch(shouldWatchProject());
   try {
-    void ensureInspectorAgentObserver(project.getAdl(), project).catch(() => {
-      // Watcher still useful without a runtime; catalog loaders surface a missing `adl`.
-    });
+    await ensureInspectorAgentObserver(project.getAdl(), project);
   } catch {
-    // getAdl() throws when config.adl is missing.
+    // getAdl() throws when config.adl is missing; catalog loaders surface that.
   }
   return project;
 }

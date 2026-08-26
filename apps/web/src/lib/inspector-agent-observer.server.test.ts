@@ -1,20 +1,27 @@
 import { describe, expect, it } from "bun:test";
 
 import { createAdlRuntime, inMemoryWorkflowStore } from "@agent-dev-lab/core";
-import type { LoadedAdlProject } from "@agent-dev-lab/core/project";
+import {
+  clearInspectorAgentObserverAttached,
+  type LoadedAdlProject,
+} from "@agent-dev-lab/core/project";
 
 import { getEventLog } from "./event-log.server";
-import { attachInspectorObservers } from "./inspector-agent-observer.server";
+import {
+  attachInspectorObservers,
+  ensureInspectorAgentObserver,
+} from "./inspector-agent-observer.server";
 
 function projectFor(
   runtime: ReturnType<typeof createAdlRuntime>,
-  workflow: { id: string },
+  workflow?: { id: string },
+  agent?: { id: string },
 ): LoadedAdlProject {
   return {
-    listWorkflowIds: () => [workflow.id],
+    listWorkflowIds: () => (workflow ? [workflow.id] : []),
     getWorkflow: () => workflow,
-    listAgentIds: () => [],
-    getAgent: () => undefined,
+    listAgentIds: () => (agent ? [agent.id] : []),
+    getAgent: () => agent,
     getAdl: () => runtime,
   } as unknown as LoadedAdlProject;
 }
@@ -88,5 +95,35 @@ describe("attachInspectorObservers", () => {
         .list()
         .map((entry) => entry.event.type),
     ).toEqual(["workflow_started", "workflow_finished"]);
+  });
+
+  it("attaches to an agent bound with its own observer arrays", () => {
+    const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    const agent = runtime.createAgent(
+      { id: "solo-agent", systemPrompt: "Be brief." },
+      { observers: { agents: [] } },
+    );
+    const agentServices = (agent as { services: (typeof runtime)["services"] }).services;
+    expect(agentServices.observers.agents).not.toBe(runtime.services.observers.agents);
+
+    attachInspectorObservers(runtime, projectFor(runtime, undefined, agent));
+
+    expect(agentServices.observers.agents).toContain(getEventLog());
+    expect(runtime.services.observers.agents).toContain(getEventLog());
+  });
+});
+
+describe("ensureInspectorAgentObserver", () => {
+  it("re-attaches a new runtime after the one-shot flag is already set", async () => {
+    clearInspectorAgentObserverAttached();
+    const previous = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    await ensureInspectorAgentObserver(previous, projectFor(previous));
+
+    const next = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    expect(next.services.observers.agents).not.toContain(getEventLog());
+
+    await ensureInspectorAgentObserver(next, projectFor(next));
+    expect(next.services.observers.agents).toContain(getEventLog());
+    expect(next.services.observers.workflows).toContain(getEventLog());
   });
 });

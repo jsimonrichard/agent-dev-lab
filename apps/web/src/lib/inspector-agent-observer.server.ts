@@ -110,11 +110,10 @@ export async function ensureInspectorAgentObserver(
   runtime: AdlRuntime,
   project: LoadedAdlProject,
 ): Promise<void> {
-  setInspectorListedAgentIds(project.listAgentIds());
-  if (!markInspectorAgentObserverAttached()) {
-    return;
-  }
+  // Always attach — `pushUnique` is cheap, and a prior one-shot mark would skip
+  // new service copies (jiti reload, late-bound agent observer arrays).
   attachInspectorObservers(runtime, project);
+  markInspectorAgentObserverAttached();
   const store = runtime.services.stores.workflow;
   if (store) {
     await hydrateEventLogFromWorkflowStore(store);

@@ -132,4 +132,22 @@ describe("hydrateEventLogFromWorkflowStore", () => {
     ]);
     expect(log.list().filter((entry) => entry.event.type === "agent_started")).toHaveLength(1);
   });
+
+  it("merges standalone episodes recorded after the first hydrate", async () => {
+    const store = inMemoryWorkflowStore();
+    await store.recordEvent(started(1, "run-a"));
+    const log = inMemoryEventLog();
+    await hydrateEventLogFromWorkflowStore(store, log);
+    expect(log.list().map((entry) => entry.event.type)).toEqual(["workflow_started"]);
+
+    await store.recordEvent(agentStarted());
+    await store.recordEvent(agentFinished());
+    await hydrateEventLogFromWorkflowStore(store, log);
+
+    expect(log.list().map((entry) => entry.event.type)).toEqual([
+      "workflow_started",
+      "agent_started",
+      "agent_finished",
+    ]);
+  });
 });
