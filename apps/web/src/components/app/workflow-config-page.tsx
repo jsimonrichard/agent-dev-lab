@@ -1,4 +1,3 @@
-import type { WorkflowInspectorMeta } from "#/lib/inspector-types";
 import { ConfigWorkspace } from "@/components/app/config-workspace";
 import { StartWorkflowForm } from "@/components/app/start-workflow-dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,22 +20,18 @@ export function WorkflowDefinitionPage({ workflowId }: { workflowId: string }) {
       title={<span className="font-mono">{workflow.id}</span>}
       subtitle="No run selected. Start a run below or pick one from the sidebar."
     >
-      <StartWorkflowCard workflows={project.workflows} workflowId={workflow.id} />
+      <StartWorkflowCard workflowId={workflow.id} />
     </ConfigWorkspace>
   );
 }
 
-function StartWorkflowCard({
-  workflows,
-  workflowId,
-}: {
-  workflows: WorkflowInspectorMeta[];
-  workflowId?: string;
-}) {
+function StartWorkflowCard({ workflowId }: { workflowId?: string }) {
+  const { project } = useAppLoaderData();
+
   return (
     <Card className="max-w-lg border-border/40">
       <CardContent>
-        <StartWorkflowForm workflows={workflows} workflowId={workflowId} />
+        <StartWorkflowForm key={`${workflowId}:${project.generation}`} workflowId={workflowId} />
       </CardContent>
     </Card>
   );

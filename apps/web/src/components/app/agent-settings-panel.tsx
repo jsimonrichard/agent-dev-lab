@@ -4,7 +4,9 @@ import { Link } from "@tanstack/react-router";
 import type { AgentInspectorMeta } from "#/lib/inspector-types";
 import type { MockAgentSettings, ResolvedAgentConversation } from "@/lib/mock/types";
 import { Badge } from "@/components/ui/badge";
+import { ErrorDetails } from "@/components/app/error-details";
 import { InspectorNoun } from "@/components/app/inspector-noun";
+import { MarkdownContent } from "@/components/app/markdown-content";
 import { SettingRow, SettingsSection } from "@/components/app/inspector-settings";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +24,8 @@ export function agentSettingsFromMeta(agent: AgentInspectorMeta): MockAgentSetti
     memoryMode: agent.memoryMode,
     tools: agent.tools,
     titleWorkflowId: agent.titleWorkflowId,
+    systemPrompt: agent.systemPrompt,
+    systemPromptPath: agent.systemPromptPath,
   };
 }
 
@@ -54,6 +58,10 @@ export function AgentConfigBody({
   const sourceScopeLabel = fork
     ? formatMemoryScopeLabel(fork.sourceMemoryScope, fork.sourceRunId)
     : null;
+  const prompt = settings.systemPrompt;
+  const promptText = prompt.isOk ? prompt.value.trim() : "";
+  const showPromptSection =
+    !conversation && (Boolean(settings.systemPromptPath) || promptText.length > 0 || prompt.isErr);
 
   return (
     <div className="space-y-5">
@@ -101,32 +109,45 @@ export function AgentConfigBody({
         <dl className="space-y-2 text-xs">
           <SettingRow label="Mode" value={settings.memoryMode} mono />
           {conversation ? <SettingRow label="Scope" value={conversation.runId} mono /> : null}
-          {settings.titleWorkflowId ? (
-            <SettingRow label="Title workflow" value={settings.titleWorkflowId} mono />
-          ) : null}
         </dl>
       </SettingsSection>
 
-      {(settings.outputSchema ?? settings.systemPromptPath) ? (
+      {settings.titleWorkflowId ? (
         <>
           <Separator className="bg-border/40" />
-          <SettingsSection icon={Braces} title="Output & prompts">
-            <dl className="space-y-2 text-xs">
-              {settings.outputSchema ? (
-                <SettingRow label="Structured Output" value={settings.outputSchema} mono />
-              ) : null}
-              {settings.systemPromptPath ? (
-                <div className="flex items-start gap-2">
-                  <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <dt className="text-muted-foreground">System prompt</dt>
-                    <dd className="font-mono text-[11px] text-foreground">
-                      {settings.systemPromptPath}
-                    </dd>
-                  </div>
-                </div>
-              ) : null}
-            </dl>
+          <SettingsSection icon={GitBranch} title="Title workflow">
+            <p className="font-mono text-[11px] break-all">{settings.titleWorkflowId}</p>
+          </SettingsSection>
+        </>
+      ) : null}
+
+      {showPromptSection ? (
+        <>
+          <Separator className="bg-border/40" />
+          <SettingsSection icon={FileText} title="System prompt">
+            {settings.systemPromptPath ? (
+              <p className="mb-2 font-mono text-[11px] text-muted-foreground">
+                {settings.systemPromptPath}
+              </p>
+            ) : null}
+            {prompt.isErr ? (
+              <ErrorDetails error={prompt.error} compact />
+            ) : promptText ? (
+              <div className="rounded-lg border border-border/40 bg-card px-3 py-2">
+                <MarkdownContent content={promptText} compact tone="muted" />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No system prompt.</p>
+            )}
+          </SettingsSection>
+        </>
+      ) : null}
+
+      {settings.outputSchema ? (
+        <>
+          <Separator className="bg-border/40" />
+          <SettingsSection icon={Braces} title="Structured Output">
+            <p className="font-mono text-[11px] break-all">{settings.outputSchema}</p>
           </SettingsSection>
         </>
       ) : null}

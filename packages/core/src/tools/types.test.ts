@@ -10,7 +10,7 @@ type Expect<T extends true> = T;
 describe("createToolFromAgent typing", () => {
   it("uses string output when the agent has no outputSchema", () => {
     const adl = createTestRuntime();
-    const agent = adl.createAgent({ id: "plain", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
     const wrapped = adl.createToolFromAgent(agent, {
       description: "Run the agent",
       mapRun: () => ({ memoryScope: "s" }),
@@ -27,7 +27,7 @@ describe("createToolFromAgent typing", () => {
     const inputSchema = z.object({ query: z.string(), threadId: z.string() });
     const agent = adl.createAgent({
       id: "structured",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       outputSchema,
     });
     const wrapped = adl.createToolFromAgent(agent, {

@@ -3,8 +3,8 @@ import { z } from "zod";
 import { adl } from "#adl";
 
 /**
- * Prompt templates (Zod-validated → Handlebars → string). Instruction templates are
- * variable-free system prompts; request templates carry per-run variables and are
+ * Prompt templates (Zod-validated → Handlebars → string). System prompt templates are
+ * variable-free; request templates carry per-run variables and are
  * rendered into `user` messages inside workflows.
  *
  * Registered in `adl.config.ts` `templates[]` so they show up in tooling. The registry
@@ -13,7 +13,7 @@ import { adl } from "#adl";
  */
 
 /** System prompt for the outliner agent, loaded from `./outliner.md`. */
-export const outlinerInstructions = adl.createTemplate({
+export const outlinerSystemPrompt = adl.createTemplate({
   path: "./outliner.md",
   from: import.meta.url,
   inputData: z.object({}),
@@ -62,7 +62,7 @@ export const reviseRequestPrompt = adl.createTemplate({
 });
 
 export const promptTemplates = [
-  outlinerInstructions,
+  outlinerSystemPrompt,
   articleBriefPrompt,
   draftRequestPrompt,
   reviseRequestPrompt,

@@ -74,15 +74,15 @@ During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches t
 
 **Prompt caching:** production serve, `adl run`, and other one-shot CLI invocations load each prompt `.md` once when the template is created. Dev hot reload still picks up `.md` edits via registry reload or render-time re-read.
 
-**What stays pinned:** the same `MessageStore` and `WorkflowStore` object identities so transcripts, run history, and SQLite data are preserved. Per-conversation system prompts are pinned on first episode (see [Agents](/core/agents/)).
+**What stays pinned:** the same `MessageStore` and `WorkflowStore` **object identities** on the runtime so transcripts, run history, and SQLite connections survive. Changing store _implementation_ or sqlite path in `src/adl.ts` does not take effect until the process restarts. Per-agent `memory.store` / `createAgent(..., { stores })` overrides are new objects on each re-import and are **not** pinned — those conversations reset on reload. Per-conversation system prompts are pinned on first episode (see [Agents](/core/agents/)).
 
 **In-flight runs:** workflows and agent episodes that already started keep the definitions they were created with; new runs use the reloaded registry.
 
 **Failed reload:** syntax errors or duplicate ids leave the previous registry in place; the UI reports `lastReloadError`.
 
-**Ignored paths:** `node_modules`, `.git`, `.data` (including SQLite WAL files), `dist`, `.output`, `.turbo`.
+**Ignored paths:** watchers are not attached to `node_modules`, `.git`, `.data` (including SQLite WAL files), `dist`, `.output`, or `.turbo`. Events from those trees are also ignored if they somehow fire.
 
-**Not hot-reloaded:** `.env*` files (`loadAdlProjectEnv` does not overwrite existing `process.env` values). Restart the dev server after changing secrets or `ADL_SQLITE_PATH`.
+**Not hot-reloaded:** `.env*` files (`loadAdlProjectEnv` does not overwrite existing `process.env` values). Restart the dev server after changing secrets, `ADL_SQLITE_PATH`, or the store implementation in `src/adl.ts`.
 
 The UI subscribes to `GET /api/project/events` (SSE) and refreshes sidebars and agent/workflow catalog metadata automatically.
 

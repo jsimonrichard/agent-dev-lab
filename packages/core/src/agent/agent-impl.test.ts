@@ -34,7 +34,7 @@ describe("AgentImpl streamText prompt", () => {
       const adl = createTestRuntime({ defaults: { model: mockTextModel() } });
       const agent = adl.createAgent({
         id: "researcher",
-        instructions: "You are a concise research assistant.",
+        systemPrompt: "You are a concise research assistant.",
       });
 
       const result = await agent.run({
@@ -65,7 +65,7 @@ describe("AgentImpl titleWorkflow", () => {
     });
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       titleWorkflow,
     });
 
@@ -104,7 +104,7 @@ describe("AgentImpl titleWorkflow", () => {
     });
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       titleWorkflow,
     });
 
@@ -126,7 +126,7 @@ describe("AgentImpl titleWorkflow", () => {
     });
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       titleWorkflow,
     });
 
@@ -144,7 +144,7 @@ describe("AgentImpl titleWorkflow", () => {
     });
     const namer = adl.createAgent({
       id: "conversation-title-namer",
-      instructions: "Name it.",
+      systemPrompt: "Name it.",
     });
     const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
       id: "conversation-title",
@@ -158,7 +158,7 @@ describe("AgentImpl titleWorkflow", () => {
     });
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       titleWorkflow,
     });
 
@@ -179,7 +179,7 @@ describe("AgentImpl shared memoryScope commits", () => {
     const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
     });
 
     const first = agent.run({ memoryScope: "notes", user: "first" });
@@ -196,7 +196,25 @@ describe("AgentImpl shared memoryScope commits", () => {
     const firstCommit = firstEvents?.find((event) => event.type === "agent_messages_committed");
     const secondCommit = secondEvents?.find((event) => event.type === "agent_messages_committed");
 
-    expect(firstCommit).toMatchObject({ type: "agent_messages_committed", total: 2, count: 1 });
-    expect(secondCommit).toMatchObject({ type: "agent_messages_committed", total: 4, count: 1 });
+    expect(firstCommit).toMatchObject({ type: "agent_messages_committed", total: 3, count: 1 });
+    expect(secondCommit).toMatchObject({ type: "agent_messages_committed", total: 5, count: 1 });
+  });
+
+  it("pins the system prompt on the first episode and reuses it on follow-up turns", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agentV1 = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Pinned prompt A",
+    });
+    await agentV1.run({ memoryScope: "notes", user: "first" }).result;
+
+    const agentV2 = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Live prompt B",
+    });
+    await agentV2.run({ memoryScope: "notes", user: "second" }).result;
+
+    const stored = await adl.services.stores.message.load("notes");
+    expect(stored[0]).toEqual({ role: "system", content: "Pinned prompt A" });
   });
 });

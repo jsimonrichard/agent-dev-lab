@@ -1,10 +1,13 @@
 import {
   AdlError,
+  splitStoredSystemPrompt,
+  withStoredSystemPrompt,
   type CoreMessage,
   type RunEvent as CoreRunEvent,
   type WorkflowRunHandle,
 } from "@agent-dev-lab/core";
 import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-lab/core";
+import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
@@ -35,7 +38,7 @@ import {
   mapWorkflowRunStatus,
 } from "#/lib/event-adapter";
 import type { MockRunSummary, MockMessage } from "#/lib/mock/types";
-import { describeWorkflowInput } from "#/lib/workflow-input-schema";
+import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow-input-schema";
 
 export type { ProjectInspectorMeta };
 
@@ -98,10 +101,14 @@ async function ensureSessionsHydrated(): Promise<void> {
 export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
   const project = await getLoadedAdlProject();
   const workflowIds = project.listWorkflowIds();
-  const workflows = workflowIds.map((id) => ({
-    id,
-    inputFields: describeWorkflowInput(project.getWorkflow(id)?.input),
-  }));
+  const workflows = workflowIds.map((id) => {
+    const input = project.getWorkflow(id)?.input;
+    return {
+      id,
+      inputFields: describeWorkflowInput(input),
+      inputSample: sampleWorkflowInput(input),
+    };
+  });
   const agents = project.listAgentIds().map((id) => {
     const agent = project.getAgent(id);
     return {
@@ -110,6 +117,8 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
+      systemPrompt: agent?.systemPrompt ?? ok(""),
+      systemPromptPath: agent?.systemPromptPath ?? null,
     };
   });
   return {
@@ -117,6 +126,8 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
     root: project.root,
     configPath: project.configPath,
     devMode: resolveDevMode(),
+    generation: project.generation,
+    lastReloadError: project.lastReloadError,
     workflowIds,
     workflows,
     agentIds: agents.map((agent) => agent.id),
@@ -330,8 +341,12 @@ export async function forkAgentFromWorkflow(options: {
   const messageStore = await getMessageStore();
 
   const coreMessages: CoreMessage[] = options.messages.map(mockMessageToCore);
+  const fromPayload = splitStoredSystemPrompt(coreMessages);
+  const sourceStored = await messageStore.load(options.sourceMemoryScope);
+  const pin = fromPayload.systemPrompt ?? splitStoredSystemPrompt(sourceStored).systemPrompt;
+  const toSave = pin ? withStoredSystemPrompt(pin, fromPayload.transcript) : fromPayload.transcript;
 
-  await messageStore.save(memoryScope, coreMessages);
+  await messageStore.save(memoryScope, toSave);
 
   const session = registerForkSession({
     memoryScope,

@@ -7,7 +7,7 @@ import type { Workflow } from "../workflow/types";
 
 /**
  * Shape of `adl.config.*` at a project root.
- * Registry arrays are static at load time — see apps/docs (core/project).
+ * Registry arrays are indexed on load and again on hot reload — see apps/docs (core/project).
  *
  * **Runtime:** set `adl` on the config default export. In project code, import the runtime
  * via a tsconfig path alias (recommended: `#adl` → `./src/adl.ts`). Tooling uses
@@ -47,3 +47,9 @@ export type AdlConfigFilename = (typeof ADL_CONFIG_FILENAMES)[number];
 
 /** When `"1"`, the inspection UI runs in framework dev mode (playground default). */
 export const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
+
+/**
+ * When `"1"`, file-backed prompt templates re-read from disk on each `render()`.
+ * Set by the inspection UI dev server while the project watcher is active.
+ */
+export const ADL_PROJECT_WATCH_ENV = "ADL_PROJECT_WATCH";

@@ -32,7 +32,7 @@ export function AgentDefinitionPage({ agentId }: { agentId: string }) {
           <CardDescription>Configuration for this agent</CardDescription>
         </CardHeader>
         <CardContent>
-          <AgentConfigBody settings={agentSettingsFromMeta(agent)} />
+          <AgentConfigBody key={project.generation} settings={agentSettingsFromMeta(agent)} />
         </CardContent>
       </Card>
     </ConfigWorkspace>

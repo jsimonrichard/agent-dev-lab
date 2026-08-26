@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
+import type { Result } from "@agent-dev-lab/core/result";
 
 import { cn } from "@/lib/utils";
 import type { MockMessage } from "@/lib/mock/types";
 import { parseStructuredJson, toChatDisplayItems } from "@/lib/chat-messages";
 import { ChatToolCall } from "@/components/app/chat-tool-call";
+import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
 
 interface ChatMessageListProps {
   messages: MockMessage[];
   streamingText?: string | null;
+  /** When false, streamed text stays visible but without the live "Streaming…" chrome. */
+  isStreaming?: boolean;
   className?: string;
   /** Smaller markdown for narrow step inspector */
   compact?: boolean;
@@ -17,17 +21,23 @@ interface ChatMessageListProps {
   muted?: boolean;
   /** When false, skip the empty-state placeholder. Default true. */
   showEmpty?: boolean;
+  /** Fallback overlay when the transcript has no pinned system message (legacy scopes). */
+  systemPrompt?: Result<string, string> | null;
 }
 
 export function ChatMessageList({
   messages,
   streamingText,
+  isStreaming = true,
   className,
   compact = false,
   muted = false,
   showEmpty = true,
+  systemPrompt,
 }: ChatMessageListProps) {
+  const hasStoredSystem = messages[0]?.role === "system";
   const items = toChatDisplayItems(messages);
+  const overlayPrompt = !hasStoredSystem ? systemPrompt : null;
   const streamingJson = streamingText ? parseStructuredJson(streamingText) : undefined;
 
   return (
@@ -38,6 +48,7 @@ export function ChatMessageList({
         className,
       )}
     >
+      {overlayPrompt ? <LiveSystemPromptOverlay prompt={overlayPrompt} compact={compact} /> : null}
       {items.map((item) => {
         if (item.type === "text") {
           return (
@@ -79,7 +90,7 @@ export function ChatMessageList({
       })}
       {streamingText ? (
         streamingJson !== undefined ? (
-          <ChatBubble role="assistant" streaming compact={compact} structured>
+          <ChatBubble role="assistant" streaming={isStreaming} compact={compact} structured>
             <JsonPreview
               value={streamingJson}
               label="Structured Output"
@@ -88,7 +99,7 @@ export function ChatMessageList({
             />
           </ChatBubble>
         ) : (
-          <ChatBubble role="assistant" streaming compact={compact}>
+          <ChatBubble role="assistant" streaming={isStreaming} compact={compact}>
             <MarkdownContent content={streamingText} compact={compact} />
           </ChatBubble>
         )
@@ -131,17 +142,9 @@ function ChatBubble({
   structured?: boolean;
 }) {
   const isUser = role === "user";
-  const isSystem = role === "system";
 
-  if (isSystem) {
-    return (
-      <div className="mx-auto max-w-lg rounded-md border border-dashed border-border/50 bg-muted/30 px-3 py-2 text-center">
-        <p className="mb-1 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-          System prompt
-        </p>
-        {children}
-      </div>
-    );
+  if (role === "system") {
+    return <SystemPromptFrame compact={compact}>{children}</SystemPromptFrame>;
   }
 
   return (
@@ -170,4 +173,56 @@ function ChatBubble({
       </div>
     </div>
   );
+}
+
+function SystemPromptFrame({ children, compact }: { children: ReactNode; compact?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "mx-auto w-full rounded-md border border-dashed border-border/50 bg-muted/30 px-3 py-2",
+        compact ? "max-w-none" : "max-w-lg",
+      )}
+    >
+      <p className="mb-1 text-center text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+        System prompt
+      </p>
+      <div className="text-left">{children}</div>
+    </div>
+  );
+}
+
+/** Overlay of the agent's resolved system prompt (legacy scopes without a stored system message). */
+export function SystemPromptBanner({
+  content,
+  compact = false,
+}: {
+  content: string;
+  compact?: boolean;
+}) {
+  const prompt = content.trim();
+  if (!prompt) {
+    return null;
+  }
+  return (
+    <SystemPromptFrame compact={compact}>
+      <MarkdownContent content={prompt} compact={compact} tone="muted" />
+    </SystemPromptFrame>
+  );
+}
+
+function LiveSystemPromptOverlay({
+  prompt,
+  compact,
+}: {
+  prompt: Result<string, string>;
+  compact?: boolean;
+}) {
+  if (prompt.isErr) {
+    return (
+      <SystemPromptFrame compact={compact}>
+        <ErrorDetails error={prompt.error} compact />
+      </SystemPromptFrame>
+    );
+  }
+  return <SystemPromptBanner content={prompt.value} compact={compact} />;
 }

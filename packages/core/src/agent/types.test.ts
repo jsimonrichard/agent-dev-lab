@@ -10,7 +10,7 @@ type Expect<T extends true> = T;
 describe("Agent TOutput inference", () => {
   it("defaults to string when outputSchema is omitted", () => {
     const adl = createTestRuntime();
-    const agent = adl.createAgent({ id: "plain", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
     type Output = Awaited<ReturnType<(typeof agent)["run"]>["result"]>["output"];
     const check: Expect<Equal<Output, string>> = true;
     expect(agent.id).toBe("plain");
@@ -25,7 +25,7 @@ describe("Agent TOutput inference", () => {
     });
     const agent = adl.createAgent({
       id: "structured",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       outputSchema: schema,
     });
     type Output = Awaited<ReturnType<(typeof agent)["run"]>["result"]>["output"];
@@ -39,7 +39,7 @@ describe("Agent TOutput inference", () => {
     const schema = z.object({ summary: z.string() });
     const agent = adl.createAgent({
       id: "tooled",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       tools: {
         ping: tool({
           description: "Ping",

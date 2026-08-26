@@ -37,6 +37,95 @@ export function messageText(parts: ChatMessagePart[]): string {
     .join("");
 }
 
+/** Pinned system prompt from the first stored message, when present. */
+export function extractSystemPromptFromMessages(messages: MockMessage[]): string | null {
+  const first = messages[0];
+  if (!first || first.role !== "system") {
+    return null;
+  }
+  const text = messageText(messageParts(first)).trim();
+  return text.length > 0 ? text : null;
+}
+
+/** Transcript rows excluding pinned and stray system messages. */
+export function conversationMessagesWithoutSystem(messages: MockMessage[]): MockMessage[] {
+  const rest = messages[0]?.role === "system" ? messages.slice(1) : messages;
+  return rest.filter((message) => message.role !== "system");
+}
+
+/**
+ * Keep the streaming assistant bubble visible until the persisted transcript includes
+ * the assistant reply (avoids a gap when `isRunning` flips false before refresh).
+ */
+export function shouldShowStreamingAssistant(
+  messages: MockMessage[],
+  streamingText: string | undefined | null,
+  options: { isRunning: boolean; sending: boolean },
+): boolean {
+  if (!streamingText?.trim()) {
+    return false;
+  }
+  if (options.isRunning || options.sending) {
+    return true;
+  }
+  return messages[messages.length - 1]?.role !== "assistant";
+}
+
+/** Prefer fresher local optimistic rows over a stale loader snapshot. */
+export function mergeConversationMessages(
+  local: MockMessage[],
+  fromLoader: MockMessage[],
+): MockMessage[] {
+  if (fromLoader.length > local.length) {
+    return fromLoader;
+  }
+  if (fromLoader.length === local.length && fromLoader.length > 0) {
+    const loaderHasAssistant = fromLoader.some((message) => message.role === "assistant");
+    const localHasAssistant = local.some((message) => message.role === "assistant");
+    if (loaderHasAssistant && !localHasAssistant) {
+      return fromLoader;
+    }
+    if (loaderHasAssistant && localHasAssistant) {
+      return fromLoader;
+    }
+  }
+  if (fromLoader.length >= local.length) {
+    return fromLoader;
+  }
+  return local;
+}
+
+/** Keep stable React keys for optimistic user rows after refresh. */
+export function reconcileFetchedMessages(
+  fetched: MockMessage[],
+  local: MockMessage[],
+): MockMessage[] {
+  const pendingUsers = local.filter(
+    (message) => message.role === "user" && message.id.startsWith("pending-"),
+  );
+  if (pendingUsers.length === 0) {
+    return fetched;
+  }
+
+  const claimed = new Set<string>();
+  return fetched.map((message) => {
+    if (message.role !== "user") {
+      return message;
+    }
+    const pending = pendingUsers.find(
+      (candidate) =>
+        !claimed.has(candidate.id) &&
+        candidate.content === message.content &&
+        messageText(messageParts(candidate)) === messageText(messageParts(message)),
+    );
+    if (!pending) {
+      return message;
+    }
+    claimed.add(pending.id);
+    return { ...message, id: pending.id };
+  });
+}
+
 export function collectToolResults(messages: MockMessage[]): Map<string, ChatToolResultPart> {
   const results = new Map<string, ChatToolResultPart>();
   for (const message of messages) {
@@ -107,7 +196,7 @@ export function parseStructuredJson(text: string): unknown | undefined {
   }
   const fenced = candidate.match(FENCED_JSON);
   if (fenced) {
-    candidate = fenced[1].trim();
+    candidate = fenced[1]?.trim() ?? "";
   }
   if (!candidate.startsWith("{") && !candidate.startsWith("[")) {
     return undefined;

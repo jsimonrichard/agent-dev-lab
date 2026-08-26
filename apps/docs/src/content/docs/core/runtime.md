@@ -27,7 +27,7 @@ const adl = createAdlRuntime({
 const researcher = adl.createAgent({
   id: "researcher",
   model: openai("gpt-4o"),
-  instructions: "You are a research assistant.",
+  systemPrompt: "You are a research assistant.",
 });
 
 const review = adl.createWorkflow({
@@ -66,7 +66,7 @@ const episodeLogger: AgentObserver = {
 const customStore: MessageStore = inMemoryMessageStore();
 
 const researcher = adl.createAgent(
-  { id: "researcher", model: openai("gpt-4o"), instructions: "You are a research assistant." },
+  { id: "researcher", model: openai("gpt-4o"), systemPrompt: "You are a research assistant." },
   {
     observers: { agents: [episodeLogger] }, // appended to runtime defaults
     stores: { message: customStore }, // replaces default for this agent

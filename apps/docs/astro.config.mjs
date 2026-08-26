@@ -29,6 +29,7 @@ export default defineConfig({
           items: [
             { label: "Overview", slug: "guides/overview" },
             { label: "Project setup", slug: "guides/project-setup" },
+            { label: "Inspection UI", slug: "guides/inspection-ui" },
           ],
         },
         {

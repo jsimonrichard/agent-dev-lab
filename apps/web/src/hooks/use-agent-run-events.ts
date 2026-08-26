@@ -5,7 +5,10 @@ import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 interface UseAgentRunEventsOptions {
   /** Connect after a turn starts and the server has linked the session agentCallId. */
   enabled?: boolean;
+  /** Agent run reached a terminal state; refresh the committed transcript. */
   onFinished?: () => void;
+  /** Title updated (e.g. sidebar); avoid refetching messages here to prevent UI flash. */
+  onTitleSet?: () => void;
 }
 
 /**
@@ -13,12 +16,14 @@ interface UseAgentRunEventsOptions {
  * Workflow-embedded agents use {@link useWorkflowRunEvents} instead.
  */
 export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEventsOptions = {}) {
-  const { enabled = true, onFinished } = options;
+  const { enabled = true, onFinished, onTitleSet } = options;
   const [streamingText, setStreamingText] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const lastSeqRef = useRef(0);
   const onFinishedRef = useRef(onFinished);
+  const onTitleSetRef = useRef(onTitleSet);
   onFinishedRef.current = onFinished;
+  onTitleSetRef.current = onTitleSet;
 
   useEffect(() => {
     lastSeqRef.current = 0;
@@ -49,7 +54,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
         }
 
         if (event.type === "agent_title_set") {
-          onFinishedRef.current?.();
+          onTitleSetRef.current?.();
         }
 
         if (event.type === "agent_finished") {

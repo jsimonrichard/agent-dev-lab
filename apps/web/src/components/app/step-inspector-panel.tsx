@@ -8,7 +8,7 @@ import type {
   RunStatus,
   StepNode,
 } from "@/lib/mock/types";
-import { ChatMessageList } from "@/components/app/chat-message-list";
+import { ChatMessageList, SystemPromptBanner } from "@/components/app/chat-message-list";
 import { ConversationSkeleton } from "@/components/app/conversation-skeleton";
 import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
@@ -20,6 +20,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatStepLabel } from "@/lib/mock/run-projection";
+import {
+  extractSystemPromptFromMessages,
+  conversationMessagesWithoutSystem,
+} from "@/lib/chat-messages";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 import { partitionScopeTranscript } from "@/lib/scope-transcript";
 import { InspectorNoun } from "@/components/app/inspector-noun";
@@ -270,7 +274,11 @@ function EpisodeConversation({
 }) {
   const { messagesByScope, pendingScopes } = useLiveRunMessages(runId, prefetched, events);
   const messages = messagesByScope[episode.memoryScope] ?? [];
-  const { prior, current, later } = partitionScopeTranscript(messages, events, episode);
+  const storedSystemPrompt = extractSystemPromptFromMessages(messages);
+  const transcript = conversationMessagesWithoutSystem(messages);
+  const { prior, current, later } = partitionScopeTranscript(transcript, events, episode, {
+    commitTotalOffset: storedSystemPrompt ? 1 : 0,
+  });
   const episodeFailed = episode.status === "failed";
   const waitingForScope =
     !episodeFailed &&
@@ -280,7 +288,6 @@ function EpisodeConversation({
   const liveStreaming = episodeFailed ? null : streamingText;
   const hasTranscript =
     prior.length > 0 || current.length > 0 || later.length > 0 || Boolean(liveStreaming);
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ScrollArea className="min-h-0 min-w-0 flex-1">
@@ -288,6 +295,11 @@ function EpisodeConversation({
           <ConversationSkeleton />
         ) : (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {storedSystemPrompt ? (
+              <div className={hasTranscript ? "px-2 pt-2" : "p-2"}>
+                <SystemPromptBanner content={storedSystemPrompt} compact />
+              </div>
+            ) : null}
             {hasTranscript ? (
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-2">
                 {prior.length > 0 ? (

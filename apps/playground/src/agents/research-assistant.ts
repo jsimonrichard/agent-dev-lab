@@ -13,7 +13,7 @@ import { knowledgeTools } from "../tools/knowledge";
  */
 export const researchAssistant = adl.createAgent({
   id: "research-assistant",
-  instructions:
+  systemPrompt:
     "You are a research assistant for the Agent Dev Lab (ADL) framework. " +
     "Use the `lookupFact` tool for questions about ADL and the `calculate` tool for any math. " +
     "Call tools when helpful, then give a concise final answer that cites what you found.",

@@ -3,7 +3,7 @@ title: Agents
 description: adl.createAgent, run and stream, memoryScope, structured output, and tools.
 ---
 
-Agents are reusable model configurations: identity (instructions), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript.
+Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript.
 
 ## createAgent
 
@@ -20,7 +20,7 @@ import { adl } from "#adl";
 export const researcher = adl.createAgent({
   id: "researcher",
 
-  instructions: adl.createTemplate({
+  systemPrompt: adl.createTemplate({
     path: "./researcher.md",
     from: import.meta.url,
     inputData: z.object({}),
@@ -61,7 +61,7 @@ import { z } from "zod";
 
 const namer = adl.createAgent({
   id: "conversation-title-namer",
-  instructions: "Reply with a short conversation title.",
+  systemPrompt: "Reply with a short conversation title.",
   outputSchema: z.object({ title: z.string() }),
 });
 
@@ -81,20 +81,20 @@ export const conversationTitle = adl.createWorkflow<
 
 export const researcher = adl.createAgent({
   id: "researcher",
-  instructions: "You are a research assistant.",
+  systemPrompt: "You are a research assistant.",
   titleWorkflow: conversationTitle,
 });
 ```
 
 Keep the title workflow out of the `adl.config` `workflows` array if you do not want those runs listed in the inspection UI. Keep any inner title-namer agent out of the `agents` array unless you want those helper conversations listed. The runtime starts the title workflow with [`{ isolated: true }`](/core/workflows/#isolated-runs) so it is a separate persisted run and is not nested inside another workflow's tree.
 
-### Instructions
+### System prompt
 
-Declared as a **template ref** or static string. On every `run()` the instructions are resolved to text and passed to the AI SDK via the **`system`** option — not stored as a `system` message in the conversation.
+Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`system`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
 
-This avoids the AI SDK system-in-messages prompt-injection warning and keeps the `MessageStore` free of system text. Any stray `system` messages (legacy stores or caller `messages`) are dropped before the model call.
+The inspection UI shows the pinned stored prompt when one exists, and overlays the live `agent.systemPrompt` inspect result for empty or legacy scopes that have not pinned yet (`isErr` when a template cannot render). Stray `system` messages in caller `messages` are dropped before the model call.
 
-Volatile turn context belongs in **user** messages, not in instructions.
+Volatile turn context belongs in **user** messages, not in the system prompt.
 
 ### Structured output
 
@@ -120,7 +120,7 @@ Opaque string selecting a **conversation message list** in the store:
 `user:${userId}:chat:${chatId}`;
 ```
 
-Same agent + same `memoryScope` → shared history. New scope → new conversation (new system bootstrap when store is empty).
+Same agent + same `memoryScope` → shared history. New scope → new conversation.
 
 This is **conversation memory**, not workflow resume: the runner `load`s the transcript, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
 
@@ -168,7 +168,7 @@ type AgentRunInput = {
 
 1. `store.load(memoryScope)` (any `system` messages are filtered out)
 2. If `user` / `messages` → append to working list
-3. Resolve `instructions` → pass as the **`system`** option to `streamText`
+3. Resolve `systemPrompt` → pass as the **`system`** option to `streamText`
 4. **`streamText`** — forward text deltas to run events
 5. Append `response.messages` to store via `save`
 6. Return `AgentRunResult`

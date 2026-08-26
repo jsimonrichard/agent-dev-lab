@@ -61,6 +61,15 @@ function SettingsPage() {
           </p>
         </div>
         <div>
+          <p className="text-xs font-medium text-muted-foreground">Hot reload</p>
+          <p className="font-mono text-xs">
+            generation {project.generation}
+            {project.lastReloadError ? (
+              <span className="text-destructive"> · last error: {project.lastReloadError}</span>
+            ) : null}
+          </p>
+        </div>
+        <div>
           <p className="text-xs font-medium text-muted-foreground">Runtime</p>
           <p className="font-mono text-xs">{runtime.name}</p>
         </div>

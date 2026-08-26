@@ -8,9 +8,9 @@ import type { CoreMessage } from "ai";
  * Separate from {@link WorkflowStore} (run/step observability). Do not rebuild
  * agent memory by replaying run events.
  *
- * The agent runner: `load` → bootstrap system message when empty → append user /
- * `response.messages` → `save`. System text is stored here for inspection but
- * passed to the model via `streamText({ system })`, not `messages`.
+ * The agent runner: `load` → append user / `response.messages` → `save`.
+ * On a new `memoryScope`, the resolved system prompt is stored as the first
+ * message; later episodes reuse that pinned text (also passed via `system`).
  * `context` on `agent.run()` is not stored here.
  *
  * Configure via `createAdlRuntime({ stores: { message } })` or per-agent

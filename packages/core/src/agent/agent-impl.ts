@@ -12,11 +12,18 @@ import { AdlError } from "../errors";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { inspectMessageStoreKind } from "../memory/inspect";
+import type { Result } from "../result";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
-import { resolveInstructionsText } from "./resolve-instructions";
+import {
+  inspectSystemPrompt,
+  inspectSystemPromptPath,
+  resolveSystemPromptText,
+  splitStoredSystemPrompt,
+  withStoredSystemPrompt,
+} from "./resolve-system-prompt";
 import type {
   Agent,
   AgentDefinition,
@@ -58,6 +65,14 @@ export class AgentImpl<
 
   get titleWorkflowId(): string | null {
     return this.definition.titleWorkflow?.id ?? null;
+  }
+
+  get systemPrompt(): Result<string, string> {
+    return inspectSystemPrompt(this.definition.systemPrompt);
+  }
+
+  get systemPromptPath(): string | null {
+    return inspectSystemPromptPath(this.definition.systemPrompt);
   }
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
@@ -143,6 +158,9 @@ export class AgentImpl<
 
         try {
           const storedMessages = await messageStore.load(input.memoryScope);
+          const { systemPrompt: storedSystemPrompt, transcript: storedTranscript } =
+            splitStoredSystemPrompt(storedMessages);
+          const isNewConversation = storedMessages.length === 0;
 
           const turnMessages: CoreMessage[] = [];
           if (input.user) {
@@ -152,14 +170,15 @@ export class AgentImpl<
             turnMessages.push(...input.messages);
           }
 
-          // Instructions are passed via the AI SDK `system` option rather than as a
-          // system message in `messages`. This avoids the SDK's system-in-messages
-          // prompt-injection warning and keeps the MessageStore free of system text.
-          // Any stray system messages (legacy stores, caller input) are dropped here.
-          const messages = [...storedMessages, ...turnMessages].filter(
+          const currentSystemPrompt = resolveSystemPromptText(this.definition.systemPrompt);
+          const systemForEpisode = storedSystemPrompt ?? currentSystemPrompt;
+
+          // Conversation turns only — system text is passed via `streamText({ system })`
+          // and pinned as the first stored message on a new memoryScope.
+          const messages = [...storedTranscript, ...turnMessages].filter(
             (message) => message.role !== "system",
           );
-          const system = resolveInstructionsText(this.definition.instructions);
+          const system = systemForEpisode.trim() ? systemForEpisode : undefined;
 
           const model = this.definition.model ?? this.services.defaults.model;
           if (!model) {
@@ -213,12 +232,22 @@ export class AgentImpl<
 
           const responseMessages = (await streamResult.response).messages as CoreMessage[];
           const newMessages = responseMessages.length > 0 ? responseMessages : [];
-          const allMessages = newMessages.length > 0 ? [...messages, ...newMessages] : messages;
+          const conversationMessages =
+            newMessages.length > 0 ? [...messages, ...newMessages] : messages;
 
-          const persistedMessages = newMessages.length > 0 ? allMessages : storedMessages;
+          const pinnedSystem =
+            storedSystemPrompt ??
+            (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
+
+          const persistedMessages =
+            newMessages.length > 0
+              ? pinnedSystem
+                ? withStoredSystemPrompt(pinnedSystem, conversationMessages)
+                : conversationMessages
+              : storedMessages;
 
           if (newMessages.length > 0) {
-            await messageStore.save(input.memoryScope, allMessages);
+            await messageStore.save(input.memoryScope, persistedMessages);
           }
 
           await runRecorder.emit({
@@ -244,8 +273,8 @@ export class AgentImpl<
               workflowRunId,
               stepId,
               memoryScope: input.memoryScope,
-              isFirstTurn: storedMessages.length === 0 && turnMessages.length > 0,
-              messages: allMessages,
+              isFirstTurn: storedTranscript.length === 0 && turnMessages.length > 0,
+              messages: conversationMessages,
             });
           }
 
@@ -260,7 +289,7 @@ export class AgentImpl<
           return {
             text,
             output,
-            messages: allMessages,
+            messages: conversationMessages,
             newMessages,
             sdk,
           };

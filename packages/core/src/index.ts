@@ -15,11 +15,22 @@ import { readFileSync } from "node:fs";
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
-export { createAgent, CUSTOM_MODEL_ID, inspectLanguageModel } from "./agent";
+export {
+  createAgent,
+  CUSTOM_MODEL_ID,
+  inspectLanguageModel,
+  inspectSystemPrompt,
+  inspectSystemPromptPath,
+  resolveSystemPromptText,
+  splitStoredSystemPrompt,
+  withStoredSystemPrompt,
+} from "./agent";
+export { err, fromThrowable, ok, unwrap, unwrapErr } from "./result";
+export type { Err, Ok, Result } from "./result";
 export type {
   Agent,
   AgentDefinition,
-  AgentInstructions,
+  AgentSystemPrompt,
   AgentMemoryConfig,
   AgentModelInfo,
   AgentRunHandle,
@@ -123,20 +134,27 @@ export type {
   DefaultToolInput,
 } from "./tools";
 
-export { loadPromptFile, resolvePromptPath } from "./prompt/load";
+export { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./prompt/load";
 export { renderPromptTemplate } from "./prompt/render";
 
 export {
   ADL_CONFIG_FILENAMES,
   ADL_PROJECT_ROOT_ENV,
   ADL_FRAMEWORK_DEV_ENV,
+  ADL_PROJECT_WATCH_ENV,
   findAdlConfigPath,
   findAdlProjectRootFromCwd,
+  invalidateAdlConfigCache,
   loadAdlProject,
   loadAdlProjectEnv,
   resolveProjectRoot,
+  shouldReloadAdlProjectPath,
+  isIgnoredAdlProjectSegment,
+  watchAdlProject,
   type AdlConfigFilename,
   type AdlProjectConfig,
+  type AdlProjectReloadInfo,
+  type AdlProjectWatchHandlers,
   type LoadedAdlProject,
 } from "./project";
 

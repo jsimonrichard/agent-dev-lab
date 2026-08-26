@@ -9,7 +9,7 @@ import { z } from "zod";
 const KNOWLEDGE_BASE: Record<string, string> = {
   adl: "Agent Dev Lab (ADL) is a headless TypeScript framework for building agentic workflows on top of the Vercel AI SDK. Workflows orchestrate plain TypeScript; agents are single-step model episodes.",
   agent:
-    "In ADL an agent is a reusable model configuration: instructions, a model, optional tools, and an optional structured-output schema. Each agent.run() is exactly one AI SDK step.",
+    "In ADL an agent is a reusable model configuration: a system prompt, a model, optional tools, and an optional structured-output schema. Each agent.run() is exactly one AI SDK step.",
   workflow:
     "An ADL workflow is a plain async TypeScript function. It uses ctx.step() for observable, cacheable spans and can call agents, tools, and nested workflows.",
   "vercel ai sdk":

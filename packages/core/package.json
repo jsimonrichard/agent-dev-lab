@@ -23,6 +23,12 @@
       "types": "./src/project/index.ts",
       "bun": "./src/project/index.ts",
       "default": "./dist/project/index.js"
+    },
+    "./result": {
+      "types": "./src/result.ts",
+      "bun": "./src/result.ts",
+      "import": "./src/result.ts",
+      "default": "./dist/result.js"
     }
   },
   "scripts": {

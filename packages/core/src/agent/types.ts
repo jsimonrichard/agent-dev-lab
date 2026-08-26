@@ -2,11 +2,12 @@ import type { CoreMessage, LanguageModel, StreamTextResult, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { MessageStore } from "../memory/types";
+import type { Result } from "../result";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
-export type AgentInstructions<TInput = unknown> = string | Template<TInput>;
+export type AgentSystemPrompt<TInput = unknown> = string | Template<TInput>;
 
 export type AgentMemoryConfig = {
   store?: MessageStore;
@@ -24,7 +25,7 @@ export type ConversationTitleOutput = {
 
 export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> = {
   id: string;
-  instructions: AgentInstructions;
+  systemPrompt: AgentSystemPrompt;
   /** Required unless {@link AdlRuntimeConfig.defaults.model} is set. */
   model?: LanguageModel;
   tools?: Tools;
@@ -139,6 +140,19 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out
    * Id of {@link AgentDefinition.titleWorkflow} when this agent auto-titles conversations.
    */
   readonly titleWorkflowId: string | null;
+  /**
+   * Live resolved system prompt from the agent definition (inspectors).
+   * `{ isErr: true }` when the template cannot render (for example required Zod
+   * fields and no `demo`) — catalog loads still succeed.
+   * New conversations pin the successful text as the first stored message; later
+   * episodes reuse that pinned copy so hot-reload does not change in-flight chats.
+   */
+  readonly systemPrompt: Result<string, string>;
+  /**
+   * Relative template path when {@link AgentDefinition.systemPrompt} is file-backed;
+   * otherwise `null`.
+   */
+  readonly systemPromptPath: string | null;
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput>;
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput>;
 }

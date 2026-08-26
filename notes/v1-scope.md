@@ -4,7 +4,7 @@ Snapshot of **designed vs implemented vs remaining** for a first public release 
 
 **Legend:** ✅ done · 🚧 partial / known gap · 🔲 not started · ⏸ deferred (not RC)
 
-Last reconciled: **2026-08-26**.
+Last reconciled: **2026-08-27**.
 
 ---
 
@@ -18,7 +18,7 @@ Last reconciled: **2026-08-26**.
 | Nested `workflow.run` (shared run id) and `{ isolated: true }`              | ✅                                                              |
 | `workflow.stream` live event tail                                           | ✅                                                              |
 | `agent.run`, `agent.stream` (shared `streamText` core)                      | ✅                                                              |
-| Instructions as `system` (not stored `system` messages)                     | ✅                                                              |
+| System prompt pinned on first episode; live inspect is `Result<string>`     | ✅                                                              |
 | Structured output (`outputSchema` / per-call override)                      | ✅                                                              |
 | `titleWorkflow` + isolated title runs + `agent_title_set`                   | ✅                                                              |
 | `ctx.setTitle` / `workflow_title_set`                                       | ✅                                                              |
@@ -31,6 +31,7 @@ Last reconciled: **2026-08-26**.
 | `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                              |
 | OTel spans at workflow / step / agent boundaries (`withActiveSpan`)         | ✅                                                              |
 | `loadAdlProject` + indexes + duplicate id checks + `.env*` loading          | ✅                                                              |
+| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅                                                              |
 | `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                              |
 | `AdlError` + `createTestRuntime`                                            | ✅                                                              |
 | `eventSchemaVersion` on persisted events                                    | ✅                                                              |
@@ -68,6 +69,8 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Agent conversations, titles, fork from a workflow step              | ✅                                |
 | Shared-scope transcript slice (history up to selected call)         | ✅                                |
 | Agent config: model id/provider, memory kind, tools, title workflow | ✅                                |
+| Live inspect `systemPrompt` (`Result`) + overlay / inspect errors   | ✅                                |
+| Project hot reload SSE + failed-reload banner                       | ✅                                |
 | Live assistant text via `agent_text_delta` in chat / run views      | ✅                                |
 | Template playground (edit/render markdown templates in UI)          | ⏸                                 |
 | Dedicated token-debug pane (raw delta inspector)                    | ⏸                                 |
@@ -151,14 +154,14 @@ CI is lint / format / typecheck / **package unit tests** / build. It does **not*
 
 **Core — add or thicken:**
 
-| Area                                                       | Today                              | Gap                                                             |
-| ---------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
-| Workflow run / skip / keys / nest / isolate / titles / Zod | `execute.test.ts`                  | Cancel, `{ force: true }`, `step_failed`, output schema failure |
-| Agent prompt / titles / commit counts                      | `agent-impl.test.ts`               | `agent.stream`, `outputSchema`, tools, abort                    |
-| `createToolFromAgent` / `createToolFromWorkflow`           | none                               | ALS required; isolated vs nested                                |
-| SQLite + in-memory store contract                          | `store.contract.test.ts`           | Inspector session store                                         |
-| Project load / env                                         | `load.test.ts`, `load-env.test.ts` | Duplicate id errors are light                                   |
-| Templates                                                  | `create.test.ts`                   | —                                                               |
+| Area                                                       | Today                                                | Gap                                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
+| Workflow run / skip / keys / nest / isolate / titles / Zod | `execute.test.ts`                                    | Cancel, `{ force: true }`, `step_failed`, output schema failure |
+| Agent prompt / titles / commit counts                      | `agent-impl.test.ts`                                 | `agent.stream`, `outputSchema`, tools, abort                    |
+| `createToolFromAgent` / `createToolFromWorkflow`           | none                                                 | ALS required; isolated vs nested                                |
+| SQLite + in-memory store contract                          | `store.contract.test.ts`                             | Inspector session store                                         |
+| Project load / env / reload / watch                        | `load.test.ts`, `load-env.test.ts`, `reload.test.ts` | Duplicate id errors are light                                   |
+| Templates                                                  | `create.test.ts`                                     | —                                                               |
 
 **CLI:** init currently asserts **file bytes match playground**, which encodes the broken coupling. After the dedicated scaffold, assert: generated `adl.config` only imports copied files, `tsc --noEmit` passes, `adl workflows list` works.
 

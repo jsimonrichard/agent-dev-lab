@@ -34,6 +34,7 @@ describe("adl init", () => {
       imports?: Record<string, string>;
     };
     expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.1.0");
+    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.1.0");
     expect(pkg.imports?.["#adl"]).toBe("./src/adl.ts");
     expect(await readFile(path.join(dir, ".gitignore"), "utf8")).toContain("node_modules/");
   });

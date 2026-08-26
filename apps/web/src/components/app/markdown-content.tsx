@@ -30,11 +30,29 @@ interface MarkdownContentProps {
 
 const toneClasses: Record<MarkdownTone, string> = {
   default:
-    "text-card-foreground prose-headings:text-card-foreground prose-p:text-card-foreground prose-li:text-card-foreground prose-strong:text-card-foreground prose-a:text-primary",
+    "text-card-foreground prose-headings:text-card-foreground prose-p:text-card-foreground prose-li:text-card-foreground prose-strong:text-card-foreground prose-a:text-primary prose-code:text-card-foreground prose-code:bg-muted/60",
   "on-primary":
     "text-primary-foreground prose-headings:text-primary-foreground prose-p:text-primary-foreground prose-li:text-primary-foreground prose-strong:text-primary-foreground prose-a:text-primary-foreground prose-code:text-primary-foreground prose-code:bg-primary-foreground/15 prose-th:text-primary-foreground prose-td:text-primary-foreground",
   muted:
-    "text-muted-foreground prose-headings:text-muted-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-muted-foreground prose-a:text-muted-foreground",
+    "text-muted-foreground prose-headings:text-muted-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-muted-foreground prose-a:text-muted-foreground prose-code:text-muted-foreground prose-code:bg-muted/60",
+};
+
+const codeTextClasses: Record<MarkdownTone, string> = {
+  default: "text-card-foreground",
+  "on-primary": "text-primary-foreground",
+  muted: "text-muted-foreground",
+};
+
+const inlineCodeClasses: Record<MarkdownTone, string> = {
+  default: "bg-muted/60 text-card-foreground",
+  "on-primary": "bg-primary-foreground/15 text-primary-foreground",
+  muted: "bg-muted/60 text-muted-foreground",
+};
+
+const preClasses: Record<MarkdownTone, string> = {
+  default: "border-border/40 bg-muted/40 text-card-foreground",
+  "on-primary": "border-primary-foreground/25 bg-primary-foreground/10 text-primary-foreground",
+  muted: "border-border/40 bg-muted/40 text-muted-foreground",
 };
 
 export const MarkdownContent = memo(function MarkdownContent({
@@ -93,9 +111,7 @@ function markdownComponents(tone: MarkdownTone) {
       <pre
         className={cn(
           "my-2 max-w-full overflow-x-auto rounded-md border p-3 text-xs leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-          tone === "on-primary"
-            ? "border-primary-foreground/25 bg-primary-foreground/10"
-            : "border-border/40 bg-muted/40",
+          preClasses[tone],
         )}
       >
         {children}
@@ -114,17 +130,14 @@ function markdownComponents(tone: MarkdownTone) {
         const isJson = /\blanguage-json\b/.test(codeClassName ?? "");
         const text = String(children).replace(/\n$/, "");
         return (
-          <code className={cn("font-mono", codeClassName)} {...props}>
+          <code className={cn("font-mono", codeTextClasses[tone], codeClassName)} {...props}>
             {isJson ? <JsonTokens text={text} /> : children}
           </code>
         );
       }
       return (
         <code
-          className={cn(
-            "rounded px-1 py-0.5 font-mono text-[0.9em]",
-            tone === "on-primary" ? "bg-primary-foreground/15" : "bg-muted/60",
-          )}
+          className={cn("rounded px-1 py-0.5 font-mono text-[0.9em]", inlineCodeClasses[tone])}
           {...props}
         >
           {children}

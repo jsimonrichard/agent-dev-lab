@@ -3,7 +3,7 @@ import type { z } from "zod";
 /**
  * Branded prompt template: Zod-validated input, then Handlebars, then string.
  *
- * Usable from agent `instructions`, workflow turns, or tests — not tied to
+ * Usable from agent `systemPrompt`, workflow turns, or tests — not tied to
  * {@link WorkflowContext}. Pass render data explicitly (no `ctx.render`).
  *
  * When created from a file path, `name` is the filename basename without extension

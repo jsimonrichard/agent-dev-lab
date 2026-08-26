@@ -14,7 +14,7 @@ describe("createTestRuntime", () => {
     const adl = createTestRuntime();
     const agent = adl.createAgent({
       id: "no-model",
-      instructions: "test",
+      systemPrompt: "test",
     });
     await expect(agent.run({ memoryScope: "s", user: "hi" }).result).rejects.toBeInstanceOf(
       AdlError,

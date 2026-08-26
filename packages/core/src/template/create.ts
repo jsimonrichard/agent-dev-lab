@@ -2,7 +2,7 @@ import path from "node:path";
 
 import type { z } from "zod";
 
-import { loadPromptFile, resolvePromptPath } from "../prompt/load";
+import { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "../prompt/load";
 import type { AdlRuntime } from "../runtime/types";
 import type { TemplateEngine } from "./engine";
 import type { Template, TemplateConfig } from "./types";
@@ -39,6 +39,7 @@ export function buildTemplate<TSchema extends z.ZodType>(
 ): Template<z.infer<TSchema>> {
   let source: string;
   let templatePath: string | undefined;
+  let filePath: string | undefined;
 
   if ("source" in config && config.source !== undefined) {
     source = config.source;
@@ -50,7 +51,8 @@ export function buildTemplate<TSchema extends z.ZodType>(
       );
     }
     templatePath = config.path;
-    source = loadPromptFile(resolvePromptPath(from, config.path));
+    filePath = resolvePromptPath(from, config.path);
+    source = loadPromptFile(filePath);
   } else {
     throw new Error("createTemplate: provide either `path` + `from` or inline `source`");
   }
@@ -64,7 +66,8 @@ export function buildTemplate<TSchema extends z.ZodType>(
     demo: config.demo,
     render(inputData: z.infer<TSchema>) {
       const parsed = config.inputData.parse(inputData);
-      return engine.render(source, parsed);
+      const text = filePath && shouldRereadPromptFileOnRender() ? loadPromptFile(filePath) : source;
+      return engine.render(text, parsed);
     },
   };
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { buildWorkflowInput, describeWorkflowInput } from "./workflow-input-schema";
+import {
+  buildWorkflowInput,
+  describeWorkflowInput,
+  sampleWorkflowInput,
+  workflowInputValuesFromSample,
+} from "./workflow-input-schema";
 
 function zodString() {
   return { _def: { typeName: "ZodString" } };
@@ -14,8 +19,8 @@ function zodOptional(inner: unknown) {
   return { _def: { typeName: "ZodOptional", innerType: inner } };
 }
 
-function zodDefault(inner: unknown) {
-  return { _def: { typeName: "ZodDefault", innerType: inner } };
+function zodDefault(inner: unknown, value = "") {
+  return { _def: { typeName: "ZodDefault", innerType: inner, defaultValue: () => value } };
 }
 
 function zodObject(shape: Record<string, unknown>) {
@@ -58,6 +63,33 @@ describe("describeWorkflowInput", () => {
   it("returns no fields when the workflow has no object schema", () => {
     expect(describeWorkflowInput(undefined)).toEqual([]);
     expect(describeWorkflowInput(zodString())).toEqual([]);
+  });
+});
+
+describe("sampleWorkflowInput", () => {
+  it("applies defaults via the schema safeParse path", () => {
+    const schema = {
+      safeParse: (value: unknown) =>
+        value && typeof value === "object" && Object.keys(value as object).length === 0
+          ? { success: true, data: { question: "What is ADL?", retries: 3 } }
+          : { success: false },
+    };
+    expect(sampleWorkflowInput(schema)).toEqual({
+      question: "What is ADL?",
+      retries: 3,
+    });
+  });
+
+  it("maps a sample object into start-run form values", () => {
+    expect(
+      workflowInputValuesFromSample(
+        [
+          { name: "question", kind: "string", required: false },
+          { name: "retries", kind: "number", required: false },
+        ],
+        { question: "Hello", retries: 2 },
+      ),
+    ).toEqual({ question: "Hello", retries: "2" });
   });
 });
 

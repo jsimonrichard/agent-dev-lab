@@ -14,9 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { startInspectionWorkflowRun } from "#/lib/inspector-server";
+import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector-server";
 import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector-types";
-import { buildWorkflowInput } from "#/lib/workflow-input-schema";
+import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow-input-schema";
 import { cn } from "@/lib/utils";
 
 const selectClassName = cn(
@@ -65,12 +65,7 @@ export function StartWorkflowButton({
         {children}
       </Button>
       {workflow ? (
-        <StartWorkflowDialog
-          open={open}
-          onOpenChange={setOpen}
-          workflows={project.workflows}
-          workflowId={workflowId}
-        />
+        <StartWorkflowDialog open={open} onOpenChange={setOpen} workflowId={workflowId} />
       ) : null}
     </>
   );
@@ -79,19 +74,41 @@ export function StartWorkflowButton({
 export function StartWorkflowDialog({
   open,
   onOpenChange,
-  workflows,
   workflowId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  workflows: WorkflowInspectorMeta[];
   workflowId: string;
 }) {
+  const { project } = useAppLoaderData();
+  const [workflows, setWorkflows] = useState<WorkflowInspectorMeta[] | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setWorkflows(null);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchProjectMeta().then((meta) => {
+      if (!cancelled) {
+        setWorkflows(meta.workflows);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, project.generation]);
+
+  const resolvedWorkflows = workflows ?? project.workflows;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <StartWorkflowForm
-          workflows={workflows}
+          key={`${workflowId}:${project.generation}`}
+          workflows={resolvedWorkflows}
           workflowId={workflowId}
           active={open}
           variant="dialog"
@@ -103,26 +120,27 @@ export function StartWorkflowDialog({
 }
 
 export function StartWorkflowForm({
-  workflows,
   workflowId,
   active = true,
   variant = "page",
   onCancel,
+  workflows: workflowsOverride,
 }: {
-  workflows: WorkflowInspectorMeta[];
+  workflows?: WorkflowInspectorMeta[];
   workflowId?: string;
   /** When false, skip resetting — used so a closed dialog does not clobber state. */
   active?: boolean;
   variant?: "dialog" | "page";
   onCancel?: () => void;
 }) {
+  const { project } = useAppLoaderData();
+  const workflows = workflowsOverride ?? project.workflows;
   const lockedId = workflowId;
   const formId = useId();
   const nameId = `${formId}-name`;
   const workflowSelectId = `${formId}-workflow`;
   const [selectedId, setSelectedId] = useState(lockedId ?? workflows[0]?.id ?? "");
   const [runName, setRunName] = useState("");
-  const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -131,6 +149,9 @@ export function StartWorkflowForm({
     [workflows, lockedId, selectedId],
   );
   const fields = selected?.inputFields ?? [];
+  const [values, setValues] = useState<Record<string, string | boolean>>(() =>
+    workflowInputValuesFromSample(fields, selected?.inputSample),
+  );
   const description = startWorkflowDescription(lockedId, fields.length);
   const autoFocus = variant === "dialog";
 
@@ -138,12 +159,13 @@ export function StartWorkflowForm({
     if (!active) {
       return;
     }
+    const workflow = workflows.find((item) => item.id === (lockedId ?? workflows[0]?.id ?? ""));
     setSelectedId(lockedId ?? workflows[0]?.id ?? "");
     setRunName("");
-    setValues({});
+    setValues(workflowInputValuesFromSample(workflow?.inputFields ?? [], workflow?.inputSample));
     setError(null);
     setSubmitting(false);
-  }, [active, lockedId, workflows]);
+  }, [active, lockedId, workflows, project.generation]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -208,8 +230,9 @@ export function StartWorkflowForm({
             className={selectClassName}
             value={selectedId}
             onChange={(event) => {
+              const next = workflows.find((workflow) => workflow.id === event.target.value);
               setSelectedId(event.target.value);
-              setValues({});
+              setValues(workflowInputValuesFromSample(next?.inputFields ?? [], next?.inputSample));
               setError(null);
             }}
           >
@@ -232,7 +255,8 @@ export function StartWorkflowForm({
           placeholder="Leave blank to use the run id"
         />
         <p className="text-xs text-muted-foreground">
-          Shown in the run list. The run id stays the same.
+          Shown in the run list. The workflow can still override this title. The run id stays the
+          same.
         </p>
       </div>
 

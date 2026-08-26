@@ -210,4 +210,28 @@ describe("partitionScopeTranscript", () => {
       later: transcript.slice(2, 4),
     });
   });
+
+  it("adjusts commit totals when the transcript omits a pinned system message", () => {
+    const events = [
+      started(1, "ep-1"),
+      committed(2, "ep-1", 3),
+      started(3, "ep-2"),
+      committed(4, "ep-2", 5),
+    ];
+    expect(
+      partitionScopeTranscript(
+        transcript.slice(0, 4),
+        events,
+        {
+          episodeId: "ep-2",
+          memoryScope: "notes",
+        },
+        { commitTotalOffset: 1 },
+      ),
+    ).toEqual({
+      prior: transcript.slice(0, 2),
+      current: transcript.slice(2, 4),
+      later: [],
+    });
+  });
 });

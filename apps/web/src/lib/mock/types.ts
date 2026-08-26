@@ -1,3 +1,5 @@
+import type { Result } from "@agent-dev-lab/core/result";
+
 /** UI view-model shapes aligned with notes/streaming-api.md and workflow-api.md. */
 
 /** JSON-serializable value — used for fields crossing the server-function boundary. */
@@ -52,7 +54,8 @@ export interface MockAgentSettings {
   tools: MockAgentToolDefinition[];
   titleWorkflowId?: string | null;
   outputSchema?: string;
-  systemPromptPath?: string;
+  systemPrompt: Result<string, string>;
+  systemPromptPath?: string | null;
 }
 
 export interface MockRunSummary {

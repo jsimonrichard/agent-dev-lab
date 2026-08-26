@@ -1,9 +1,17 @@
+import type { Result } from "@agent-dev-lab/core/result";
+
+import type { JsonValue } from "#/lib/mock/types";
+
 /** Client-safe inspector project metadata (no Node / core runtime imports). */
 export interface ProjectInspectorMeta {
   name: string;
   root: string;
   configPath: string;
   devMode: "framework-dev" | "project-dev" | "serve";
+  /** Monotonic hot-reload generation from {@link LoadedAdlProject.generation}. */
+  generation: number;
+  /** Last hot-reload failure message, if any. */
+  lastReloadError: string | null;
   workflowIds: string[];
   workflows: WorkflowInspectorMeta[];
   agentIds: string[];
@@ -23,6 +31,8 @@ export interface WorkflowInputField {
 export interface WorkflowInspectorMeta {
   id: string;
   inputFields: WorkflowInputField[];
+  /** `{}` parsed through the live workflow input schema (defaults applied by Zod). */
+  inputSample?: JsonValue;
 }
 
 /** Effective model for an agent (mirrors core's `AgentModelInfo`, kept client-safe). */
@@ -42,4 +52,8 @@ export interface AgentInspectorMeta {
   model: AgentModelInspectorMeta | null;
   /** Id of the optional conversation-title workflow, when configured. */
   titleWorkflowId: string | null;
+  /** Live system prompt inspect result shown at the top of conversation views. */
+  systemPrompt: Result<string, string>;
+  /** Relative file path when the prompt is a file-backed template. */
+  systemPromptPath: string | null;
 }

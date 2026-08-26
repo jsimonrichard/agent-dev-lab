@@ -9,8 +9,9 @@ import { AdlError } from "../errors";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
 import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config";
-import { importAdlConfigModule } from "./load-config";
+import { importAdlConfigModule, invalidateAdlConfigCache } from "./load-config";
 import { loadAdlProjectEnv } from "./load-env";
+import { pinRuntimeStores } from "./pin-stores";
 
 export const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
@@ -59,9 +60,17 @@ export function findAdlProjectRootFromCwd(cwd: string = process.cwd()): string {
 }
 
 export interface LoadedAdlProject {
-  root: string;
-  configPath: string;
-  config: AdlProjectConfig;
+  readonly root: string;
+  readonly configPath: string;
+  readonly generation: number;
+  readonly lastReloadError: string | null;
+  readonly config: AdlProjectConfig;
+
+  /**
+   * Re-import `adl.config.*` and swap agents/workflows/templates while pinning stores.
+   * On failure the previous registry is kept and {@link lastReloadError} is set.
+   */
+  reload(): Promise<void>;
 
   /**
    * Process runtime from `adl.config` (`config.adl`).
@@ -76,6 +85,19 @@ export interface LoadedAdlProject {
   getTemplate(name: string): Template<unknown> | undefined;
   listTemplateNames(): string[];
 }
+
+type ProjectIndexes = {
+  workflowById: Map<string, Workflow<unknown, unknown>>;
+  agentById: Map<string, Agent<unknown, ToolSet, unknown>>;
+  templateByName: Map<string, Template<unknown>>;
+};
+
+type ProjectState = {
+  config: AdlProjectConfig;
+  configFilename: AdlConfigFilename;
+  generation: number;
+  lastReloadError: string | null;
+} & ProjectIndexes;
 
 /**
  * Loads `adl.config.*` from `projectRoot` via dynamic import (TS/JS) or JSON parse.
@@ -99,17 +121,21 @@ export async function loadAdlProject(options?: {
 
   const configPath = path.join(root, configFilename);
   const config = await loadConfigModule(configPath, configFilename);
-  return buildLoadedProject({ root, configPath, config });
+  return buildLoadedProject({ root, configPath, config, configFilename });
 }
 
-async function loadConfigModule(configPath: string, filename: string): Promise<AdlProjectConfig> {
+async function loadConfigModule(
+  configPath: string,
+  filename: string,
+  options?: { bustCache?: boolean },
+): Promise<AdlProjectConfig> {
   if (filename.endsWith(".json")) {
     const raw = await readFile(configPath, "utf8");
     const parsed: unknown = JSON.parse(raw);
     return normalizeConfig(parsed, configPath);
   }
 
-  const exported = await importAdlConfigModule(configPath);
+  const exported = await importAdlConfigModule(configPath, options);
   return normalizeConfig(exported, configPath);
 }
 
@@ -162,45 +188,102 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
   };
 }
 
+function buildIndexes(config: AdlProjectConfig, configPath: string): ProjectIndexes {
+  return {
+    workflowById: indexById(config.workflows ?? [], "workflow"),
+    agentById: indexById(config.agents ?? [], "agent"),
+    templateByName: indexTemplates(config.templates ?? [], configPath),
+  };
+}
+
 function buildLoadedProject(parts: {
   root: string;
   configPath: string;
   config: AdlProjectConfig;
+  configFilename: AdlConfigFilename;
 }): LoadedAdlProject {
-  const workflowById = indexById(parts.config.workflows ?? [], "workflow");
-  const agentById = indexById(parts.config.agents ?? [], "agent");
-  const templateByName = indexTemplates(parts.config.templates ?? [], parts.configPath);
+  const state: ProjectState = {
+    config: parts.config,
+    configFilename: parts.configFilename,
+    generation: 0,
+    lastReloadError: null,
+    ...buildIndexes(parts.config, parts.configPath),
+  };
 
-  return {
-    ...parts,
+  let reloadPromise: Promise<void> | null = null;
+
+  const project: LoadedAdlProject = {
+    root: parts.root,
+    configPath: parts.configPath,
+    get config() {
+      return state.config;
+    },
+    get generation() {
+      return state.generation;
+    },
+    get lastReloadError() {
+      return state.lastReloadError;
+    },
     getAdl() {
-      if (!parts.config.adl) {
+      if (!state.config.adl) {
         throw new AdlError(
           "MISSING_RUNTIME",
           `ADL project config at ${parts.configPath} is missing \`adl\`. Export createAdlRuntime() as config.adl.`,
         );
       }
-      return parts.config.adl;
+      return state.config.adl;
     },
     getWorkflow(id) {
-      return workflowById.get(id);
+      return state.workflowById.get(id);
     },
     getAgent(id) {
-      return agentById.get(id);
+      return state.agentById.get(id);
     },
     listWorkflowIds() {
-      return [...workflowById.keys()];
+      return [...state.workflowById.keys()];
     },
     listAgentIds() {
-      return [...agentById.keys()];
+      return [...state.agentById.keys()];
     },
     getTemplate(name) {
-      return templateByName.get(name);
+      return state.templateByName.get(name);
     },
     listTemplateNames() {
-      return [...templateByName.keys()];
+      return [...state.templateByName.keys()];
+    },
+    reload() {
+      if (reloadPromise) {
+        return reloadPromise;
+      }
+      reloadPromise = performReload().finally(() => {
+        reloadPromise = null;
+      });
+      return reloadPromise;
     },
   };
+
+  async function performReload(): Promise<void> {
+    invalidateAdlConfigCache(parts.root);
+    try {
+      const nextConfig = await loadConfigModule(parts.configPath, state.configFilename, {
+        bustCache: true,
+      });
+      const previousConfig = state.config;
+      pinRuntimeStores(previousConfig, nextConfig);
+      const indexes = buildIndexes(nextConfig, parts.configPath);
+      state.config = nextConfig;
+      state.workflowById = indexes.workflowById;
+      state.agentById = indexes.agentById;
+      state.templateByName = indexes.templateByName;
+      state.generation += 1;
+      state.lastReloadError = null;
+    } catch (error) {
+      state.lastReloadError = error instanceof Error ? error.message : String(error);
+      throw error;
+    }
+  }
+
+  return project;
 }
 
 function indexById<T extends { id: string }>(

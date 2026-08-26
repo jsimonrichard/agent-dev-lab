@@ -1,4 +1,5 @@
 import type { WorkflowInputField, WorkflowInputFieldKind } from "#/lib/inspector-types";
+import type { JsonValue } from "#/lib/mock/types";
 
 /**
  * Walk a Zod schema without `instanceof` so it works across duplicate `zod` copies
@@ -127,6 +128,52 @@ export function describeWorkflowInput(schema: unknown): WorkflowInputField[] {
       options,
     };
   });
+}
+
+/**
+ * Apply the live workflow input schema to `{}` so defaults/refinements come from
+ * the reloaded definition — same path as {@link WorkflowImpl} uses at run time.
+ */
+export function sampleWorkflowInput(schema: unknown): JsonValue | undefined {
+  if (!schema || typeof schema !== "object") {
+    return undefined;
+  }
+  const parser = schema as {
+    safeParse?: (value: unknown) => { success: boolean; data?: unknown };
+  };
+  if (typeof parser.safeParse !== "function") {
+    return undefined;
+  }
+  const parsed = parser.safeParse({});
+  return parsed.success ? (parsed.data as JsonValue) : undefined;
+}
+
+export function workflowInputValuesFromSample(
+  fields: WorkflowInputField[],
+  sample: JsonValue | undefined,
+): Record<string, string | boolean> {
+  if (!sample || typeof sample !== "object") {
+    return {};
+  }
+
+  const record = sample as Record<string, unknown>;
+  const values: Record<string, string | boolean> = {};
+  for (const field of fields) {
+    const raw = record[field.name];
+    if (raw === undefined) {
+      continue;
+    }
+    if (field.kind === "boolean") {
+      values[field.name] = Boolean(raw);
+      continue;
+    }
+    if (field.kind === "json") {
+      values[field.name] = typeof raw === "string" ? raw : JSON.stringify(raw, null, 2);
+      continue;
+    }
+    values[field.name] = String(raw);
+  }
+  return values;
 }
 
 export function buildWorkflowInput(

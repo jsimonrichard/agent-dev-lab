@@ -40,7 +40,7 @@ describe("inspectMessageStoreKind", () => {
 describe("Agent.memoryKind", () => {
   it("reports the runtime default store", () => {
     const adl = createTestRuntime();
-    const agent = adl.createAgent({ id: "researcher", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "researcher", systemPrompt: "Be brief." });
     expect(agent.memoryKind).toBe("in-memory");
   });
 
@@ -48,7 +48,7 @@ describe("Agent.memoryKind", () => {
     const adl = createTestRuntime();
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       memory: { store: { ...inMemoryMessageStore(), kind: "redis" } },
     });
     expect(agent.memoryKind).toBe("redis");
@@ -59,7 +59,7 @@ describe("Agent.memoryKind", () => {
     const adl = createAdlRuntime({
       stores: { message: sqliteMessageStore({ path: path.join(dir, "test.sqlite") }) },
     });
-    const agent = adl.createAgent({ id: "researcher", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "researcher", systemPrompt: "Be brief." });
     expect(agent.memoryKind).toBe("sqlite");
   });
 
@@ -67,7 +67,7 @@ describe("Agent.memoryKind", () => {
     const adl = createTestRuntime();
     const agent = adl.createAgent({
       id: "researcher",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
       memory: { store: unlabeledStore() },
     });
     expect(agent.memoryKind).toBe(CUSTOM_MESSAGE_STORE_KIND);

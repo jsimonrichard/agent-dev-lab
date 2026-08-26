@@ -3,7 +3,7 @@ import { z } from "zod";
 import { adl } from "#adl";
 
 import { model } from "../model";
-import { outlinerInstructions } from "../prompts";
+import { outlinerSystemPrompt } from "../prompts";
 import { conversationTitle } from "./conversation-title";
 
 export const outlineSchema = z.object({
@@ -21,12 +21,12 @@ export const outlineSchema = z.object({
 export type Outline = z.infer<typeof outlineSchema>;
 
 /**
- * Plans an article outline. Uses a file-based instruction template and structured
+ * Plans an article outline. Uses a file-based system prompt template and structured
  * output so the workflow receives typed `{ title, sections }`.
  */
 export const outliner = adl.createAgent({
   id: "outliner",
-  instructions: outlinerInstructions,
+  systemPrompt: outlinerSystemPrompt,
   model,
   outputSchema: outlineSchema,
   titleWorkflow: conversationTitle,

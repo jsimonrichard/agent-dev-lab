@@ -11,6 +11,12 @@ import type {
   ResolvedAgentConversation,
 } from "@/lib/mock/types";
 import { ChatMessageList } from "@/components/app/chat-message-list";
+import {
+  extractSystemPromptFromMessages,
+  mergeConversationMessages,
+  reconcileFetchedMessages,
+  shouldShowStreamingAssistant,
+} from "@/lib/chat-messages";
 import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
 import { ErrorDetails } from "@/components/app/error-details";
@@ -45,20 +51,30 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
   }, [conversation.runId]);
 
   useEffect(() => {
-    setMessages(conversation.messages);
+    setMessages((current) => mergeConversationMessages(current, conversation.messages));
   }, [conversation.messages]);
 
   const refreshMessages = useCallback(async () => {
     const updated = await fetchMessagesForScope({ data: conversation.runId });
-    setMessages(updated);
+    setMessages((current) => reconcileFetchedMessages(updated, current));
+  }, [conversation.runId]);
+
+  const refreshConversationMeta = useCallback(() => {
     void router.invalidate();
-  }, [conversation.runId, router]);
+  }, [router]);
 
   const { streamingText, isRunning } = useAgentRunEvents(conversation.runId, {
     enabled: streamEnabled,
     onFinished: () => {
       void refreshMessages();
+      refreshConversationMeta();
     },
+    onTitleSet: refreshConversationMeta,
+  });
+
+  const showStreamingAssistant = shouldShowStreamingAssistant(messages, streamingText, {
+    isRunning,
+    sending,
   });
 
   async function handleSend(text: string) {
@@ -83,6 +99,8 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
       setSending(false);
     }
   }
+
+  const storedSystemPrompt = extractSystemPromptFromMessages(messages);
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
@@ -181,7 +199,9 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
             <ScrollArea className="min-h-0 flex-1">
               <ChatMessageList
                 messages={messages}
-                streamingText={isRunning || sending ? streamingText : null}
+                streamingText={showStreamingAssistant ? streamingText : null}
+                isStreaming={isRunning || sending}
+                systemPrompt={storedSystemPrompt ? null : settings.systemPrompt}
               />
             </ScrollArea>
             {workflowLink ? (

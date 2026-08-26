@@ -9,7 +9,7 @@ const titleSchema = z.object({
 
 const namer = adl.createAgent({
   id: "conversation-title-namer",
-  instructions:
+  systemPrompt:
     "You name conversations. Reply with a short title (3–8 words) that captures the topic. " +
     "No quotes, no trailing punctuation, no explanation.",
   outputSchema: titleSchema,

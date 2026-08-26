@@ -1,4 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { ok } from "@agent-dev-lab/core/result";
 
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
 import { fetchAgentConversation } from "#/lib/inspector-server";
@@ -34,6 +35,8 @@ function AgentRunPage() {
         memoryMode: "custom",
         tools: [],
         titleWorkflowId: null,
+        systemPrompt: ok(""),
+        systemPromptPath: null,
       };
   return (
     <AgentRunWorkspace

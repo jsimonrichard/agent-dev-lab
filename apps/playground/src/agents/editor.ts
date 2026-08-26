@@ -20,7 +20,7 @@ export type Review = z.infer<typeof reviewSchema>;
  */
 export const editor = adl.createAgent({
   id: "editor",
-  instructions:
+  systemPrompt:
     "You are a meticulous editor. Critique the draft for clarity, accuracy, and structure. " +
     "Be specific and fair. Return a score, a verdict, concrete strengths, and concrete issues.",
   model,

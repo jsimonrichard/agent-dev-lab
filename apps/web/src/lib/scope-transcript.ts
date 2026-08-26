@@ -6,6 +6,14 @@ export type ScopeTranscriptPartition = {
   later: MockMessage[];
 };
 
+export type ScopeTranscriptPartitionOptions = {
+  /**
+   * Subtract from commit `total` values when the partitioned transcript omits
+   * a pinned system message that is still counted in stored commit totals.
+   */
+  commitTotalOffset?: number;
+};
+
 /**
  * Split a shared memoryScope transcript into the selected agent call, earlier
  * context that call saw, and later turns from subsequent calls on the same scope.
@@ -14,9 +22,11 @@ export function partitionScopeTranscript(
   messages: MockMessage[],
   events: RunEvent[],
   episode: Pick<AgentEpisode, "episodeId" | "memoryScope">,
+  options: ScopeTranscriptPartitionOptions = {},
 ): ScopeTranscriptPartition {
+  const commitTotalOffset = Math.max(0, options.commitTotalOffset ?? 0);
   return (
-    partitionByCommitTotals(messages, events, episode) ??
+    partitionByCommitTotals(messages, events, episode, commitTotalOffset) ??
     partitionByTurns(messages, events, episode)
   );
 }
@@ -25,6 +35,7 @@ function partitionByCommitTotals(
   messages: MockMessage[],
   events: RunEvent[],
   episode: Pick<AgentEpisode, "episodeId" | "memoryScope">,
+  commitTotalOffset: number,
 ): ScopeTranscriptPartition | null {
   const starts = events.filter(
     (event): event is Extract<RunEvent, { type: "agent_started" }> =>
@@ -44,7 +55,10 @@ function partitionByCommitTotals(
   }
 
   const totalByEpisode = new Map(
-    commits.map((commit) => [commit.episodeId, commit.total as number]),
+    commits.map((commit) => [
+      commit.episodeId,
+      Math.max(0, (commit.total as number) - commitTotalOffset),
+    ]),
   );
 
   let priorEnd = 0;

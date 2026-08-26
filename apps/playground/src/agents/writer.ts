@@ -11,8 +11,8 @@ import { conversationTitle } from "./conversation-title";
  */
 export const writer = adl.createAgent({
   id: "writer",
-  instructions: adl.createTemplate({
-    name: "writer-instructions",
+  systemPrompt: adl.createTemplate({
+    name: "writer-system-prompt",
     source: [
       "You are a senior technical writer.",
       "You write clear, engaging Markdown articles that follow the given outline.",
