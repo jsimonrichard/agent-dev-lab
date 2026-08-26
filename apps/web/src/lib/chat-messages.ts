@@ -1,6 +1,12 @@
 import type { CoreMessage } from "@agent-dev-lab/core";
 
-import type { ChatMessagePart, ChatToolResultPart, JsonValue, MockMessage } from "./mock/types";
+import type {
+  ChatMessagePart,
+  ChatToolCallPart,
+  ChatToolResultPart,
+  JsonValue,
+  MockMessage,
+} from "./mock/types";
 
 type UnknownPart = {
   type?: unknown;
@@ -9,10 +15,12 @@ type UnknownPart = {
   toolName?: unknown;
   input?: unknown;
   args?: unknown;
+  arguments?: unknown;
   output?: unknown;
   result?: unknown;
   isError?: unknown;
   error?: unknown;
+  providerExecuted?: unknown;
 };
 
 export function messageParts(message: MockMessage): ChatMessagePart[] {
@@ -53,15 +61,89 @@ export function collectToolCallIds(messages: MockMessage[]): Set<string> {
   return ids;
 }
 
-/** Tool-role messages whose results already attach to an assistant tool-call. */
-export function isPairedToolMessage(message: MockMessage, callIds: Set<string>): boolean {
-  if (message.role !== "tool") {
-    return false;
+export type ChatDisplayTextItem = {
+  type: "text";
+  key: string;
+  role: MockMessage["role"];
+  text: string;
+};
+
+export type ChatDisplayToolCallItem = {
+  type: "tool-call";
+  key: string;
+  call: ChatToolCallPart;
+  pending: boolean;
+};
+
+export type ChatDisplayToolResultItem = {
+  type: "tool-result";
+  key: string;
+  result: ChatToolResultPart;
+};
+
+export type ChatDisplayItem =
+  | ChatDisplayTextItem
+  | ChatDisplayToolCallItem
+  | ChatDisplayToolResultItem;
+
+/**
+ * Flatten stored messages into transcript rows so tool calls and tool results
+ * render as their own messages instead of nesting inside assistant bubbles.
+ */
+export function toChatDisplayItems(messages: MockMessage[]): ChatDisplayItem[] {
+  const resultsById = collectToolResults(messages);
+  const items: ChatDisplayItem[] = [];
+
+  for (const message of messages) {
+    const parts = messageParts(message);
+    let textChunks: string[] = [];
+    let textKey = `${message.id}-text-0`;
+
+    const flushText = () => {
+      const text = textChunks.join("");
+      textChunks = [];
+      if (!text.trim()) {
+        return;
+      }
+      items.push({ type: "text", key: textKey, role: message.role, text });
+    };
+
+    for (const [partIndex, part] of parts.entries()) {
+      if (part.type === "text") {
+        if (textChunks.length === 0) {
+          textKey = `${message.id}-text-${partIndex}`;
+        }
+        if (part.text) {
+          textChunks.push(part.text);
+        }
+        continue;
+      }
+
+      flushText();
+
+      if (part.type === "tool-call") {
+        const result = resultsById.get(part.toolCallId);
+        items.push({
+          type: "tool-call",
+          key: `${message.id}-call-${part.toolCallId}`,
+          call: resolveDisplayedToolCall(part, result),
+          pending: result == null,
+        });
+        continue;
+      }
+
+      const call = findToolCall(messages, part.toolCallId);
+      items.push({
+        type: "tool-result",
+        key: `${message.id}-result-${part.toolCallId || partIndex}`,
+        result: resolveDisplayedToolResult(part, call),
+      });
+    }
+
+    flushText();
   }
-  const results = messageParts(message).filter(
-    (part): part is ChatToolResultPart => part.type === "tool-result",
-  );
-  return results.length > 0 && results.every((part) => callIds.has(part.toolCallId));
+
+  return items;
 }
 
 export function coreMessageToMock(message: CoreMessage, index: number): MockMessage {
@@ -155,7 +237,8 @@ function partsFromContent(content: unknown): ChatMessagePart[] {
         type: "tool-call",
         toolCallId: stringId(part.toolCallId),
         toolName: stringName(part.toolName),
-        args: asJsonValue(part.input ?? part.args),
+        args: firstNonEmptyArgs(part.input, part.args, part.arguments),
+        ...(part.providerExecuted === true ? { providerExecuted: true } : {}),
       });
       continue;
     }
@@ -166,6 +249,7 @@ function partsFromContent(content: unknown): ChatMessagePart[] {
         toolName: stringName(part.toolName),
         result: asJsonValue(part.output ?? part.result),
         isError: part.isError === true,
+        ...(part.providerExecuted === true ? { providerExecuted: true } : {}),
       });
       continue;
     }
@@ -176,6 +260,7 @@ function partsFromContent(content: unknown): ChatMessagePart[] {
         toolName: stringName(part.toolName),
         result: asJsonValue(part.error ?? part.output ?? part.result),
         isError: true,
+        ...(part.providerExecuted === true ? { providerExecuted: true } : {}),
       });
     }
   }
@@ -192,4 +277,145 @@ function stringName(value: unknown): string {
 
 function asJsonValue(value: unknown): JsonValue {
   return value as JsonValue;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+const TOOL_OUTPUT_ENVELOPE_TYPES = new Set(["text", "json", "error-text", "error-json", "content"]);
+
+/** AI SDK tool results wrap the payload as `{ type: "json" | "text" | ..., value }`. */
+export function unwrapToolResultOutput(output: unknown): unknown {
+  if (!isRecord(output)) {
+    return output;
+  }
+  if (
+    typeof output.type === "string" &&
+    TOOL_OUTPUT_ENVELOPE_TYPES.has(output.type) &&
+    "value" in output
+  ) {
+    return output.value;
+  }
+  return output;
+}
+
+export function isEmptyToolArgs(value: unknown): boolean {
+  if (value == null) {
+    return true;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length === 0 || trimmed === "{}";
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value).length === 0;
+  }
+  return false;
+}
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return value;
+  }
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function firstNonEmptyArgs(...candidates: unknown[]): JsonValue {
+  for (const candidate of candidates) {
+    const parsed = parseMaybeJson(candidate);
+    if (!isEmptyToolArgs(parsed)) {
+      return asJsonValue(parsed);
+    }
+  }
+  return asJsonValue(candidates.find((value) => value !== undefined) ?? {});
+}
+
+function findToolCall(messages: MockMessage[], toolCallId: string): ChatToolCallPart | undefined {
+  for (const message of messages) {
+    for (const part of messageParts(message)) {
+      if (part.type === "tool-call" && part.toolCallId === toolCallId) {
+        return part;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Hosted OpenAI tools (web_search) persist empty call input and put the model's
+ * request on the result as `action`. Surface that as a pseudo tool-call.
+ */
+function hostedActionPayload(
+  call: ChatToolCallPart | undefined,
+  result: ChatToolResultPart | undefined,
+): unknown {
+  if (!result || (call && !isEmptyToolArgs(call.args))) {
+    return undefined;
+  }
+  const hosted = call?.providerExecuted === true || result.providerExecuted === true;
+  if (!hosted) {
+    return undefined;
+  }
+  const unwrapped = unwrapToolResultOutput(result.result);
+  if (isRecord(unwrapped) && unwrapped.action != null) {
+    return unwrapped.action;
+  }
+  return undefined;
+}
+
+export function resolveDisplayedToolCall(
+  call: ChatToolCallPart,
+  result?: ChatToolResultPart,
+): ChatToolCallPart {
+  const action = hostedActionPayload(call, result);
+  if (action === undefined) {
+    return call;
+  }
+  return {
+    ...call,
+    args: asJsonValue(action),
+    providerExecuted: true,
+    providerAction: true,
+  };
+}
+
+/** Unwrap the AI SDK result envelope; move hosted `action` onto the call row. */
+export function resolveDisplayedToolResult(
+  result: ChatToolResultPart,
+  call?: ChatToolCallPart,
+): ChatToolResultPart {
+  const envelopeIsError =
+    isRecord(result.result) &&
+    (result.result.type === "error-text" || result.result.type === "error-json");
+  const unwrapped = unwrapToolResultOutput(result.result);
+  let displayed: unknown = unwrapped;
+
+  if (hostedActionPayload(call, result) !== undefined && isRecord(unwrapped)) {
+    const rest = { ...unwrapped };
+    delete rest.action;
+    const keys = Object.keys(rest);
+    if (keys.length === 1 && "sources" in rest) {
+      displayed = rest.sources;
+    } else if (keys.length > 0) {
+      displayed = rest;
+    }
+  }
+
+  return {
+    ...result,
+    result: asJsonValue(displayed),
+    isError: result.isError === true || envelopeIsError,
+  };
 }
