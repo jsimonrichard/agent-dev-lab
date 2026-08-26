@@ -34,6 +34,7 @@ export const JsonPreview = memo(function JsonPreview({
   title,
   expandable = true,
   fill = false,
+  scroll = true,
   children,
 }: {
   value: unknown;
@@ -46,6 +47,11 @@ export const JsonPreview = memo(function JsonPreview({
   expandable?: boolean;
   /** Stretch the preview to fill a flex parent instead of using a max-height. */
   fill?: boolean;
+  /**
+   * Scroll the preview body inside the frame. Set false to grow with content
+   * (chat bubbles) instead of creating an inner scrollport.
+   */
+  scroll?: boolean;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -112,11 +118,21 @@ export const JsonPreview = memo(function JsonPreview({
           </div>
         </div>
         {mode === "json" ? (
-          <pre className="min-h-0 min-w-0 max-w-full flex-1 overflow-auto p-2 font-mono text-[10px] leading-relaxed wrap-anywhere whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+          <pre
+            className={cn(
+              "min-w-0 max-w-full p-2 font-mono text-[10px] leading-relaxed wrap-anywhere whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              fill || scroll ? "min-h-0 flex-1 overflow-auto" : "overflow-x-hidden",
+            )}
+          >
             <JsonTokens text={text} />
           </pre>
         ) : (
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2 text-xs leading-relaxed wrap-anywhere outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+          <div
+            className={cn(
+              "min-w-0 max-w-full p-2 text-xs leading-relaxed wrap-anywhere outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              fill || scroll ? "min-h-0 flex-1 overflow-auto" : "overflow-x-hidden",
+            )}
+          >
             <JsonDocument value={value} compact />
           </div>
         )}
@@ -188,7 +204,7 @@ export const JsonPreview = memo(function JsonPreview({
       )}
     >
       {label ? (
-        <p className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+        <p className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground">
           {label}
         </p>
       ) : null}

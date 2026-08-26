@@ -68,6 +68,13 @@ export type ChatDisplayTextItem = {
   text: string;
 };
 
+export type ChatDisplayJsonItem = {
+  type: "json";
+  key: string;
+  role: MockMessage["role"];
+  value: unknown;
+};
+
 export type ChatDisplayToolCallItem = {
   type: "tool-call";
   key: string;
@@ -83,8 +90,38 @@ export type ChatDisplayToolResultItem = {
 
 export type ChatDisplayItem =
   | ChatDisplayTextItem
+  | ChatDisplayJsonItem
   | ChatDisplayToolCallItem
   | ChatDisplayToolResultItem;
+
+const FENCED_JSON = /^```(?:json)?\s*([\s\S]*?)\s*```$/i;
+
+/**
+ * Parse an assistant turn as structured JSON (object or array). Accepts a raw
+ * JSON payload or a single markdown ```json fence around one.
+ */
+export function parseStructuredJson(text: string): unknown | undefined {
+  let candidate = text.trim();
+  if (!candidate) {
+    return undefined;
+  }
+  const fenced = candidate.match(FENCED_JSON);
+  if (fenced) {
+    candidate = fenced[1].trim();
+  }
+  if (!candidate.startsWith("{") && !candidate.startsWith("[")) {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(candidate);
+    if (parsed !== null && typeof parsed === "object") {
+      return parsed;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
 
 /**
  * Flatten stored messages into transcript rows so tool calls and tool results
@@ -103,6 +140,11 @@ export function toChatDisplayItems(messages: MockMessage[]): ChatDisplayItem[] {
       const text = textChunks.join("");
       textChunks = [];
       if (!text.trim()) {
+        return;
+      }
+      const json = message.role === "assistant" ? parseStructuredJson(text) : undefined;
+      if (json !== undefined) {
+        items.push({ type: "json", key: textKey, role: message.role, value: json });
         return;
       }
       items.push({ type: "text", key: textKey, role: message.role, text });

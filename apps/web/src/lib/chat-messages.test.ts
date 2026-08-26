@@ -6,6 +6,7 @@ import {
   collectToolResults,
   coreMessageToMock,
   mockMessageToCore,
+  parseStructuredJson,
   toChatDisplayItems,
 } from "./chat-messages";
 
@@ -426,5 +427,79 @@ describe("toChatDisplayItems", () => {
     expect(items.find((item) => item.type === "tool-result")).toMatchObject({
       result: { result: { action: { query: "nope" }, ok: true } },
     });
+  });
+
+  it("renders assistant JSON objects as structured json items", () => {
+    const messages = [
+      coreMessageToMock(
+        {
+          role: "assistant",
+          content: JSON.stringify({
+            title: "CRISPR delivery",
+            sections: [{ heading: "Intro", points: ["scope"] }],
+          }),
+        },
+        0,
+      ),
+    ];
+
+    expect(toChatDisplayItems(messages)).toEqual([
+      {
+        type: "json",
+        key: "msg-0-text-0",
+        role: "assistant",
+        value: {
+          title: "CRISPR delivery",
+          sections: [{ heading: "Intro", points: ["scope"] }],
+        },
+      },
+    ]);
+  });
+
+  it("renders fenced assistant JSON as a structured json item", () => {
+    const messages = [
+      coreMessageToMock(
+        {
+          role: "assistant",
+          content: '```json\n{"score":8,"verdict":"ship"}\n```',
+        },
+        0,
+      ),
+    ];
+
+    expect(toChatDisplayItems(messages)).toEqual([
+      {
+        type: "json",
+        key: "msg-0-text-0",
+        role: "assistant",
+        value: { score: 8, verdict: "ship" },
+      },
+    ]);
+  });
+
+  it("keeps user JSON and invalid assistant JSON as text", () => {
+    const messages = [
+      coreMessageToMock({ role: "user", content: '{"q":"hello"}' }, 0),
+      coreMessageToMock({ role: "assistant", content: "{not json" }, 1),
+      coreMessageToMock({ role: "assistant", content: "42" }, 2),
+    ];
+
+    expect(toChatDisplayItems(messages).map((item) => item.type)).toEqual(["text", "text", "text"]);
+  });
+});
+
+describe("parseStructuredJson", () => {
+  it("parses objects and arrays, including a wrapping json fence", () => {
+    expect(parseStructuredJson('{"a":1}')).toEqual({ a: 1 });
+    expect(parseStructuredJson("  [1, 2]  ")).toEqual([1, 2]);
+    expect(parseStructuredJson('```json\n{"ok":true}\n```')).toEqual({ ok: true });
+  });
+
+  it("rejects primitives, empty strings, and invalid JSON", () => {
+    expect(parseStructuredJson("")).toBeUndefined();
+    expect(parseStructuredJson("hello")).toBeUndefined();
+    expect(parseStructuredJson("true")).toBeUndefined();
+    expect(parseStructuredJson('"quoted"')).toBeUndefined();
+    expect(parseStructuredJson("{")).toBeUndefined();
   });
 });

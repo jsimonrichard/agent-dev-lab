@@ -113,7 +113,7 @@ export function AgentConfigBody({
           <SettingsSection icon={Braces} title="Output & prompts">
             <dl className="space-y-2 text-xs">
               {settings.outputSchema ? (
-                <SettingRow label="Structured output" value={settings.outputSchema} mono />
+                <SettingRow label="Structured Output" value={settings.outputSchema} mono />
               ) : null}
               {settings.systemPromptPath ? (
                 <div className="flex items-start gap-2">

@@ -15,20 +15,26 @@ describe("looksLikeProse", () => {
     expect(looksLikeProse("Use `code` here")).toBe(true);
   });
 
-  it("treats long sentences as prose", () => {
-    const sentence =
-      "This briefing covers recent surveys of agent memory systems, retrieval, and the open questions they leave for evaluation.";
-    expect(sentence.length).toBeGreaterThanOrEqual(120);
-    expect(looksLikeProse(sentence)).toBe(true);
+  it("treats phrases and medium-length sentences as prose", () => {
+    expect(looksLikeProse("LLM agents")).toBe(true);
+    expect(looksLikeProse("A specific, compelling article title.")).toBe(true);
+    expect(looksLikeProse("Cover the history of CRISPR delivery methods.")).toBe(true);
+    expect(
+      looksLikeProse(
+        "This briefing covers recent surveys of agent memory systems, retrieval, and the open questions they leave for evaluation.",
+      ),
+    ).toBe(true);
   });
 
-  it("keeps short labels, ids, and URLs inline", () => {
+  it("keeps single tokens, ids, and bare URLs inline", () => {
     expect(looksLikeProse("literature-review")).toBe(false);
-    expect(looksLikeProse("LLM agents")).toBe(false);
+    expect(looksLikeProse("ship")).toBe(false);
+    expect(looksLikeProse("gpt-4o")).toBe(false);
     expect(looksLikeProse("")).toBe(false);
     expect(
       looksLikeProse("https://arxiv.org/abs/2401.00001/this-is-a-long-path-without-spaces"),
     ).toBe(false);
+    expect(looksLikeProse("www.example.com/path")).toBe(false);
   });
 });
 

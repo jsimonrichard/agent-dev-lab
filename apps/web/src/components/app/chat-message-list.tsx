@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import type { MockMessage } from "@/lib/mock/types";
-import { toChatDisplayItems } from "@/lib/chat-messages";
+import { parseStructuredJson, toChatDisplayItems } from "@/lib/chat-messages";
 import { ChatToolCall } from "@/components/app/chat-tool-call";
+import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
 
 interface ChatMessageListProps {
@@ -27,6 +28,7 @@ export function ChatMessageList({
   showEmpty = true,
 }: ChatMessageListProps) {
   const items = toChatDisplayItems(messages);
+  const streamingJson = streamingText ? parseStructuredJson(streamingText) : undefined;
 
   return (
     <div
@@ -50,6 +52,18 @@ export function ChatMessageList({
             </ChatBubble>
           );
         }
+        if (item.type === "json") {
+          return (
+            <ChatBubble key={item.key} role={item.role} compact={compact} structured>
+              <JsonPreview
+                value={item.value}
+                label="Structured Output"
+                scroll={false}
+                className="bg-card/80"
+              />
+            </ChatBubble>
+          );
+        }
         if (item.type === "tool-call") {
           return (
             <ToolMessage key={item.key} compact={compact}>
@@ -64,9 +78,20 @@ export function ChatMessageList({
         );
       })}
       {streamingText ? (
-        <ChatBubble role="assistant" streaming compact={compact}>
-          <MarkdownContent content={streamingText} compact={compact} />
-        </ChatBubble>
+        streamingJson !== undefined ? (
+          <ChatBubble role="assistant" streaming compact={compact} structured>
+            <JsonPreview
+              value={streamingJson}
+              label="Structured Output"
+              scroll={false}
+              className="bg-card/80"
+            />
+          </ChatBubble>
+        ) : (
+          <ChatBubble role="assistant" streaming compact={compact}>
+            <MarkdownContent content={streamingText} compact={compact} />
+          </ChatBubble>
+        )
       ) : null}
       {showEmpty && items.length === 0 && !streamingText ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
@@ -96,11 +121,14 @@ function ChatBubble({
   children,
   streaming = false,
   compact = false,
+  structured = false,
 }: {
   role: MockMessage["role"];
   children: ReactNode;
   streaming?: boolean;
   compact?: boolean;
+  /** Structured JSON fills the blob width and must not overflow it. */
+  structured?: boolean;
 }) {
   const isUser = role === "user";
   const isSystem = role === "system";
@@ -125,18 +153,19 @@ function ChatBubble({
     >
       <div
         className={cn(
-          "min-w-0 max-w-full rounded-2xl px-4 py-2.5 text-sm shadow-sm",
-          compact ? "w-full" : "max-w-[min(100%,42rem)]",
+          "min-w-0 max-w-full overflow-hidden rounded-2xl text-sm shadow-sm",
+          (compact || structured) && "w-full",
+          !compact && "max-w-[min(100%,42rem)]",
+          structured ? "p-1.5" : compact ? "px-3 py-2 text-xs" : "px-4 py-2.5",
           isUser
             ? "bg-primary text-primary-foreground"
             : "border border-border/40 bg-card text-card-foreground",
           streaming && "border-primary/25",
-          compact && "px-3 py-2 text-xs",
         )}
       >
         {children}
         {streaming ? (
-          <span className="mt-1 inline-block text-xs text-muted-foreground">Streaming…</span>
+          <span className="mt-1 inline-block px-1 text-xs text-muted-foreground">Streaming…</span>
         ) : null}
       </div>
     </div>
