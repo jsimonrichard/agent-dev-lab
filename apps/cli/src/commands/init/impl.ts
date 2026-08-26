@@ -63,7 +63,5 @@ export default async function init(
   }
 
   this.process.stdout.write(`Created ADL project "${name}" in ${target}\n`);
-  this.process.stdout.write(
-    "Next: bun install && add OPENAI_API_KEY to .env && adl dashboard\n",
-  );
+  this.process.stdout.write("Next: bun install && add OPENAI_API_KEY to .env && adl dashboard\n");
 }

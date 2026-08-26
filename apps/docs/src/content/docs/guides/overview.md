@@ -20,7 +20,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 | `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
 | Project hot reload (`reload`, `watchAdlProject`) in dev                   | Implemented |
 | `adl.createToolFromAgent` / `adl.createToolFromWorkflow`                  | Implemented |
-| CLI `adl run` / list / `adl dashboard`                                     | Implemented |
+| CLI `adl run` / list / `adl dashboard`                                    | Implemented |
 | CLI `adl init`                                                            | Scaffold    |
 | Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
 | Playground multi-agent samples                                            | Implemented |

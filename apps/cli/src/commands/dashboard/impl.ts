@@ -10,10 +10,7 @@ interface DashboardFlags {
   serve: boolean;
 }
 
-export default async function dashboard(
-  this: AdlCliContext,
-  flags: DashboardFlags,
-): Promise<void> {
+export default async function dashboard(this: AdlCliContext, flags: DashboardFlags): Promise<void> {
   const core = await importProjectCore(this.process.cwd());
   const projectRoot = path.resolve(
     flags.project ?? core.findAdlProjectRootFromCwd(this.process.cwd()),

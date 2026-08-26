@@ -111,19 +111,19 @@ No external services are required. Put LLM provider keys in the playground (or y
 
 All standard scripts live in the root `package.json` and run through Turbo:
 
-| Command                | Description                                       |
-| ---------------------- | ------------------------------------------------- |
-| `bun install`          | Install dependencies                              |
-| `bun run dev`          | Run web + docs in parallel                        |
-| `bun run dev:web`      | Framework UI dev against `apps/playground`        |
+| Command                | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| `bun install`          | Install dependencies                                    |
+| `bun run dev`          | Run web + docs in parallel                              |
+| `bun run dev:web`      | Framework UI dev against `apps/playground`              |
 | `bun run dev:cli`      | `adl dashboard` using the nearest user project from cwd |
-| `bun run dev:docs`     | Docs site on port 4321                            |
-| `bun run build`        | Build all packages                                |
-| `bun run lint`         | ESLint across all packages                        |
-| `bun run typecheck`    | TypeScript checking via Turbo                     |
-| `bun run test`         | Run `bun test` in `packages/core`                 |
-| `bun run format`       | Prettier write across the repo                    |
-| `bun run format:check` | Prettier check (used in CI)                       |
+| `bun run dev:docs`     | Docs site on port 4321                                  |
+| `bun run build`        | Build all packages                                      |
+| `bun run lint`         | ESLint across all packages                              |
+| `bun run typecheck`    | TypeScript checking via Turbo                           |
+| `bun run test`         | Run `bun test` in `packages/core`                       |
+| `bun run format`       | Prettier write across the repo                          |
+| `bun run format:check` | Prettier check (used in CI)                             |
 
 ## Status
 
@@ -138,7 +138,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI
 | `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
 | Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
 | `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
-| CLI `adl run` / list / `adl dashboard`                                          | Implemented |
+| CLI `adl run` / list / `adl dashboard`                                    | Implemented |
 | CLI `adl init`                                                            | Scaffold    |
 | Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
 | Playground multi-agent samples                                            | Implemented |

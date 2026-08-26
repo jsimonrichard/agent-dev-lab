@@ -46,13 +46,13 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 
 ## CLI (`adl`)
 
-| Item                                          | Status                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------- |
-| `adl dashboard` / `adl dashboard --serve` / `--project`   | ✅                                                                  |
-| `adl run <workflow-id> --input '{}'`          | ✅                                                                  |
-| `adl workflows list` / `adl agents list`      | ✅                                                                  |
-| `adl init` copies a file list from playground | 🚧 **Broken as a usable project** — see [RC blockers](#rc-blockers) |
-| Packaged `dist/scaffold` for published CLI    | ✅ (same file-list bug)                                             |
+| Item                                                    | Status                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| `adl dashboard` / `adl dashboard --serve` / `--project` | ✅                                                                  |
+| `adl run <workflow-id> --input '{}'`                    | ✅                                                                  |
+| `adl workflows list` / `adl agents list`                | ✅                                                                  |
+| `adl init` copies a file list from playground           | 🚧 **Broken as a usable project** — see [RC blockers](#rc-blockers) |
+| Packaged `dist/scaffold` for published CLI              | ✅ (same file-list bug)                                             |
 
 ---
 
@@ -175,11 +175,11 @@ CI is lint / format / typecheck / **package unit tests** / build. It does **not*
 
 ### End-to-end / stress (API key)
 
-| Test                                                                                | Purpose                               |
-| ----------------------------------------------------------------------------------- | ------------------------------------- |
-| Browser: start `literature-review` (or example), waterfall updates, cancel          | Inspector + runtime                   |
-| Browser: agent chat, title appears, fork from a step, Memory vs run transcript      | Conversation UI                       |
-| CLI: `adl run` the [stress-test example](#stress-test-example) to completion        | Nested steps, tools, parallel, titles |
+| Test                                                                                      | Purpose                               |
+| ----------------------------------------------------------------------------------------- | ------------------------------------- |
+| Browser: start `literature-review` (or example), waterfall updates, cancel                | Inspector + runtime                   |
+| Browser: agent chat, title appears, fork from a step, Memory vs run transcript            | Conversation UI                       |
+| CLI: `adl run` the [stress-test example](#stress-test-example) to completion              | Nested steps, tools, parallel, titles |
 | Manual: `adl dashboard --serve` against a **non-workspace** install of published tarballs | Release dry-run                       |
 
 Optional later: Playwright (or similar) in CI with a mock model so the inspector path is automated without OpenAI.
