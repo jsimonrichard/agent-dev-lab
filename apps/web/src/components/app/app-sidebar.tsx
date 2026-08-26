@@ -27,6 +27,10 @@ export function AppSidebar() {
     return <AgentConversationsSidebar />;
   }
 
+  if (mode === "events") {
+    return null;
+  }
+
   if (mode === "settings") {
     return <SettingsContextSidebar />;
   }

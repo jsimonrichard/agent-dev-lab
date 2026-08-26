@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { inMemoryEventLog, type InMemoryEventLog } from "../observability/in-memory-event-log";
 import { loadAdlProject, type LoadedAdlProject } from "./resolve";
 import { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandlers } from "./watch";
 
@@ -20,6 +21,8 @@ type AdlProjectProcessHost = {
   reloadSubscribers: Set<(event: AdlProjectHostReloadEvent) => void>;
   inspectorAgentObserverAttached: boolean;
   inspectorListedAgentIds: Set<string>;
+  inspectorEventLog?: InMemoryEventLog;
+  inspectorEventLogHydrated: boolean;
 };
 
 const host: AdlProjectProcessHost = {
@@ -27,6 +30,7 @@ const host: AdlProjectProcessHost = {
   reloadSubscribers: new Set(),
   inspectorAgentObserverAttached: false,
   inspectorListedAgentIds: new Set(),
+  inspectorEventLogHydrated: false,
 };
 
 export type AdlProjectHostReloadEvent =
@@ -44,6 +48,8 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   host.watchedRoot = undefined;
   host.inspectorAgentObserverAttached = false;
   host.inspectorListedAgentIds = new Set();
+  host.inspectorEventLog = undefined;
+  host.inspectorEventLogHydrated = false;
   host.project = await loadAdlProject({ root: resolved });
   return host.project;
 }
@@ -119,6 +125,26 @@ export function clearInspectorAgentObserverAttached(): void {
   host.inspectorAgentObserverAttached = false;
 }
 
+/**
+ * Process-wide inspection event log. Lives here (not `apps/web` `globalThis`) so
+ * Vite SSR isolates share one ring buffer.
+ */
+export function getInspectorEventLog(): InMemoryEventLog {
+  if (!host.inspectorEventLog) {
+    host.inspectorEventLog = inMemoryEventLog();
+  }
+  return host.inspectorEventLog;
+}
+
+/** True the first time per process-host generation; later calls are no-ops. */
+export function markInspectorEventLogHydrated(): boolean {
+  if (host.inspectorEventLogHydrated) {
+    return false;
+  }
+  host.inspectorEventLogHydrated = true;
+  return true;
+}
+
 /** Drop watchers and the cached project. For tests only. */
 export function resetAdlProjectProcessHost(): void {
   host.watchDispose?.();
@@ -129,4 +155,6 @@ export function resetAdlProjectProcessHost(): void {
   host.reloadSubscribers.clear();
   host.inspectorAgentObserverAttached = false;
   host.inspectorListedAgentIds = new Set();
+  host.inspectorEventLog = undefined;
+  host.inspectorEventLogHydrated = false;
 }

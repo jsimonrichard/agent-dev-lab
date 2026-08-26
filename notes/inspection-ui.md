@@ -2,7 +2,7 @@
 
 How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) that shaped the SSE + reducer design.
 
-**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork). Template playground and a dedicated raw-token debug pane remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
+**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork + process-wide event log). Template playground and a dedicated raw-token debug pane remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
 
 **Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
 
@@ -20,25 +20,31 @@ flowchart LR
   subgraph web["apps/web — wrappers only"]
     SFN["createServerFn\nstart / cancel / list"]
     SSE["GET /api/runs/:runId/events"]
+    LOG["GET /api/events"]
   end
   subgraph runtime["@agent-dev-lab/core"]
     LOAD["loadAdlProject + registry"]
     CTX["createRunContext"]
     RUN["workflow.run / agent.stream"]
     STORE["WorkflowStore"]
+    ELOG["EventLog"]
   end
 
   UI --> SFN
   UI --> SSE
+  UI --> LOG
   SFN --> LOAD --> CTX --> RUN --> STORE
   SSE --> STORE
+  RUN --> ELOG
+  LOG --> ELOG
 ```
 
-| Plane         | Mechanism                                                | Examples                                                             |
-| ------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
-| **Control**   | TanStack Start **server functions** (typed, short-lived) | `startInspectionRun`, `cancelRun`, `listRuns`, `listAgents`          |
-| **Data**      | **API route** SSE tail of persisted events               | `GET /api/runs/:runId/events?afterSeq=`                              |
-| **Hydration** | GET snapshot (route or server fn)                        | `GET /api/runs/:runId`, optional initial events in first SSE message |
+| Plane           | Mechanism                                                | Examples                                                         |
+| --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Control**     | TanStack Start **server functions** (typed, short-lived) | `startInspectionRun`, `cancelRun`, `listRuns`, `listAgents`      |
+| **Data**        | **API route** SSE tail of persisted events               | `GET /api/runs/:runId/events?afterSeq=`                          |
+| **Process log** | **API route** SSE tail of the in-memory `EventLog`       | `GET /api/events?afterSeq=` (`logSeq`; `waitForAppend`)          |
+| **Hydration**   | GET snapshot (route or server fn)                        | `GET /api/runs/:runId`, Event log loader snapshot + store replay |
 
 **Rules**
 
@@ -87,6 +93,7 @@ Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, n
 - [x] Cancel server fn — calls `handle.cancel()` (abort propagates into steps and child agents)
 - [x] Framework dev: `ADL_PROJECT_ROOT` / playground (see root `AGENTS.md`)
 - [x] Agent conversation SSE, inspector session store, fork from a step
+- [x] `GET /api/events` — process-wide `EventLog` SSE tail + `afterSeq` / `waitForAppend`
 
 ### Client (`apps/web`)
 
@@ -96,6 +103,7 @@ Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, n
 - [x] On reconnect: pass `afterSeq` from last applied `seq`
 - [x] Project banner from `/api/project`
 - [x] Live assistant text via `agent_text_delta` (chat / run views — not a dedicated token-debug pane)
+- [x] Event log page (`/events`): filters, pagination, store hydrate, deep-links into run/chat
 - [ ] ⏸ Dedicated live token debug pane
 - [ ] ⏸ `@agent-dev-lab/hooks` — later
 

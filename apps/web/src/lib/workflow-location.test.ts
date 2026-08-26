@@ -4,6 +4,7 @@ import {
   formatRunTimestamp,
   parseWorkflowRunSearch,
   workflowRunLabel,
+  workflowRunSearch,
   workflowRunSubtitle,
 } from "./workflow-location";
 
@@ -17,6 +18,14 @@ describe("parseWorkflowRunSearch", () => {
 
   it("drops empty or non-string values", () => {
     expect(parseWorkflowRunSearch({ step: "", episode: 2 })).toEqual({});
+  });
+});
+
+describe("workflowRunSearch", () => {
+  it("omits empty selection fields", () => {
+    expect(workflowRunSearch({})).toEqual({});
+    expect(workflowRunSearch({ step: "s1" })).toEqual({ step: "s1" });
+    expect(workflowRunSearch({ step: "s1", episode: "e1" })).toEqual({ step: "s1", episode: "e1" });
   });
 });
 

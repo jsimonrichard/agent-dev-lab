@@ -13,17 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector-server";
 import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector-types";
 import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow-input-schema";
-import { cn } from "@/lib/utils";
-
-const selectClassName = cn(
-  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none",
-  "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 dark:bg-input/30",
-  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-);
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
   const { runId } = await startInspectionWorkflowRun({
@@ -225,23 +225,26 @@ export function StartWorkflowForm({
       {lockedId ? null : (
         <div className="grid gap-2">
           <Label htmlFor={workflowSelectId}>Workflow</Label>
-          <select
-            id={workflowSelectId}
-            className={selectClassName}
+          <Select
             value={selectedId}
-            onChange={(event) => {
-              const next = workflows.find((workflow) => workflow.id === event.target.value);
-              setSelectedId(event.target.value);
+            onValueChange={(value) => {
+              const next = workflows.find((workflow) => workflow.id === value);
+              setSelectedId(value);
               setValues(workflowInputValuesFromSample(next?.inputFields ?? [], next?.inputSample));
               setError(null);
             }}
           >
-            {workflows.map((workflow) => (
-              <option key={workflow.id} value={workflow.id}>
-                {workflow.id}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id={workflowSelectId} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {workflows.map((workflow) => (
+                <SelectItem key={workflow.id} value={workflow.id}>
+                  {workflow.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -278,6 +281,8 @@ export function StartWorkflowForm({
   );
 }
 
+const UNSET_SELECT_VALUE = "__unset__";
+
 function WorkflowInputControl({
   idPrefix,
   field,
@@ -313,21 +318,22 @@ function WorkflowInputControl({
     return (
       <div className="grid gap-2">
         <Label htmlFor={id}>{label}</Label>
-        <select
-          id={id}
-          autoFocus={autoFocus}
-          required={field.required}
-          className={selectClassName}
-          value={typeof value === "string" ? value : ""}
-          onChange={(event) => onChange(event.target.value)}
+        <Select
+          value={typeof value === "string" && value !== "" ? value : undefined}
+          onValueChange={(next) => onChange(next === UNSET_SELECT_VALUE ? "" : next)}
         >
-          <option value="">{field.required ? "Select…" : "—"}</option>
-          {field.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id={id} className="w-full" autoFocus={autoFocus}>
+            <SelectValue placeholder={field.required ? "Select…" : "—"} />
+          </SelectTrigger>
+          <SelectContent>
+            {field.required ? null : <SelectItem value={UNSET_SELECT_VALUE}>—</SelectItem>}
+            {field.options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {field.description ? (
           <p className="text-xs text-muted-foreground">{field.description}</p>
         ) : null}

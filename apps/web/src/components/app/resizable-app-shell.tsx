@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useCallback } from "react";
 import { usePanelRef } from "react-resizable-panels";
+import { useRouterState } from "@tanstack/react-router";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AppSidebar } from "@/components/app/app-sidebar";
@@ -8,6 +9,7 @@ import { InspectorShellProvider } from "@/components/app/inspector-shell-context
 import { MasterSidebar } from "@/components/app/master-sidebar";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { inspectorModeFromPath } from "@/lib/inspector-mode";
 
 interface ResizableAppShellProps {
   children: ReactNode;
@@ -15,6 +17,17 @@ interface ResizableAppShellProps {
 
 export function ResizableAppShell({ children }: ResizableAppShellProps) {
   const isMobile = useIsMobile();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const hideContextSidebar = inspectorModeFromPath(pathname) === "events";
+
+  if (hideContextSidebar) {
+    return (
+      <div className="flex h-svh w-full overflow-hidden">
+        <MasterSidebar />
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (

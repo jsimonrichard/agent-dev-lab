@@ -21,7 +21,10 @@ import {
   deleteAgentSession,
   renameWorkflowRun,
   deleteWorkflowRun,
+  getAgentRunEvents,
 } from "#/lib/run-service.server";
+import { getAdlRuntime } from "#/lib/adl-runtime.server";
+import { snapshotEventLog, getEventLog } from "#/lib/event-log.server";
 import { getCoreShell } from "#/lib/runtime-info.server";
 
 const noStore = createMiddleware({ type: "function" }).client(async ({ next }) => {
@@ -81,6 +84,16 @@ export const fetchAgentConversation = createServerFn({ method: "GET" })
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
     return resolveAgentConversation(memoryScope);
+  });
+
+export const fetchAgentCallEvents = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .validator((agentCallId: string) => agentCallId)
+  .handler(async ({ data: agentCallId }) => {
+    const events = await getAgentRunEvents(agentCallId);
+    return events
+      .filter((event) => event.type === "agent_messages_committed")
+      .map((event) => ({ type: event.type, total: event.total, count: event.count }));
   });
 
 export const fetchAgentSessions = createServerFn({ method: "GET" })
@@ -164,3 +177,16 @@ export const fetchMessagesForWorkflowRun = createServerFn({ method: "GET" })
   .handler(async ({ data: runId }) => {
     return loadMessagesForWorkflowRun(runId);
   });
+
+export const fetchEventLog = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .handler(async () => {
+    await getAdlRuntime();
+    return snapshotEventLog();
+  });
+
+export const clearEventLog = createServerFn({ method: "POST" }).handler(async () => {
+  await getAdlRuntime();
+  getEventLog().clear();
+  return { ok: true as const };
+});

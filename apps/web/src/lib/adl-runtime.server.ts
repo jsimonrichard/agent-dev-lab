@@ -1,12 +1,7 @@
 import type { AdlRuntime, MessageStore, WorkflowStore } from "@agent-dev-lab/core";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
-import {
-  ensureInspectorAgentObserver,
-  resetInspectorAgentObserver,
-} from "#/lib/inspector-agent-observer.server";
-
-export { resetInspectorAgentObserver };
+import { ensureInspectorAgentObserver } from "#/lib/inspector-agent-observer.server";
 
 /** Shared process runtime from the loaded ADL project (`adl.config.ts` → `src/adl.ts`). */
 export async function getAdlRuntime(): Promise<AdlRuntime> {
@@ -18,7 +13,7 @@ export async function getAdlRuntime(): Promise<AdlRuntime> {
     );
   }
 
-  ensureInspectorAgentObserver(runtime, project);
+  await ensureInspectorAgentObserver(runtime, project);
   return runtime;
 }
 

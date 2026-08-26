@@ -13,8 +13,8 @@ import {
 } from "@agent-dev-lab/core/project";
 
 import {
-  resetInspectorAgentObserver,
   ensureInspectorAgentObserver,
+  resetInspectorAgentObserver,
 } from "#/lib/inspector-agent-observer.server";
 
 const webPackageRoot = path.dirname(fileURLToPath(new URL("../../", import.meta.url)));
@@ -44,11 +44,14 @@ if (shouldWatchProject()) {
 function bindInspectorWatchListeners(project: LoadedAdlProject): void {
   setAdlProjectWatchListeners({
     onReload: () => {
+      // jiti reload builds a new runtime with empty observer arrays; attach again.
       resetInspectorAgentObserver();
       try {
-        ensureInspectorAgentObserver(project.getAdl(), project);
+        void ensureInspectorAgentObserver(project.getAdl(), project).catch(() => {
+          // Missing `adl` on the reloaded config — catalog loaders will surface it.
+        });
       } catch {
-        // Missing `adl` on the reloaded config — catalog loaders will surface it.
+        // getAdl() throws when config.adl is missing.
       }
     },
   });
@@ -60,9 +63,11 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   bindInspectorWatchListeners(project);
   ensureAdlProjectFileWatch(shouldWatchProject());
   try {
-    ensureInspectorAgentObserver(project.getAdl(), project);
+    void ensureInspectorAgentObserver(project.getAdl(), project).catch(() => {
+      // Watcher still useful without a runtime; catalog loaders surface a missing `adl`.
+    });
   } catch {
-    // Watcher still useful without a runtime; catalog loaders surface a missing `adl`.
+    // getAdl() throws when config.adl is missing.
   }
   return project;
 }

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
+import { EVENT_SCHEMA_VERSION, type RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
 import {
   agentRunStreamIsTerminal,
+  encodeLoggedRunEventSse,
   shouldCloseAgentConversationStream,
   workflowRunStreamIsTerminal,
 } from "./sse.server";
@@ -41,7 +42,6 @@ describe("agentRunStreamIsTerminal", () => {
     expect(agentRunStreamIsTerminal(event("workflow_finished"))).toBe(false);
   });
 });
-
 describe("shouldCloseAgentConversationStream", () => {
   it("stays open after an episode finishes while the tool loop is still running", () => {
     expect(
@@ -68,5 +68,23 @@ describe("shouldCloseAgentConversationStream", () => {
         conversationTurnActive: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("encodeLoggedRunEventSse", () => {
+  it("uses logSeq as the SSE id and JSON-encodes the logged entry", () => {
+    const entry = {
+      logSeq: 7,
+      event: {
+        type: "workflow_started",
+        workflowRunId: "run-1",
+        workflowId: "demo",
+        input: { n: 1 },
+        seq: 1,
+        at: AT,
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      },
+    };
+    expect(encodeLoggedRunEventSse(entry)).toBe(`id: 7\ndata: ${JSON.stringify(entry)}\n\n`);
   });
 });

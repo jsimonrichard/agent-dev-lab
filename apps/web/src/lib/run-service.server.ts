@@ -11,7 +11,7 @@ import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-la
 import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
-import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
+import { getAdlRuntime, getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
 import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent-tools";
 import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
@@ -198,6 +198,7 @@ export async function startWorkflowRun(
   title?: string,
 ): Promise<{ runId: string }> {
   const project = await getLoadedAdlProject();
+  await getAdlRuntime();
   const workflow = project.getWorkflow(workflowId);
   if (!workflow) {
     throw new Error(`Unknown workflow: ${workflowId}`);
@@ -305,6 +306,7 @@ export async function startAgentTurn(options: {
   }
 
   const project = await getLoadedAdlProject();
+  await getAdlRuntime();
   const agent = project.getAgent(options.agentId);
   if (!agent) {
     throw new Error(`Unknown agent: ${options.agentId}`);
@@ -410,6 +412,7 @@ export async function resolveAgentConversation(memoryScope: string) {
     agentId: session.agentId,
     title: sessionDisplayTitle(session),
     messages,
+    latestAgentCallId: session.agentCallId.startsWith("pending:") ? null : session.agentCallId,
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {

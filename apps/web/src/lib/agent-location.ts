@@ -12,3 +12,17 @@ export function parseAgentLocation(pathname: string): {
   }
   return {};
 }
+
+export type AgentRunSearch = {
+  call?: string;
+};
+
+export function parseAgentRunSearch(search: Record<string, unknown>): AgentRunSearch {
+  const call = typeof search.call === "string" && search.call.length > 0 ? search.call : undefined;
+  return call ? { call } : {};
+}
+
+/** Search object for a conversation inspector selection (`?call=`). */
+export function agentRunSearch(selection: { call?: string | null }): AgentRunSearch {
+  return selection.call ? { call: selection.call } : {};
+}

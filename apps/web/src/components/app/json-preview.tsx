@@ -142,8 +142,8 @@ export const JsonPreview = memo(function JsonPreview({
   const dialog =
     canExpand && text !== null ? (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[min(85vh,48rem)] w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden sm:max-w-4xl">
-          <DialogHeader className="flex-row items-start justify-between gap-3 pr-8 text-left">
+        <DialogContent className="flex max-h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden sm:max-w-4xl">
+          <DialogHeader className="flex-row shrink-0 items-start justify-between gap-3 pr-8 text-left">
             <div className="min-w-0 space-y-1">
               <DialogTitle className="truncate font-mono text-base">{dialogTitle}</DialogTitle>
               <DialogDescription>
@@ -189,7 +189,12 @@ export const JsonPreview = memo(function JsonPreview({
 
   if (!label && !children) {
     return (
-      <div className={cn("w-full min-w-0 max-w-full overflow-hidden", fill && "h-full min-h-0")}>
+      <div
+        className={cn(
+          "w-full min-w-0 max-w-full overflow-hidden",
+          fill && "flex h-full min-h-0 flex-1 flex-col",
+        )}
+      >
         {preview}
         {dialog}
       </div>

@@ -4,7 +4,7 @@ Snapshot of **designed vs implemented vs remaining** for a first public release 
 
 **Legend:** ✅ done · 🚧 partial / known gap · 🔲 not started · ⏸ deferred (not RC)
 
-Last reconciled: **2026-08-27**.
+Last reconciled: **2026-08-29**.
 
 ---
 
@@ -35,6 +35,7 @@ Last reconciled: **2026-08-27**.
 | `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                    |
 | `AdlError` + `createTestRuntime`                                            | ✅                                                    |
 | `eventSchemaVersion` on persisted events                                    | ✅                                                    |
+| `EventLog` / `inMemoryEventLog` (process-wide observer, ring buffer)        | ✅                                                    |
 | `inspectLanguageModel` / `Agent.modelInfo`                                  | ✅                                                    |
 | AI SDK re-exports (`generateText`, `streamText`, `tool`, `stepCountIs`, …)  | ✅                                                    |
 | Cancellation: `handle.cancel()` + `ctx.signal` + linked agent abort         | ✅                                                    |
@@ -72,6 +73,8 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Live inspect `systemPrompt` (`Result`) + overlay / inspect errors   | ✅     |
 | Project hot reload SSE + failed-reload banner                       | ✅     |
 | Live assistant text via `agent_text_delta` in chat / run views      | ✅     |
+| Process-wide event log (`/events`, SSE, filters, pagination)        | ✅     |
+| Event-log deep-links highlight the matching call / step             | ✅     |
 | Template playground (edit/render markdown templates in UI)          | ⏸      |
 | Dedicated token-debug pane (raw delta inspector)                    | ⏸      |
 | `@agent-dev-lab/hooks` package                                      | ⏸      |

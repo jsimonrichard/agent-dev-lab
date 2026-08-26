@@ -48,6 +48,18 @@ Registered `agents` can be opened as **conversations** (standalone `memoryScope`
 - Shared scopes show history **up to** the selected episode; later turns are muted so you can see what the model had at that call.
 - The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, and title workflow id.
 
+## Event log
+
+The **Event log** page (`/events`) is a process-wide tail of every `RunEvent` the inspector has seen — workflow runs and standalone agent conversations — not one run at a time.
+
+- Open it from the home sidebar or the rail. The context sidebar is hidden so the table can use the full width.
+- Live updates use **SSE** (`GET /api/events?afterSeq=`). The stream id is the process `logSeq`, not per-run `seq`. Reconnects replay from the last applied `logSeq`.
+- On inspector start, an empty in-memory buffer is **hydrated** from the last 100 persisted workflow runs and standalone agent episodes in [`WorkflowStore`](/api/interfaces/workflowstore/). **Clear** empties the in-memory view only; persisted runs stay. Restart hydrates again.
+- Default filters hide `agent_text_delta`. Add field clauses (equals / not-equals / contains on strings / exists / empty). Click a name to open that run, conversation, call, or step — conversations highlight the matching transcript slice (`?call=`). Right-click a value to filter; ⋯ opens the full JSON payload.
+- The footer paginates the filtered list (oldest page first; page 1 is the live tail when you stay on it).
+
+The log is a ring buffer (default 10_000 events). It is not a durable store of its own — durability is still `WorkflowStore`.
+
 ## What is not in the inspector yet
 
 - A template playground (edit/render `createTemplate` markdown in the UI)

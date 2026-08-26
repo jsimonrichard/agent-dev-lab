@@ -232,6 +232,8 @@ export interface ResolvedAgentConversation {
   agentId: string;
   title: string;
   messages: MockMessage[];
+  /** Latest agent call on this conversation, when one has started. */
+  latestAgentCallId: string | null;
   forkSession: ForkedAgentSession | null;
   workflowLink: ConversationWorkflowLink | null;
 }

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { GitBranch, LayoutDashboard, MessageSquare } from "lucide-react";
+import { GitBranch, LayoutDashboard, MessageSquare, ScrollText } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ContextSidebar } from "@/components/app/context-sidebar";
@@ -63,6 +63,14 @@ export function HomeSidebar() {
                   <Link to="/agent">
                     <MessageSquare className="size-4" />
                     <span>Agent conversations</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Event log">
+                  <Link to="/events">
+                    <ScrollText className="size-4" />
+                    <span>Event log</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

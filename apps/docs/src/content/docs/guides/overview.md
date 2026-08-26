@@ -17,12 +17,13 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 | Conversation titles (`titleWorkflow`, `ctx.setTitle`)                     | Implemented |
 | `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
 | Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
+| `EventLog` / `inMemoryEventLog` process-wide observer                     | Implemented |
 | `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
 | Project hot reload (`reload`, `watchAdlProject`) in dev                   | Implemented |
 | `adl.createToolFromAgent` / `adl.createToolFromWorkflow`                  | Implemented |
 | CLI `adl run` / list / `adl dashboard`                                    | Implemented |
 | CLI `adl init`                                                            | Scaffold    |
-| Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
+| Inspection UI: waterfall, SSE, cancel, agent chats, fork, event log       | Implemented |
 | Playground multi-agent samples                                            | Implemented |
 
 ## Documentation map
@@ -32,7 +33,7 @@ The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CL
 Cross-cutting concepts and project layout:
 
 - [Project setup](/guides/project-setup/) — required vs recommended layout; `#adl` import alias; how tooling gets `config.adl`
-- [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
+- [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
 - [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
 - [Agents](/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs

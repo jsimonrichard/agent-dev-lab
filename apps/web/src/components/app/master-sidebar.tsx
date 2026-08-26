@@ -1,5 +1,5 @@
 import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
-import { GitBranch, LayoutDashboard, MessageSquare, Settings2 } from "lucide-react";
+import { GitBranch, LayoutDashboard, MessageSquare, ScrollText, Settings2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { inspectorModeFromPath } from "@/lib/inspector-mode";
@@ -36,6 +36,12 @@ export function MasterSidebar() {
             active={mode === "agents"}
             to="/agent"
             icon={MessageSquare}
+          />
+          <MasterNavItem
+            label="Event log"
+            active={mode === "events"}
+            to="/events"
+            icon={ScrollText}
           />
         </nav>
 

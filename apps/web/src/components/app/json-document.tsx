@@ -199,7 +199,7 @@ function ArrayItem({
     return (
       <li className="flex min-w-0 items-start gap-2">
         {marker}
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
           <ProseString value={value} compact={compact} copyable={false} />
         </div>
         {copyButton}
@@ -230,7 +230,7 @@ function ArrayItem({
         ) : null}
         <span className="ml-auto shrink-0">{copyButton}</span>
       </div>
-      <div className="min-w-0 overflow-x-auto pl-7">
+      <div className="min-w-0 overflow-x-auto overflow-y-hidden pl-7">
         <JsonNode value={value} compact={compact} depth={depth + 1} copySelf={false} />
       </div>
     </li>
@@ -281,7 +281,7 @@ function Field({
         ) : null}
         <span className="ml-auto shrink-0">{copyButton}</span>
       </p>
-      <div className="min-w-0 overflow-x-auto pl-3.5">
+      <div className="min-w-0 overflow-x-auto overflow-y-hidden pl-3.5">
         <JsonNode value={value} compact={compact} depth={depth + 1} copySelf={false} />
       </div>
     </section>

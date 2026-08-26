@@ -42,6 +42,17 @@ export function workflowRunLabel(run: { runId: string; title?: string }): string
   return title ? title : run.runId;
 }
 
+/** Search object for a run inspector selection (`?step=` / `?episode=`). */
+export function workflowRunSearch(selection: {
+  step?: string | null;
+  episode?: string | null;
+}): WorkflowRunSearch {
+  return {
+    ...(selection.step ? { step: selection.step } : {}),
+    ...(selection.episode ? { episode: selection.episode } : {}),
+  };
+}
+
 /** Secondary line for a run: timestamp and input preview. */
 export function workflowRunSubtitle(run: {
   runId: string;
