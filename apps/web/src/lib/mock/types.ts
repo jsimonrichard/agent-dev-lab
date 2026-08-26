@@ -38,12 +38,16 @@ export interface MockAgentToolDefinition {
   description: string;
 }
 
-/** Static agent configuration shown in the agent conversation settings panel (mock). */
+/** Effective model shown in the settings panel; `null` hides the Model section. */
+export interface MockAgentModel {
+  modelId: string;
+  provider?: string;
+}
+
+/** Agent configuration shown in the conversation settings panel. */
 export interface MockAgentSettings {
   agentId: string;
-  model: string;
-  temperature: number;
-  maxSteps: number;
+  model: MockAgentModel | null;
   memoryMode: string;
   tools: MockAgentToolDefinition[];
   outputSchema?: string;

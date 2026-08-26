@@ -16,27 +16,25 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
       id: conversation.agentId,
       description: `Agent ${conversation.agentId} from project registry`,
     };
-    const settings: MockAgentSettings = {
-      agentId: conversation.agentId,
-      model: "configured in project",
-      temperature: 0,
-      maxSteps: 0,
-      memoryMode: conversation.runId,
-      tools: [],
-    };
-    return { agent, conversation, settings };
+    return { agent, conversation };
   },
 });
 
 function AgentRunPage() {
-  const { agent, conversation, settings } = Route.useLoaderData();
+  const { agent, conversation } = Route.useLoaderData();
   const { project } = useAppLoaderData();
-  const tools = project.agents.find((item) => item.id === agent.id)?.tools ?? [];
+  const agentMeta = project.agents.find((item) => item.id === agent.id);
+  const settings: MockAgentSettings = {
+    agentId: conversation.agentId,
+    model: agentMeta?.model ?? null,
+    memoryMode: agentMeta?.memoryMode ?? "custom",
+    tools: agentMeta?.tools ?? [],
+  };
   return (
     <AgentRunWorkspace
       agent={agent}
       conversation={conversation}
-      settings={{ ...settings, tools }}
+      settings={settings}
     />
   );
 }

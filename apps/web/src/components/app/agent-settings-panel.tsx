@@ -14,22 +14,25 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-l border-border/40 bg-muted/10">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
         <h2 className="text-sm font-semibold">Agent settings</h2>
-        <p className="text-xs text-muted-foreground">
-          Configuration for <span className="font-mono text-foreground">{settings.agentId}</span>
-        </p>
+        <p className="text-xs text-muted-foreground">Configuration for this agent</p>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-5 p-4">
-          <SettingsSection icon={Cpu} title="Model">
-            <dl className="space-y-2 text-xs">
-              <SettingRow label="Provider model" value={settings.model} mono />
-              <SettingRow label="Temperature" value={String(settings.temperature)} />
-              <SettingRow label="Max tool steps" value={String(settings.maxSteps)} />
-            </dl>
-          </SettingsSection>
+          {settings.model ? (
+            <>
+              <SettingsSection icon={Cpu} title="Model">
+                <dl className="space-y-2 text-xs">
+                  <SettingRow label="Model" value={settings.model.modelId} mono />
+                  {settings.model.provider ? (
+                    <SettingRow label="Provider" value={settings.model.provider} mono />
+                  ) : null}
+                </dl>
+              </SettingsSection>
 
-          <Separator className="bg-border/40" />
+              <Separator className="bg-border/40" />
+            </>
+          ) : null}
 
           <SettingsSection icon={Wrench} title="Tools">
             {settings.tools.length === 0 ? (
@@ -59,12 +62,8 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
 
           <SettingsSection icon={Database} title="Memory">
             <dl className="space-y-2 text-xs">
-              <SettingRow label="Mode" value={settings.memoryMode} />
-              <SettingRow
-                label="Scope"
-                value={conversation.forkSession?.sourceMemoryScope ?? conversation.runId}
-                mono
-              />
+              <SettingRow label="Mode" value={settings.memoryMode} mono />
+              <SettingRow label="Scope" value={conversation.runId} mono />
             </dl>
           </SettingsSection>
 

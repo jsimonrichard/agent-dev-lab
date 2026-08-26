@@ -25,7 +25,19 @@ export interface WorkflowInspectorMeta {
   inputFields: WorkflowInputField[];
 }
 
+/** Effective model for an agent (mirrors core's `AgentModelInfo`, kept client-safe). */
+export interface AgentModelInspectorMeta {
+  /** Provider model id (e.g. `"gpt-4o-mini"`), or `"custom"` when the model object omits it. */
+  modelId: string;
+  /** Provider id (e.g. `"openai.chat"`) when the model exposes one. */
+  provider?: string;
+}
+
 export interface AgentInspectorMeta {
   id: string;
   tools: { name: string; description: string }[];
+  /** Message-store backend (`"in-memory"`, `"sqlite"`, or a custom kind). */
+  memoryMode: string;
+  /** `null` when no model is configured or it reveals nothing — hide it in the UI. */
+  model: AgentModelInspectorMeta | null;
 }

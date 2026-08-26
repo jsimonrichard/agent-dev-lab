@@ -106,10 +106,15 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
     id,
     inputFields: describeWorkflowInput(project.getWorkflow(id)?.input),
   }));
-  const agents = project.listAgentIds().map((id) => ({
-    id,
-    tools: inspectAgentTools(project.getAgent(id)),
-  }));
+  const agents = project.listAgentIds().map((id) => {
+    const agent = project.getAgent(id);
+    return {
+      id,
+      tools: inspectAgentTools(agent),
+      memoryMode: agent?.memoryKind ?? "custom",
+      model: agent?.modelInfo ?? null,
+    };
+  });
   return {
     name: project.config.name,
     root: project.root,
