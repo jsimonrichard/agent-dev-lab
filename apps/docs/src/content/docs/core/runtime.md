@@ -77,6 +77,29 @@ const researcher = adl.createAgent(
 - **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to lists from `createAdlRuntime` (not replace).
 
+## EventLog
+
+[`inMemoryEventLog()`](/api/functions/inmemoryeventlog/) is a ring-buffer [`EventLog`](/api/interfaces/eventlog/) that also implements `WorkflowObserver` and `AgentObserver`. Register the **same instance** on both lists so workflow and agent events share one `logSeq` (process-wide, unlike per-run `RunEvent.seq`):
+
+```ts
+import { createAdlRuntime, inMemoryEventLog } from "@agent-dev-lab/core";
+
+const eventLog = inMemoryEventLog(); // default cap 10_000
+
+const adl = createAdlRuntime({
+  observers: {
+    workflows: [eventLog],
+    agents: [eventLog],
+  },
+});
+```
+
+`eventLog.list({ afterSeq, type, limit })` reads the buffer. `waitForAppend(afterSeq, signal)` resolves when a later event arrives (or the signal aborts) so an SSE tail does not miss events between `list` and wait. `clear()` empties the buffer.
+
+The inspection UI attaches its own process singleton this way and hydrates an empty log from [`WorkflowStore`](/api/interfaces/workflowstore/) on startup. A SQLite `EventLog` is not implemented yet.
+
+Observer lists are **not** pinned across [`watchAdlProject`](/core/project/) reloads — late-attached observers (including the inspector log) must be pushed again onto the new arrays.
+
 ### Functional factories (tests only)
 
 Project code should use **`adl.createAgent`**, **`adl.createWorkflow`**, and **`adl.createTemplate`**. The package also exports `createAgent(runtime, …)`, `createWorkflow(runtime, …)`, and `createTemplate(runtime, …)` for unit tests and libraries that need an explicit runtime handle without a project `adl` module. Same behavior — prefer the bound methods in application code.

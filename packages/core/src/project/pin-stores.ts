@@ -29,6 +29,9 @@ function retargetItemStores(item: unknown, discarded: StorePair, previous: Store
  * Store *config* changes (in-memory → sqlite, a different sqlite path) are ignored
  * until process restart. Per-agent `memory.store` / runtime store overrides are new
  * objects on each re-import and are not retargeted.
+ *
+ * Observer lists are **not** pinned. Reload re-evaluates `createAdlRuntime()`, so
+ * late-attached observers (inspection UI) must be pushed again on the new arrays.
  */
 export function pinRuntimeStores(
   previousConfig: AdlProjectConfig,

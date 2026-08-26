@@ -36,6 +36,13 @@ export type {
 } from "./observers";
 export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
 export { sqliteWorkflowStore } from "./sqlite-workflow-store";
+export {
+  inMemoryEventLog,
+  InMemoryEventLog,
+  DEFAULT_EVENT_LOG_MAX_EVENTS,
+} from "./in-memory-event-log";
+export type { InMemoryEventLogOptions } from "./in-memory-event-log";
+export type { EventLog, ListLoggedEventsFilter, LoggedRunEvent } from "./event-log";
 export type {
   AgentEpisodeSummary,
   ListEventsFilter,

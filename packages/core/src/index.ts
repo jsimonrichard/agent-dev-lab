@@ -108,8 +108,20 @@ export type {
   MessageStore,
   SqliteStoreOptions,
 } from "./memory";
-export { EVENT_SCHEMA_VERSION, inMemoryWorkflowStore, sqliteWorkflowStore } from "./observability";
-export type { AgentEpisodeSummary } from "./observability";
+export {
+  DEFAULT_EVENT_LOG_MAX_EVENTS,
+  EVENT_SCHEMA_VERSION,
+  inMemoryEventLog,
+  InMemoryEventLog,
+  inMemoryWorkflowStore,
+  sqliteWorkflowStore,
+} from "./observability";
+export type {
+  AgentEpisodeSummary,
+  EventLog,
+  InMemoryEventLogOptions,
+  LoggedRunEvent,
+} from "./observability";
 
 export type {
   AgentEventBase,
@@ -119,6 +131,7 @@ export type {
   AgentObservers,
   ListEventsFilter,
   ListEventsScope,
+  ListLoggedEventsFilter,
   RunEvent,
   RunEventOfType,
   RunEventType,
@@ -189,13 +202,5 @@ export function createCoreShell() {
   return {
     name: "agent-development-lab/core",
     version: corePackage.version,
-    capabilities: [
-      "v1 API surface (draft)",
-      "createAdlRuntime + explicit runtime wiring",
-      "project config load + registry indexing",
-      "adl.createTemplate / createTemplate(runtime, config)",
-      "agent.run / agent.stream",
-      "workflow.run / workflow.stream with WorkflowStore + observers",
-    ],
   };
 }
