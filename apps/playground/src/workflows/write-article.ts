@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { adl } from "#adl";
 
-import { outliner, outlineSchema, type Outline } from "../agents/outliner";
+import { outliner, type Outline } from "../agents/outliner";
 import { editor, reviewSchema } from "../agents/editor";
 import { writer } from "../agents/writer";
 import { articleBriefPrompt, draftRequestPrompt, reviseRequestPrompt } from "../prompts";
@@ -51,8 +51,7 @@ export const writeArticle = adl.createWorkflow({
         user: articleBriefPrompt.render({ topic, audience }),
         workflow: { workflowRunId: child.workflowRunId, stepId: child.stepId },
       });
-      const result = await handle.result;
-      return outlineSchema.parse(result.output);
+      return (await handle.result).output;
     });
 
     await ctx.setTitle(outline.title);
@@ -84,8 +83,7 @@ export const writeArticle = adl.createWorkflow({
         user: `Title: ${outline.title}\n\n${article}`,
         workflow: { workflowRunId: child.workflowRunId, stepId: child.stepId },
       });
-      const result = await handle.result;
-      return reviewSchema.parse(result.output);
+      return (await handle.result).output;
     });
 
     let revised = false;

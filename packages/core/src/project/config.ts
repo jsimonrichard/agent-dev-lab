@@ -23,7 +23,7 @@ export interface AdlProjectConfig {
    */
   adl?: AdlRuntime;
 
-  agents?: Agent<unknown, ToolSet>[];
+  agents?: Agent<unknown, ToolSet, unknown>[];
   workflows?: Workflow<unknown, unknown>[];
   /** Registry key is `template.name` (filename basename). */
   templates?: Template<unknown>[];

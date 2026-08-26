@@ -34,8 +34,8 @@ import type {
 export class AgentImpl<
   Context = undefined,
   Tools extends ToolSet = ToolSet,
-  TOutput = unknown,
-> implements Agent<Context, Tools> {
+  TOutput = string,
+> implements Agent<Context, Tools, TOutput> {
   readonly id: string;
 
   constructor(
@@ -60,7 +60,7 @@ export class AgentImpl<
     return this.definition.titleWorkflow?.id ?? null;
   }
 
-  run(input: AgentRunInput<Context>): AgentRunHandle<Tools> {
+  run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
     const controller = new AbortController();
     const agentCallId = createId();
     const finished = this.executeEpisode({
@@ -73,13 +73,13 @@ export class AgentImpl<
       agentCallId,
       result: finished,
       cancel: () => controller.abort(),
-    } satisfies AgentRunHandle<Tools>;
+    } satisfies AgentRunHandle<Tools, TOutput>;
   }
 
-  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools> {
+  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput> {
     const controller = new AbortController();
     const agentCallId = createId();
-    const streamReady = Promise.withResolvers<StreamTextResult<Tools, unknown>>();
+    const streamReady = Promise.withResolvers<StreamTextResult<Tools, TOutput>>();
 
     const finished = this.executeEpisode({
       input: input as AgentRunInput<unknown>,
@@ -96,13 +96,13 @@ export class AgentImpl<
       agentCallId,
       textStream: lazyTextStream(
         () => streamReady.promise as unknown as Promise<StreamTextResult<ToolSet, unknown>>,
-      ) as AgentStreamResult<Tools, unknown>["textStream"],
+      ) as AgentStreamResult<Tools, TOutput>["textStream"],
       fullStream: lazyFullStream(
         () => streamReady.promise as unknown as Promise<StreamTextResult<ToolSet, unknown>>,
-      ) as AgentStreamResult<Tools, unknown>["fullStream"],
+      ) as AgentStreamResult<Tools, TOutput>["fullStream"],
       finished,
       cancel: () => controller.abort(),
-    } satisfies AgentStreamHandle<Tools>;
+    } satisfies AgentStreamHandle<Tools, TOutput>;
   }
 
   private async executeEpisode(options: {
@@ -110,8 +110,8 @@ export class AgentImpl<
     abortSignal: AbortSignal;
     exposeStream: boolean;
     agentCallId: string;
-    onStreamReady?: (stream: StreamTextResult<Tools, unknown>) => void;
-  }): Promise<AgentRunResult<Tools>> {
+    onStreamReady?: (stream: StreamTextResult<Tools, TOutput>) => void;
+  }): Promise<AgentRunResult<Tools, TOutput>> {
     const { input, abortSignal, exposeStream, onStreamReady, agentCallId } = options;
     const messageStore = this.services.stores.message;
 
@@ -197,7 +197,7 @@ export class AgentImpl<
                 });
               }
             },
-          }) as unknown as StreamTextResult<Tools, unknown>;
+          }) as unknown as StreamTextResult<Tools, TOutput>;
 
           onStreamReady?.(streamResult);
 
@@ -232,7 +232,9 @@ export class AgentImpl<
           });
 
           const text = await streamResult.text;
-          const structuredOutput = structuredPromise ? await structuredPromise : undefined;
+          const output = outputSchema
+            ? (outputSchema.parse(await structuredPromise) as TOutput)
+            : (text as TOutput);
           const sdk = streamResult;
 
           if (!isGeneratingConversationTitle()) {
@@ -257,7 +259,7 @@ export class AgentImpl<
 
           return {
             text,
-            output: structuredOutput as never,
+            output,
             messages: allMessages,
             newMessages,
             sdk,

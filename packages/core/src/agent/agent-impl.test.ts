@@ -43,6 +43,7 @@ describe("AgentImpl streamText prompt", () => {
       }).result;
 
       expect(result.text).toContain("briefing");
+      expect(result.output).toBe(result.text);
       expect(result.messages.every((message) => message.role !== "system")).toBe(true);
       expect(warnings.some((warning) => warning.includes("System messages in the prompt"))).toBe(
         false,

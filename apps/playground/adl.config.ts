@@ -12,12 +12,12 @@ import { literatureReview } from "./src/workflows/literature-review";
 import { writeArticle } from "./src/workflows/write-article";
 
 // Agents with a concrete `tools` shape are invariant in `Tools`, so widen to the
-// registry's `Agent<unknown, ToolSet>` element type for the config array.
-const agents: Agent<unknown, ToolSet>[] = [
+// registry's `Agent<unknown, ToolSet, unknown>` element type for the config array.
+const agents: Agent<unknown, ToolSet, unknown>[] = [
   outliner,
   writer,
   editor,
-  researchAssistant as unknown as Agent<unknown, ToolSet>,
+  researchAssistant as unknown as Agent<unknown, ToolSet, unknown>,
   researcher,
   critic,
 ];

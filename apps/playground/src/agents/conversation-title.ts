@@ -32,8 +32,7 @@ export const conversationTitle = adl.createWorkflow<
       memoryScope: ctx.memoryScopeWithSuffix("namer"),
       user: `Write a short title for this conversation.\n\n${formatTranscript(input.messages)}`,
     }).result;
-    const parsed = titleSchema.safeParse(episode.output);
-    return { title: parsed.success ? parsed.data.title : episode.text };
+    return { title: episode.output.title };
   },
 });
 

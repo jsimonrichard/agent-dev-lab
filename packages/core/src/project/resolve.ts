@@ -70,7 +70,7 @@ export interface LoadedAdlProject {
   getAdl(): NonNullable<AdlProjectConfig["adl"]>;
 
   getWorkflow(id: string): Workflow<unknown, unknown> | undefined;
-  getAgent(id: string): Agent<unknown, ToolSet> | undefined;
+  getAgent(id: string): Agent<unknown, ToolSet, unknown> | undefined;
   listWorkflowIds(): string[];
   listAgentIds(): string[];
   getTemplate(name: string): Template<unknown> | undefined;

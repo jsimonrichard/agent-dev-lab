@@ -25,10 +25,10 @@ export class AdlRuntimeImpl implements AdlRuntime {
     this.services = resolveRuntimeConfig(config);
   }
 
-  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = unknown>(
+  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
     definition: AgentDefinition<Tools, TOutput>,
     overrides?: AdlRuntimeOverrides,
-  ): Agent<Context, Tools> {
+  ): Agent<Context, Tools, TOutput> {
     return new AgentImpl<Context, Tools, TOutput>(
       definition,
       resolveDefinitionServices(definition, resolveRuntimeOverrides(this.services, overrides)),

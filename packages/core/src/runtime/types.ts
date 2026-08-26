@@ -68,10 +68,10 @@ export type RuntimeServices = {
 export interface AdlRuntime {
   readonly services: RuntimeServices;
 
-  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = unknown>(
+  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
     definition: AgentDefinition<Tools, TOutput>,
     overrides?: AdlRuntimeOverrides,
-  ): Agent<Context, Tools>;
+  ): Agent<Context, Tools, TOutput>;
 
   createWorkflow<TInput, TOutput, TRawInput = TInput>(
     definition: WorkflowDefinition<TInput, TOutput, TRawInput>,

@@ -57,6 +57,13 @@ Pin those types with generics (Zod on the workflow is optional):
 
 ```ts
 import type { ConversationTitleInput, ConversationTitleOutput } from "@agent-dev-lab/core";
+import { z } from "zod";
+
+const namer = adl.createAgent({
+  id: "conversation-title-namer",
+  instructions: "Reply with a short conversation title.",
+  outputSchema: z.object({ title: z.string() }),
+});
 
 export const conversationTitle = adl.createWorkflow<
   ConversationTitleInput,
@@ -68,7 +75,7 @@ export const conversationTitle = adl.createWorkflow<
       memoryScope: ctx.memoryScopeWithSuffix("namer"),
       user: `Write a short title.\n\n${format(input.messages)}`,
     }).result;
-    return { title: episode.output?.title ?? episode.text };
+    return { title: episode.output.title };
   },
 });
 
@@ -96,7 +103,7 @@ Volatile turn context belongs in **user** messages, not in instructions.
 | Agent default | `adl.createAgent({ outputSchema })` | Every `run` / `stream` uses structured output unless overridden |
 | Per call      | `agent.run({ outputSchema })`       | Overrides agent default for one episode                         |
 
-Implementation uses **`streamText`** with `experimental_output` when a schema is set — same path for `run` and `stream`. `AgentRunResult` includes `output`, `text`, `messages`, `newMessages`, and `sdk`.
+Implementation uses **`streamText`** with `experimental_output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
 
 ### What agents do not carry
 

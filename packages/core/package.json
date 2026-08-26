@@ -28,7 +28,7 @@
   "scripts": {
     "build": "tsdown",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "bun test"
   },
   "dependencies": {

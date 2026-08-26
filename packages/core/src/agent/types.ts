@@ -22,13 +22,17 @@ export type ConversationTitleOutput = {
   title: string;
 };
 
-export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> = {
   id: string;
   instructions: AgentInstructions;
   /** Required unless {@link AdlRuntimeConfig.defaults.model} is set. */
   model?: LanguageModel;
   tools?: Tools;
-  /** Default Zod schema for structured output on every episode. */
+  /**
+   * Default Zod schema for structured output on every episode.
+   * When set, {@link AgentRunResult.output} is inferred from the schema; when omitted,
+   * `TOutput` is `string` and `output` is the episode text.
+   */
   outputSchema?: z.ZodType<TOutput>;
   memory?: AgentMemoryConfig;
   /**
@@ -72,10 +76,13 @@ export type AgentRunInput<Context = unknown> = {
  * (`GenerateTextResult.text` / drained `streamText`). When the model returns tool calls,
  * assistant text may be empty or partial; use `messages` / `newMessages` for the full
  * transcript and `sdk` for raw SDK fields.
+ *
+ * **`output`:** typed episode payload. Inferred from {@link AgentDefinition.outputSchema}
+ * (or a per-call override). When no schema is set, this is the same string as `text`.
  */
-export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   text: string;
-  output?: TOutput;
+  output: TOutput;
   messages: CoreMessage[];
   newMessages: CoreMessage[];
   /** Raw AI SDK stream result. The agent runner uses `streamText` internally for both `run` and `stream`. */
@@ -84,14 +91,14 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = unknown> =
 
 export type AgentStreamInput<Context = unknown> = AgentRunInput<Context>;
 
-export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   textStream: StreamTextResult<Tools, TOutput>["textStream"];
   fullStream: StreamTextResult<Tools, TOutput>["fullStream"];
   finished: Promise<AgentRunResult<Tools, TOutput>>;
 };
 
 /** Handle returned from `agent.run` — await `result` or call `cancel()` without passing AbortSignal in input. */
-export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = unknown> = {
+export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = string> = {
   /** Stable id for this agent episode; available before `agent_started` is emitted. */
   agentCallId: string;
   result: Promise<AgentRunResult<Tools, TOutput>>;
@@ -100,14 +107,21 @@ export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = unknown> =
 
 export type AgentStreamHandle<
   Tools extends ToolSet = ToolSet,
-  TOutput = unknown,
+  TOutput = string,
 > = AgentStreamResult<Tools, TOutput> & {
   /** Stable id for this agent episode; available before `agent_started` is emitted. */
   agentCallId: string;
   cancel: () => void;
 };
 
-export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
+/**
+ * Bound agent. `TOutput` is inferred from {@link AgentDefinition.outputSchema} and
+ * defaults to `string` when the schema is omitted.
+ *
+ * Heterogeneous registries (e.g. `adl.config` `agents`) should widen to
+ * `Agent<unknown, ToolSet, unknown>`.
+ */
+export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out TOutput = string> {
   readonly id: string;
   /**
    * Message-store backend this agent persists transcripts to.
@@ -125,6 +139,6 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet> {
    * Id of {@link AgentDefinition.titleWorkflow} when this agent auto-titles conversations.
    */
   readonly titleWorkflowId: string | null;
-  run(input: AgentRunInput<Context>): AgentRunHandle<Tools>;
-  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools>;
+  run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput>;
+  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput>;
 }
