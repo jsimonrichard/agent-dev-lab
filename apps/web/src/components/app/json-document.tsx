@@ -184,17 +184,34 @@ function ArrayItem({
 }) {
   const object = isPlainObject(value);
   const array = Array.isArray(value);
-  const block = (typeof value === "string" && looksLikeProse(value)) || array || object;
+  const prose = typeof value === "string" && looksLikeProse(value);
   const label = `item ${index}`;
   const copyButton = <CopyTextButton text={valueToClipboardText(value)} label={label} />;
   const marker = (
-    <span className="w-5 shrink-0 pt-0.5 text-right font-mono text-[10px] leading-4 tabular-nums text-muted-foreground">
+    <span
+      className={cn(
+        "w-5 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground",
+        prose ? "flex h-6 items-center justify-end leading-none" : "pt-0.5 leading-4",
+      )}
+    >
       {index}.
     </span>
   );
   const count = object ? Object.keys(value).length : array ? value.length : null;
 
-  if (!block) {
+  if (prose) {
+    return (
+      <li className="flex min-w-0 items-start gap-2">
+        {marker}
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <ProseString value={value} compact={compact} copyable={false} />
+        </div>
+        {copyButton}
+      </li>
+    );
+  }
+
+  if (!object && !array) {
     return (
       <li className="flex min-w-0 items-start gap-2">
         {marker}
@@ -217,7 +234,7 @@ function ArrayItem({
         ) : null}
         <span className="ml-auto shrink-0">{copyButton}</span>
       </div>
-      <div className="ml-2.5 min-w-0 overflow-x-auto border-l-2 border-foreground/20 pl-3.5 dark:border-foreground/30">
+      <div className="min-w-0 overflow-x-auto pl-7">
         <JsonNode value={value} compact={compact} depth={depth + 1} copySelf={false} />
       </div>
     </li>
@@ -268,7 +285,7 @@ function Field({
         ) : null}
         <span className="ml-auto shrink-0">{copyButton}</span>
       </p>
-      <div className="min-w-0 overflow-x-auto border-l-2 border-foreground/20 pl-3.5 dark:border-foreground/30">
+      <div className="min-w-0 overflow-x-auto pl-3.5">
         <JsonNode value={value} compact={compact} depth={depth + 1} copySelf={false} />
       </div>
     </section>
