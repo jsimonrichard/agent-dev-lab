@@ -58,9 +58,10 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Layout splits: 1px border-border. Inner rules: border-border/40. */
   --border: oklch(0.9 0.004 260);
   --input: oklch(0.9 0.004 260);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.78 0.004 260);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -68,7 +69,7 @@
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.9 0.004 260);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: oklch(0.78 0.004 260);
 }
 
 .dark {
@@ -90,7 +91,7 @@
   /* Subtle separators — avoid bright white hairlines on dark surfaces */
   --border: oklch(0.28 0.012 260);
   --input: oklch(0.26 0.012 260);
-  --ring: oklch(0.45 0.02 260);
+  --ring: oklch(0.4 0.012 260);
   --sidebar: oklch(0.18 0.01 260);
   --sidebar-foreground: oklch(0.93 0.01 260);
   --sidebar-primary: oklch(0.55 0.12 265);
@@ -98,13 +99,33 @@
   --sidebar-accent: oklch(0.24 0.012 260);
   --sidebar-accent-foreground: oklch(0.93 0.01 260);
   --sidebar-border: oklch(0.28 0.012 260);
-  --sidebar-ring: oklch(0.45 0.02 260);
+  --sidebar-ring: oklch(0.4 0.012 260);
 }
 
 @layer base {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  :focus-visible:not(
+    [role="dialog"],
+    [role="alertdialog"],
+    [role="menu"],
+    [role="listbox"],
+    [data-slot="dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="tooltip-content"]
+  ) {
+    outline: 2px solid color-mix(in oklch, var(--ring) 40%, transparent);
+    outline-offset: 1px;
   }
 }
 

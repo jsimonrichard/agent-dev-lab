@@ -114,7 +114,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background px-4">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
         <Button variant="ghost" size="sm" asChild>
@@ -243,7 +243,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
 
         {settingsOpen ? (
           <>
-            <ResizableHandle withHandle />
+            <ResizableHandle />
             <ResizablePanel id="agent-settings" defaultSize="38%" minSize="22%" maxSize="50%">
               <AgentSettingsPanel settings={settings} conversation={conversation} />
             </ResizablePanel>

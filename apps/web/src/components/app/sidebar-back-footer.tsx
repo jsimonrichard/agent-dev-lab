@@ -17,7 +17,7 @@ export function SidebarBackFooter({
   to = "/",
 }: SidebarBackFooterProps) {
   return (
-    <SidebarFooter className="border-t border-sidebar-border/50">
+    <SidebarFooter className="border-t border-sidebar-border/40">
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton asChild tooltip={label}>

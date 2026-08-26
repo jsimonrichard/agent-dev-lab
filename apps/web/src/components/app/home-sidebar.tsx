@@ -25,7 +25,7 @@ export function HomeSidebar() {
 
   return (
     <ContextSidebar>
-      <SidebarHeader className="border-b border-sidebar-border/50">
+      <SidebarHeader className="border-b border-sidebar-border/40">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>

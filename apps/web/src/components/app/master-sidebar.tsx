@@ -13,7 +13,7 @@ export function MasterSidebar() {
   return (
     <TooltipProvider delayDuration={0}>
       <aside
-        className="flex h-svh w-14 shrink-0 flex-col items-center border-r border-border/40 bg-sidebar py-3"
+        className="flex h-svh w-14 shrink-0 flex-col items-center border-r border-border bg-sidebar py-3"
         aria-label="Inspector mode"
       >
         <MasterNavItem
@@ -76,7 +76,7 @@ function MasterNavItem({
   className?: string;
 }) {
   const buttonClass = cn(
-    "flex size-10 cursor-pointer items-center justify-center rounded-lg transition-colors",
+    "flex size-10 cursor-pointer items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
     active
       ? "bg-sidebar-accent text-sidebar-accent-foreground"
       : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",

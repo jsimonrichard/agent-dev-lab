@@ -49,10 +49,10 @@ export function ErrorDetails({
       ) : null}
       {formatted.stack ? (
         <details className="mt-2">
-          <summary className="cursor-pointer text-[10px] text-muted-foreground">
+          <summary className="cursor-pointer rounded-sm text-[10px] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
             Stack trace
           </summary>
-          <pre className="mt-1.5 max-h-48 overflow-auto font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
+          <pre className="mt-1.5 max-h-48 overflow-auto rounded-sm font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
             {formatted.stack}
           </pre>
         </details>

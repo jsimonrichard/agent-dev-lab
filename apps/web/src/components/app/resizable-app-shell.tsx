@@ -75,7 +75,7 @@ function DesktopAppShell({ children }: { children: ReactNode }) {
             >
               <AppSidebar />
             </ResizablePanel>
-            <ResizableHandle withHandle className="z-20 bg-border/50" />
+            <ResizableHandle className="z-20" />
             <ResizablePanel id="main-content" minSize="50%" defaultSize="80%" className="min-w-0">
               <SidebarInset className="h-svh min-h-0 overflow-hidden">{children}</SidebarInset>
             </ResizablePanel>
