@@ -22,6 +22,7 @@ import {
   renameWorkflowRun,
   deleteWorkflowRun,
 } from "#/lib/run-service.server";
+import { getCoreShell } from "#/lib/runtime-info.server";
 
 const noStore = createMiddleware({ type: "function" }).client(async ({ next }) => {
   return next({
@@ -33,6 +34,12 @@ export const fetchProjectMeta = createServerFn({ method: "GET" })
   .middleware([noStore])
   .handler(async () => {
     return getProjectInspectorMeta();
+  });
+
+export const fetchRuntimeInfo = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .handler(async () => {
+    return getCoreShell();
   });
 
 export const fetchWorkflowRuns = createServerFn({ method: "GET" })
