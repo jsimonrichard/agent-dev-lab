@@ -19,7 +19,7 @@ export default defineConfig({
       plugins: [
         starlightTypeDoc({
           entryPoints: ["../../packages/core/src/index.ts"],
-          tsconfig: "../../packages/core/tsconfig.json",
+          tsconfig: "../../packages/core/tsconfig.build.json",
           sidebar: { label: "Core API", collapsed: false },
         }),
       ],

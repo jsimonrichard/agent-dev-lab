@@ -125,7 +125,10 @@ export default {
 }
 
 function workflowQuestion(project: Awaited<ReturnType<typeof loadAdlProject>>): string {
-  return project.getWorkflow("answer-question")!.input!.parse({}).question as string;
+  const parsed = project.getWorkflow("answer-question")!.input!.parse({}) as {
+    question: string;
+  };
+  return parsed.question;
 }
 
 async function workflowResult(

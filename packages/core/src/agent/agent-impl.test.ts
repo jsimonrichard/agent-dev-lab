@@ -224,7 +224,7 @@ describe("AgentImpl stream and abort", () => {
     const adl = createTestRuntime({ defaults: { model: mockTextModel("hello") } });
     const agent = adl.createAgent({
       id: "streamer",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
     });
 
     const handle = agent.stream({ memoryScope: "notes", user: "hi" });
@@ -260,7 +260,7 @@ describe("AgentImpl stream and abort", () => {
     });
     const agent = adl.createAgent({
       id: "slow",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
     });
 
     const handle = agent.run({ memoryScope: "notes", user: "hi" });
@@ -292,7 +292,7 @@ describe("AgentImpl stream and abort", () => {
     });
     const agent = adl.createAgent({
       id: "child",
-      instructions: "Be brief.",
+      systemPrompt: "Be brief.",
     });
     const workflow = adl.createWorkflow({
       id: "parent",

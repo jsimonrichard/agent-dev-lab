@@ -30,7 +30,7 @@ const toolCallOptions = {
 describe("createToolFromAgent runtime", () => {
   it("requires an active workflow context", async () => {
     const adl = createTestRuntime({ defaults: { model: mockTextModel() } });
-    const agent = adl.createAgent({ id: "plain", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
     const wrapped = adl.createToolFromAgent(agent, {
       description: "Run the agent",
       mapRun: () => ({ memoryScope: "s", user: "hi" }),
@@ -41,7 +41,7 @@ describe("createToolFromAgent runtime", () => {
 
   it("runs the agent inside a workflow step and nests on the parent run", async () => {
     const adl = createTestRuntime({ defaults: { model: mockTextModel("briefing") } });
-    const agent = adl.createAgent({ id: "plain", instructions: "Be brief." });
+    const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
     const wrapped = adl.createToolFromAgent(agent, {
       description: "Run the agent",
       mapRun: (_args, { ctx }) => ({
