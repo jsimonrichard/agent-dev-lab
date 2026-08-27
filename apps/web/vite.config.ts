@@ -43,6 +43,10 @@ export default defineConfig(({ mode }) => {
     },
     ssr: {
       external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project", "jiti"],
+      resolve: {
+        // Vite's default externalConditions omit `bun`, so SSR would load stale dist.
+        externalConditions: ["bun", "node", "module-sync"],
+      },
     },
     plugins: [
       devtools(),
