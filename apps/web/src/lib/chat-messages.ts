@@ -195,8 +195,9 @@ export function parseStructuredJson(text: string): unknown | undefined {
     return undefined;
   }
   const fenced = candidate.match(FENCED_JSON);
-  if (fenced) {
-    candidate = fenced[1]?.trim() ?? "";
+  const fencedBody = fenced?.[1];
+  if (fencedBody !== undefined) {
+    candidate = fencedBody.trim();
   }
   if (!candidate.startsWith("{") && !candidate.startsWith("[")) {
     return undefined;
