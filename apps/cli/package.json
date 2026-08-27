@@ -22,7 +22,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "verify:web-output": "bun run scripts/verify-web-output.ts",
-    "test": "bun test src"
+    "test": "bun test src",
+    "test:e2e": "bun test src/e2e"
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",

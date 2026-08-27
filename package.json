@@ -18,6 +18,7 @@
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e --filter=@agent-dev-lab/cli",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "publish:packages": "bun run build && changeset publish"

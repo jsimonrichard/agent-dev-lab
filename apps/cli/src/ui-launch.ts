@@ -40,17 +40,16 @@ export function spawnInspectionUi(options: {
 
   switch (options.mode) {
     case "framework-dev":
-      return spawn("bun", ["run", "dev", "--", "--port", String(options.port)], {
-        cwd: webRoot,
-        env,
-        stdio: "inherit",
-      });
     case "project-dev":
-      return spawn("bun", ["run", "dev", "--", "--port", String(options.port)], {
-        cwd: webRoot,
-        env,
-        stdio: "inherit",
-      });
+      return spawn(
+        "bun",
+        ["run", "dev", "--", "--host", "127.0.0.1", "--port", String(options.port)],
+        {
+          cwd: webRoot,
+          env,
+          stdio: "inherit",
+        },
+      );
     case "serve":
       return spawn("bun", ["run", "start"], {
         cwd: webRoot,
