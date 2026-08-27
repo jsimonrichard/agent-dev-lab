@@ -1,4 +1,4 @@
-import { AgentConfigBody, agentSettingsFromMeta } from "@/components/app/agent-settings-panel";
+import { AgentConfigBody } from "@/components/app/agent-settings-panel";
 import { ConfigWorkspace } from "@/components/app/config-workspace";
 import { NewConversationButton } from "@/components/app/new-conversation-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export function AgentDefinitionPage({ agentId }: { agentId: string }) {
           <CardDescription>Configuration for this agent</CardDescription>
         </CardHeader>
         <CardContent>
-          <AgentConfigBody key={project.generation} settings={agentSettingsFromMeta(agent)} />
+          <AgentConfigBody key={project.generation} settings={agent} />
         </CardContent>
       </Card>
     </ConfigWorkspace>

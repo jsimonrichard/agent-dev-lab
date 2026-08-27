@@ -11,7 +11,7 @@ import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
-import { inspectAgentTools } from "#/lib/agent-tools";
+import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent-tools";
 import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector-types";
@@ -117,6 +117,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
+      outputSchema: inspectAgentOutputSchema(agent),
       systemPrompt: agent?.systemPrompt ?? ok(""),
       systemPromptPath: agent?.systemPromptPath ?? null,
     };

@@ -1,3 +1,5 @@
+import { describeWorkflowInput } from "#/lib/workflow-input-schema";
+
 export interface AgentToolSummary {
   name: string;
   description: string;
@@ -43,4 +45,21 @@ export function inspectAgentTools(agent: unknown): AgentToolSummary[] {
     byName.set(tool.name, tool);
   }
   return [...byName.values()];
+}
+
+/** Compact, client-safe description of an agent's Zod `outputSchema`. */
+export function inspectAgentOutputSchema(agent: unknown): string | null {
+  if (!isRecord(agent)) {
+    return null;
+  }
+  const definition = isRecord(agent.definition) ? agent.definition : undefined;
+  const schema = definition?.outputSchema;
+  if (!schema || typeof schema !== "object") {
+    return null;
+  }
+  const fields = describeWorkflowInput(schema);
+  if (fields.length === 0) {
+    return "structured";
+  }
+  return `{ ${fields.map((field) => `${field.name}: ${field.kind}`).join(", ")} }`;
 }

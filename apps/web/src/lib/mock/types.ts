@@ -1,5 +1,3 @@
-import type { Result } from "@agent-dev-lab/core/result";
-
 /** UI view-model shapes aligned with notes/streaming-api.md and workflow-api.md. */
 
 /** JSON-serializable value — used for fields crossing the server-function boundary. */
@@ -33,29 +31,6 @@ export interface MockWorkflowSummary {
 export interface MockAgentSummary {
   id: string;
   description: string;
-}
-
-export interface MockAgentToolDefinition {
-  name: string;
-  description: string;
-}
-
-/** Effective model shown in the settings panel; `null` hides the Model section. */
-export interface MockAgentModel {
-  modelId: string;
-  provider?: string;
-}
-
-/** Agent configuration shown in the conversation settings panel. */
-export interface MockAgentSettings {
-  agentId: string;
-  model: MockAgentModel | null;
-  memoryMode: string;
-  tools: MockAgentToolDefinition[];
-  titleWorkflowId?: string | null;
-  outputSchema?: string;
-  systemPrompt: Result<string, string>;
-  systemPromptPath?: string | null;
 }
 
 export interface MockRunSummary {

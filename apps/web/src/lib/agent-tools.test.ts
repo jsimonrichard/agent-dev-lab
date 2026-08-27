@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { inspectAgentTools } from "./agent-tools";
+import { inspectAgentOutputSchema, inspectAgentTools } from "./agent-tools";
 
 describe("inspectAgentTools", () => {
   it("merges runtime tools with agent tools, preferring the agent", () => {
@@ -40,5 +40,29 @@ describe("inspectAgentTools", () => {
         },
       }),
     ).toEqual([{ name: "web_search", description: "openai.web_search" }]);
+  });
+});
+
+describe("inspectAgentOutputSchema", () => {
+  it("describes a structured output schema from the agent definition", () => {
+    expect(
+      inspectAgentOutputSchema({
+        definition: {
+          outputSchema: {
+            _def: {
+              typeName: "ZodObject",
+              shape: {
+                title: { _def: { typeName: "ZodString" } },
+                score: { _def: { typeName: "ZodNumber" } },
+              },
+            },
+          },
+        },
+      }),
+    ).toBe("{ title: string, score: number }");
+  });
+
+  it("returns null when the agent has no output schema", () => {
+    expect(inspectAgentOutputSchema({ id: "researcher" })).toBeNull();
   });
 });

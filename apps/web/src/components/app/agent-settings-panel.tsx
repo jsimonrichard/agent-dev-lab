@@ -2,7 +2,7 @@ import { Braces, Cpu, Database, FileText, GitBranch, MessageSquare, Wrench } fro
 import { Link } from "@tanstack/react-router";
 
 import type { AgentInspectorMeta } from "#/lib/inspector-types";
-import type { MockAgentSettings, ResolvedAgentConversation } from "@/lib/mock/types";
+import type { ResolvedAgentConversation } from "@/lib/mock/types";
 import { Badge } from "@/components/ui/badge";
 import { ErrorDetails } from "@/components/app/error-details";
 import { InspectorNoun } from "@/components/app/inspector-noun";
@@ -13,20 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 
 interface AgentSettingsPanelProps {
-  settings: MockAgentSettings;
+  settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
-}
-
-export function agentSettingsFromMeta(agent: AgentInspectorMeta): MockAgentSettings {
-  return {
-    agentId: agent.id,
-    model: agent.model,
-    memoryMode: agent.memoryMode,
-    tools: agent.tools,
-    titleWorkflowId: agent.titleWorkflowId,
-    systemPrompt: agent.systemPrompt,
-    systemPromptPath: agent.systemPromptPath,
-  };
 }
 
 export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPanelProps) {
@@ -50,7 +38,7 @@ export function AgentConfigBody({
   settings,
   conversation,
 }: {
-  settings: MockAgentSettings;
+  settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
 }) {
   const fork = conversation?.forkSession;

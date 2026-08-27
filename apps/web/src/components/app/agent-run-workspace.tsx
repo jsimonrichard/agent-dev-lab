@@ -2,14 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
+import type { AgentInspectorMeta } from "#/lib/inspector-types";
 import { fetchMessagesForScope, sendAgentMessage } from "#/lib/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
-import type {
-  MockAgentSettings,
-  MockAgentSummary,
-  MockMessage,
-  ResolvedAgentConversation,
-} from "@/lib/mock/types";
+import type { MockAgentSummary, MockMessage, ResolvedAgentConversation } from "@/lib/mock/types";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
   extractSystemPromptFromMessages,
@@ -30,7 +26,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 interface AgentRunWorkspaceProps {
   agent: MockAgentSummary;
   conversation: ResolvedAgentConversation;
-  settings: MockAgentSettings;
+  settings: AgentInspectorMeta;
 }
 
 export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWorkspaceProps) {
