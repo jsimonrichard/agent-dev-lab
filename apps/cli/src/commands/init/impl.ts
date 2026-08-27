@@ -52,6 +52,11 @@ export default async function init(
     [".gitignore", buildInitGitignore(readFileSync(path.join(scaffoldRoot, ".gitignore"), "utf8"))],
     ["README.md", render(INIT_README, values)],
   ];
+  if (localRoot) {
+    // Bun's isolated linker leaves empty directories for `file:` workspace
+    // packages; hoisted linking is required for `adl init --local`.
+    files.push(["bunfig.toml", '[install]\nlinker = "hoisted"\n']);
+  }
 
   for (const relative of SCAFFOLD_SOURCE_FILES) {
     let contents = readFileSync(path.join(scaffoldRoot, relative), "utf8");

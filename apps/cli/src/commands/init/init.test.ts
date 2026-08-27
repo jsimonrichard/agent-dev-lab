@@ -97,6 +97,7 @@ describe("adl init", () => {
       `file:${path.join(localRoot, "packages/core")}`,
     );
     expect(pkg.overrides["@agent-dev-lab/web"]).toBe(`file:${path.join(localRoot, "apps/web")}`);
+    expect(await readFile(path.join(dir, "bunfig.toml"), "utf8")).toContain('linker = "hoisted"');
   });
 
   it(

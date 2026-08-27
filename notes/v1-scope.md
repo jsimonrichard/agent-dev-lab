@@ -10,36 +10,36 @@ Last reconciled: **2026-08-27**.
 
 ## Runtime (`@agent-dev-lab/core`)
 
-| Item                                                                        | Status                                                          |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `createAgent`, `createWorkflow`, `createTemplate`                           | ✅                                                              |
-| `createAdlRuntime`, `adl.createAgent` / `createWorkflow` / `createTemplate` | ✅                                                              |
-| `workflow.run(input)` + ALS context + `workflowRunId` on handle             | ✅                                                              |
-| Nested `workflow.run` (shared run id) and `{ isolated: true }`              | ✅                                                              |
-| `workflow.stream` live event tail                                           | ✅                                                              |
-| `agent.run`, `agent.stream` (shared `streamText` core)                      | ✅                                                              |
-| System prompt pinned on first episode; live inspect is `Result<string>`     | ✅                                                              |
-| Structured output (`outputSchema` / per-call override)                      | ✅                                                              |
-| `titleWorkflow` + isolated title runs + `agent_title_set`                   | ✅                                                              |
-| `ctx.setTitle` / `workflow_title_set`                                       | ✅                                                              |
-| Workflow generics when Zod is omitted                                       | ✅                                                              |
-| `MessageStore` + `inMemoryMessageStore` / `sqliteMessageStore` (`kind`)     | ✅                                                              |
-| `WorkflowStore` + in-memory / SQLite                                        | ✅                                                              |
-| `sqliteInspectorSessionStore` (UI chat sessions)                            | ✅                                                              |
-| `ctx.step` skip when stored output exists; `{ force: true }`                | ✅                                                              |
-| Step keys, duplicate-name rules, nested steps                               | ✅                                                              |
-| `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                              |
-| OTel spans at workflow / step / agent boundaries (`withActiveSpan`)         | ✅                                                              |
-| `loadAdlProject` + indexes + duplicate id checks + `.env*` loading          | ✅                                                              |
-| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅                                                              |
-| `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                              |
-| `AdlError` + `createTestRuntime`                                            | ✅                                                              |
-| `eventSchemaVersion` on persisted events                                    | ✅                                                              |
-| `inspectLanguageModel` / `Agent.modelInfo`                                  | ✅                                                              |
-| AI SDK re-exports (`generateText`, `streamText`, `tool`, `stepCountIs`, …)  | ✅                                                              |
-| Cancellation: `handle.cancel()` + `ctx.signal` + linked agent abort         | ✅                                                              |
-| AI SDK `experimental_telemetry` on `streamText`                             | ✅ `createAdlRuntime({ telemetry })`; default enabled           |
-| `WorkflowResumer` / episode `cacheable`                                     | ⏸                                                               |
+| Item                                                                        | Status                                                |
+| --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `createAgent`, `createWorkflow`, `createTemplate`                           | ✅                                                    |
+| `createAdlRuntime`, `adl.createAgent` / `createWorkflow` / `createTemplate` | ✅                                                    |
+| `workflow.run(input)` + ALS context + `workflowRunId` on handle             | ✅                                                    |
+| Nested `workflow.run` (shared run id) and `{ isolated: true }`              | ✅                                                    |
+| `workflow.stream` live event tail                                           | ✅                                                    |
+| `agent.run`, `agent.stream` (shared `streamText` core)                      | ✅                                                    |
+| System prompt pinned on first episode; live inspect is `Result<string>`     | ✅                                                    |
+| Structured output (`outputSchema` / per-call override)                      | ✅                                                    |
+| `titleWorkflow` + isolated title runs + `agent_title_set`                   | ✅                                                    |
+| `ctx.setTitle` / `workflow_title_set`                                       | ✅                                                    |
+| Workflow generics when Zod is omitted                                       | ✅                                                    |
+| `MessageStore` + `inMemoryMessageStore` / `sqliteMessageStore` (`kind`)     | ✅                                                    |
+| `WorkflowStore` + in-memory / SQLite                                        | ✅                                                    |
+| `sqliteInspectorSessionStore` (UI chat sessions)                            | ✅                                                    |
+| `ctx.step` skip when stored output exists; `{ force: true }`                | ✅                                                    |
+| Step keys, duplicate-name rules, nested steps                               | ✅                                                    |
+| `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                    |
+| OTel spans at workflow / step / agent boundaries (`withActiveSpan`)         | ✅                                                    |
+| `loadAdlProject` + indexes + duplicate id checks + `.env*` loading          | ✅                                                    |
+| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅                                                    |
+| `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                    |
+| `AdlError` + `createTestRuntime`                                            | ✅                                                    |
+| `eventSchemaVersion` on persisted events                                    | ✅                                                    |
+| `inspectLanguageModel` / `Agent.modelInfo`                                  | ✅                                                    |
+| AI SDK re-exports (`generateText`, `streamText`, `tool`, `stepCountIs`, …)  | ✅                                                    |
+| Cancellation: `handle.cancel()` + `ctx.signal` + linked agent abort         | ✅                                                    |
+| AI SDK `experimental_telemetry` on `streamText`                             | ✅ `createAdlRuntime({ telemetry })`; default enabled |
+| `WorkflowResumer` / episode `cacheable`                                     | ⏸                                                     |
 
 Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 
@@ -59,22 +59,22 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 
 ## Inspection UI (`apps/web`)
 
-| Item                                                                | Status                            |
-| ------------------------------------------------------------------- | --------------------------------- |
-| Project banner + dashboard (`/api/project`, recent runs/sessions)   | ✅                                |
-| Workflow list / start dialog (Zod input schema) / run history       | ✅                                |
-| Waterfall + step inspector + SSE `GET /api/runs/:id/events`         | ✅                                |
-| Start run server fn → `{ workflowRunId }` (non-blocking)            | ✅                                |
-| Cancel in-process run (UI + `handle.cancel`)                        | ✅                                |
-| Agent conversations, titles, fork from a workflow step              | ✅                                |
-| Shared-scope transcript slice (history up to selected call)         | ✅                                |
-| Agent config: model id/provider, memory kind, tools, title workflow | ✅                                |
-| Live inspect `systemPrompt` (`Result`) + overlay / inspect errors   | ✅                                |
-| Project hot reload SSE + failed-reload banner                       | ✅                                |
-| Live assistant text via `agent_text_delta` in chat / run views      | ✅                                |
-| Template playground (edit/render markdown templates in UI)          | ⏸                                 |
-| Dedicated token-debug pane (raw delta inspector)                    | ⏸                                 |
-| `@agent-dev-lab/hooks` package                                      | ⏸                                 |
+| Item                                                                | Status |
+| ------------------------------------------------------------------- | ------ |
+| Project banner + dashboard (`/api/project`, recent runs/sessions)   | ✅     |
+| Workflow list / start dialog (Zod input schema) / run history       | ✅     |
+| Waterfall + step inspector + SSE `GET /api/runs/:id/events`         | ✅     |
+| Start run server fn → `{ workflowRunId }` (non-blocking)            | ✅     |
+| Cancel in-process run (UI + `handle.cancel`)                        | ✅     |
+| Agent conversations, titles, fork from a workflow step              | ✅     |
+| Shared-scope transcript slice (history up to selected call)         | ✅     |
+| Agent config: model id/provider, memory kind, tools, title workflow | ✅     |
+| Live inspect `systemPrompt` (`Result`) + overlay / inspect errors   | ✅     |
+| Project hot reload SSE + failed-reload banner                       | ✅     |
+| Live assistant text via `agent_text_delta` in chat / run views      | ✅     |
+| Template playground (edit/render markdown templates in UI)          | ⏸      |
+| Dedicated token-debug pane (raw delta inspector)                    | ⏸      |
+| `@agent-dev-lab/hooks` package                                      | ⏸      |
 
 Design notes (architecture still accurate; checklists below were stale): [`inspection-ui.md`](./inspection-ui.md)
 
@@ -141,14 +141,14 @@ Still not in CI:
 
 **Core — add or thicken:**
 
-| Area                                                       | Today                                                | Gap                                                             |
-| ---------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
-| Workflow run / skip / keys / nest / isolate / titles / Zod | `execute.test.ts`                                    | Inspector session store still thin; duplicate id errors light   |
-| Agent prompt / titles / commit counts / stream / abort     | `agent-impl.test.ts`                                 | `outputSchema` mock coverage still light                        |
-| `createToolFromAgent` / `createToolFromWorkflow`           | `from-agent.test.ts`                                 | ALS required; nested vs isolated (tools nest by default)        |
-| SQLite + in-memory store contract                          | `store.contract.test.ts`                             | Inspector session store                                         |
-| Project load / env / reload / watch                        | `load.test.ts`, `load-env.test.ts`, `reload.test.ts` | Duplicate id errors are light                                   |
-| Templates                                                  | `create.test.ts`                                     | —                                                               |
+| Area                                                       | Today                                                | Gap                                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| Workflow run / skip / keys / nest / isolate / titles / Zod | `execute.test.ts`                                    | Inspector session store still thin; duplicate id errors light |
+| Agent prompt / titles / commit counts / stream / abort     | `agent-impl.test.ts`                                 | `outputSchema` mock coverage still light                      |
+| `createToolFromAgent` / `createToolFromWorkflow`           | `from-agent.test.ts`                                 | ALS required; nested vs isolated (tools nest by default)      |
+| SQLite + in-memory store contract                          | `store.contract.test.ts`                             | Inspector session store                                       |
+| Project load / env / reload / watch                        | `load.test.ts`, `load-env.test.ts`, `reload.test.ts` | Duplicate id errors are light                                 |
+| Templates                                                  | `create.test.ts`                                     | —                                                             |
 
 **CLI:** init asserts generated files match `apps/cli/scaffold`, local imports resolve, `tsc --noEmit` passes (via monorepo `node_modules` symlink), and `demo-counter` runs through `loadAdlProject`.
 

@@ -61,8 +61,8 @@ export default defineConfig(({ mode }) => {
       }),
       viteReact(),
       nitro({
-        rollupConfig: {
-          external: [/^@agent-dev-lab\/core(\/.*)?$/],
+        rolldownConfig: {
+          external: [/^@agent-dev-lab\/core(\/.*)?$/, "jiti"],
         },
       }),
     ],
