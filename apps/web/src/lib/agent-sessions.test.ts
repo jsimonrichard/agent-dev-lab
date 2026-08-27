@@ -10,6 +10,8 @@ import {
   renameAgentSessionTitle,
   applyGeneratedConversationTitle,
   sessionDisplayTitle,
+  setConversationTurnActive,
+  isConversationTurnActive,
   unregisterAgentSession,
   workflowRunLocationForSession,
   type AgentSession,
@@ -223,5 +225,24 @@ describe("registerAgentSessionFromEvent listed agents", () => {
     );
     expect(getAgentSessionByMemoryScope(memoryScope)?.agentId).toBe("researcher");
     unregisterAgentSession(memoryScope);
+  });
+});
+
+describe("conversation turn active", () => {
+  it("tracks an in-process tool loop independently of the session record", () => {
+    const memoryScope = "conv:turn-active";
+    expect(isConversationTurnActive(memoryScope)).toBe(false);
+    setConversationTurnActive(memoryScope, true);
+    expect(isConversationTurnActive(memoryScope)).toBe(true);
+    setConversationTurnActive(memoryScope, false);
+    expect(isConversationTurnActive(memoryScope)).toBe(false);
+  });
+
+  it("clears the flag when the session is unregistered", () => {
+    const memoryScope = "conv:turn-active-delete";
+    registerAgentSession(session({ memoryScope }));
+    setConversationTurnActive(memoryScope, true);
+    unregisterAgentSession(memoryScope);
+    expect(isConversationTurnActive(memoryScope)).toBe(false);
   });
 });

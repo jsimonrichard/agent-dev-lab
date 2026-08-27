@@ -1,6 +1,8 @@
 export { createAgent } from "./create";
 export { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
 export type { AgentModelInfo } from "./inspect";
+export { countToolCallParts, DEFAULT_AGENT_IDLE_MAX_TURNS, runAgentUntilIdle } from "./tool-loop";
+export type { RunAgentUntilIdleOptions } from "./tool-loop";
 export {
   inspectSystemPrompt,
   inspectSystemPromptPath,

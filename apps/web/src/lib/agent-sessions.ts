@@ -88,6 +88,8 @@ export function isPlaceholderConversationTitle(title: string, agentId: string): 
 const byMemoryScope = new Map<string, AgentSession>();
 const byAgentCallId = new Map<string, AgentSession>();
 const deletedMemoryScopes = new Set<string>();
+/** In-process: a conversation composer turn is still looping episodes. Not persisted. */
+const conversationTurnActive = new Set<string>();
 
 /**
  * Open a conversation from an `agent_started` event, or apply `agent_title_set`.
@@ -248,6 +250,7 @@ export function applyGeneratedConversationTitle(
 export function unregisterAgentSession(memoryScope: string): AgentSession | undefined {
   const session = byMemoryScope.get(memoryScope);
   deletedMemoryScopes.add(memoryScope);
+  conversationTurnActive.delete(memoryScope);
   if (!session) {
     return undefined;
   }
@@ -274,4 +277,17 @@ export function linkAgentCallId(memoryScope: string, agentCallId: string): void 
   session.agentCallId = agentCallId;
   byAgentCallId.set(agentCallId, session);
   session.updatedAt = new Date().toISOString();
+}
+
+/** Mark a standalone chat as looping `agent.run()` until no more tool calls. */
+export function setConversationTurnActive(memoryScope: string, active: boolean): void {
+  if (active) {
+    conversationTurnActive.add(memoryScope);
+  } else {
+    conversationTurnActive.delete(memoryScope);
+  }
+}
+
+export function isConversationTurnActive(memoryScope: string): boolean {
+  return conversationTurnActive.has(memoryScope);
 }

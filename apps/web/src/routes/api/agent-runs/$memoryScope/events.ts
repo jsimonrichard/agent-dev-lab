@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getAgentSessionByMemoryScope } from "#/lib/agent-sessions";
+import { getAgentSessionByMemoryScope, isConversationTurnActive } from "#/lib/agent-sessions";
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
-import { encodeRunEventSse, agentRunStreamIsTerminal } from "#/lib/sse.server";
+import {
+  encodeRunEventSse,
+  agentRunStreamIsTerminal,
+  shouldCloseAgentConversationStream,
+} from "#/lib/sse.server";
 
 export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
   server: {
@@ -15,28 +19,55 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
 
         const url = new URL(request.url);
         const afterSeq = Number(url.searchParams.get("afterSeq") ?? "0");
-        const agentCallId = session.agentCallId;
+        let agentCallId = session.agentCallId;
         const store = await getWorkflowStore();
 
         const stream = new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
             let cursor = afterSeq;
+            let sawTerminal = false;
             let closed = false;
+            const poll = { timer: undefined as ReturnType<typeof setInterval> | undefined };
+
+            const stopPolling = () => {
+              if (poll.timer) {
+                clearInterval(poll.timer);
+                poll.timer = undefined;
+              }
+            };
 
             const push = async () => {
               if (closed) {
                 return;
+              }
+              const live = getAgentSessionByMemoryScope(params.memoryScope);
+              const liveId = live?.agentCallId;
+              if (!liveId || liveId.startsWith("pending:")) {
+                return;
+              }
+              if (liveId !== agentCallId) {
+                agentCallId = liveId;
+                cursor = 0;
+                sawTerminal = false;
               }
               const events = await store.listEvents({ agentCallId }, { afterSeq: cursor });
               for (const event of events) {
                 cursor = event.seq;
                 controller.enqueue(encoder.encode(encodeRunEventSse(event)));
                 if (agentRunStreamIsTerminal(event)) {
-                  closed = true;
-                  controller.close();
-                  return;
+                  sawTerminal = true;
                 }
+              }
+              if (
+                shouldCloseAgentConversationStream({
+                  sawTerminalEvent: sawTerminal,
+                  conversationTurnActive: isConversationTurnActive(params.memoryScope),
+                })
+              ) {
+                closed = true;
+                stopPolling();
+                controller.close();
               }
             };
 
@@ -45,15 +76,16 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               return;
             }
 
-            const interval = setInterval(() => {
+            poll.timer = setInterval(() => {
               void push().catch(() => {
-                clearInterval(interval);
+                stopPolling();
+                closed = true;
                 controller.close();
               });
             }, 400);
 
             request.signal.addEventListener("abort", () => {
-              clearInterval(interval);
+              stopPolling();
               closed = true;
               controller.close();
             });

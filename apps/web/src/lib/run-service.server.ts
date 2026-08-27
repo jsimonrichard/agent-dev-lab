@@ -1,5 +1,6 @@
 import {
   AdlError,
+  runAgentUntilIdle,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type CoreMessage,
@@ -28,6 +29,7 @@ import {
   registerForkSession,
   renameAgentSessionTitle,
   sessionDisplayTitle,
+  setConversationTurnActive,
   touchAgentSession,
   unregisterAgentSession,
   type AgentSession,
@@ -309,24 +311,42 @@ export async function startAgentTurn(options: {
   }
 
   touchAgentSession(options.memoryScope);
+  setConversationTurnActive(options.memoryScope, true);
 
-  const handle = agent.run({
-    memoryScope: options.memoryScope,
-    user: options.user,
-    workflow: options.workflow,
-  });
+  let agentCallId: string | undefined;
+  const done = runAgentUntilIdle(
+    agent,
+    {
+      memoryScope: options.memoryScope,
+      user: options.user,
+      workflow: options.workflow,
+    },
+    {
+      onHandle: (handle) => {
+        agentCallId = handle.agentCallId;
+        linkAgentCallId(options.memoryScope, handle.agentCallId);
+        const linked = getAgentSessionByMemoryScope(options.memoryScope);
+        if (linked) {
+          void persistInspectorSession(linked);
+        }
+      },
+    },
+  );
 
-  linkAgentCallId(options.memoryScope, handle.agentCallId);
-  const session = getAgentSessionByMemoryScope(options.memoryScope);
-  if (session) {
-    await persistInspectorSession(session);
+  if (!agentCallId) {
+    setConversationTurnActive(options.memoryScope, false);
+    throw new Error("Agent turn failed to start");
   }
 
-  void handle.result.catch((error) => {
-    console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
-  });
+  void done
+    .catch((error) => {
+      console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
+    })
+    .finally(() => {
+      setConversationTurnActive(options.memoryScope, false);
+    });
 
-  return { agentCallId: handle.agentCallId };
+  return { agentCallId };
 }
 
 export async function forkAgentFromWorkflow(options: {

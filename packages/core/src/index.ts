@@ -11,17 +11,21 @@ import { readFileSync } from "node:fs";
  * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `CoreMessage`, `LanguageModel`.
  * Import `stepCountIs` from `ai` for workflow tool loops. Single internal `streamText` path for
  * `agent.run` and `agent.stream`; commits `response.messages` to MessageStore.
+ * `runAgentUntilIdle` re-invokes `agent.run` until an episode has no tool calls.
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
  */
 export {
   createAgent,
+  countToolCallParts,
   CUSTOM_MODEL_ID,
+  DEFAULT_AGENT_IDLE_MAX_TURNS,
   inspectLanguageModel,
   inspectSystemPrompt,
   inspectSystemPromptPath,
   resolveSystemPromptText,
+  runAgentUntilIdle,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
 } from "./agent";
@@ -42,6 +46,7 @@ export type {
   AgentWorkflowScope,
   ConversationTitleInput,
   ConversationTitleOutput,
+  RunAgentUntilIdleOptions,
 } from "./agent";
 
 export { createWorkflow } from "./workflow";

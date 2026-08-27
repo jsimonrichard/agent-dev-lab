@@ -3,7 +3,7 @@ title: Agents
 description: adl.createAgent, run and stream, memoryScope, structured output, and tools.
 ---
 
-Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript.
+Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript (or `runAgentUntilIdle` for the common “keep going until no tool calls” pattern). The inspection UI conversation composer uses that helper.
 
 ## createAgent
 
@@ -109,7 +109,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 
 - **`stopWhen` / step limits** — workflow concern.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
-- **Multi-step tool loops** — `stopWhen: stepCountIs(1)` limits each episode to one SDK step.
+- **Multi-step tool loops** — `stopWhen: stepCountIs(1)` limits each episode to one SDK step. Call `runAgentUntilIdle` (or write a `for` loop like the playground `answer-question` workflow) to continue until the model stops calling tools.
 
 ## memoryScope
 
@@ -181,6 +181,19 @@ ADL persists **only** `CoreMessage` lists. Tool usage round-trips through SDK me
 - Tool role messages with `tool-result`
 
 After `run()`, extend the store with messages from `result.response.messages` — not from `toolCalls` alone.
+
+To keep calling the model after tools execute, re-run on the same `memoryScope` without a new user message (tool results are already in the store):
+
+```ts
+import { runAgentUntilIdle } from "@agent-dev-lab/core";
+
+const { result, turns } = await runAgentUntilIdle(researcher, {
+  memoryScope: "scope-1",
+  user: "What is ADL?",
+});
+```
+
+`runAgentUntilIdle` is a convenience loop around `agent.run()`. Workflows that want each tool round as its own `ctx.step` should keep an explicit TypeScript loop instead.
 
 ## Agents and workflows as tools
 

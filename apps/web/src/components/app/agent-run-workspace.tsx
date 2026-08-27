@@ -76,6 +76,7 @@ export function AgentRunWorkspace({ agent, conversation, settings }: AgentRunWor
   async function handleSend(text: string) {
     setSending(true);
     setError(null);
+    setStreamEnabled(false);
     setMessages((prev) => [
       ...prev,
       { id: `pending-${Date.now()}`, role: "user", content: text, parts: [{ type: "text", text }] },
