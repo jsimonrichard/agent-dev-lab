@@ -10,6 +10,17 @@ export type { AdlErrorCode } from "../errors";
 export { loadAdlProjectEnv } from "./load-env";
 export { invalidateAdlConfigCache } from "./load-config";
 export {
+  acquireAdlProject,
+  clearInspectorAgentObserverAttached,
+  ensureAdlProjectFileWatch,
+  getInspectorListedAgentIds,
+  markInspectorAgentObserverAttached,
+  setAdlProjectWatchListeners,
+  setInspectorListedAgentIds,
+  subscribeAdlProjectHostReload,
+  type AdlProjectHostReloadEvent,
+} from "./process-host";
+export {
   ADL_PROJECT_ROOT_ENV,
   findAdlConfigPath,
   findAdlProjectRootFromCwd,

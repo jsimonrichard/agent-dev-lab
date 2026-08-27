@@ -1,32 +1,23 @@
+import {
+  subscribeAdlProjectHostReload,
+  type AdlProjectHostReloadEvent,
+} from "@agent-dev-lab/core/project";
+
 import type { ProjectReloadEvent } from "./project-reload-types";
 
 type Subscriber = (event: ProjectReloadEvent) => void;
 
-type ProjectReloadHostGlobal = {
-  __adlProjectReloadSubscribers?: Set<Subscriber>;
-};
-
-const host = globalThis as ProjectReloadHostGlobal;
-
-function subscribers(): Set<Subscriber> {
-  if (!host.__adlProjectReloadSubscribers) {
-    host.__adlProjectReloadSubscribers = new Set();
+function toClientEvent(event: AdlProjectHostReloadEvent): ProjectReloadEvent {
+  if (event.type === "reload") {
+    return { type: "reload", generation: event.generation };
   }
-  return host.__adlProjectReloadSubscribers;
+  return { type: "error", generation: event.generation, message: event.message };
 }
 
 export function subscribeProjectReload(subscriber: Subscriber): () => void {
-  const set = subscribers();
-  set.add(subscriber);
-  return () => {
-    set.delete(subscriber);
-  };
-}
-
-export function emitProjectReload(event: ProjectReloadEvent): void {
-  for (const subscriber of subscribers()) {
-    subscriber(event);
-  }
+  return subscribeAdlProjectHostReload((event) => {
+    subscriber(toClientEvent(event));
+  });
 }
 
 export function encodeProjectReloadSse(event: ProjectReloadEvent): string {

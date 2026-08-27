@@ -5,9 +5,10 @@ import {
   ADL_FRAMEWORK_DEV_ENV,
   ADL_PROJECT_ROOT_ENV,
   ADL_PROJECT_WATCH_ENV,
+  acquireAdlProject,
+  ensureAdlProjectFileWatch,
   findAdlProjectRootFromCwd,
-  loadAdlProject,
-  watchAdlProject,
+  setAdlProjectWatchListeners,
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
 
@@ -15,17 +16,8 @@ import {
   resetInspectorAgentObserver,
   ensureInspectorAgentObserver,
 } from "#/lib/inspector-agent-observer.server";
-import { emitProjectReload } from "#/lib/project-reload-events.server";
 
 const webPackageRoot = path.dirname(fileURLToPath(new URL("../../", import.meta.url)));
-
-type AdlProjectHostGlobal = {
-  __adlLoadedProject?: LoadedAdlProject;
-  __adlProjectWatchDispose?: () => void;
-  __adlWatchedProjectRoot?: string;
-};
-
-const host = globalThis as AdlProjectHostGlobal;
 
 function frameworkPlaygroundRoot(): string {
   return path.resolve(webPackageRoot, "../playground");
@@ -49,51 +41,28 @@ if (shouldWatchProject()) {
   process.env[ADL_PROJECT_WATCH_ENV] = "1";
 }
 
-function ensureProjectWatch(project: LoadedAdlProject): void {
-  if (!shouldWatchProject()) {
-    return;
-  }
-
-  if (host.__adlWatchedProjectRoot === project.root && host.__adlProjectWatchDispose) {
-    return;
-  }
-
-  host.__adlProjectWatchDispose?.();
-  host.__adlWatchedProjectRoot = project.root;
-
-  host.__adlProjectWatchDispose = watchAdlProject(project, {
-    onReload: ({ generation }) => {
+function bindInspectorWatchListeners(project: LoadedAdlProject): void {
+  setAdlProjectWatchListeners({
+    onReload: () => {
       resetInspectorAgentObserver();
       try {
         ensureInspectorAgentObserver(project.getAdl(), project);
       } catch {
         // Missing `adl` on the reloaded config — catalog loaders will surface it.
       }
-      emitProjectReload({ type: "reload", generation });
-    },
-    onError: (error) => {
-      emitProjectReload({
-        type: "error",
-        generation: project.generation,
-        message: error.message,
-      });
     },
   });
+}
 
+export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
+  const root = resolveAdlProjectRoot();
+  const project = await acquireAdlProject(root);
+  bindInspectorWatchListeners(project);
+  ensureAdlProjectFileWatch(shouldWatchProject());
   try {
     ensureInspectorAgentObserver(project.getAdl(), project);
   } catch {
     // Watcher still useful without a runtime; catalog loaders surface a missing `adl`.
   }
-}
-
-export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
-  if (!host.__adlLoadedProject) {
-    const root = resolveAdlProjectRoot();
-    // Env comes from loadAdlProject (`.env*` + jiti of `src/adl.ts`). A Vite
-    // `import()` of `src/env.ts` fails for projects outside the UI workspace.
-    host.__adlLoadedProject = await loadAdlProject({ root });
-  }
-  ensureProjectWatch(host.__adlLoadedProject);
-  return host.__adlLoadedProject;
+  return project;
 }
