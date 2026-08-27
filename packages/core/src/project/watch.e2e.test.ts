@@ -295,12 +295,7 @@ function allocatePort(): Promise<number> {
   });
 }
 
-function startDashboard(
-  projectRoot: string,
-  port: number,
-  logPath: string,
-  cacheDir: string,
-): ChildProcess {
+function startDashboard(projectRoot: string, port: number, logPath: string): ChildProcess {
   const logFd = openSync(logPath, "w");
   return spawn(
     process.execPath,
@@ -311,7 +306,10 @@ function startDashboard(
         ...process.env,
         ADL_PROJECT_ROOT: projectRoot,
         ADL_FRAMEWORK_DEV: "0",
-        ADL_VITE_CACHE_DIR: cacheDir,
+        // This test only hits /api/project. CI spent 40s in the client
+        // optimizer ("bundling dependencies...") and never delivered watch
+        // events; skip that work.
+        ADL_VITE_DISABLE_OPTIMIZE: "1",
         PORT: String(port),
         BROWSER: "none",
         NO_COLOR: "1",
@@ -336,14 +334,8 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
       const fixture = await createPlaygroundLikeProject();
       const port = await allocatePort();
       const logPath = path.join(fixture.root, "vite.log");
-      // Keep Vite's optimizer cache outside the watched project tree so cache
-      // writes cannot steal inotify events or collide with a parallel `vite dev`.
-      const cacheDir = `${fixture.root}-vite-cache`;
-      mkdirSync(cacheDir, { recursive: true });
-      const child = startDashboard(fixture.root, port, logPath, cacheDir);
+      const child = startDashboard(fixture.root, port, logPath);
       const logs = () => dashboardLogs(logPath);
-      const showsSample = (version: string) => (body: ProjectApiResponse) =>
-        workflowSampleQuestion(body) === `default ${version}` && body.meta.lastReloadError === null;
 
       try {
         await waitUntil(
@@ -354,33 +346,24 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
 
         await waitForProjectApi(
           port,
-          showsSample("A"),
+          (body) =>
+            workflowSampleQuestion(body) === "default A" && body.meta.lastReloadError === null,
           20_000,
           () => `GET /api/project never returned the initial nested workflow sample\n${logs()}`,
         );
 
-        // First GET attaches fs.watch. Give inotify (and Vite's optimizer) time
-        // to settle; a rename during SSR remount is easy to miss in CI.
-        await wait(500);
+        await wait(40);
         await fixture.writeWorkflow("E", { atomic: true });
 
-        const pickedUp = showsSample("E");
-        try {
-          await waitForProjectApi(
-            port,
-            pickedUp,
-            8_000,
-            () => `dashboard did not pick up atomic workflow edit\n${logs()}`,
-          );
-        } catch {
-          await fixture.writeWorkflow("E");
-          await waitForProjectApi(
-            port,
-            pickedUp,
-            20_000,
-            () => `dashboard did not pick up nested workflow edit\n${logs()}`,
-          );
-        }
+        await waitForProjectApi(
+          port,
+          (body) =>
+            body.meta.generation >= 1 &&
+            workflowSampleQuestion(body) === "default E" &&
+            body.meta.lastReloadError === null,
+          20_000,
+          () => `dashboard did not pick up nested workflow edit\n${logs()}`,
+        );
       } finally {
         child.kill("SIGTERM");
         await wait(300);
@@ -388,9 +371,8 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
           child.kill("SIGKILL");
         }
         rmSync(fixture.root, { recursive: true, force: true });
-        rmSync(cacheDir, { recursive: true, force: true });
       }
     },
-    { timeout: 80_000 },
+    { timeout: 70_000 },
   );
 });

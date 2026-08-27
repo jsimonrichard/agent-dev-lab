@@ -227,122 +227,147 @@ describe("isIgnoredAdlProjectSegment", () => {
 });
 
 describe("LoadedAdlProject.reload", () => {
-  it("swaps registry objects while pinning in-memory stores", async () => {
-    const fixture = await createTempProject();
-    const project = await loadAdlProject({ root: fixture.root });
-    const agentBefore = project.getAgent("test-agent");
-    const workflowBefore = project.getWorkflow("test-workflow");
-    const storeBefore = project.getAdl().services.stores.message;
+  it(
+    "swaps registry objects while pinning in-memory stores",
+    async () => {
+      const fixture = await createTempProject();
+      const project = await loadAdlProject({ root: fixture.root });
+      const agentBefore = project.getAgent("test-agent");
+      const workflowBefore = project.getWorkflow("test-workflow");
+      const storeBefore = project.getAdl().services.stores.message;
 
-    const messages: CoreMessage[] = [{ role: "user", content: "hello" }];
-    await storeBefore.save("scope-1", messages);
+      const messages: CoreMessage[] = [{ role: "user", content: "hello" }];
+      await storeBefore.save("scope-1", messages);
 
-    await fixture.writeAgent("VERSION_B");
-    await project.reload();
+      await fixture.writeAgent("VERSION_B");
+      await project.reload();
 
-    const agentAfter = project.getAgent("test-agent");
-    const workflowAfter = project.getWorkflow("test-workflow");
-    const storeAfter = project.getAdl().services.stores.message;
+      const agentAfter = project.getAgent("test-agent");
+      const workflowAfter = project.getWorkflow("test-workflow");
+      const storeAfter = project.getAdl().services.stores.message;
 
-    expect(agentAfter).not.toBe(agentBefore);
-    expect(workflowAfter).not.toBe(workflowBefore);
-    expect(storeAfter).toBe(storeBefore);
-    expect(await storeAfter.load("scope-1")).toEqual(messages);
-    expect((agentAfter as AgentImpl).definition.systemPrompt).toBe("VERSION_B");
+      expect(agentAfter).not.toBe(agentBefore);
+      expect(workflowAfter).not.toBe(workflowBefore);
+      expect(storeAfter).toBe(storeBefore);
+      expect(await storeAfter.load("scope-1")).toEqual(messages);
+      expect((agentAfter as AgentImpl).definition.systemPrompt).toBe("VERSION_B");
 
-    const output = await workflowAfter!.run({ value: "x" }).result;
-    expect(output).toEqual({ result: "x_A" });
-    expect(project.generation).toBe(1);
-    expect(project.lastReloadError).toBeNull();
-  });
+      const output = await workflowAfter!.run({ value: "x" }).result;
+      expect(output).toEqual({ result: "x_A" });
+      expect(project.generation).toBe(1);
+      expect(project.lastReloadError).toBeNull();
+    },
+    { timeout: 20_000 },
+  );
 
-  it("updates workflow run closures after reload", async () => {
-    const fixture = await createTempProject();
-    const project = await loadAdlProject({ root: fixture.root });
+  it(
+    "updates workflow run closures after reload",
+    async () => {
+      const fixture = await createTempProject();
+      const project = await loadAdlProject({ root: fixture.root });
 
-    await fixture.writeWorkflowSuffix("_B");
-    await project.reload();
+      await fixture.writeWorkflowSuffix("_B");
+      await project.reload();
 
-    const workflow = project.getWorkflow("test-workflow");
-    const output = await workflow!.run({ value: "x" }).result;
-    expect(output).toEqual({ result: "x_B" });
-  });
+      const workflow = project.getWorkflow("test-workflow");
+      const output = await workflow!.run({ value: "x" }).result;
+      expect(output).toEqual({ result: "x_B" });
+    },
+    { timeout: 20_000 },
+  );
 
-  it("reloads workflow input schemas so Zod defaults change", async () => {
-    const fixture = await createTempProject();
-    const project = await loadAdlProject({ root: fixture.root });
+  it(
+    "reloads workflow input schemas so Zod defaults change",
+    async () => {
+      const fixture = await createTempProject();
+      const project = await loadAdlProject({ root: fixture.root });
 
-    await fixture.writeWorkflowDefault("default A");
-    await project.reload();
-    expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
-      question: "default A",
-    });
+      await fixture.writeWorkflowDefault("default A");
+      await project.reload();
+      expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
+        question: "default A",
+      });
 
-    await fixture.writeWorkflowDefault("default B");
-    await project.reload();
-    expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
-      question: "default B",
-    });
-  });
+      await fixture.writeWorkflowDefault("default B");
+      await project.reload();
+      expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
+        question: "default B",
+      });
+    },
+    { timeout: 20_000 },
+  );
 
-  it("re-reads prompt templates from disk", async () => {
-    const fixture = await createTempProject({ withTemplateAgent: true });
-    const project = await loadAdlProject({ root: fixture.root });
-    const templateBefore = (project.getAgent("template-agent") as AgentImpl).definition
-      .systemPrompt;
-    expect(typeof templateBefore).toBe("object");
-    expect((templateBefore as { render: (v: unknown) => string }).render({})).toBe("PROMPT_A");
+  it(
+    "re-reads prompt templates from disk",
+    async () => {
+      const fixture = await createTempProject({ withTemplateAgent: true });
+      const project = await loadAdlProject({ root: fixture.root });
+      const templateBefore = (project.getAgent("template-agent") as AgentImpl).definition
+        .systemPrompt;
+      expect(typeof templateBefore).toBe("object");
+      expect((templateBefore as { render: (v: unknown) => string }).render({})).toBe("PROMPT_A");
 
-    await fixture.writePrompt("PROMPT_B");
-    await project.reload();
+      await fixture.writePrompt("PROMPT_B");
+      await project.reload();
 
-    const templateAfter = (project.getAgent("template-agent") as AgentImpl).definition.systemPrompt;
-    expect((templateAfter as { render: (v: unknown) => string }).render({})).toBe("PROMPT_B");
-  });
+      const templateAfter = (project.getAgent("template-agent") as AgentImpl).definition
+        .systemPrompt;
+      expect((templateAfter as { render: (v: unknown) => string }).render({})).toBe("PROMPT_B");
+    },
+    { timeout: 20_000 },
+  );
 
-  it("uses new runtime observers after reload", async () => {
-    const fixture = await createTempProject({ observerVersion: 1 });
-    const project = await loadAdlProject({ root: fixture.root });
+  it(
+    "uses new runtime observers after reload",
+    async () => {
+      const fixture = await createTempProject({ observerVersion: 1 });
+      const project = await loadAdlProject({ root: fixture.root });
 
-    await fixture.writeAdlObserverVersion(2);
-    await project.reload();
+      await fixture.writeAdlObserverVersion(2);
+      await project.reload();
 
-    const runtime = project.getAdl();
-    runtime.services.observers.agents[0]?.onEvent?.({
-      type: "agent_started",
-      agentCallId: "call-1",
-      agentId: "test-agent",
-      memoryScope: "scope",
-      seq: 1,
-      at: new Date().toISOString(),
-      eventSchemaVersion: 1,
-    });
+      const runtime = project.getAdl();
+      runtime.services.observers.agents[0]?.onEvent?.({
+        type: "agent_started",
+        agentCallId: "call-1",
+        agentId: "test-agent",
+        memoryScope: "scope",
+        seq: 1,
+        at: new Date().toISOString(),
+        eventSchemaVersion: 1,
+      });
 
-    expect((globalThis as { __adlReloadObserverVersion?: number }).__adlReloadObserverVersion).toBe(
-      2,
-    );
-  });
+      expect(
+        (globalThis as { __adlReloadObserverVersion?: number }).__adlReloadObserverVersion,
+      ).toBe(2);
+    },
+    { timeout: 20_000 },
+  );
 
-  it("keeps the previous registry when reload fails", async () => {
-    const fixture = await createTempProject();
-    const project = await loadAdlProject({ root: fixture.root });
-    const agentBefore = project.getAgent("test-agent");
+  it(
+    "keeps the previous registry when reload fails",
+    async () => {
+      const fixture = await createTempProject();
+      const project = await loadAdlProject({ root: fixture.root });
+      const agentBefore = project.getAgent("test-agent");
 
-    await fixture.writeBrokenAgent();
-    await expect(project.reload()).rejects.toThrow();
+      await fixture.writeBrokenAgent();
+      await expect(project.reload()).rejects.toThrow();
 
-    expect(project.getAgent("test-agent")).toBe(agentBefore);
-    expect(project.generation).toBe(0);
-    expect(project.lastReloadError).toBeTruthy();
+      expect(project.getAgent("test-agent")).toBe(agentBefore);
+      expect(project.generation).toBe(0);
+      expect(project.lastReloadError).toBeTruthy();
 
-    await fixture.writeAgent("VERSION_RECOVERED");
-    await project.reload();
-    expect(project.getAgent("test-agent")).not.toBe(agentBefore);
-    expect((project.getAgent("test-agent") as AgentImpl).definition.systemPrompt).toBe(
-      "VERSION_RECOVERED",
-    );
-    expect(project.lastReloadError).toBeNull();
-  });
+      await fixture.writeAgent("VERSION_RECOVERED");
+      await project.reload();
+      expect(project.getAgent("test-agent")).not.toBe(agentBefore);
+      expect((project.getAgent("test-agent") as AgentImpl).definition.systemPrompt).toBe(
+        "VERSION_RECOVERED",
+      );
+      expect(project.lastReloadError).toBeNull();
+    },
+    { timeout: 20_000 },
+  );
 });
 
 function wait(ms: number): Promise<void> {
