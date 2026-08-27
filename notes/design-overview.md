@@ -27,7 +27,7 @@ TypeScript-first toolkit to **author, run, and inspect** multi-agent workflows: 
 
 Headless runtime is usable without the UI. Inspection UI and CLI are wired: SQLite stores, `adl run` / `adl dashboard`, waterfall + agent conversations, playground multi-agent samples.
 
-**Do not treat playground as the `adl init` tree.** Init currently copies a subset of playground files plus the **full** playground `adl.config.ts` — that combination does not typecheck. RC work: dedicated init scaffold + a complex example **outside** playground. See [`v1-scope.md`](./v1-scope.md).
+**`adl init` uses a dedicated scaffold** (`apps/cli/scaffold`), not the playground. Playground stays the framework-dev target (`bun run dev:web`). A large stress-test example still belongs outside playground — see [`v1-scope.md`](./v1-scope.md).
 
 ## Agent note index
 

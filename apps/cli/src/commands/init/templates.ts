@@ -12,7 +12,8 @@ export const INIT_TSCONFIG = `{
       "#adl": ["./src/adl.ts"]
     }
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
 }
 `;
 
@@ -37,11 +38,12 @@ Optional: \`ADL_MODEL\` (default \`gpt-4o-mini\`), \`ADL_SQLITE_PATH\` (default 
 ## Commands
 
 \`\`\`bash
+bun run dev
+bun run dashboard
 adl workflows list
 adl agents list
 adl run demo-counter --input '{"steps":3}'
-adl run literature-review --input '{"topic":"CRISPR delivery"}'
-adl dashboard
+adl run ask --input '{"question":"What is Agent Dev Lab?"}'
 \`\`\`
 
 Runs and chats persist in \`.data/agent-dev-lab.sqlite\`.

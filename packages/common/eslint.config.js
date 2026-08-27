@@ -18,6 +18,7 @@ export default tseslint.config(
       "**/.astro/**",
       "**/routeTree.gen.ts",
       "**/.output/**",
+      "apps/cli/scaffold/**",
     ],
   },
 );

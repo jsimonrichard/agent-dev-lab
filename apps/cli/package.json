@@ -18,7 +18,7 @@
     "dev": "bun run src/bin/cli.ts",
     "prebuild": "bun run verify:web-output && tsc -p tsconfig.json --noEmit",
     "build": "tsup --silent && bun run package-scaffold",
-    "package-scaffold": "bun run scripts/package-playground-scaffold.ts",
+    "package-scaffold": "bun run scripts/package-scaffold.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "verify:web-output": "bun run scripts/verify-web-output.ts",

@@ -116,7 +116,7 @@ const handleById = workflow!.run({ topic: "CRISPR delivery" });
 
 - **`workflowRunId`** — available immediately for store subscription / future SSE
 - **`result`** — `Promise<Output>`
-- **`cancel()`** — cooperative cancellation (partial propagation today)
+- **`cancel()`** — aborts `ctx.signal`, in-flight steps, and child agent `streamText` calls on this run
 
 Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input, ctx) => … })`.
 
@@ -124,7 +124,8 @@ Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input
 
 ```bash
 adl init my-research
-adl run literature-review --input '{"topic":"…"}'
+adl run demo-counter --input '{"steps":3}'
+adl run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl workflows list
 adl agents list
 adl dashboard

@@ -34,14 +34,14 @@ cd my-research
 bun install
 export OPENAI_API_KEY=sk-...          # needed for the sample LLM workflow
 adl run demo-counter --input '{"steps":3}'
-adl run literature-review --input '{"topic":"CRISPR delivery"}'
-adl dashboard                         # inspection UI on :3000
+adl run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl dashboard                         # inspection UI on :3000 (or bun run dev)
 ```
 
 Or add the packages to an existing project:
 
 ```bash
-bun add @agent-dev-lab/core @agent-dev-lab/cli @ai-sdk/openai
+bun add @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
 ```
 
 ### Environment variables
@@ -121,7 +121,7 @@ All standard scripts live in the root `package.json` and run through Turbo:
 | `bun run build`        | Build all packages                                      |
 | `bun run lint`         | ESLint across all packages                              |
 | `bun run typecheck`    | TypeScript checking via Turbo                           |
-| `bun run test`         | Run `bun test` in `packages/core`                       |
+| `bun run test`         | Run package tests via Turbo (`core`, `cli`, `web`)      |
 | `bun run format`       | Prettier write across the repo                          |
 | `bun run format:check` | Prettier check (used in CI)                             |
 

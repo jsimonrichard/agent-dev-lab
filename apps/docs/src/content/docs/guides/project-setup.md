@@ -160,11 +160,12 @@ const output = await handle.result;
 adl init my-research
 adl workflows list
 adl agents list
-adl run literature-review --input '{"topic":"CRISPR delivery"}'
+adl run demo-counter --input '{"steps":3}'
+adl run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard
 ```
 
-- **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, and sample agent/workflow
+- **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`
 - **`adl run`** — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
 

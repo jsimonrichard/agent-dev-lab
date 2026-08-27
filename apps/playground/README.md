@@ -61,7 +61,7 @@ bun run start literature-review
 
 From the repo root, `bun run dev:web` points the framework inspection UI at this directory via
 `ADL_FRAMEWORK_DEV=1` (playground default). `bun run dashboard` here runs `adl dashboard` against this
-project the same way an `adl init` project would.
+project the same way an `adl init` project would (`adl init` copies a dedicated scaffold, not this playground).
 
 ## Layout
 

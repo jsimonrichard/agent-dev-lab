@@ -4,13 +4,15 @@ import path from "node:path";
 import { AdlError } from "@agent-dev-lab/core";
 
 import type { AdlCliContext } from "../../context";
-import { initScaffoldRoot } from "../../paths";
+import { adlMonorepoRootFromCli, initScaffoldRoot, isAdlCliSourceCheckout } from "../../paths";
+import type { InitFlags } from "./command";
 import {
-  PLAYGROUND_SOURCE_FILES,
+  SCAFFOLD_SOURCE_FILES,
+  assertLocalInitAllowed,
   buildInitGitignore,
   buildInitPackageJson,
-  readPlaygroundPackageJson,
-  rewritePlaygroundConfigName,
+  readScaffoldPackageJson,
+  rewriteScaffoldConfigName,
 } from "./scaffold";
 import { INIT_README, INIT_TSCONFIG } from "./templates";
 
@@ -20,7 +22,7 @@ function render(template: string, values: Record<string, string>): string {
 
 export default async function init(
   this: AdlCliContext,
-  flags: Record<string, never>,
+  flags: InitFlags,
   dir: string,
 ): Promise<void> {
   const target = path.resolve(this.process.cwd(), dir);
@@ -33,19 +35,28 @@ export default async function init(
     throw new AdlError("INIT_FAILED", `An ADL project already exists in ${target}`);
   }
 
+  let localRoot: string | undefined;
+  if (flags.local) {
+    assertLocalInitAllowed(isAdlCliSourceCheckout());
+    localRoot = adlMonorepoRootFromCli();
+  }
+
   const scaffoldRoot = initScaffoldRoot();
   const values = { DISPLAY_NAME: name };
   const files: Array<[string, string]> = [
-    ["package.json", buildInitPackageJson(name, readPlaygroundPackageJson(scaffoldRoot))],
+    [
+      "package.json",
+      buildInitPackageJson(name, readScaffoldPackageJson(scaffoldRoot), { localRoot }),
+    ],
     ["tsconfig.json", INIT_TSCONFIG],
     [".gitignore", buildInitGitignore(readFileSync(path.join(scaffoldRoot, ".gitignore"), "utf8"))],
     ["README.md", render(INIT_README, values)],
   ];
 
-  for (const relative of PLAYGROUND_SOURCE_FILES) {
+  for (const relative of SCAFFOLD_SOURCE_FILES) {
     let contents = readFileSync(path.join(scaffoldRoot, relative), "utf8");
     if (relative === "adl.config.ts") {
-      contents = rewritePlaygroundConfigName(contents, name);
+      contents = rewriteScaffoldConfigName(contents, name);
     }
     files.push([relative, contents]);
   }
@@ -63,5 +74,5 @@ export default async function init(
   }
 
   this.process.stdout.write(`Created ADL project "${name}" in ${target}\n`);
-  this.process.stdout.write("Next: bun install && add OPENAI_API_KEY to .env && adl dashboard\n");
+  this.process.stdout.write("Next: bun install && add OPENAI_API_KEY to .env && bun run dev\n");
 }

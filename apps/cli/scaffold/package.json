@@ -1,0 +1,21 @@
+{
+  "name": "adl-scaffold",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#adl": "./src/adl.ts"
+  },
+  "scripts": {
+    "dev": "bun --bun adl dashboard",
+    "dashboard": "bun --bun adl dashboard",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.42",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "typescript": "^6.0.2"
+  }
+}
