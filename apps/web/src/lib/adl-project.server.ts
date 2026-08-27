@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import {
   ADL_FRAMEWORK_DEV_ENV,
@@ -50,13 +49,6 @@ if (shouldWatchProject()) {
   process.env[ADL_PROJECT_WATCH_ENV] = "1";
 }
 
-async function ensureProjectEnv(root: string): Promise<void> {
-  const envModule = path.join(root, "src/env.ts");
-  if (existsSync(envModule)) {
-    await import(/* @vite-ignore */ pathToFileURL(envModule).href);
-  }
-}
-
 function ensureProjectWatch(project: LoadedAdlProject): void {
   if (!shouldWatchProject()) {
     return;
@@ -98,7 +90,8 @@ function ensureProjectWatch(project: LoadedAdlProject): void {
 export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   if (!host.__adlLoadedProject) {
     const root = resolveAdlProjectRoot();
-    await ensureProjectEnv(root);
+    // Env comes from loadAdlProject (`.env*` + jiti of `src/adl.ts`). A Vite
+    // `import()` of `src/env.ts` fails for projects outside the UI workspace.
     host.__adlLoadedProject = await loadAdlProject({ root });
   }
   ensureProjectWatch(host.__adlLoadedProject);
