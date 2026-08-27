@@ -218,3 +218,96 @@ describe("AgentImpl shared memoryScope commits", () => {
     expect(stored[0]).toEqual({ role: "system", content: "Pinned prompt A" });
   });
 });
+
+describe("AgentImpl stream and abort", () => {
+  it("exposes textStream chunks from agent.stream", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("hello") } });
+    const agent = adl.createAgent({
+      id: "streamer",
+      instructions: "Be brief.",
+    });
+
+    const handle = agent.stream({ memoryScope: "notes", user: "hi" });
+    let text = "";
+    for await (const chunk of handle.textStream) {
+      text += chunk;
+    }
+    const result = await handle.finished;
+    expect(text).toContain("hello");
+    expect(result.text).toContain("hello");
+  });
+
+  it("cancels an in-flight episode via handle.cancel", async () => {
+    const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async ({ abortSignal }) => {
+            markStarted();
+            await new Promise((_, reject) => {
+              abortSignal?.addEventListener(
+                "abort",
+                () => reject(abortSignal.reason ?? new Error("aborted")),
+                { once: true },
+              );
+            });
+            return {
+              stream: convertArrayToReadableStream([]),
+            };
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "slow",
+      instructions: "Be brief.",
+    });
+
+    const handle = agent.run({ memoryScope: "notes", user: "hi" });
+    await started;
+    handle.cancel();
+    await expect(handle.result).rejects.toBeTruthy();
+  });
+
+  it("aborts streamText when a parent workflow is cancelled", async () => {
+    const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async ({ abortSignal }) => {
+            markStarted();
+            await new Promise((_, reject) => {
+              abortSignal?.addEventListener(
+                "abort",
+                () => reject(abortSignal.reason ?? new Error("aborted")),
+                { once: true },
+              );
+            });
+            return {
+              stream: convertArrayToReadableStream([]),
+            };
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "child",
+      instructions: "Be brief.",
+    });
+    const workflow = adl.createWorkflow({
+      id: "parent",
+      run: async (_input, ctx) => {
+        await ctx.step("agent", async () => agent.run({ memoryScope: "notes", user: "hi" }).result);
+      },
+    });
+
+    const handle = workflow.run({});
+    await started;
+    handle.cancel();
+    await expect(handle.result).rejects.toBeTruthy();
+    const events = await adl.services.stores.workflow?.listEvents({
+      workflowRunId: handle.workflowRunId,
+    });
+    expect(events?.some((event) => event.type === "workflow_cancelled")).toBe(true);
+  });
+});

@@ -84,7 +84,7 @@ Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, n
 - [x] `GET /api/runs` — list runs from `WorkflowStore`
 - [x] `GET /api/runs/:runId` — snapshot
 - [x] `GET /api/runs/:runId/events` — SSE tail + `afterSeq`
-- [x] Cancel server fn — calls `handle.cancel()` (runtime abort still incomplete — see v1-scope)
+- [x] Cancel server fn — calls `handle.cancel()` (abort propagates into steps and child agents)
 - [x] Framework dev: `ADL_PROJECT_ROOT` / playground (see root `AGENTS.md`)
 - [x] Agent conversation SSE, inspector session store, fork from a step
 

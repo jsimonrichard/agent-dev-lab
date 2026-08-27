@@ -37,6 +37,12 @@ export interface WorkflowContext {
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
+  /**
+   * Aborts when {@link WorkflowRunHandle.cancel} is called on this run (or a parent
+   * run that this invocation nested under). Passed into `ctx.step` bodies and linked
+   * to child `agent.run` / `agent.stream` AbortControllers.
+   */
+  readonly signal: AbortSignal;
 
   /**
    * Run a named, cacheable unit of work. Child contexts are built from the parent host
@@ -155,6 +161,8 @@ export interface Workflow<TInput, TOutput, TRawInput = TInput> {
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
    * Nested `run()` inside another workflow joins the parent; pass
    * {@link WorkflowRunStartOptions.isolated} for a separate persisted run.
+   * {@link WorkflowRunHandle.cancel} aborts `ctx.signal`, in-flight `ctx.step`
+   * callbacks, and child `agent.run` / `streamText` calls on the same run.
    */
   run(input: TRawInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput>;
   /**

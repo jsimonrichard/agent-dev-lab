@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { AdlError } from "../errors";
+import { abortError, linkAbortController, raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -94,7 +95,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     const runRecorder = new RunRecorder(effectiveServices);
 
     const rootCtx = parentCtx
-      ? refreshWorkflowContext(parentCtx, effectiveServices, runRecorder)
+      ? refreshWorkflowContext(parentCtx, effectiveServices, runRecorder, controller.signal)
       : createWorkflowContext({
           workflowRunId,
           services: effectiveServices,
@@ -103,6 +104,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           stepPath: [],
           registryParentKey: workflowRunId,
           runRecorder,
+          signal: controller.signal,
         });
 
     return withActiveSpan(
@@ -120,8 +122,9 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
         });
 
         try {
+          throwIfAborted(controller.signal);
           const output = await effectiveServices.workflowContextScope.run(rootCtx, () =>
-            this.definition.run(parsedInput, rootCtx),
+            raceAbort(controller.signal, this.definition.run(parsedInput, rootCtx)),
           );
           const parsedOutput = this.definition.output
             ? this.definition.output.parse(output)
@@ -132,7 +135,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
               type: "workflow_cancelled",
               workflowRunId,
             });
-            throw controller.signal.reason ?? new Error("Workflow run cancelled");
+            throw abortError(controller.signal);
           }
 
           await runRecorder.emit({
@@ -167,7 +170,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
   ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
     const parentCtx = resolveParentContext(this.services, options);
     const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
-    const abortController = new AbortController();
+    const abortController = linkAbortController(parentCtx?.signal);
     return {
       workflowRunId,
       result: this.#executeRun(input, { ...options, workflowRunId }, abortController),

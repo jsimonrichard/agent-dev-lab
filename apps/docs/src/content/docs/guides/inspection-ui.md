@@ -33,7 +33,7 @@ Registered ids come from `adl.config` `workflows`. The sidebar lists startable w
 1. Open a workflow and start a run. If the workflow has a Zod `input` schema, the start dialog builds a form from it (defaults apply).
 2. The run page is a **waterfall**: steps, nested steps, parallel keyed steps, and agent episodes.
 3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`.
-4. **Cancel** asks the in-process handle to abort. Cooperative cancellation is still incomplete in the runtime — in-flight `ctx.step` bodies and child `agent.run` calls may finish. See [Workflows — known limitations](/core/workflows/#known-limitations).
+4. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, and child `agent.run` / `streamText` calls on that run. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
 
 Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `seq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
 

@@ -109,7 +109,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 
 - **`stopWhen` / step limits** — workflow concern.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
-- **Multi-step tool loops** — `stopWhen: stepCountIs(1)` limits each episode to one SDK step. Call `runAgentUntilIdle` (or write a `for` loop like the playground `answer-question` workflow) to continue until the model stops calling tools.
+- **Multi-step tool loops** — `stopWhen: stepCountIs(1)` limits each episode to one SDK step. Import `stepCountIs` from `@agent-dev-lab/core` (re-exported from `ai`) when you drive a tool loop in a workflow. Call `runAgentUntilIdle` (or write a `for` loop like the playground `answer-question` workflow) to continue until the model stops calling tools.
 
 ## memoryScope
 

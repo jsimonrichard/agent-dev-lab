@@ -36,11 +36,25 @@ export type AdlRuntimeDefaults = {
   model?: LanguageModel;
 };
 
+/**
+ * Forwarded to AI SDK `streamText` as `experimental_telemetry` so model and tool
+ * spans nest under the ADL agent episode span. Defaults to enabled (`isEnabled` is
+ * not `false`). Pass `{ isEnabled: false }` to disable.
+ */
+export type AdlTelemetrySettings = {
+  isEnabled?: boolean;
+  recordInputs?: boolean;
+  recordOutputs?: boolean;
+  functionId?: string;
+  metadata?: Record<string, string>;
+};
+
 /** Options for {@link createAdlRuntime}. */
 export type AdlRuntimeConfig = AdlRuntimeOptions & {
   defaults?: AdlRuntimeDefaults;
   /** Merged under each agent's `tools` (agent keys win). */
   tools?: ToolSet;
+  telemetry?: AdlTelemetrySettings;
 };
 
 /** Per-call overrides when creating agents or workflows on a runtime. */
@@ -57,6 +71,7 @@ export type RuntimeServices = {
   workflowContextScope: WorkflowContextScope;
   defaults: AdlRuntimeDefaults;
   tools: ToolSet;
+  telemetry?: AdlTelemetrySettings;
 };
 
 /**

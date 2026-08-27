@@ -239,4 +239,106 @@ describe("workflow.run", () => {
       parentEvents.some((event) => event.type === "step_started" && event.name === "inner"),
     ).toBe(false);
   });
+
+  it("recomputes a cached step when { force: true } is set", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    let computeCount = 0;
+    const workflow = createWorkflow(runtime, {
+      id: "forced",
+      run: async (_input, ctx) => {
+        await ctx.step(
+          "work",
+          async () => {
+            computeCount += 1;
+            return computeCount;
+          },
+          { force: true },
+        );
+        return null;
+      },
+    });
+
+    const first = workflow.run(null);
+    await first.result;
+    const second = workflow.run(null, { workflowRunId: first.workflowRunId });
+    await second.result;
+    expect(computeCount).toBe(2);
+  });
+
+  it("emits step_failed when a step throws", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const workflow = createWorkflow(runtime, {
+      id: "boom",
+      run: async (_input, ctx) => {
+        await ctx.step("work", async () => {
+          throw new Error("step exploded");
+        });
+      },
+    });
+
+    const handle = workflow.run({});
+    await expect(handle.result).rejects.toThrow(/step exploded/);
+    const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+    expect(events.some((event) => event.type === "step_failed")).toBe(true);
+    expect(events.some((event) => event.type === "workflow_failed")).toBe(true);
+  });
+
+  it("fails the run when output does not match the Zod schema", async () => {
+    const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
+    const workflow = createWorkflow(runtime, {
+      id: "bad-output",
+      output: z.object({ n: z.number() }),
+      run: async () => ({ n: "nope" as unknown as number }),
+    });
+
+    await expect(workflow.run({}).result).rejects.toThrow();
+  });
+});
+
+describe("workflow.cancel", () => {
+  it("aborts an in-flight step callback and emits workflow_cancelled", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
+    const workflow = createWorkflow(runtime, {
+      id: "hang",
+      run: async (_input, ctx) => {
+        await ctx.step("wait", async ({ ctx: child }) => {
+          markStarted();
+          await new Promise((_, reject) => {
+            child.signal.addEventListener("abort", () => reject(child.signal.reason), {
+              once: true,
+            });
+          });
+        });
+      },
+    });
+
+    const handle = workflow.run({});
+    await started;
+    handle.cancel();
+    await expect(handle.result).rejects.toMatchObject({ name: "AbortError" });
+
+    const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+    expect(events.some((event) => event.type === "workflow_cancelled")).toBe(true);
+    expect(events.some((event) => event.type === "step_failed")).toBe(true);
+  });
+
+  it("exposes ctx.signal on the run context", async () => {
+    const runtime = createAdlRuntime();
+    let seen: AbortSignal | undefined;
+    const workflow = createWorkflow(runtime, {
+      id: "signal",
+      run: async (_input, ctx) => {
+        seen = ctx.signal;
+        expect(ctx.signal.aborted).toBe(false);
+        return null;
+      },
+    });
+
+    await workflow.run({}).result;
+    expect(seen).toBeInstanceOf(AbortSignal);
+  });
 });

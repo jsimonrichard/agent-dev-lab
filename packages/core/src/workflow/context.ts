@@ -1,3 +1,4 @@
+import { raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -13,6 +14,7 @@ export type WorkflowContextOptions = {
   stepPath: string[];
   registryParentKey: string;
   runRecorder: RunRecorder;
+  signal: AbortSignal;
 };
 
 export class WorkflowContextImpl implements WorkflowContext {
@@ -20,6 +22,7 @@ export class WorkflowContextImpl implements WorkflowContext {
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
+  readonly signal: AbortSignal;
   readonly runRecorder: RunRecorder;
 
   readonly services: RuntimeServices;
@@ -33,6 +36,7 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.stepId = options.stepId;
     this.parentStepId = options.parentStepId;
     this.stepPath = [...options.stepPath];
+    this.signal = options.signal;
     this.registryParentKey = options.registryParentKey;
     this.runRecorder = options.runRecorder;
     this.registry = new StepRegistry(this.registryParentKey);
@@ -69,6 +73,8 @@ export class WorkflowContextImpl implements WorkflowContext {
     fn: (args: { ctx: WorkflowContext }) => Promise<T>,
     options?: StepOptions,
   ): Promise<T> => {
+    throwIfAborted(this.signal);
+
     const parentId = this.stepId;
     const key = options?.key;
     this.registry.register(name, key, options?.allowDuplicateName);
@@ -126,7 +132,10 @@ export class WorkflowContextImpl implements WorkflowContext {
           "adl.step_id": stepId,
           "adl.step.name": name,
         },
-        () => this.services.workflowContextScope.run(childCtx, () => fn({ ctx: childCtx })),
+        () =>
+          this.services.workflowContextScope.run(childCtx, () =>
+            raceAbort(this.signal, fn({ ctx: childCtx })),
+          ),
       );
       const durationMs = Date.now() - startedAt;
       await this.runRecorder.emit({
@@ -175,6 +184,7 @@ export function createChildWorkflowContext(
     stepPath: step.stepPath,
     registryParentKey: `${parent.workflowRunId}|${step.stepId}`,
     runRecorder: parent.runRecorder,
+    signal: parent.signal,
   });
 }
 
@@ -186,6 +196,7 @@ export function refreshWorkflowContext(
   ctx: WorkflowContext,
   services: RuntimeServices,
   runRecorder: RunRecorder,
+  signal?: AbortSignal,
 ): WorkflowContextImpl {
   const impl = asWorkflowContextImpl(ctx);
   return new WorkflowContextImpl({
@@ -196,6 +207,7 @@ export function refreshWorkflowContext(
     stepPath: impl.stepPath,
     registryParentKey: impl.stepId ?? impl.workflowRunId,
     runRecorder,
+    signal: signal ?? impl.signal,
   });
 }
 

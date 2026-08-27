@@ -22,6 +22,7 @@ export function resolveDefinitionServices(
     },
     defaults: services.defaults,
     tools: services.tools,
+    telemetry: services.telemetry,
   };
 }
 
@@ -39,6 +40,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     workflowContextScope: new WorkflowContextScope(),
     defaults: config.defaults ?? {},
     tools: config.tools ?? {},
+    telemetry: config.telemetry,
   };
 }
 
@@ -64,5 +66,6 @@ export function resolveRuntimeOverrides(
     workflowContextScope: base.workflowContextScope,
     defaults: base.defaults,
     tools: base.tools,
+    telemetry: base.telemetry,
   };
 }

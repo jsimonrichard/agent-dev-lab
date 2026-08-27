@@ -72,7 +72,7 @@ An OTel-backed observer can map `onEvent` payloads to spans without core exposin
 
 `generateText` / `streamText` support **`experimental_telemetry`** when the provider stack is configured.
 
-ADL already starts an agent span via `withActiveSpan`. Forwarding that context into `streamText({ experimental_telemetry })` is **not done** — model/tool spans from the AI SDK will not nest under the ADL agent span until that option is wired.
+The agent runner forwards the **active OTel context** into AI SDK `experimental_telemetry` on `streamText` so model and tool spans nest under the ADL **agent** span. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`.
 
 See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentation`).
 
@@ -89,6 +89,6 @@ See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentatio
 ## v1 checklist
 
 - [x] Activate OTel context at workflow / step / agent boundaries (`withActiveSpan` in the runner)
-- [ ] Forward context into AI SDK `experimental_telemetry` on agent episodes (RC P2 — [`v1-scope.md`](./v1-scope.md))
+- [x] Forward context into AI SDK `experimental_telemetry` on agent episodes
 - [ ] Document env / config for enabling tracing in playground
 - [ ] Example `OtelWorkflowObserver` in app or `@agent-dev-lab/common` (optional)

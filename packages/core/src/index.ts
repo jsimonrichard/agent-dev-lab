@@ -8,10 +8,12 @@ import { readFileSync } from "node:fs";
  * Cross-cutting guides (project layout, workflow steps, ALS) are in **apps/docs** Starlight.
  * Focused API docs live here as JSDoc on exports.
  *
- * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `CoreMessage`, `LanguageModel`.
- * Import `stepCountIs` from `ai` for workflow tool loops. Single internal `streamText` path for
+ * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
+ * `CoreMessage`, `LanguageModel`. Single internal `streamText` path for
  * `agent.run` and `agent.stream`; commits `response.messages` to MessageStore.
  * `runAgentUntilIdle` re-invokes `agent.run` until an episode has no tool calls.
+ * Agent episodes forward `experimental_telemetry` (disable with
+ * `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
@@ -75,6 +77,7 @@ export type {
   AdlRuntimeDefaults,
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
+  AdlTelemetrySettings,
   RuntimeObservers,
   RuntimeServices,
   RuntimeStores,
@@ -165,7 +168,7 @@ export {
 
 export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "@agent-dev-lab/common";
 
-export { generateText, streamText, tool } from "ai";
+export { generateText, stepCountIs, streamText, tool } from "ai";
 export type {
   CoreMessage,
   InferToolInput,

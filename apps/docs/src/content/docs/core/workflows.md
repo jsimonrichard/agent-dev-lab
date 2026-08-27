@@ -223,6 +223,7 @@ type WorkflowContext = {
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
+  readonly signal: AbortSignal;
 
   step: StepFn;
   memoryScopeWithSuffix: (suffix: string) => string;
@@ -308,6 +309,20 @@ See [Template](/api/interfaces/template/) in the API reference.
 
 `ctx.step` returns a `Promise`. Use `Promise.all` with **distinct keys** when running parallel steps with the same name.
 
-## Known limitations
+## Cancellation
 
-- **Cancellation** — `handle.cancel()` exists but the abort signal is not yet propagated into step callbacks or child agents.
+`handle.cancel()` aborts `ctx.signal` for that run. The runtime:
+
+- Rejects in-flight `ctx.step` callbacks (they can also listen to `ctx.signal`)
+- Links child `agent.run` / `agent.stream` AbortControllers to the same signal, so `streamText` stops
+- Emits `workflow_cancelled` (and `step_failed` for the interrupted step)
+
+Nested `workflow.run()` shares the parent's abort. `{ isolated: true }` runs keep their own signal.
+
+```ts
+const handle = review.run({ topic: "CRISPR delivery" });
+handle.cancel();
+await handle.result.catch((error) => {
+  // DOMException AbortError (or the abort reason)
+});
+```

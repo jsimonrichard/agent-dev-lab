@@ -9,6 +9,7 @@ import {
 import type { z } from "zod";
 
 import { AdlError } from "../errors";
+import { linkAbortController, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { inspectMessageStoreKind } from "../memory/inspect";
@@ -76,7 +77,7 @@ export class AgentImpl<
   }
 
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
-    const controller = new AbortController();
+    const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
     const finished = this.executeEpisode({
       input: input as AgentRunInput<unknown>,
@@ -92,7 +93,7 @@ export class AgentImpl<
   }
 
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput> {
-    const controller = new AbortController();
+    const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
     const streamReady = Promise.withResolvers<StreamTextResult<Tools, TOutput>>();
 
@@ -157,6 +158,7 @@ export class AgentImpl<
         });
 
         try {
+          throwIfAborted(abortSignal);
           const storedMessages = await messageStore.load(input.memoryScope);
           const { systemPrompt: storedSystemPrompt, transcript: storedTranscript } =
             splitStoredSystemPrompt(storedMessages);
@@ -189,6 +191,7 @@ export class AgentImpl<
           }
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
+          const telemetry = this.services.telemetry;
           const streamResult = streamText({
             model,
             ...(system ? { system } : {}),
@@ -198,6 +201,23 @@ export class AgentImpl<
             experimental_context: input.context,
             abortSignal,
             stopWhen: stepCountIs(1),
+            experimental_telemetry: {
+              isEnabled: telemetry?.isEnabled !== false,
+              ...(telemetry?.recordInputs !== undefined
+                ? { recordInputs: telemetry.recordInputs }
+                : {}),
+              ...(telemetry?.recordOutputs !== undefined
+                ? { recordOutputs: telemetry.recordOutputs }
+                : {}),
+              functionId: telemetry?.functionId ?? this.definition.id,
+              metadata: {
+                "adl.agent_id": this.definition.id,
+                "adl.agent_call_id": agentCallId,
+                ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+                ...(stepId ? { "adl.step_id": stepId } : {}),
+                ...telemetry?.metadata,
+              },
+            },
             ...(outputSchema
               ? {
                   experimental_output: Output.object({

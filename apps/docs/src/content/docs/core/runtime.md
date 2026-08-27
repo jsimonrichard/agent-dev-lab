@@ -148,4 +148,4 @@ Pass `defaults.model` (or a mock `LanguageModel`) when the test constructs agent
 
 ## Tracing
 
-`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.
+`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so model and tool spans nest under the agent span. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.
