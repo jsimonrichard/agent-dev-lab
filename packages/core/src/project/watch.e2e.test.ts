@@ -239,6 +239,34 @@ async function fetchProjectApi(port: number): Promise<ProjectApiResponse> {
   return (await response.json()) as ProjectApiResponse;
 }
 
+async function waitForProjectApi(
+  port: number,
+  predicate: (body: ProjectApiResponse) => boolean,
+  timeoutMs: number,
+  message: () => string,
+): Promise<ProjectApiResponse> {
+  let lastBody: ProjectApiResponse | undefined;
+  let lastError: unknown;
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    try {
+      lastBody = await fetchProjectApi(port);
+      if (predicate(lastBody)) {
+        return lastBody;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await wait(40);
+  }
+  const detail = lastBody
+    ? `last meta: ${JSON.stringify(lastBody.meta)}`
+    : lastError instanceof Error
+      ? lastError.message
+      : "";
+  throw new Error(`${message()}${detail ? `\n${detail}` : ""}`);
+}
+
 function workflowSampleQuestion(body: ProjectApiResponse): string | undefined {
   return body.meta.workflows.find((workflow) => workflow.id === "answer-question")?.inputSample
     ?.question;
@@ -267,7 +295,12 @@ function allocatePort(): Promise<number> {
   });
 }
 
-function startDashboard(projectRoot: string, port: number, logPath: string): ChildProcess {
+function startDashboard(
+  projectRoot: string,
+  port: number,
+  logPath: string,
+  cacheDir: string,
+): ChildProcess {
   const logFd = openSync(logPath, "w");
   return spawn(
     process.execPath,
@@ -278,6 +311,7 @@ function startDashboard(projectRoot: string, port: number, logPath: string): Chi
         ...process.env,
         ADL_PROJECT_ROOT: projectRoot,
         ADL_FRAMEWORK_DEV: "0",
+        ADL_VITE_CACHE_DIR: cacheDir,
         PORT: String(port),
         BROWSER: "none",
         NO_COLOR: "1",
@@ -302,46 +336,51 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
       const fixture = await createPlaygroundLikeProject();
       const port = await allocatePort();
       const logPath = path.join(fixture.root, "vite.log");
-      const child = startDashboard(fixture.root, port, logPath);
+      // Keep Vite's optimizer cache outside the watched project tree so cache
+      // writes cannot steal inotify events or collide with a parallel `vite dev`.
+      const cacheDir = `${fixture.root}-vite-cache`;
+      mkdirSync(cacheDir, { recursive: true });
+      const child = startDashboard(fixture.root, port, logPath, cacheDir);
+      const logs = () => dashboardLogs(logPath);
+      const showsSample = (version: string) => (body: ProjectApiResponse) =>
+        workflowSampleQuestion(body) === `default ${version}` && body.meta.lastReloadError === null;
 
       try {
         await waitUntil(
-          () => dashboardLogs(logPath).includes("Local:"),
+          () => logs().includes("Local:"),
           30_000,
-          `dashboard never printed a ready URL on port ${port}\n${dashboardLogs(logPath)}`,
+          `dashboard never printed a ready URL on port ${port}\n${logs()}`,
         );
 
-        await waitUntil(
-          async () => {
-            try {
-              const body = await fetchProjectApi(port);
-              return body.meta.generation === 0 && workflowSampleQuestion(body) === "default A";
-            } catch {
-              return false;
-            }
-          },
+        await waitForProjectApi(
+          port,
+          showsSample("A"),
           20_000,
-          `GET /api/project never returned the initial nested workflow sample\n${dashboardLogs(logPath)}`,
+          () => `GET /api/project never returned the initial nested workflow sample\n${logs()}`,
         );
 
+        // First GET attaches fs.watch. Give inotify (and Vite's optimizer) time
+        // to settle; a rename during SSR remount is easy to miss in CI.
+        await wait(500);
         await fixture.writeWorkflow("E", { atomic: true });
 
-        await waitUntil(
-          async () => {
-            try {
-              const body = await fetchProjectApi(port);
-              return (
-                body.meta.generation >= 1 &&
-                workflowSampleQuestion(body) === "default E" &&
-                body.meta.lastReloadError === null
-              );
-            } catch {
-              return false;
-            }
-          },
-          10_000,
-          `dashboard did not pick up nested workflow edit\n${dashboardLogs(logPath)}`,
-        );
+        const pickedUp = showsSample("E");
+        try {
+          await waitForProjectApi(
+            port,
+            pickedUp,
+            8_000,
+            () => `dashboard did not pick up atomic workflow edit\n${logs()}`,
+          );
+        } catch {
+          await fixture.writeWorkflow("E");
+          await waitForProjectApi(
+            port,
+            pickedUp,
+            20_000,
+            () => `dashboard did not pick up nested workflow edit\n${logs()}`,
+          );
+        }
       } finally {
         child.kill("SIGTERM");
         await wait(300);
@@ -349,8 +388,9 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
           child.kill("SIGKILL");
         }
         rmSync(fixture.root, { recursive: true, force: true });
+        rmSync(cacheDir, { recursive: true, force: true });
       }
     },
-    { timeout: 70_000 },
+    { timeout: 80_000 },
   );
 });

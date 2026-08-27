@@ -35,6 +35,7 @@ export default defineConfig(({ mode }) => {
   return {
     envDir: projectRoot,
     envPrefix: "ADL_",
+    ...(process.env.ADL_VITE_CACHE_DIR ? { cacheDir: process.env.ADL_VITE_CACHE_DIR } : {}),
     resolve: {
       tsconfigPaths: true,
       alias: {
