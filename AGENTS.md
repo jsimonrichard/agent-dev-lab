@@ -28,7 +28,7 @@ All standard commands are in root `package.json`:
 - **Format check**: `bun run format:check` — Prettier check (CI uses this)
 - **Lint**: `bun run lint` — ESLint across all packages
 - **Typecheck**: `bun run typecheck` — TypeScript checking via Turbo
-- **Test**: `bun run test` — runs `bun test` in `packages/core`
+- **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `cli`, `web`)
 - **Build**: `bun run build`
 
 ### Non-obvious notes

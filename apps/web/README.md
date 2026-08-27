@@ -37,4 +37,4 @@ Helper/reducer tests live next to the code (`src/lib/*.test.ts`) and run with Bu
 bun test src
 ```
 
-They are not yet wired into the root `turbo run test` task — see `notes/v1-scope.md`.
+They are wired into the root `turbo run test` task via this package's `"test"` script.
