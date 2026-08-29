@@ -139,159 +139,85 @@ async function workflowResult(
   return (output as { result: string }).result;
 }
 
-
-type ProjectApiResponse = {
-  meta: {
-    generation: number;
-    lastReloadError: string | null;
-    workflows: { id: string; inputSample?: { question?: string } }[];
-  };
-};
-
-async function fetchProjectApi(port: number): Promise<ProjectApiResponse> {
-  const response = await fetch(`http://127.0.0.1:${port}/api/project`, {
-    signal: AbortSignal.timeout(5_000),
-  });
-  if (!response.ok) {
-    throw new Error(`GET /api/project failed: ${response.status} ${await response.text()}`);
-  }
-  return (await response.json()) as ProjectApiResponse;
-}
-
-async function waitForProjectApi(
-  port: number,
-  predicate: (body: ProjectApiResponse) => boolean,
-  timeoutMs: number,
-  message: () => string,
-): Promise<ProjectApiResponse> {
-  let lastBody: ProjectApiResponse | undefined;
-  let lastError: unknown;
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    try {
-      lastBody = await fetchProjectApi(port);
-      if (predicate(lastBody)) {
-        return lastBody;
-      }
-    } catch (error) {
-      lastError = error;
-    }
-    await wait(40);
-  }
-  const detail = lastBody
-    ? `last meta: ${JSON.stringify(lastBody.meta)}`
-    : lastError instanceof Error
-      ? lastError.message
-      : "";
-  throw new Error(`${message()}${detail ? `\n${detail}` : ""}`);
-}
-
-function workflowSampleQuestion(body: ProjectApiResponse): string | undefined {
-  return body.meta.workflows.find((workflow) => workflow.id === "answer-question")?.inputSample
-    ?.question;
-}
-
-function allocatePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        reject(new Error("failed to allocate a TCP port"));
-        return;
-      }
-      const port = address.port;
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(port);
-      });
-    });
-  });
-}
-
-function startDashboard(projectRoot: string, port: number, logPath: string): ChildProcess {
-  const logFd = openSync(logPath, "w");
-  return spawn(
-    process.execPath,
-    ["--bun", "vite", "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
-    {
-      cwd: webPkg,
-      env: {
-        ...process.env,
-        ADL_PROJECT_ROOT: projectRoot,
-        ADL_FRAMEWORK_DEV: "0",
-        // This test only hits /api/project. CI spent 40s in the client
-        // optimizer ("bundling dependencies...") and never delivered watch
-        // events; skip that work.
-        ADL_VITE_DISABLE_OPTIMIZE: "1",
-        PORT: String(port),
-        BROWSER: "none",
-        NO_COLOR: "1",
-      },
-      stdio: ["ignore", logFd, logFd],
-    },
-  );
-}
-
-function dashboardLogs(logPath: string): string {
-  try {
-    return readFileSync(logPath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-describe("inspection UI server hot reload e2e (no browser)", () => {
+describe("watchAdlProject integration (playground-like nested registry)", () => {
   it(
-    "GET /api/project picks up an atomic edit to src/workflows/answer-question.ts",
+    "reloads when a nested src/workflows/*.ts file is edited in place",
     async () => {
       const fixture = await createPlaygroundLikeProject();
-      const port = await allocatePort();
-      const logPath = path.join(fixture.root, "vite.log");
-      const child = startDashboard(fixture.root, port, logPath);
-      const logs = () => dashboardLogs(logPath);
+      const project = await loadAdlProject({ root: fixture.root });
+      const reloaded = Promise.withResolvers<number>();
+      const dispose = watchAdlProject(project, {
+        onReload: ({ generation }) => {
+          reloaded.resolve(generation);
+        },
+        onError: (error) => {
+          reloaded.reject(error);
+        },
+      });
 
       try {
-        await waitUntil(
-          () => logs().includes("Local:"),
-          30_000,
-          `dashboard never printed a ready URL on port ${port}\n${logs()}`,
-        );
-
-        await waitForProjectApi(
-          port,
-          (body) =>
-            workflowSampleQuestion(body) === "default A" && body.meta.lastReloadError === null,
-          20_000,
-          () => `GET /api/project never returned the initial nested workflow sample\n${logs()}`,
-        );
-
         await wait(40);
-        await fixture.writeWorkflow("E", { atomic: true });
-
-        await waitForProjectApi(
-          port,
-          (body) =>
-            body.meta.generation >= 1 &&
-            workflowSampleQuestion(body) === "default E" &&
-            body.meta.lastReloadError === null,
-          20_000,
-          () => `dashboard did not pick up nested workflow edit\n${logs()}`,
-        );
+        await fixture.writeWorkflow("B");
+        await expect(reloaded.promise).resolves.toBe(1);
+        expect(workflowQuestion(project)).toBe("default B");
+        expect(await workflowResult(project, "q")).toBe("q_B");
       } finally {
-        child.kill("SIGTERM");
-        await wait(300);
-        if (child.exitCode === null && child.signalCode === null) {
-          child.kill("SIGKILL");
-        }
+        dispose();
         rmSync(fixture.root, { recursive: true, force: true });
       }
     },
-    { timeout: 70_000 },
+    { timeout: 15_000 },
+  );
+
+  it(
+    "reloads when a nested workflow is saved atomically (temp + rename)",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      const project = await loadAdlProject({ root: fixture.root });
+      const reloaded = Promise.withResolvers<number>();
+      const dispose = watchAdlProject(project, {
+        onReload: ({ generation }) => {
+          reloaded.resolve(generation);
+        },
+        onError: (error) => {
+          reloaded.reject(error);
+        },
+      });
+
+      try {
+        await wait(40);
+        await fixture.writeWorkflow("C", { atomic: true });
+        await expect(reloaded.promise).resolves.toBe(1);
+        expect(workflowQuestion(project)).toBe("default C");
+        expect(await workflowResult(project, "q")).toBe("q_C");
+      } finally {
+        dispose();
+        rmSync(fixture.root, { recursive: true, force: true });
+      }
+    },
+    { timeout: 15_000 },
+  );
+
+  it(
+    "re-evaluates nested #adl modules after reload even if Bun already imported the config",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      try {
+        await import(pathToFileURL(path.join(fixture.root, "adl.config.ts")).href);
+        const project = await loadAdlProject({ root: fixture.root });
+        expect(workflowQuestion(project)).toBe("default A");
+
+        await fixture.writeWorkflow("D");
+        await project.reload();
+
+        expect(project.generation).toBe(1);
+        expect(workflowQuestion(project)).toBe("default D");
+        expect(await workflowResult(project, "q")).toBe("q_D");
+      } finally {
+        rmSync(fixture.root, { recursive: true, force: true });
+      }
+    },
+    { timeout: 15_000 },
   );
 });
+

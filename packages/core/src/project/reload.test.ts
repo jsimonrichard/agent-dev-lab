@@ -377,6 +377,7 @@ function wait(ms: number): Promise<void> {
 }
 
 describe("watchAdlProject", () => {
+  // Nested playground-like registry coverage lives in watch.integration.test.ts.
   it(
     "reloads when a watched registry file changes",
     async () => {

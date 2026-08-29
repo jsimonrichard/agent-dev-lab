@@ -1,3 +1,9 @@
+/**
+ * Keep in sync with apps/playground/src/workflows/shared-scope.ts — same
+ * optional-scope / messages / same-agent / cross-agent prompt-conflict scenarios
+ * (this file uses MockLanguageModelV2; the playground runs live models).
+ */
+
 import { describe, expect, it } from "bun:test";
 import type { CoreMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
@@ -37,7 +43,7 @@ function mockTextModel(text: string, onPrompt?: (prompt: unknown) => void) {
   });
 }
 
-describe("agent run-input e2e", () => {
+describe("agent run-input integration", () => {
   it("runs drafter then reviser through a workflow: generated scope, appended messages, same-agent follow-up, prompt conflict", async () => {
     const warnings: string[] = [];
     const prompts: unknown[] = [];

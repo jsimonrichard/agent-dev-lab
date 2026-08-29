@@ -16,6 +16,8 @@ const turnSchema = z.object({
 });
 
 /**
+ * Keep in sync with packages/core/src/agent/run-input.integration.test.ts.
+ *
  * Exercises agent run-input flexibility on one conversation:
  * messages without a scope, appending `messages` onto that scope, a same-agent
  * follow-up, then a different agent with a different system prompt.

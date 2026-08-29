@@ -1,3 +1,8 @@
+/**
+ * Contract tests for MessageStore / WorkflowStore implementations
+ * living under memory/ and observability/ (this folder holds only the shared suite).
+ */
+
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
