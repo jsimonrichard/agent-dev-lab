@@ -124,6 +124,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
             status: "running",
             startedAt: event.at,
             streamingText: "",
+            warnings: [],
           });
         }
         break;
@@ -135,6 +136,14 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
           ep.status = "completed";
           ep.finishedAt = event.at;
           ep.durationMs = durationFromSpan(ep.startedAt, event.at, event.durationMs);
+        }
+        break;
+      }
+      case "agent_warning": {
+        const step = stepMap.get(event.stepId);
+        const ep = step ? findEpisode(step, event.episodeId) : undefined;
+        if (ep) {
+          ep.warnings.push(event.message);
         }
         break;
       }

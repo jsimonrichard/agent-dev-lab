@@ -10,6 +10,7 @@ function episode(id: string): AgentEpisode {
     memoryScope: `${id}:notes`,
     status: "completed",
     streamingText: "",
+    warnings: [],
   };
 }
 

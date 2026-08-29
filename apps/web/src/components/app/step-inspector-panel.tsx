@@ -302,6 +302,22 @@ function EpisodeConversation({
                 <SystemPromptBanner content={storedSystemPrompt} compact />
               </div>
             ) : null}
+            {episode.warnings.length > 0 ? (
+              <div
+                role="status"
+                className="mx-2 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5"
+              >
+                {episode.warnings.map((warning) => (
+                  <p
+                    key={warning}
+                    className="text-[11px] text-amber-800 dark:text-amber-200"
+                    title={warning}
+                  >
+                    {warning}
+                  </p>
+                ))}
+              </div>
+            ) : null}
             {hasTranscript ? (
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-2">
                 {prior.length > 0 ? (

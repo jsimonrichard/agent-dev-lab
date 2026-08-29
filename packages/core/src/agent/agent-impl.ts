@@ -213,14 +213,23 @@ export class AgentImpl<
             strategy,
           });
           if (conflict && !input.suppressSystemPromptConflictWarning) {
-            console.warn(
-              formatSystemPromptConflictWarning({
-                agentId: this.definition.id,
-                scopeAgentId: storedAgentId ?? "unknown",
-                memoryScope,
-                strategy,
-              }),
-            );
+            const warningMessage = formatSystemPromptConflictWarning({
+              agentId: this.definition.id,
+              scopeAgentId: storedAgentId ?? "unknown",
+              memoryScope,
+              strategy,
+            });
+            console.warn(warningMessage);
+            await runRecorder.emit({
+              type: "agent_warning",
+              agentCallId,
+              workflowRunId,
+              stepId,
+              agentId: this.definition.id,
+              memoryScope,
+              code: "system_prompt_conflict",
+              message: warningMessage,
+            });
           }
 
           // Conversation turns only — system text is passed via `streamText({ system })`

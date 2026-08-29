@@ -124,6 +124,15 @@ export type AgentFailedEvent = AgentEventBase & {
   error: unknown;
 };
 
+/** Non-fatal diagnostics for an agent episode (e.g. system-prompt conflict). */
+export type AgentWarningEvent = AgentEventBase & {
+  type: "agent_warning";
+  agentId: string;
+  memoryScope: string;
+  code: "system_prompt_conflict";
+  message: string;
+};
+
 export type AgentToolCallEvent = AgentEventBase & {
   type: "agent_tool_call";
   agentId: string;
@@ -173,6 +182,7 @@ export type RunEvent =
   | AgentStartedEvent
   | AgentFinishedEvent
   | AgentFailedEvent
+  | AgentWarningEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent
@@ -206,6 +216,7 @@ export type AgentObserverEvent =
   | AgentStartedEvent
   | AgentFinishedEvent
   | AgentFailedEvent
+  | AgentWarningEvent
   | AgentToolCallEvent
   | AgentToolResultEvent
   | AgentTextDeltaEvent

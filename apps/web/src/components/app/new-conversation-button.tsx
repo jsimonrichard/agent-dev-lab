@@ -18,11 +18,15 @@ export function NewConversationButton({
   async function handleClick() {
     setSubmitting(true);
     try {
-      const { memoryScope } = await createAgentSession({ data: agentId });
+      const result = await createAgentSession({ data: agentId });
+      if (result.isErr) {
+        console.error(result.error);
+        return;
+      }
       await router.invalidate();
       void navigate({
         to: "/agent/$agentId/run/$runId",
-        params: { agentId, runId: memoryScope },
+        params: { agentId, runId: result.value.memoryScope },
       });
     } finally {
       setSubmitting(false);

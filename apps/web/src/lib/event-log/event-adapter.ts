@@ -156,6 +156,21 @@ export function adaptCoreEventsForWorkflowRun(
           error: asJson(event.error),
         });
         break;
+      case "agent_warning":
+        if (!event.workflowRunId || !event.stepId) break;
+        out.push({
+          seq: event.seq,
+          runId: event.workflowRunId,
+          type: "agent_warning",
+          at: event.at,
+          stepId: event.stepId,
+          episodeId: event.agentCallId,
+          agentId: event.agentId,
+          memoryScope: event.memoryScope,
+          code: event.code,
+          message: event.message,
+        });
+        break;
       case "agent_tool_call":
       case "agent_tool_result":
       case "step_skipped":

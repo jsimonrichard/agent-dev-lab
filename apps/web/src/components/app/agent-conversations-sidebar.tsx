@@ -105,16 +105,24 @@ export function AgentConversationsSidebar() {
                         <ItemActionsMenu
                           name={session.title}
                           onRename={async (title) => {
-                            await renameAgentConversation({
+                            const result = await renameAgentConversation({
                               data: { memoryScope: session.memoryScope, title },
                             });
+                            if (result.isErr) {
+                              throw new Error(result.error);
+                            }
                             await router.invalidate();
                           }}
                           onDelete={
                             isWorkflowLinkedConversation(session)
                               ? undefined
                               : async () => {
-                                  await deleteAgentConversation({ data: session.memoryScope });
+                                  const result = await deleteAgentConversation({
+                                    data: session.memoryScope,
+                                  });
+                                  if (result.isErr) {
+                                    throw new Error(result.error);
+                                  }
                                   if (activeRunId === session.memoryScope) {
                                     await navigate({
                                       to: "/agent/$agentId",

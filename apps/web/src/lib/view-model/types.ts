@@ -151,6 +151,16 @@ export interface AgentFailedEvent extends RunEventBase {
   error?: JsonValue;
 }
 
+export interface AgentWarningEvent extends RunEventBase {
+  type: "agent_warning";
+  stepId: string;
+  episodeId: string;
+  agentId: string;
+  memoryScope: string;
+  code: "system_prompt_conflict";
+  message: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | StepStartedEvent
@@ -159,6 +169,7 @@ export type RunEvent =
   | AgentStartedEvent
   | AgentFinishedEvent
   | AgentFailedEvent
+  | AgentWarningEvent
   | TextDeltaEvent
   | MessagesCommittedEvent
   | RunFinishedEvent
@@ -194,6 +205,8 @@ export interface AgentEpisode {
   durationMs?: number;
   streamingText: string;
   error?: unknown;
+  /** Non-fatal diagnostics (e.g. system-prompt conflict). */
+  warnings: string[];
 }
 
 export interface ForkedAgentSession {

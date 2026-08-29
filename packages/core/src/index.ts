@@ -39,7 +39,7 @@ export {
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
 } from "./agent";
-export { err, fromThrowable, ok, unwrap, unwrapErr } from "./result";
+export { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from "./result";
 export type { Err, Ok, Result } from "./result";
 export type {
   Agent,
@@ -142,6 +142,7 @@ export type {
 export type {
   AgentEventBase,
   AgentFailedEvent,
+  AgentWarningEvent,
   AgentObserver,
   AgentObserverEvent,
   AgentObservers,

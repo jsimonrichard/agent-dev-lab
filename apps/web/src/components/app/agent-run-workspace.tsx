@@ -55,6 +55,7 @@ export function AgentRunWorkspace({
   const [callEvents, setCallEvents] = useState<
     Array<{ type: string; total?: number; count?: number }>
   >([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     setMessages(conversation.messages);
@@ -62,17 +63,20 @@ export function AgentRunWorkspace({
     setSending(false);
     setForking(false);
     setStreamEnabled(false);
+    setWarnings([]);
   }, [conversation.runId]);
 
   useEffect(() => {
     if (!callId) {
       setCallEvents([]);
+      setWarnings([]);
       return;
     }
     let cancelled = false;
-    void fetchAgentCallEvents({ data: callId }).then((events) => {
+    void fetchAgentCallEvents({ data: callId }).then((payload) => {
       if (!cancelled) {
-        setCallEvents(events);
+        setCallEvents(payload.commits);
+        setWarnings(payload.warnings);
       }
     });
     return () => {
@@ -99,7 +103,10 @@ export function AgentRunWorkspace({
       void refreshMessages();
       refreshConversationMeta();
       if (callId) {
-        void fetchAgentCallEvents({ data: callId }).then(setCallEvents);
+        void fetchAgentCallEvents({ data: callId }).then((payload) => {
+          setCallEvents(payload.commits);
+          setWarnings(payload.warnings);
+        });
       }
     },
     onTitleSet: refreshConversationMeta,
@@ -130,37 +137,37 @@ export function AgentRunWorkspace({
       ...prev,
       { id: `pending-${Date.now()}`, role: "user", content: text, parts: [{ type: "text", text }] },
     ]);
-    try {
-      await sendAgentMessage({
-        data: {
-          agentId: agent.id,
-          memoryScope: conversation.runId,
-          user: text,
-        },
-      });
-      setStreamEnabled(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Agent run failed");
-    } finally {
+    const result = await sendAgentMessage({
+      data: {
+        agentId: agent.id,
+        memoryScope: conversation.runId,
+        user: text,
+      },
+    });
+    if (result.isErr) {
+      setError(result.error);
       setSending(false);
+      return;
     }
+    setStreamEnabled(true);
+    setSending(false);
   }
 
   async function handleFork() {
     setForking(true);
     setError(null);
-    try {
-      const { memoryScope } = await forkLinkedConversation({ data: conversation.runId });
-      await router.invalidate();
-      void navigate({
-        to: "/agent/$agentId/run/$runId",
-        params: { agentId: agent.id, runId: memoryScope },
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fork conversation");
-    } finally {
+    const result = await forkLinkedConversation({ data: conversation.runId });
+    if (result.isErr) {
+      setError(result.error);
       setForking(false);
+      return;
     }
+    await router.invalidate();
+    void navigate({
+      to: "/agent/$agentId/run/$runId",
+      params: { agentId: agent.id, runId: result.value.memoryScope },
+    });
+    setForking(false);
   }
 
   const storedSystemPrompt = extractSystemPromptFromMessages(messages);
@@ -245,6 +252,18 @@ export function AgentRunWorkspace({
       {error ? (
         <div className="shrink-0 px-4 py-2">
           <ErrorDetails error={error} compact />
+        </div>
+      ) : null}
+      {warnings.length > 0 ? (
+        <div
+          role="status"
+          className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2"
+        >
+          {warnings.map((warning) => (
+            <p key={warning} className="text-xs text-amber-800 dark:text-amber-200" title={warning}>
+              {warning}
+            </p>
+          ))}
         </div>
       ) : null}
 

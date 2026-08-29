@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { err, fromThrowable, ok, unwrap, unwrapErr } from "./result";
+import { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from "./result";
 
 describe("Result", () => {
   it("wraps success and failure", () => {
@@ -35,5 +35,14 @@ describe("Result", () => {
         throw "bare";
       }),
     ).toEqual(err("bare"));
+  });
+
+  it("fromAsyncThrowable captures Error messages", async () => {
+    expect(await fromAsyncThrowable(async () => "ok")).toEqual(ok("ok"));
+    expect(
+      await fromAsyncThrowable(async () => {
+        throw new Error("missing demo data");
+      }),
+    ).toEqual(err("missing demo data"));
   });
 });

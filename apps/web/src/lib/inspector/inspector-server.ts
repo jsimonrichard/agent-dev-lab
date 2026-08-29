@@ -1,4 +1,5 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
+import { fromAsyncThrowable } from "@agent-dev-lab/core";
 
 import type { InspectorMessage } from "#/lib/view-model/types";
 
@@ -66,11 +67,9 @@ export const fetchWorkflowRun = createServerFn({ method: "GET" })
 export const startInspectionWorkflowRun = createServerFn({ method: "POST" })
   .validator((payload: { workflowId: string; input?: unknown; title?: string }) => payload)
   .handler(async ({ data }) => {
-    try {
-      return await startWorkflowRun(data.workflowId, data.input ?? {}, data.title);
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : String(error));
-    }
+    return fromAsyncThrowable(() =>
+      startWorkflowRun(data.workflowId, data.input ?? {}, data.title),
+    );
   });
 
 export const cancelInspectionWorkflowRun = createServerFn({ method: "POST" })
@@ -91,9 +90,14 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
   .validator((agentCallId: string) => agentCallId)
   .handler(async ({ data: agentCallId }) => {
     const events = await getAgentRunEvents(agentCallId);
-    return events
-      .filter((event) => event.type === "agent_messages_committed")
-      .map((event) => ({ type: event.type, total: event.total, count: event.count }));
+    return {
+      commits: events
+        .filter((event) => event.type === "agent_messages_committed")
+        .map((event) => ({ type: event.type, total: event.total, count: event.count })),
+      warnings: events
+        .filter((event) => event.type === "agent_warning")
+        .map((event) => event.message),
+    };
   });
 
 export const fetchAgentSessions = createServerFn({ method: "GET" })
@@ -105,11 +109,13 @@ export const fetchAgentSessions = createServerFn({ method: "GET" })
 export const sendAgentMessage = createServerFn({ method: "POST" })
   .validator((payload: { agentId: string; memoryScope: string; user: string }) => payload)
   .handler(async ({ data }) => {
-    return startAgentTurn({
-      agentId: data.agentId,
-      memoryScope: data.memoryScope,
-      user: data.user,
-    });
+    return fromAsyncThrowable(() =>
+      startAgentTurn({
+        agentId: data.agentId,
+        memoryScope: data.memoryScope,
+        user: data.user,
+      }),
+    );
   });
 
 export const forkAgentConversation = createServerFn({ method: "POST" })
@@ -125,43 +131,43 @@ export const forkAgentConversation = createServerFn({ method: "POST" })
     }) => payload,
   )
   .handler(async ({ data }) => {
-    return forkAgentFromWorkflow(data);
+    return fromAsyncThrowable(() => forkAgentFromWorkflow(data));
   });
 
 export const forkLinkedConversation = createServerFn({ method: "POST" })
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
-    return forkLinkedAgentConversation(memoryScope);
+    return fromAsyncThrowable(() => forkLinkedAgentConversation(memoryScope));
   });
 
 export const createAgentSession = createServerFn({ method: "POST" })
   .validator((agentId: string) => agentId)
   .handler(async ({ data: agentId }) => {
-    return createStandaloneAgentSession(agentId);
+    return fromAsyncThrowable(() => createStandaloneAgentSession(agentId));
   });
 
 export const renameAgentConversation = createServerFn({ method: "POST" })
   .validator((payload: { memoryScope: string; title: string }) => payload)
   .handler(async ({ data }) => {
-    return renameAgentSession(data.memoryScope, data.title);
+    return fromAsyncThrowable(() => renameAgentSession(data.memoryScope, data.title));
   });
 
 export const deleteAgentConversation = createServerFn({ method: "POST" })
   .validator((memoryScope: string) => memoryScope)
   .handler(async ({ data: memoryScope }) => {
-    return deleteAgentSession(memoryScope);
+    return fromAsyncThrowable(() => deleteAgentSession(memoryScope));
   });
 
 export const renameInspectionWorkflowRun = createServerFn({ method: "POST" })
   .validator((payload: { runId: string; title: string }) => payload)
   .handler(async ({ data }) => {
-    return renameWorkflowRun(data.runId, data.title);
+    return fromAsyncThrowable(() => renameWorkflowRun(data.runId, data.title));
   });
 
 export const deleteInspectionWorkflowRun = createServerFn({ method: "POST" })
   .validator((runId: string) => runId)
   .handler(async ({ data: runId }) => {
-    return deleteWorkflowRun(runId);
+    return fromAsyncThrowable(() => deleteWorkflowRun(runId));
   });
 
 export const fetchMessagesForScope = createServerFn({ method: "GET" })

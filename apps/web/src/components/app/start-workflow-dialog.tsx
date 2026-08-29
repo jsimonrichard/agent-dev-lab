@@ -26,10 +26,13 @@ import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector/
 import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
-  const { runId } = await startInspectionWorkflowRun({
+  const result = await startInspectionWorkflowRun({
     data: { workflowId, input, title },
   });
-  window.location.href = `/workflows/${workflowId}/run/${runId}`;
+  if (result.isErr) {
+    throw new Error(result.error);
+  }
+  window.location.href = `/workflows/${workflowId}/run/${result.value.runId}`;
 }
 
 function startWorkflowDescription(workflowId: string | undefined, fieldCount: number): string {

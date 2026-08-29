@@ -53,3 +53,12 @@ export function fromThrowable<T>(fn: () => T): Result<T, string> {
     return err(error instanceof Error ? error.message : String(error));
   }
 }
+
+/** Catch an async throw/rejection and turn it into {@link Err} with a string message. */
+export async function fromAsyncThrowable<T>(fn: () => Promise<T>): Promise<Result<T, string>> {
+  try {
+    return ok(await fn());
+  } catch (error) {
+    return err(error instanceof Error ? error.message : String(error));
+  }
+}

@@ -374,9 +374,19 @@ describe("AgentImpl system prompt conflict", () => {
       });
 
       await researcher.run({ memoryScope: "shared", user: "draft" }).result;
-      await editor.run({ memoryScope: "shared", user: "revise" }).result;
+      const editorHandle = editor.run({ memoryScope: "shared", user: "revise" });
+      await editorHandle.result;
 
       expect(warnings.some((warning) => warning.includes('Agent "editor"'))).toBe(true);
+      const editorEvents =
+        (await adl.services.stores.workflow?.listEvents({
+          agentCallId: editorHandle.agentCallId,
+        })) ?? [];
+      expect(
+        editorEvents.some(
+          (event) => event.type === "agent_warning" && event.message.includes('Agent "editor"'),
+        ),
+      ).toBe(true);
       const stored = await adl.services.stores.message.load("shared");
       expect(stored[0]).toEqual({
         role: "system",

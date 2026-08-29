@@ -109,13 +109,19 @@ export function WorkflowRunsSidebar() {
                       <ItemActionsMenu
                         name={workflowRunLabel(run)}
                         onRename={async (title) => {
-                          await renameInspectionWorkflowRun({
+                          const result = await renameInspectionWorkflowRun({
                             data: { runId: run.runId, title },
                           });
+                          if (result.isErr) {
+                            throw new Error(result.error);
+                          }
                           await router.invalidate();
                         }}
                         onDelete={async () => {
-                          await deleteInspectionWorkflowRun({ data: run.runId });
+                          const result = await deleteInspectionWorkflowRun({ data: run.runId });
+                          if (result.isErr) {
+                            throw new Error(result.error);
+                          }
                           if (activeRunId === run.runId) {
                             await navigate({
                               to: "/workflows/$workflowId",

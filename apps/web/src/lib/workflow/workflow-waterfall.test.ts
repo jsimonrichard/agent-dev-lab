@@ -18,6 +18,7 @@ function episode(id: string, extra: Partial<AgentEpisode> = {}): AgentEpisode {
     memoryScope: `${id}:notes`,
     status: "completed",
     streamingText: "",
+    warnings: [],
     ...extra,
   };
 }

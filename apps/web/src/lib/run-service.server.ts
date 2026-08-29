@@ -222,7 +222,8 @@ export async function startWorkflowRun(
   activeWorkflowRuns.set(handle.workflowRunId, handle);
   void handle.result
     .catch((error) => {
-      console.warn(`[adl-web] workflow run ${handle.workflowRunId} failed:`, error);
+      // Failures are persisted as workflow_failed / agent_failed for the UI.
+      void error;
     })
     .finally(() => {
       activeWorkflowRuns.delete(handle.workflowRunId);
@@ -330,7 +331,8 @@ export async function startAgentTurn(options: {
 
   void handle.result
     .catch((error) => {
-      console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
+      // Failures are persisted as agent_failed for the UI.
+      void error;
     })
     .finally(() => {
       setConversationTurnActive(options.memoryScope, false);

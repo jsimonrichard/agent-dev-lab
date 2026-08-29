@@ -42,6 +42,8 @@ export function summarizeRunEvent(event: RunEvent): string {
     case "agent_finished":
     case "agent_failed":
       return event.agentId;
+    case "agent_warning":
+      return event.message.length > 72 ? `${event.message.slice(0, 72)}…` : event.message;
     case "agent_tool_call":
     case "agent_tool_result":
       return event.toolName;
