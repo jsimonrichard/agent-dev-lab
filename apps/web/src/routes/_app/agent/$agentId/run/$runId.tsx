@@ -13,8 +13,10 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   gcTime: 0,
   validateSearch: parseAgentRunSearch,
   loader: async ({ params }) => {
-    const conversation = await fetchAgentConversation({ data: params.runId });
-    if (!conversation || conversation.agentId !== params.agentId) {
+    const conversation = await fetchAgentConversation({
+      data: { memoryScope: params.runId, agentId: params.agentId },
+    });
+    if (!conversation) {
       throw notFound();
     }
     const agent: InspectorAgentSummary = {

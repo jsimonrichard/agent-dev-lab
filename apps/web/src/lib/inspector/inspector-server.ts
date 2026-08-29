@@ -80,9 +80,11 @@ export const cancelInspectionWorkflowRun = createServerFn({ method: "POST" })
 
 export const fetchAgentConversation = createServerFn({ method: "GET" })
   .middleware([noStore])
-  .validator((memoryScope: string) => memoryScope)
-  .handler(async ({ data: memoryScope }) => {
-    return resolveAgentConversation(memoryScope);
+  .validator((payload: { memoryScope: string; agentId?: string } | string) =>
+    typeof payload === "string" ? { memoryScope: payload } : payload,
+  )
+  .handler(async ({ data }) => {
+    return resolveAgentConversation(data.memoryScope, { agentId: data.agentId });
   });
 
 export const fetchAgentCallEvents = createServerFn({ method: "GET" })
@@ -135,9 +137,13 @@ export const forkAgentConversation = createServerFn({ method: "POST" })
   });
 
 export const forkLinkedConversation = createServerFn({ method: "POST" })
-  .validator((memoryScope: string) => memoryScope)
-  .handler(async ({ data: memoryScope }) => {
-    return fromAsyncThrowable(() => forkLinkedAgentConversation(memoryScope));
+  .validator((payload: { memoryScope: string; agentId?: string } | string) =>
+    typeof payload === "string" ? { memoryScope: payload } : payload,
+  )
+  .handler(async ({ data }) => {
+    return fromAsyncThrowable(() =>
+      forkLinkedAgentConversation(data.memoryScope, { agentId: data.agentId }),
+    );
   });
 
 export const createAgentSession = createServerFn({ method: "POST" })

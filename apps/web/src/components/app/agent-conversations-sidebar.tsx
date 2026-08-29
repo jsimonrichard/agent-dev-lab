@@ -101,7 +101,7 @@ export function AgentConversationsSidebar() {
                 ) : (
                   selectedSessions.map((session) => {
                     return (
-                      <SidebarMenuItem key={session.memoryScope}>
+                      <SidebarMenuItem key={`${session.agentId}:${session.memoryScope}`}>
                         <ItemActionsMenu
                           name={session.title}
                           onRename={async (title) => {

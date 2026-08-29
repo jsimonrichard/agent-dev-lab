@@ -129,7 +129,7 @@ export function InspectorDashboard() {
               {recentSessions.length > 0 ? (
                 <ul className="-mx-2">
                   {recentSessions.map((session) => (
-                    <li key={session.memoryScope}>
+                    <li key={`${session.agentId}:${session.memoryScope}`}>
                       <Link
                         to="/agent/$agentId/run/$runId"
                         params={{ agentId: session.agentId, runId: session.memoryScope }}

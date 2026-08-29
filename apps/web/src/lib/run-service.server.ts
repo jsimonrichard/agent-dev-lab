@@ -78,7 +78,9 @@ async function ensureSessionsHydrated(): Promise<void> {
 
   const store = await getWorkflowStore();
   const episodes = await store.listAgentEpisodes();
-  for (const episode of episodes) {
+  // Oldest first so the agent that opened a shared memoryScope owns the session
+  // (matches live `registerAgentSessionFromEvent` first-writer behavior).
+  for (const episode of [...episodes].reverse()) {
     if (!listedAgentIds.has(episode.agentId)) {
       continue;
     }
@@ -389,32 +391,78 @@ export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
   await ensureSessionsHydrated();
   const project = await getLoadedAdlProject();
   const listedAgentIds = new Set(project.listAgentIds());
-  return listAgentSessions()
-    .filter((session) => listedAgentIds.has(session.agentId))
-    .map((session) => ({
-      ...session,
-      title: sessionDisplayTitle(session),
-    }));
+  const store = await getWorkflowStore();
+  const episodes = await store.listAgentEpisodes();
+
+  const participantsByScope = new Map<string, Set<string>>();
+  for (const episode of episodes) {
+    if (!listedAgentIds.has(episode.agentId)) {
+      continue;
+    }
+    let agents = participantsByScope.get(episode.memoryScope);
+    if (!agents) {
+      agents = new Set();
+      participantsByScope.set(episode.memoryScope, agents);
+    }
+    agents.add(episode.agentId);
+  }
+
+  const expanded: AgentSession[] = [];
+  for (const session of listAgentSessions()) {
+    const participants = participantsByScope.get(session.memoryScope);
+    const agentIds =
+      participants && participants.size > 0
+        ? [...participants]
+        : listedAgentIds.has(session.agentId)
+          ? [session.agentId]
+          : [];
+    const title = sessionDisplayTitle(session);
+    for (const agentId of agentIds) {
+      expanded.push({
+        ...session,
+        agentId,
+        title,
+      });
+    }
+  }
+
+  return expanded.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function resolveAgentConversation(memoryScope: string) {
+export async function resolveAgentConversation(
+  memoryScope: string,
+  options?: { agentId?: string },
+) {
   await ensureSessionsHydrated();
   const session = getAgentSessionByMemoryScope(memoryScope);
   if (!session) {
     return null;
   }
+
+  const viewAgentId = options?.agentId ?? session.agentId;
+  if (viewAgentId !== session.agentId) {
+    // Shared memoryScopes (e.g. shared-scope workflow) keep one session record
+    // owned by the first agent; later agents still need to open the same URL.
+    if (!(await memoryScopeHasAgentEpisode(memoryScope, viewAgentId))) {
+      return null;
+    }
+  }
+
   const messages = await loadMessagesForScope(memoryScope);
+  const latestAgentCallId = await latestAgentCallIdForScope(memoryScope, viewAgentId);
   return {
     runId: memoryScope,
-    agentId: session.agentId,
+    agentId: viewAgentId,
     title: sessionDisplayTitle(session),
     messages,
-    latestAgentCallId: session.agentCallId.startsWith("pending:") ? null : session.agentCallId,
+    latestAgentCallId:
+      latestAgentCallId ??
+      (session.agentCallId.startsWith("pending:") ? null : session.agentCallId),
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {
           forkId: memoryScope,
-          agentId: session.agentId,
+          agentId: viewAgentId,
           sourceWorkflowId: session.fork.sourceWorkflowId,
           sourceRunId: session.fork.sourceWorkflowRunId,
           sourceStepId: session.fork.sourceStepId,
@@ -427,13 +475,36 @@ export async function resolveAgentConversation(memoryScope: string) {
   };
 }
 
+async function memoryScopeHasAgentEpisode(memoryScope: string, agentId: string): Promise<boolean> {
+  const store = await getWorkflowStore();
+  const episodes = await store.listAgentEpisodes({ agentId });
+  return episodes.some((episode) => episode.memoryScope === memoryScope);
+}
+
+async function latestAgentCallIdForScope(
+  memoryScope: string,
+  agentId: string,
+): Promise<string | null> {
+  const store = await getWorkflowStore();
+  const episodes = await store.listAgentEpisodes({ agentId });
+  const match = episodes.find((episode) => episode.memoryScope === memoryScope);
+  return match?.agentCallId ?? null;
+}
+
 export async function forkLinkedAgentConversation(
   memoryScope: string,
+  options?: { agentId?: string },
 ): Promise<{ memoryScope: string }> {
   await ensureSessionsHydrated();
   const session = getAgentSessionByMemoryScope(memoryScope);
   if (!session || !isWorkflowLinkedConversation(session)) {
     throw new Error("Only conversations linked to a workflow run can be forked.");
+  }
+  const forkAgentId = options?.agentId ?? session.agentId;
+  if (forkAgentId !== session.agentId) {
+    if (!(await memoryScopeHasAgentEpisode(memoryScope, forkAgentId))) {
+      throw new Error(`Agent "${forkAgentId}" did not run on this conversation.`);
+    }
   }
   const link = await resolveWorkflowLink(session);
   if (!link) {
@@ -441,7 +512,7 @@ export async function forkLinkedAgentConversation(
   }
   const messages = await loadMessagesForScope(memoryScope);
   return forkAgentFromWorkflow({
-    agentId: session.agentId,
+    agentId: forkAgentId,
     sourceWorkflowId: link.workflowId,
     sourceRunId: link.workflowRunId,
     sourceStepId: link.stepId ?? link.episodeId,

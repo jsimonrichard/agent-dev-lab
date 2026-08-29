@@ -161,7 +161,9 @@ export function AgentRunWorkspace({
   async function handleFork() {
     setForking(true);
     setError(null);
-    const result = await forkLinkedConversation({ data: conversation.runId });
+    const result = await forkLinkedConversation({
+      data: { memoryScope: conversation.runId, agentId: agent.id },
+    });
     if (result.isErr) {
       setError(result.error);
       setForking(false);

@@ -226,6 +226,40 @@ describe("registerAgentSessionFromEvent listed agents", () => {
     expect(getAgentSessionByMemoryScope(memoryScope)?.agentId).toBe("researcher");
     unregisterAgentSession(memoryScope);
   });
+
+  it("keeps the first agent as session owner when another agent shares the memoryScope", () => {
+    const memoryScope = "conv:shared-scope";
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-drafter",
+        agentId: "drafter",
+        memoryScope,
+        workflowRunId: "run-1",
+        seq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds: new Set(["drafter", "reviser"]) },
+    );
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-reviser",
+        agentId: "reviser",
+        memoryScope,
+        workflowRunId: "run-1",
+        seq: 2,
+        at: "2026-01-01T00:00:01.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds: new Set(["drafter", "reviser"]) },
+    );
+    const session = getAgentSessionByMemoryScope(memoryScope);
+    expect(session?.agentId).toBe("drafter");
+    expect(session?.agentCallId).toBe("call-reviser");
+    unregisterAgentSession(memoryScope);
+  });
 });
 
 describe("conversation turn active", () => {
