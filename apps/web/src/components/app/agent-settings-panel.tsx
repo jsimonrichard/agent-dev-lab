@@ -1,7 +1,7 @@
 import { Braces, Cpu, Database, FileText, GitBranch, MessageSquare, Wrench } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import type { AgentInspectorMeta } from "#/lib/inspector-types";
+import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
 import { Badge } from "@/components/ui/badge";
 import { ErrorDetails } from "@/components/app/error-details";

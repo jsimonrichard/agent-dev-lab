@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { EventLogWorkspace } from "@/components/app/event-log-workspace";
-import { fetchEventLog } from "#/lib/inspector-server";
+import { fetchEventLog } from "#/lib/inspector/inspector-server";
 
 export const Route = createFileRoute("/_app/events/")({
   loader: async () => {

@@ -8,9 +8,9 @@ import {
 } from "@agent-dev-lab/core";
 import { getInspectorEventLog, markInspectorEventLogHydrated } from "@agent-dev-lab/core/project";
 
-import type { EventLogSnapshotEntry } from "#/lib/event-log-snapshot";
+import type { EventLogSnapshotEntry } from "#/lib/event-log/event-log-snapshot";
 
-export type { EventLogSnapshotEntry } from "#/lib/event-log-snapshot";
+export type { EventLogSnapshotEntry } from "#/lib/event-log/event-log-snapshot";
 
 /**
  * Process singleton — pinned on the core project host so Vite SSR isolates

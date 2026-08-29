@@ -4,8 +4,8 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 import { RunWorkspace } from "@/components/app/run-workspace";
 import { RunWorkspaceError } from "@/components/app/run-workspace-error";
 import { RunWorkspacePending } from "@/components/app/run-workspace-pending";
-import { fetchMessagesForWorkflowRun, fetchWorkflowRun } from "#/lib/inspector-server";
-import { parseWorkflowRunSearch } from "@/lib/workflow-location";
+import { fetchMessagesForWorkflowRun, fetchWorkflowRun } from "#/lib/inspector/inspector-server";
+import { parseWorkflowRunSearch } from "@/lib/workflow/workflow-location";
 
 export const Route = createFileRoute("/_app/workflows/$workflowId/run/$runId")({
   gcTime: 0,

@@ -1,7 +1,7 @@
 import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-lab/core";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
-import type { AgentSession } from "#/lib/agent-sessions";
+import type { AgentSession } from "#/lib/agent/agent-sessions";
 
 export async function persistInspectorSession(
   session: AgentSession,

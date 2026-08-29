@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { fetchMessagesForScope } from "#/lib/inspector-server";
+import { fetchMessagesForScope } from "#/lib/inspector/inspector-server";
 import {
   latestCommitSeqByScope,
   memoryScopesFromEvents,

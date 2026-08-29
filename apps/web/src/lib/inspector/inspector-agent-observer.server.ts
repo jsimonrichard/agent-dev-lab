@@ -13,9 +13,9 @@ import {
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
 
-import { getAgentSessionByMemoryScope, registerAgentSessionFromEvent } from "#/lib/agent-sessions";
-import { getEventLog, hydrateEventLogFromWorkflowStore } from "#/lib/event-log.server";
-import { persistInspectorSession } from "#/lib/inspector-session-persist.server";
+import { getAgentSessionByMemoryScope, registerAgentSessionFromEvent } from "#/lib/agent/agent-sessions";
+import { getEventLog, hydrateEventLogFromWorkflowStore } from "#/lib/event-log/event-log.server";
+import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
 
 type ObserverHost = {
   __adlInspectorObserverState?: {

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { getAgentSessionByMemoryScope, isConversationTurnActive } from "#/lib/agent-sessions";
+import { getAgentSessionByMemoryScope, isConversationTurnActive } from "#/lib/agent/agent-sessions";
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
 import {
   encodeRunEventSse,

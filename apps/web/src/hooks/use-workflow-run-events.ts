@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { RunEvent } from "#/lib/view-model/types";
-import { adaptCoreEventsForWorkflowRun } from "#/lib/event-adapter";
+import { adaptCoreEventsForWorkflowRun } from "#/lib/event-log/event-adapter";
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
 export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = []) {

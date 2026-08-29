@@ -27,7 +27,7 @@ import {
   waterfallTickCount,
   waterfallTickMarks,
   type WaterfallBar,
-} from "@/lib/workflow-waterfall";
+} from "@/lib/workflow/workflow-waterfall";
 
 const WORKFLOW_ROW_ID = "__workflow__";
 const ROW_DIVIDER = "border-b border-border/40";

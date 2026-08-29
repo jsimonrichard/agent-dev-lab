@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { useProcessEventLog } from "@/hooks/use-process-event-log";
-import { sessionDisplayTitle } from "@/lib/agent-sessions";
+import { sessionDisplayTitle } from "@/lib/agent/agent-sessions";
 import {
   DEFAULT_EVENT_LOG_FILTERS,
   collectFieldKinds,
@@ -47,21 +47,21 @@ import {
   type EventLogFilterClause,
   type EventLogFilterOp,
   type EventLogFilterState,
-} from "@/lib/event-log-filter";
+} from "@/lib/event-log/event-log-filter";
 import {
   DEFAULT_EVENT_LOG_PAGE_SIZE,
   EVENT_LOG_PAGE_SIZES,
   eventLogPageWindow,
   isEventLogPageSize,
-} from "@/lib/event-log-page";
-import { type EventLogSnapshotEntry, loggedRunEventsFromSnapshot } from "@/lib/event-log-snapshot";
+} from "@/lib/event-log/event-log-page";
+import { type EventLogSnapshotEntry, loggedRunEventsFromSnapshot } from "@/lib/event-log/event-log-snapshot";
 import {
   agentSessionByCallId,
   EVENT_LOG_FILTER_ABSENT,
   eventLogObjectLabels,
   isEventLogObjectLabelField,
   workflowIdByRunId,
-} from "@/lib/event-log-summary";
+} from "@/lib/event-log/event-log-summary";
 import {
   eventLogColumnVisibility,
   eventLogFilterFieldList,
@@ -69,8 +69,8 @@ import {
   eventLogPresentFields,
   eventLogRowHiddenColumnIds,
   eventLogUserColumnVisibility,
-} from "@/lib/event-log-table";
-import { clearEventLog } from "#/lib/inspector-server";
+} from "@/lib/event-log/event-log-table";
+import { clearEventLog } from "#/lib/inspector/inspector-server";
 
 function namedFilterPlaceholder(field: string): { select: string; empty: string } {
   switch (field) {

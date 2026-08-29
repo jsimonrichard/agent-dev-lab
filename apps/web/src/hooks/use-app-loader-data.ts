@@ -1,8 +1,8 @@
 import { getRouteApi } from "@tanstack/react-router";
 
-import type { AgentSession } from "#/lib/agent-sessions";
+import type { AgentSession } from "#/lib/agent/agent-sessions";
 import type { InspectorRunSummary } from "#/lib/view-model/types";
-import type { ProjectInspectorMeta } from "#/lib/inspector-types";
+import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
 
 const appRoute = getRouteApi("/_app");
 

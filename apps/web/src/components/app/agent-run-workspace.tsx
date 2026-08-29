@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
-import type { AgentInspectorMeta } from "#/lib/inspector-types";
+import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import {
   fetchAgentCallEvents,
   fetchMessagesForScope,
   forkLinkedConversation,
   sendAgentMessage,
-} from "#/lib/inspector-server";
+} from "#/lib/inspector/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type { InspectorAgentSummary, InspectorMessage, ResolvedAgentConversation } from "@/lib/view-model/types";
-import { messageIdsForAgentCall } from "@/lib/agent-call-focus";
+import { messageIdsForAgentCall } from "@/lib/agent/agent-call-focus";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
   extractSystemPromptFromMessages,

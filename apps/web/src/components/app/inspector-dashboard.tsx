@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { formatRunTimestamp, workflowRunLabel } from "@/lib/workflow-location";
+import { formatRunTimestamp, workflowRunLabel } from "@/lib/workflow/workflow-location";
 
 const RECENT_LIMIT = 6;
 

@@ -53,18 +53,18 @@ import {
   workflowIdByRunId,
   type EventLogObjectLabels,
   type EventLogResolveContext,
-} from "@/lib/event-log-summary";
-import { eventLogFilterCellValue } from "@/lib/event-log-filter";
+} from "@/lib/event-log/event-log-summary";
+import { eventLogFilterCellValue } from "@/lib/event-log/event-log-filter";
 import {
   EVENT_LOG_TABLE_COLUMNS,
   eventLogHiddenCells,
   eventLogTableCell,
   isEventLogTableField,
   type EventLogTableField,
-} from "@/lib/event-log-table";
+} from "@/lib/event-log/event-log-table";
 import { cn } from "@/lib/utils";
-import { agentRunSearch } from "@/lib/agent-location";
-import { workflowRunSearch } from "@/lib/workflow-location";
+import { agentRunSearch } from "@/lib/agent/agent-location";
+import { workflowRunSearch } from "@/lib/workflow/workflow-location";
 
 export const eventLogTableFeatures = tableFeatures({
   columnVisibilityFeature,

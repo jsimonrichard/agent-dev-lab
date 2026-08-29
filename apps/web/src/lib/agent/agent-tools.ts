@@ -1,4 +1,4 @@
-import { describeWorkflowInput } from "#/lib/workflow-input-schema";
+import { describeWorkflowInput } from "#/lib/workflow/workflow-input-schema";
 
 export interface AgentToolSummary {
   name: string;

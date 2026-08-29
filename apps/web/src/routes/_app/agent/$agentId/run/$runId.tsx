@@ -1,11 +1,11 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ok } from "@agent-dev-lab/core/result";
 
-import type { AgentInspectorMeta } from "#/lib/inspector-types";
+import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
-import { fetchAgentConversation } from "#/lib/inspector-server";
+import { fetchAgentConversation } from "#/lib/inspector/inspector-server";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { parseAgentRunSearch } from "@/lib/agent-location";
+import { parseAgentRunSearch } from "@/lib/agent/agent-location";
 import type { InspectorAgentSummary } from "@/lib/view-model/types";
 
 export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({

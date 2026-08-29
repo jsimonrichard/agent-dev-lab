@@ -1,4 +1,4 @@
-import type { WorkflowInputField, WorkflowInputFieldKind } from "#/lib/inspector-types";
+import type { WorkflowInputField, WorkflowInputFieldKind } from "#/lib/inspector/inspector-types";
 import type { JsonValue } from "#/lib/view-model/types";
 
 /**

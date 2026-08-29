@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getAdlRuntime } from "#/lib/adl-runtime.server";
-import { getEventLog, tailLoggedEvents } from "#/lib/event-log.server";
+import { getEventLog, tailLoggedEvents } from "#/lib/event-log/event-log.server";
 import { encodeLoggedRunEventSse } from "#/lib/sse.server";
 
 const HEARTBEAT_MS = 15_000;

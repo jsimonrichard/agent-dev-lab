@@ -2,7 +2,7 @@ import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
 import { GitBranch, LayoutDashboard, MessageSquare, ScrollText, Settings2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { inspectorModeFromPath } from "@/lib/inspector-mode";
+import { inspectorModeFromPath } from "@/lib/inspector/inspector-mode";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 

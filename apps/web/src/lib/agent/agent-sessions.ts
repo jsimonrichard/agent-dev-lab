@@ -1,6 +1,6 @@
 import type { InspectorSessionRecord, RunEvent } from "@agent-dev-lab/core";
 
-import { displayConversationTitle } from "./memory-scope-label";
+import { displayConversationTitle } from "../memory-scope-label";
 
 export interface AgentSession {
   agentCallId: string;

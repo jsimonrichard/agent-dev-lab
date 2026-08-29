@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { AgentEpisode, StepNode } from "./mock/types";
+import type { AgentEpisode, StepNode } from "../view-model/types";
 import {
   computeStepWaterfallBar,
   computeWaterfallScale,

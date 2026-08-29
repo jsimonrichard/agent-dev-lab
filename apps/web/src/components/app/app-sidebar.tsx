@@ -1,5 +1,5 @@
 import { useRouterState } from "@tanstack/react-router";
-import { inspectorModeFromPath } from "@/lib/inspector-mode";
+import { inspectorModeFromPath } from "@/lib/inspector/inspector-mode";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { AgentConversationsSidebar } from "@/components/app/agent-conversations-sidebar";
 import { HomeSidebar } from "@/components/app/home-sidebar";

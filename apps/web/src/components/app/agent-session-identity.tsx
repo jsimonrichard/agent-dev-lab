@@ -1,6 +1,6 @@
 import { Bot, GitBranch } from "lucide-react";
 
-import { workflowIdForAgentSession, type AgentSession } from "@/lib/agent-sessions";
+import { workflowIdForAgentSession, type AgentSession } from "@/lib/agent/agent-sessions";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 

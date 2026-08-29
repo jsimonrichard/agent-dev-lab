@@ -10,8 +10,8 @@ import {
   parseWorkflowLocation,
   workflowRunLabel,
   workflowRunSubtitle,
-} from "@/lib/workflow-location";
-import { deleteInspectionWorkflowRun, renameInspectionWorkflowRun } from "#/lib/inspector-server";
+} from "@/lib/workflow/workflow-location";
+import { deleteInspectionWorkflowRun, renameInspectionWorkflowRun } from "#/lib/inspector/inspector-server";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { cn } from "@/lib/utils";
 import { ContextSidebar } from "@/components/app/context-sidebar";

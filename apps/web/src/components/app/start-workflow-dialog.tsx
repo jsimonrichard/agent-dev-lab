@@ -21,9 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector-server";
-import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector-types";
-import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow-input-schema";
+import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector/inspector-server";
+import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector/inspector-types";
+import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
   const { runId } = await startInspectionWorkflowRun({

@@ -6,7 +6,7 @@ import {
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
 
-import { getEventLog } from "./event-log.server";
+import { getEventLog } from "../event-log/event-log.server";
 import {
   attachInspectorObservers,
   ensureInspectorAgentObserver,

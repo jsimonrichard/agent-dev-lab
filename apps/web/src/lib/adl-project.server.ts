@@ -15,7 +15,7 @@ import {
 import {
   ensureInspectorAgentObserver,
   resetInspectorAgentObserver,
-} from "#/lib/inspector-agent-observer.server";
+} from "#/lib/inspector/inspector-agent-observer.server";
 
 const webPackageRoot = path.dirname(fileURLToPath(new URL("../../", import.meta.url)));
 

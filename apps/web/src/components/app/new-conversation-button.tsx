@@ -1,7 +1,7 @@
 import { useState, type ComponentProps } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 
-import { createAgentSession } from "#/lib/inspector-server";
+import { createAgentSession } from "#/lib/inspector/inspector-server";
 import { Button } from "@/components/ui/button";
 
 export function NewConversationButton({

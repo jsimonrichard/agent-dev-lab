@@ -2,10 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
-import { adaptCoreEventsForWorkflowRun } from "./event-adapter";
-import { formatSerializedError, formatSerializedErrorHeadline } from "./format-error";
-import { buildRunViewState } from "./mock/run-projection";
-import type { RunEvent } from "./mock/types";
+import { adaptCoreEventsForWorkflowRun } from "../event-log/event-adapter";
+import { formatSerializedError, formatSerializedErrorHeadline } from "../format-error";
+import { buildRunViewState } from "../view-model/run-projection";
+import type { RunEvent } from "../view-model/types";
 
 const AT = "2026-01-01T00:00:00.000Z";
 

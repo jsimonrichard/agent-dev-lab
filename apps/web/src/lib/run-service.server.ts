@@ -13,11 +13,11 @@ import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getAdlRuntime, getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
-import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent-tools";
+import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent/agent-tools";
 import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
-import type { ProjectInspectorMeta } from "#/lib/inspector-types";
-import { persistInspectorSession } from "#/lib/inspector-session-persist.server";
+import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
+import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
 import {
   createMemoryScope,
   getAgentSessionByMemoryScope,
@@ -34,14 +34,14 @@ import {
   touchAgentSession,
   unregisterAgentSession,
   type AgentSession,
-} from "#/lib/agent-sessions";
+} from "#/lib/agent/agent-sessions";
 import {
   adaptCoreEventsForWorkflowRun,
   formatInputPreview,
   mapWorkflowRunStatus,
-} from "#/lib/event-adapter";
+} from "#/lib/event-log/event-adapter";
 import type { InspectorRunSummary, InspectorMessage } from "#/lib/view-model/types";
-import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow-input-schema";
+import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow/workflow-input-schema";
 
 export type { ProjectInspectorMeta };
 

@@ -9,7 +9,7 @@ import { InspectorShellProvider } from "@/components/app/inspector-shell-context
 import { MasterSidebar } from "@/components/app/master-sidebar";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { inspectorModeFromPath } from "@/lib/inspector-mode";
+import { inspectorModeFromPath } from "@/lib/inspector/inspector-mode";
 
 interface ResizableAppShellProps {
   children: ReactNode;

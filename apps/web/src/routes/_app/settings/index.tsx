@@ -3,7 +3,7 @@ import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trig
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { fetchRuntimeInfo } from "#/lib/inspector-server";
+import { fetchRuntimeInfo } from "#/lib/inspector/inspector-server";
 
 const devModeLabel = {
   "framework-dev": "Framework dev",

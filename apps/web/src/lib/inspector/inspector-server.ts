@@ -24,7 +24,7 @@ import {
   getAgentRunEvents,
 } from "#/lib/run-service.server";
 import { getAdlRuntime } from "#/lib/adl-runtime.server";
-import { snapshotEventLog, getEventLog } from "#/lib/event-log.server";
+import { snapshotEventLog, getEventLog } from "#/lib/event-log/event-log.server";
 import { getCoreShell } from "#/lib/runtime-info.server";
 
 const noStore = createMiddleware({ type: "function" }).client(async ({ next }) => {

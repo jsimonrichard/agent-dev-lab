@@ -10,7 +10,7 @@ import type {
 } from "@/lib/view-model/types";
 import { ChatMessageList, SystemPromptBanner } from "@/components/app/chat-message-list";
 import { ConversationSkeleton } from "@/components/app/conversation-skeleton";
-import { agentRunSearch } from "@/lib/agent-location";
+import { agentRunSearch } from "@/lib/agent/agent-location";
 import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
 import {

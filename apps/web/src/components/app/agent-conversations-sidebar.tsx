@@ -2,16 +2,16 @@ import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-ro
 import { Bot, MessageSquare, Plus } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
-import { parseAgentLocation } from "@/lib/agent-location";
+import { parseAgentLocation } from "@/lib/agent/agent-location";
 import { AgentSessionIdentity } from "@/components/app/agent-session-identity";
 import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { NewConversationButton } from "@/components/app/new-conversation-button";
 import { ContextSidebar } from "@/components/app/context-sidebar";
-import { deleteAgentConversation, renameAgentConversation } from "#/lib/inspector-server";
-import { isWorkflowLinkedConversation } from "@/lib/agent-sessions";
+import { deleteAgentConversation, renameAgentConversation } from "#/lib/inspector/inspector-server";
+import { isWorkflowLinkedConversation } from "@/lib/agent/agent-sessions";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
-import { formatRunTimestamp } from "@/lib/workflow-location";
+import { formatRunTimestamp } from "@/lib/workflow/workflow-location";
 import {
   SidebarContent,
   SidebarGroup,

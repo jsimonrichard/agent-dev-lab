@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
-import { cancelInspectionWorkflowRun } from "#/lib/inspector-server";
+import { cancelInspectionWorkflowRun } from "#/lib/inspector/inspector-server";
 import {
   buildRunViewState,
   findEpisodeInTree,
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow-location";
+import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow/workflow-location";
 
 const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 

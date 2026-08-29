@@ -4,7 +4,7 @@ import { NotFoundPage } from "@/components/app/not-found";
 import { ProjectReloadErrorBanner } from "@/components/app/project-reload-error-banner";
 import { ResizableAppShell } from "@/components/app/resizable-app-shell";
 import { useProjectHotReload } from "@/hooks/use-project-hot-reload";
-import { fetchAgentSessions, fetchProjectMeta, fetchWorkflowRuns } from "#/lib/inspector-server";
+import { fetchAgentSessions, fetchProjectMeta, fetchWorkflowRuns } from "#/lib/inspector/inspector-server";
 
 export const Route = createFileRoute("/_app")({
   loader: async () => {

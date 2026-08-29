@@ -1,6 +1,6 @@
 import type { LoggedRunEvent } from "@agent-dev-lab/core";
 
-import { isPlainObject } from "./json-document";
+import { isPlainObject } from "../json-document";
 import {
   EVENT_LOG_FILTER_ABSENT,
   eventLogFilterValueLabel,
