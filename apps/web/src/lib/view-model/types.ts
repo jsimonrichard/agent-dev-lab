@@ -50,6 +50,7 @@ export type RunEventType =
   | "step_failed"
   | "agent_started"
   | "agent_finished"
+  | "agent_warning"
   | "text_delta"
   | "messages_committed"
   | "run_finished"

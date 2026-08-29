@@ -4,6 +4,12 @@ import type { RunEvent } from "#/lib/view-model/types";
 import { adaptCoreEventsForWorkflowRun } from "#/lib/event-log/event-adapter";
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
+function isWorkflowRunTerminal(event: RunEvent): boolean {
+  return (
+    event.type === "run_finished" || event.type === "run_failed" || event.type === "run_cancelled"
+  );
+}
+
 export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = []) {
   const [events, setEvents] = useState<RunEvent[]>(initialEvents);
   const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.seq), 0));
@@ -21,18 +27,21 @@ export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = 
     source.onmessage = (message) => {
       try {
         const core = JSON.parse(message.data) as CoreRunEvent;
+        lastSeqRef.current = Math.max(lastSeqRef.current, core.seq);
         const adapted = adaptCoreEventsForWorkflowRun(runId, [core]);
         if (adapted.length === 0) {
           return;
         }
         const uiEvent = adapted[0]!;
-        lastSeqRef.current = Math.max(lastSeqRef.current, uiEvent.seq);
         setEvents((prev) => {
           if (prev.some((e) => e.seq === uiEvent.seq)) {
             return prev;
           }
           return [...prev, uiEvent];
         });
+        if (isWorkflowRunTerminal(uiEvent)) {
+          source.close();
+        }
       } catch {
         // ignore malformed chunks
       }

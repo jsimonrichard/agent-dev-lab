@@ -287,7 +287,10 @@ export async function loadMessagesForWorkflowRun(runId: string): Promise<{
   const entries = await Promise.all(
     [...scopes].map(async (scope) => {
       const messages = await store.load(scope);
-      return [scope, messages.map((message, index) => coreMessageToInspector(message, index))] as const;
+      return [
+        scope,
+        messages.map((message, index) => coreMessageToInspector(message, index)),
+      ] as const;
     }),
   );
 

@@ -1,12 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { CoreMessage } from "@agent-dev-lab/core";
 
-import {
-  collectToolCallIds,
-  collectToolResults,
-  coreMessageToInspector,
-  inspectorMessageToCore,
-} from "./chat-messages";
+import { coreMessageToInspector, inspectorMessageToCore } from "./chat-messages";
 
 describe("coreMessageToInspector", () => {
   it("keeps plain text user and assistant messages", () => {
@@ -122,7 +117,6 @@ describe("coreMessageToInspector", () => {
   });
 });
 
-
 describe("inspectorMessageToCore", () => {
   it("round-trips a tool call plus result into AI SDK message shapes", () => {
     const assistant = coreMessageToInspector(
@@ -178,4 +172,3 @@ describe("inspectorMessageToCore", () => {
     });
   });
 });
-

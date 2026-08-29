@@ -181,6 +181,22 @@ function ConversationInspector({
           </InspectorNoun>
         </p>
       </div>
+      {episode.warnings.length > 0 ? (
+        <div
+          role="status"
+          className="shrink-0 space-y-1 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5"
+        >
+          {episode.warnings.map((warning) => (
+            <p
+              key={warning}
+              className="text-[11px] text-amber-800 dark:text-amber-200"
+              title={warning}
+            >
+              {warning}
+            </p>
+          ))}
+        </div>
+      ) : null}
       <ConversationPanel
         episode={episode}
         events={events}
@@ -300,22 +316,6 @@ function EpisodeConversation({
             {storedSystemPrompt ? (
               <div className={hasTranscript ? "px-2 pt-2" : "p-2"}>
                 <SystemPromptBanner content={storedSystemPrompt} compact />
-              </div>
-            ) : null}
-            {episode.warnings.length > 0 ? (
-              <div
-                role="status"
-                className="mx-2 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5"
-              >
-                {episode.warnings.map((warning) => (
-                  <p
-                    key={warning}
-                    className="text-[11px] text-amber-800 dark:text-amber-200"
-                    title={warning}
-                  >
-                    {warning}
-                  </p>
-                ))}
               </div>
             ) : null}
             {hasTranscript ? (

@@ -15,6 +15,7 @@ function applyRuntimeLoadEnv(loadEnv: AdlRuntimeConfig["loadEnv"]): void {
 /** Creates the process-level ADL runtime (wrapper over {@link AdlRuntimeImpl}). */
 export function createAdlRuntime(config: AdlRuntimeConfig = {}): AdlRuntime {
   applyRuntimeLoadEnv(config.loadEnv);
-  const { loadEnv: _loadEnv, ...runtimeConfig } = config;
+  const runtimeConfig = { ...config };
+  delete runtimeConfig.loadEnv;
   return new AdlRuntimeImpl(runtimeConfig);
 }

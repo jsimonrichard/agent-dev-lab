@@ -6,6 +6,7 @@ import {
   agentRunStreamIsTerminal,
   encodeLoggedRunEventSse,
   shouldCloseAgentConversationStream,
+  shouldCloseWorkflowRunStream,
   workflowRunStreamIsTerminal,
 } from "./sse.server";
 
@@ -32,6 +33,55 @@ describe("workflowRunStreamIsTerminal", () => {
     expect(workflowRunStreamIsTerminal(event("workflow_finished"))).toBe(true);
     expect(workflowRunStreamIsTerminal(event("workflow_failed"))).toBe(true);
     expect(workflowRunStreamIsTerminal(event("workflow_cancelled"))).toBe(true);
+  });
+});
+
+describe("shouldCloseWorkflowRunStream", () => {
+  it("closes after a terminal event was delivered", () => {
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: true,
+        eventBatchEmpty: false,
+        runStatus: "cancelled",
+      }),
+    ).toBe(true);
+  });
+
+  it("stays open when status settled mid-batch before workflow_cancelled", () => {
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: false,
+        eventBatchEmpty: false,
+        runStatus: "cancelled",
+      }),
+    ).toBe(false);
+  });
+
+  it("closes when caught up and the run is no longer running", () => {
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: false,
+        eventBatchEmpty: true,
+        runStatus: "cancelled",
+      }),
+    ).toBe(true);
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: false,
+        eventBatchEmpty: true,
+        runStatus: "completed",
+      }),
+    ).toBe(true);
+  });
+
+  it("stays open while the run is still running", () => {
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: false,
+        eventBatchEmpty: true,
+        runStatus: "running",
+      }),
+    ).toBe(false);
   });
 });
 

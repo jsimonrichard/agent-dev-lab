@@ -54,7 +54,10 @@ import {
   eventLogPageWindow,
   isEventLogPageSize,
 } from "@/lib/event-log/event-log-page";
-import { type EventLogSnapshotEntry, loggedRunEventsFromSnapshot } from "@/lib/event-log/event-log-snapshot";
+import {
+  type EventLogSnapshotEntry,
+  loggedRunEventsFromSnapshot,
+} from "@/lib/event-log/event-log-snapshot";
 import {
   agentSessionByCallId,
   EVENT_LOG_FILTER_ABSENT,

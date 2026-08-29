@@ -75,7 +75,7 @@ export function eventLogTableCell(
     return null;
   }
   if (raw === null) {
-    return { field, filterValue: "null", display: "null" };
+    return { field, filterValue: "null", display: "—" };
   }
   const filterValue = stringifyEventLogValue(raw);
   return { field, filterValue, display: filterValue };

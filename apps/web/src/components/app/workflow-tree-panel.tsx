@@ -480,6 +480,13 @@ function EpisodeRow({
         {scopeLabel}
       </span>
       <span className="truncate text-[10px] text-muted-foreground">{episode.agentId}</span>
+      {episode.warnings.length > 0 ? (
+        <span
+          className="size-2 shrink-0 rounded-full bg-amber-500"
+          aria-label="Conversation has warnings"
+          title={episode.warnings[0]}
+        />
+      ) : null}
       {episode.status === "failed" && episode.error ? (
         <ErrorIndicator error={episode.error} className="min-w-0 text-[10px]" />
       ) : null}

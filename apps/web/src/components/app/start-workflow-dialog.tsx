@@ -23,7 +23,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector/inspector-server";
 import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector/inspector-types";
-import { buildWorkflowInput, workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
+import {
+  buildWorkflowInput,
+  workflowInputValuesFromSample,
+} from "#/lib/workflow/workflow-input-schema";
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
   const result = await startInspectionWorkflowRun({

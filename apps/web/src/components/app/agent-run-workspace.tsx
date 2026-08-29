@@ -10,7 +10,11 @@ import {
   sendAgentMessage,
 } from "#/lib/inspector/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
-import type { InspectorAgentSummary, InspectorMessage, ResolvedAgentConversation } from "@/lib/view-model/types";
+import type {
+  InspectorAgentSummary,
+  InspectorMessage,
+  ResolvedAgentConversation,
+} from "@/lib/view-model/types";
 import { messageIdsForAgentCall } from "@/lib/agent/agent-call-focus";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
@@ -46,6 +50,7 @@ export function AgentRunWorkspace({
   const navigate = useNavigate();
   const forkSession = conversation.forkSession;
   const workflowLink = conversation.workflowLink;
+  const effectiveCallId = callId ?? conversation.latestAgentCallId ?? undefined;
   const [messages, setMessages] = useState<InspectorMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
@@ -67,13 +72,13 @@ export function AgentRunWorkspace({
   }, [conversation.runId]);
 
   useEffect(() => {
-    if (!callId) {
+    if (!effectiveCallId) {
       setCallEvents([]);
       setWarnings([]);
       return;
     }
     let cancelled = false;
-    void fetchAgentCallEvents({ data: callId }).then((payload) => {
+    void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
       if (!cancelled) {
         setCallEvents(payload.commits);
         setWarnings(payload.warnings);
@@ -82,7 +87,7 @@ export function AgentRunWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [callId]);
+  }, [effectiveCallId]);
 
   useEffect(() => {
     setMessages((current) => mergeConversationMessages(current, conversation.messages));
@@ -102,8 +107,8 @@ export function AgentRunWorkspace({
     onFinished: () => {
       void refreshMessages();
       refreshConversationMeta();
-      if (callId) {
-        void fetchAgentCallEvents({ data: callId }).then((payload) => {
+      if (effectiveCallId) {
+        void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
           setCallEvents(payload.commits);
           setWarnings(payload.warnings);
         });

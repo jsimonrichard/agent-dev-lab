@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { findEpisodeInTree, resolveRunSelection } from "./run-projection";
+import { findEpisodeInTree, resolveRunSelection, collectRunWarnings } from "./run-projection";
 import type { AgentEpisode, StepNode } from "./types";
 
 function episode(id: string): AgentEpisode {
@@ -39,6 +39,24 @@ describe("findEpisodeInTree", () => {
       step: tree[0]?.children[0],
       episode: notes,
     });
+  });
+});
+
+describe("collectRunWarnings", () => {
+  it("dedupes warnings across nested episodes", () => {
+    const shared = "system prompt conflict";
+    const tree = [
+      step("outer", {
+        agentEpisodes: [{ ...episode("a"), warnings: [shared, "first"] }],
+        children: [
+          step("inner", {
+            parentStepId: "outer",
+            agentEpisodes: [{ ...episode("b"), warnings: [shared, "second"] }],
+          }),
+        ],
+      }),
+    ];
+    expect(collectRunWarnings(tree)).toEqual([shared, "first", "second"]);
   });
 });
 

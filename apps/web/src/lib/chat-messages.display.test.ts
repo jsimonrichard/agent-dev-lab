@@ -316,7 +316,6 @@ describe("toChatDisplayItems", () => {
   });
 });
 
-
 describe("parseStructuredJson", () => {
   it("parses objects and arrays, including a wrapping json fence", () => {
     expect(parseStructuredJson('{"a":1}')).toEqual({ a: 1 });
@@ -332,4 +331,3 @@ describe("parseStructuredJson", () => {
     expect(parseStructuredJson("{")).toBeUndefined();
   });
 });
-

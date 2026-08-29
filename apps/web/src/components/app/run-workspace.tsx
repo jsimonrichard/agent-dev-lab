@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
 import { cancelInspectionWorkflowRun } from "#/lib/inspector/inspector-server";
 import {
   buildRunViewState,
+  collectRunWarnings,
   findEpisodeInTree,
   findStepInTree,
   resolveRunSelection,
@@ -37,8 +38,10 @@ interface RunWorkspaceProps {
 export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWorkspaceProps) {
   const search = runRoute.useSearch();
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
+  const router = useRouter();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
+  const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
@@ -140,7 +143,10 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
             variant="outline"
             size="sm"
             onClick={() => {
-              void cancelInspectionWorkflowRun({ data: summary.runId });
+              void (async () => {
+                await cancelInspectionWorkflowRun({ data: summary.runId });
+                await router.invalidate();
+              })();
             }}
           >
             Cancel
@@ -163,6 +169,31 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
             Failed
           </span>
           <ErrorIndicator error={view.error ?? "Workflow run failed."} className="min-w-0 flex-1" />
+        </div>
+      ) : null}
+
+      {view.status === "cancelled" ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5">
+          <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+            Cancelled
+          </span>
+          <p className="truncate text-xs text-muted-foreground">Workflow run cancelled.</p>
+        </div>
+      ) : null}
+
+      {runWarnings.length > 0 ? (
+        <div
+          role="status"
+          className="shrink-0 space-y-1 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5"
+        >
+          <span className="text-[10px] font-medium tracking-wide text-amber-800 uppercase dark:text-amber-200">
+            Warning{runWarnings.length === 1 ? "" : "s"}
+          </span>
+          {runWarnings.map((warning) => (
+            <p key={warning} className="text-xs text-amber-800 dark:text-amber-200" title={warning}>
+              {warning}
+            </p>
+          ))}
         </div>
       ) : null}
 

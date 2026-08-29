@@ -67,7 +67,7 @@ describe("eventLogTableCell", () => {
         }),
         "stepId",
       ),
-    ).toEqual({ field: "stepId", filterValue: "null", display: "null" });
+    ).toEqual({ field: "stepId", filterValue: "null", display: "—" });
   });
 
   it("omits agent-only columns on workflow events and the reverse", () => {

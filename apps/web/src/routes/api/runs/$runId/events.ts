@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
-import { encodeRunEventSse, workflowRunStreamIsTerminal } from "#/lib/sse.server";
+import {
+  encodeRunEventSse,
+  shouldCloseWorkflowRunStream,
+  workflowRunStreamIsTerminal,
+} from "#/lib/sse.server";
 
 export const Route = createFileRoute("/api/runs/$runId/events")({
   server: {
@@ -17,26 +21,61 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
             const encoder = new TextEncoder();
             let cursor = afterSeq;
             let closed = false;
+            let pushing = false;
+            const poll = { timer: undefined as ReturnType<typeof setInterval> | undefined };
 
-            const push = async () => {
+            const close = () => {
               if (closed) {
                 return;
               }
-              const events = await store.listEvents({ workflowRunId: runId }, { afterSeq: cursor });
-              for (const event of events) {
-                cursor = event.seq;
-                controller.enqueue(encoder.encode(encodeRunEventSse(event)));
-                if (workflowRunStreamIsTerminal(event)) {
-                  closed = true;
-                  controller.close();
+              closed = true;
+              if (poll.timer) {
+                clearInterval(poll.timer);
+                poll.timer = undefined;
+              }
+              try {
+                controller.close();
+              } catch {
+                // already closed
+              }
+            };
+
+            const push = async () => {
+              if (closed || pushing) {
+                return;
+              }
+              pushing = true;
+              try {
+                const events = await store.listEvents(
+                  { workflowRunId: runId },
+                  { afterSeq: cursor },
+                );
+                let sawTerminal = false;
+                for (const event of events) {
+                  cursor = event.seq;
+                  controller.enqueue(encoder.encode(encodeRunEventSse(event)));
+                  if (workflowRunStreamIsTerminal(event)) {
+                    sawTerminal = true;
+                  }
+                }
+                if (sawTerminal) {
+                  close();
                   return;
                 }
-              }
-              const run = await store.getRun(runId);
-              if (run && run.status !== "running") {
-                closed = true;
-                controller.close();
-                return;
+                if (events.length === 0) {
+                  const run = await store.getRun(runId);
+                  if (
+                    shouldCloseWorkflowRunStream({
+                      sawTerminalEvent: false,
+                      eventBatchEmpty: true,
+                      runStatus: run?.status,
+                    })
+                  ) {
+                    close();
+                  }
+                }
+              } finally {
+                pushing = false;
               }
             };
 
@@ -45,18 +84,13 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               return;
             }
 
-            const interval = setInterval(() => {
+            poll.timer = setInterval(() => {
               void push().catch(() => {
-                clearInterval(interval);
-                controller.close();
+                close();
               });
             }, 400);
 
-            request.signal.addEventListener("abort", () => {
-              clearInterval(interval);
-              closed = true;
-              controller.close();
-            });
+            request.signal.addEventListener("abort", close);
           },
         });
 
@@ -65,6 +99,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
           },
         });
       },

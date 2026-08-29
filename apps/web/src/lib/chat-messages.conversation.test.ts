@@ -1,11 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  conversationMessagesWithoutSystem,
-  mergeConversationMessages,
-  reconcileFetchedMessages,
-  shouldShowStreamingAssistant,
-} from "./chat-messages";
+import { conversationMessagesWithoutSystem } from "./chat-messages";
 
 describe("conversationMessagesWithoutSystem", () => {
   it("drops a leading pin and any later system rows", () => {
@@ -34,7 +29,6 @@ describe("conversationMessagesWithoutSystem", () => {
     ]);
   });
 });
-
 
 describe("shouldShowStreamingAssistant", () => {
   it("keeps the stream visible after isRunning until the assistant message is stored", async () => {
@@ -66,7 +60,6 @@ describe("shouldShowStreamingAssistant", () => {
   });
 });
 
-
 describe("mergeConversationMessages", () => {
   it("prefers local optimistic rows over a stale shorter loader snapshot", async () => {
     const { mergeConversationMessages } = await import("./chat-messages");
@@ -82,7 +75,6 @@ describe("mergeConversationMessages", () => {
     expect(mergeConversationMessages(local, [])).toEqual(local);
   });
 });
-
 
 describe("reconcileFetchedMessages", () => {
   it("preserves pending user ids when content matches", async () => {

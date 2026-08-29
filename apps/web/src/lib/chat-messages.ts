@@ -48,7 +48,9 @@ export function extractSystemPromptFromMessages(messages: InspectorMessage[]): s
 }
 
 /** Transcript rows excluding pinned and stray system messages. */
-export function conversationMessagesWithoutSystem(messages: InspectorMessage[]): InspectorMessage[] {
+export function conversationMessagesWithoutSystem(
+  messages: InspectorMessage[],
+): InspectorMessage[] {
   const rest = messages[0]?.role === "system" ? messages.slice(1) : messages;
   return rest.filter((message) => message.role !== "system");
 }
@@ -474,7 +476,10 @@ function firstNonEmptyArgs(...candidates: unknown[]): JsonValue {
   return asJsonValue(candidates.find((value) => value !== undefined) ?? {});
 }
 
-function findToolCall(messages: InspectorMessage[], toolCallId: string): ChatToolCallPart | undefined {
+function findToolCall(
+  messages: InspectorMessage[],
+  toolCallId: string,
+): ChatToolCallPart | undefined {
   for (const message of messages) {
     for (const part of messageParts(message)) {
       if (part.type === "tool-call" && part.toolCallId === toolCallId) {

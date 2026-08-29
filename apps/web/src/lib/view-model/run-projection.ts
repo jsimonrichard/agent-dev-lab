@@ -246,6 +246,28 @@ export function findEpisodeInTree(
   return undefined;
 }
 
+/** Unique non-fatal warning messages across all episodes in the run. */
+export function collectRunWarnings(steps: StepNode[]): string[] {
+  const seen = new Set<string>();
+  const warnings: string[] = [];
+  const visit = (nodes: StepNode[]) => {
+    for (const step of nodes) {
+      for (const episode of step.agentEpisodes) {
+        for (const warning of episode.warnings) {
+          if (seen.has(warning)) {
+            continue;
+          }
+          seen.add(warning);
+          warnings.push(warning);
+        }
+      }
+      visit(step.children);
+    }
+  };
+  visit(steps);
+  return warnings;
+}
+
 function findFirstEpisodeStep(steps: StepNode[]): StepNode | undefined {
   for (const step of steps) {
     if (step.agentEpisodes.length > 0) return step;

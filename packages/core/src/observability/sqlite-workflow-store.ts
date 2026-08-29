@@ -314,7 +314,9 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async deleteRun(workflowRunId) {
-      sqlite.prepare(`DELETE FROM adl_workflow_events WHERE workflow_run_id = ?`).run(workflowRunId);
+      sqlite
+        .prepare(`DELETE FROM adl_workflow_events WHERE workflow_run_id = ?`)
+        .run(workflowRunId);
       sqlite.prepare(`DELETE FROM adl_step_outputs WHERE workflow_run_id = ?`).run(workflowRunId);
       sqlite.prepare(`DELETE FROM adl_step_records WHERE workflow_run_id = ?`).run(workflowRunId);
       sqlite.prepare(`DELETE FROM adl_workflow_runs WHERE workflow_run_id = ?`).run(workflowRunId);
