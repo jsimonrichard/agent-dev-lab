@@ -93,8 +93,7 @@ Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that
 `WorkflowContext` is a **host object**. `step` and `emit` close over parent services, `workflowRunId`, and step registry.
 
 - Child contexts are built from the **parent host** when `ctx.step("name", async ({ ctx }) => …)` runs.
-- **Do not destructure** `ctx` (`const { step } = ctx` breaks method binding).
-
+- `step`, `emit`, `setTitle`, and `memoryScopeWithSuffix` are bound on the context instance, so `const { step } = ctx` is safe.
 Inside a workflow step (`researcher` defined in registry; `query` from workflow input):
 
 ```ts

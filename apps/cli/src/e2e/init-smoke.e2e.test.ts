@@ -16,6 +16,7 @@ type ProjectApi = {
 
 type RunApi = {
   summary: { runId: string; workflowId: string; status: string };
+  events: Array<{ type: string; output?: unknown; error?: unknown }>;
 };
 
 function expectHealthyHtml(body: string, extras: string[]): void {
@@ -118,6 +119,7 @@ describe("adl init e2e", () => {
       expect(started.body.runId).toBeTruthy();
 
       let summary: RunApi["summary"] | undefined;
+      let events: RunApi["events"] | undefined;
       await waitUntil(
         async () => {
           const { status, body } = await fetchJson<RunApi>(`/api/runs/${started.body.runId}`);
@@ -125,6 +127,7 @@ describe("adl init e2e", () => {
             return false;
           }
           summary = body.summary;
+          events = body.events;
           return body.summary.status === "completed" || body.summary.status === "failed";
         },
         15_000,
@@ -133,10 +136,66 @@ describe("adl init e2e", () => {
 
       expect(summary?.workflowId).toBe("demo-counter");
       expect(summary?.status).toBe("completed");
+      const finished = events?.find((event) => event.type === "run_finished");
+      expect(finished?.output).toEqual({ sum: 6, steps: 3 });
+
+      const sse = await fetchText(`/api/runs/${started.body.runId}/events`);
+      expect(sse.status).toBe(200);
+      expect(sse.body).toContain("data:");
+      expect(sse.body).toContain("workflow_finished");
+      expect(sse.body).toContain('"sum":6');
+
+      const globalSse = await fetch(
+        `${dashboard().baseUrl}/api/events?afterSeq=0`,
+        { signal: AbortSignal.timeout(2_000) },
+      ).catch(() => null);
+      if (globalSse) {
+        expect(globalSse.status).toBe(200);
+        expect(globalSse.headers.get("content-type") ?? "").toContain("text/event-stream");
+        // Read a small prefix then abort — the stream is long-lived.
+        const reader = globalSse.body?.getReader();
+        if (reader) {
+          const { value } = await reader.read();
+          const chunk = value ? new TextDecoder().decode(value) : "";
+          expect(chunk.includes("connected") || chunk.includes("event:") || chunk.includes(":")).toBe(
+            true,
+          );
+          await reader.cancel();
+        }
+      }
 
       const page = await fetchText(`/workflows/demo-counter/run/${started.body.runId}`);
       expect(page.status).toBe(200);
       expectHealthyHtml(page.body, ["demo-counter"]);
+    },
+    { timeout: 30_000 },
+  );
+
+  it(
+    "returns CLI-friendly errors for bad input and unknown workflows",
+    async () => {
+      const { fetchJson, root } = dashboard();
+
+      const unknown = await fetchJson<{ error?: string }>("/api/runs", {
+        method: "POST",
+        body: JSON.stringify({ workflowId: "no-such-workflow", input: {} }),
+      });
+      expect(unknown.status).toBeGreaterThanOrEqual(400);
+
+      const invalid = await fetchJson<{ error?: string }>("/api/runs", {
+        method: "POST",
+        body: JSON.stringify({ workflowId: "demo-counter", input: { steps: "nope" } }),
+      });
+      expect(invalid.status).toBe(400);
+      expect(invalid.body.error ?? "").toMatch(/invalid|input/i);
+
+      const badJson = await runAdl(["run", "demo-counter", "--input", "{"], { cwd: root });
+      expect(badJson.exitCode).not.toBe(0);
+      expect(`${badJson.stdout}\n${badJson.stderr}`).toMatch(/JSON|input|parse/i);
+
+      const missing = await runAdl(["run", "no-such-workflow", "--input", "{}"], { cwd: root });
+      expect(missing.exitCode).not.toBe(0);
+      expect(`${missing.stdout}\n${missing.stderr}`).toMatch(/unknown|not found|no-such-workflow/i);
     },
     { timeout: 30_000 },
   );

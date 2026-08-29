@@ -6,7 +6,7 @@ import { createAdlRuntime, createWorkflow, inMemoryWorkflowStore } from "../inde
 describe("workflow.run", () => {
   it("runs steps and records events in the workflow store", async () => {
     const store = inMemoryWorkflowStore();
-    const runtime = createAdlRuntime({ stores: { workflow: store } });
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
     const workflow = createWorkflow(runtime, {
       id: "counter",
       run: async (_input, ctx) => {
@@ -29,6 +29,23 @@ describe("workflow.run", () => {
     expect(runEvents.some((e) => e.type === "step_started")).toBe(true);
     expect(runEvents.some((e) => e.type === "step_finished")).toBe(true);
     expect(runEvents.some((e) => e.type === "workflow_finished")).toBe(true);
+  });
+
+  it("allows destructuring step/emit/setTitle from ctx", async () => {
+    const runtime = createAdlRuntime({ loadEnv: false });
+    const workflow = createWorkflow(runtime, {
+      id: "destructure-ctx",
+      run: async (_input, ctx) => {
+        const { step, emit, setTitle, memoryScopeWithSuffix } = ctx;
+        await setTitle("destructured");
+        emit({ name: "ping", payload: { ok: true } });
+        const value = await step("add", async () => 2);
+        expect(memoryScopeWithSuffix("notes")).toContain(":notes");
+        return { value };
+      },
+    });
+
+    await expect(workflow.run({}).result).resolves.toEqual({ value: 2 });
   });
 
   it("skips completed steps when re-run with the same workflow context", async () => {

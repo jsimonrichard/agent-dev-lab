@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { CoreMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { z } from "zod";
 
 import { createTestRuntime } from "../runtime/create-test";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
@@ -42,7 +43,29 @@ describe("AgentImpl streamText prompt", () => {
     };
 
     try {
-      const adl = createTestRuntime({ defaults: { model: mockTextModel() } });
+      let capturedPrompt: unknown;
+      const adl = createTestRuntime({
+        defaults: {
+          model: new MockLanguageModelV2({
+            doStream: async (options) => {
+              capturedPrompt = options.prompt;
+              return {
+                stream: convertArrayToReadableStream([
+                  { type: "stream-start", warnings: [] },
+                  { type: "text-start", id: "text-1" },
+                  { type: "text-delta", id: "text-1", delta: "briefing" },
+                  { type: "text-end", id: "text-1" },
+                  {
+                    type: "finish",
+                    finishReason: "stop",
+                    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  },
+                ]),
+              };
+            },
+          }),
+        },
+      });
       const agent = adl.createAgent({
         id: "researcher",
         systemPrompt: "You are a concise research assistant.",
@@ -59,6 +82,14 @@ describe("AgentImpl streamText prompt", () => {
       expect(warnings.some((warning) => warning.includes("System messages in the prompt"))).toBe(
         false,
       );
+      const promptJson = JSON.stringify(capturedPrompt);
+      // SDK folds `system` into the model prompt; ensure we did not also leak
+      // stored system turns as extra system messages (one system + user turn).
+      const roles = (capturedPrompt as Array<{ role: string }>).map((message) => message.role);
+      expect(roles.filter((role) => role === "system")).toHaveLength(1);
+      expect(roles).toContain("user");
+      expect(promptJson).toContain("Give a briefing");
+      expect(promptJson).toContain("concise research assistant");
     } finally {
       console.warn = originalWarn;
     }
@@ -532,7 +563,7 @@ describe("AgentImpl stream and abort", () => {
     const handle = agent.run({ memoryScope: "notes", user: "hi" });
     await started;
     handle.cancel();
-    await expect(handle.result).rejects.toBeTruthy();
+    await expect(handle.result).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("aborts streamText when a parent workflow is cancelled", async () => {
@@ -570,10 +601,48 @@ describe("AgentImpl stream and abort", () => {
     const handle = workflow.run({});
     await started;
     handle.cancel();
-    await expect(handle.result).rejects.toBeTruthy();
+    await expect(handle.result).rejects.toMatchObject({ name: "AbortError" });
     const events = await adl.services.stores.workflow?.listEvents({
       workflowRunId: handle.workflowRunId,
     });
     expect(events?.some((event) => event.type === "workflow_cancelled")).toBe(true);
+  });
+});
+
+describe("AgentImpl outputSchema", () => {
+  it("parses structured output from a mock model stream", async () => {
+    const schema = z.object({
+      title: z.string(),
+      score: z.number(),
+    });
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => ({
+            stream: convertArrayToReadableStream([
+              { type: "stream-start", warnings: [] },
+              { type: "text-start", id: "text-1" },
+              { type: "text-delta", id: "text-1", delta: '{"title":"Hello","score":' },
+              { type: "text-delta", id: "text-1", delta: "3}" },
+              { type: "text-end", id: "text-1" },
+              {
+                type: "finish",
+                finishReason: "stop",
+                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              },
+            ]),
+          }),
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "structured",
+      systemPrompt: "Return JSON.",
+      outputSchema: schema,
+    });
+
+    const result = await agent.run({ memoryScope: "notes", user: "score this" }).result;
+    expect(result.output).toEqual({ title: "Hello", score: 3 });
+    expect(result.text).toContain("Hello");
   });
 });

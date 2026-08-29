@@ -24,7 +24,7 @@ export type StepIdentity = {
 
 /**
  * Workflow execution scope. Implemented by {@link WorkflowContextImpl} (class); prefer
- * `ctx.step(...)` on the instance — do not destructure methods off a plain object host.
+ * `ctx.step(...)` on the instance. Bound methods are arrow fields, so destructuring is safe.
  *
  * Passed to the workflow author's `run` function. Callers may pass {@link WorkflowRunStartOptions.parentCtx}
  * on {@link Workflow.run} to nest under a parent run; otherwise the runtime supplies context.

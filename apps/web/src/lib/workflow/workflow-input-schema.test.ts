@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { z } from "zod";
 
 import {
   buildWorkflowInput,
@@ -68,12 +69,10 @@ describe("describeWorkflowInput", () => {
 
 describe("sampleWorkflowInput", () => {
   it("applies defaults via the schema safeParse path", () => {
-    const schema = {
-      safeParse: (value: unknown) =>
-        value && typeof value === "object" && Object.keys(value as object).length === 0
-          ? { success: true, data: { question: "What is ADL?", retries: 3 } }
-          : { success: false },
-    };
+    const schema = z.object({
+      question: z.string().default("What is ADL?"),
+      retries: z.number().default(3),
+    });
     expect(sampleWorkflowInput(schema)).toEqual({
       question: "What is ADL?",
       retries: 3,

@@ -9,7 +9,7 @@ import {
 import type { z } from "zod";
 
 import { AdlError } from "../errors";
-import { linkAbortController, throwIfAborted } from "../internal/abort";
+import { linkAbortController, abortError, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { inspectMessageStoreKind } from "../memory/inspect";
@@ -441,6 +441,9 @@ export class AgentImpl<
             agentId: this.definition.id,
             error: serializeError(error),
           });
+          if (abortSignal.aborted) {
+            throw abortError(abortSignal);
+          }
           throw error;
         }
       },
