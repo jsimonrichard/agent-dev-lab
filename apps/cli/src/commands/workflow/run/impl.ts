@@ -1,7 +1,7 @@
 import { AdlError } from "@agent-dev-lab/core";
 
-import type { AdlCliContext } from "../../context";
-import { loadCliProject, requireWorkflow } from "../../load-project";
+import type { AdlCliContext } from "../../../context";
+import { loadCliProject, requireWorkflow } from "../../../load-project";
 
 interface RunFlags {
   project?: string;

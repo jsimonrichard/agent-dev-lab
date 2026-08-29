@@ -40,10 +40,10 @@ Optional: \`ADL_MODEL\` (default \`gpt-4o-mini\`), \`ADL_SQLITE_PATH\` (default 
 \`\`\`bash
 bun run dev
 bun run dashboard
-adl workflows list
-adl agents list
-adl run demo-counter --input '{"steps":3}'
-adl run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl workflow list
+adl agent list
+adl workflow run demo-counter --input '{"steps":3}'
+adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 \`\`\`
 
 Runs and chats persist in \`.data/agent-dev-lab.sqlite\`.

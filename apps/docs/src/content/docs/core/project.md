@@ -43,7 +43,7 @@ export default {
 Validation at load time:
 
 - `name` required
-- Unique **`id`** per agent/workflow (throws on duplicate)
+- Unique **`id`** within agents and within workflows (separate namespaces; throws on same-kind duplicate)
 - Unique **`name`** per template (throws on duplicate)
 
 ## loadAdlProject
@@ -68,11 +68,11 @@ During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches t
 
 **Production / serve:** `adl dashboard --serve` and published installs run the Nitro build with `ADL_INSPECTOR_SERVE=1`. The file watcher is disabled; registry and catalog metadata are fixed until the process restarts.
 
-**CLI execution (`adl run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
+**CLI execution (`adl workflow run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
 
 **What updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of `src/adl.ts`. In dev, file-backed prompt templates may also re-read from disk on each `render()` while the project watcher is active (`ADL_PROJECT_WATCH=1`).
 
-**Prompt caching:** production serve, `adl run`, and other one-shot CLI invocations load each prompt `.md` once when the template is created. Dev hot reload still picks up `.md` edits via registry reload or render-time re-read.
+**Prompt caching:** production serve, `adl workflow run`, and other one-shot CLI invocations load each prompt `.md` once when the template is created. Dev hot reload still picks up `.md` edits via registry reload or render-time re-read.
 
 **What stays pinned:** the same `MessageStore` and `WorkflowStore` **object identities** on the runtime so transcripts, run history, and SQLite connections survive. Changing store _implementation_ or sqlite path in `src/adl.ts` does not take effect until the process restarts. Per-agent `memory.store` / `createAgent(..., { stores })` overrides are new objects on each re-import and are **not** pinned — those conversations reset on reload. Per-conversation system prompts are pinned on first episode (see [Agents](/core/agents/)).
 
@@ -90,12 +90,12 @@ The UI subscribes to `GET /api/project/events` (SSE) and refreshes sidebars and 
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
 
-| Entry                     | What it does                              |
-| ------------------------- | ----------------------------------------- |
-| **`workflow.run(input)`** | The execution primitive                   |
-| **`adl run <id>`**        | Load project → `getWorkflow(id).run(...)` |
-| **`adl dashboard` / UI**  | List ids + start / inspect runs           |
-| **Direct import**         | Skip registry; still use `.run`           |
+| Entry                       | What it does                              |
+| --------------------------- | ----------------------------------------- |
+| **`workflow.run(input)`**   | The execution primitive                   |
+| **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)` |
+| **`adl dashboard` / UI**    | List ids + start / inspect runs           |
+| **Direct import**           | Skip registry; still use `.run`           |
 
 ```ts
 import { loadAdlProject } from "@agent-dev-lab/core";
@@ -124,10 +124,10 @@ Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input
 
 ```bash
 adl init my-research
-adl run demo-counter --input '{"steps":3}'
-adl run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl workflows list
-adl agents list
+adl workflow run demo-counter --input '{"steps":3}'
+adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl workflow list
+adl agent list
 adl dashboard
 ```
 

@@ -51,8 +51,8 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Item                                                    | Status                                   |
 | ------------------------------------------------------- | ---------------------------------------- |
 | `adl dashboard` / `adl dashboard --serve` / `--project` | ✅                                       |
-| `adl run <workflow-id> --input '{}'`                    | ✅                                       |
-| `adl workflows list` / `adl agents list`                | ✅                                       |
+| `adl workflow run <workflow-id> --input '{}'`           | ✅                                       |
+| `adl workflow list` / `adl agent list`                  | ✅                                       |
 | `adl init` dedicated scaffold (`apps/cli/scaffold`)     | ✅ typecheck + demo-counter in CLI tests |
 | Packaged `dist/scaffold` for published CLI              | ✅ copies `apps/cli/scaffold`            |
 
@@ -162,11 +162,11 @@ Still not in CI:
 | Test                                                                         | Purpose                      |
 | ---------------------------------------------------------------------------- | ---------------------------- |
 | `adl init <tmpdir>` → typecheck → `demo-counter`                             | Scaffold is a real project   |
-| `adl run demo-counter --input '{"steps":3}'` in that dir                     | CLI execution path           |
+| `adl workflow run demo-counter --input '{"steps":3}'` in that dir            | CLI execution path           |
 | `loadAdlProject` + `workflow.run` against playground with mock/no-LLM        | Registry + SQLite            |
 | SSE helper already unit-tested; add a fetch against `vite` or Nitro if cheap | Event tail + terminal events |
 
-Live playground (API key, 2026-08-27, not CI): `answer-question` completed (2 tool turns); `adl run literature-review` completed (search + parallel analyze + synthesize); workflow cancel during `literature-review` `agent_started` emitted `workflow_cancelled` and aborted `streamText`.
+Live playground (API key, 2026-08-27, not CI): `answer-question` completed (2 tool turns); `adl workflow run literature-review` completed (search + parallel analyze + synthesize); workflow cancel during `literature-review` `agent_started` emitted `workflow_cancelled` and aborted `streamText`.
 
 ### End-to-end / stress (API key)
 
@@ -174,7 +174,7 @@ Live playground (API key, 2026-08-27, not CI): `answer-question` completed (2 to
 | ----------------------------------------------------------------------------------------- | ------------------------------------- |
 | Browser: start `literature-review` (or example), waterfall updates, cancel                | Inspector + runtime                   |
 | Browser: agent chat, title appears, fork from a step, Memory vs run transcript            | Conversation UI                       |
-| CLI: `adl run` the [stress-test example](#stress-test-example) to completion              | Nested steps, tools, parallel, titles |
+| CLI: `adl workflow run` the [stress-test example](#stress-test-example) to completion     | Nested steps, tools, parallel, titles |
 | Manual: `adl dashboard --serve` against a **non-workspace** install of published tarballs | Release dry-run                       |
 
 Optional later: Playwright (or similar) in CI with a mock model so the inspector path is automated without OpenAI.
@@ -183,7 +183,7 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 
 - `changeset` versions already target **0.1.0**
 - `bun run build` then `changeset publish` (npm org `agent-dev-lab`)
-- Install `@agent-dev-lab/cli` + `core` in a **directory outside this monorepo**, `adl init`, `adl run`, `adl dashboard --serve`
+- Install `@agent-dev-lab/cli` + `core` in a **directory outside this monorepo**, `adl init`, `adl workflow run`, `adl dashboard --serve`
 
 ---
 
@@ -211,7 +211,7 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 
 **Suggested shape (not implemented yet):** a “literature sprint” — ingest a topic, search, cluster papers, write a structured outline, critique in parallel, synthesize a brief, optional revision. Orchestration stays plain TypeScript.
 
-**Success:** a new clone of this repo can `cd examples/<name> && bun install && adl run …` (workspace protocol) **and**, after publish, the same tree works with npm versions. Inspector can open that project via `adl dashboard --project`.
+**Success:** a new clone of this repo can `cd examples/<name> && bun install && adl workflow run …` (workspace protocol) **and**, after publish, the same tree works with npm versions. Inspector can open that project via `adl dashboard --project`.
 
 ---
 

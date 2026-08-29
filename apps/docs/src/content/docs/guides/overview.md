@@ -9,7 +9,7 @@ description: High-level orientation for the Agent Dev Lab docs site.
 
 - **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `CoreMessage`)
 - **Persisted run events** for waterfalls, SSE tails, and replay (`WorkflowStore` / SQLite)
-- **`adl init` / `adl run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
+- **`adl init` / `adl workflow run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
 - **Hot reload in monorepo / Vite** — published installs use the Nitro serve build (restart after registry edits)
 
 ## Documentation map

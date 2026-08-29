@@ -109,10 +109,17 @@ describe("adl init packed e2e", () => {
         throw new Error(`typecheck failed:\n${typecheck.stdout}\n${typecheck.stderr}`);
       }
 
-      const packedCli = path.join(projectRoot, "node_modules", "@agent-dev-lab", "cli", "dist", "cli.js");
+      const packedCli = path.join(
+        projectRoot,
+        "node_modules",
+        "@agent-dev-lab",
+        "cli",
+        "dist",
+        "cli.js",
+      );
 
       const run = await runCommand(
-        [process.execPath, packedCli, "run", "demo-counter", "--input", '{"steps":3}'],
+        [process.execPath, packedCli, "workflow", "run", "demo-counter", "--input", '{"steps":3}'],
         { cwd: projectRoot, timeoutMs: 60_000 },
       );
       expect(run.exitCode).toBe(0);
@@ -120,7 +127,7 @@ describe("adl init packed e2e", () => {
       expect(run.stdout).toContain('"steps": 3');
 
       // Prefer the packed binary over the source checkout CLI.
-      const list = await runCommand([process.execPath, packedCli, "workflows", "list"], {
+      const list = await runCommand([process.execPath, packedCli, "workflow", "list"], {
         cwd: projectRoot,
         timeoutMs: 30_000,
       });
@@ -136,14 +143,24 @@ describe("adl init packed e2e", () => {
       if (!projectRoot) {
         throw new Error("packed init project was not created");
       }
-      const packedCli = path.join(projectRoot, "node_modules", "@agent-dev-lab", "cli", "dist", "cli.js");
+      const packedCli = path.join(
+        projectRoot,
+        "node_modules",
+        "@agent-dev-lab",
+        "cli",
+        "dist",
+        "cli.js",
+      );
       const port = await allocatePort();
-      const child = Bun.spawn([process.execPath, packedCli, "dashboard", "--serve", "--port", String(port)], {
-        cwd: projectRoot,
-        env: { ...process.env, PORT: String(port), BROWSER: "none", NO_COLOR: "1" },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+      const child = Bun.spawn(
+        [process.execPath, packedCli, "dashboard", "--serve", "--port", String(port)],
+        {
+          cwd: projectRoot,
+          env: { ...process.env, PORT: String(port), BROWSER: "none", NO_COLOR: "1" },
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
 
       try {
         await waitUntil(

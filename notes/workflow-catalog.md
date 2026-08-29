@@ -19,7 +19,7 @@ export default {
 };
 ```
 
-`loadAdlProject` indexes that array by `id` (duplicate ids throw). The inspection sidebar, `adl workflows list`, and `adl run <id>` all read this list. IDs are opaque slugs; routes are `/workflows/$workflowId` and `/workflows/$workflowId/run/$runId` (one path segment).
+`loadAdlProject` indexes that array by `id` (duplicate ids throw). The inspection sidebar, `adl workflow list`, and `adl workflow run <id>` all read this list. IDs are opaque slugs; routes are `/workflows/$workflowId` and `/workflows/$workflowId/run/$runId` (one path segment).
 
 Nested workflows are ordinary TypeScript imports: `otherWorkflow.run(...)` inherits the parent `WorkflowContext` via ALS and shares `workflowRunId`. Helpers **do not** need to be in `workflows: []` to be callable. They appear in the UI list only when they are also registered.
 
@@ -60,7 +60,7 @@ Hierarchical identity on `id` itself, e.g. `literature-review/search-papers` or 
 - **Encode** the id in a single segment (`encodeURIComponent`), or
 - Use a **multi-segment / catch-all** route (`/workflows/$` or `/workflows/literature-review/search-papers`).
 
-CLI would pass the full id (`adl run literature-review/search-papers`). `getWorkflow` already keys on the whole string.
+CLI would pass the full id (`adl workflow run literature-review/search-papers`). `getWorkflow` already keys on the whole string.
 
 Open design questions if namespacing is chosen:
 

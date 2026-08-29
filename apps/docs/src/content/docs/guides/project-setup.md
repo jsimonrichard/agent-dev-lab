@@ -172,15 +172,15 @@ const output = await handle.result;
 
 ```bash
 adl init my-research
-adl workflows list
-adl agents list
-adl run demo-counter --input '{"steps":3}'
-adl run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl workflow list
+adl agent list
+adl workflow run demo-counter --input '{"steps":3}'
+adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard
 ```
 
 - **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`
-- **`adl run`** — `loadAdlProject()` → `getWorkflow(id).run(input)`
+- **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
 
 ### Environment variables
@@ -198,7 +198,7 @@ Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-va
 | `.env.[mode]`       | `development`, `production`, or `test` |
 | `.env`              | Always                                 |
 
-`mode` is `NODE_ENV` when it is `development` / `production` / `test`, otherwise `development` (so `adl run` still loads `.env.local`). Variable expansion (`$VAR`, `${VAR}`) is supported.
+`mode` is `NODE_ENV` when it is `development` / `production` / `test`, otherwise `development` (so `adl workflow run` still loads `.env.local`). Variable expansion (`$VAR`, `${VAR}`) is supported.
 
 Put provider keys in `.env` or `.env.local` at the project root:
 

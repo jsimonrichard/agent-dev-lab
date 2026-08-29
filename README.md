@@ -33,8 +33,8 @@ bunx @agent-dev-lab/cli init my-research
 cd my-research
 bun install
 cp .env.example .env   # then set OPENAI_API_KEY
-adl run demo-counter --input '{"steps":3}'
-adl run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl workflow run demo-counter --input '{"steps":3}'
+adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard          # inspection UI (Nitro for published installs)
 ```
 
@@ -47,7 +47,7 @@ cp .env.example .env   # or create one with OPENAI_API_KEY / ADL_MODEL
 
 ### Environment variables
 
-ADL loads `.env` files from the project root (the directory with `adl.config.*`), the same way [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) does — including `.env.local` and `.env.[mode]`. Existing process environment values are not overwritten. This applies to `adl dashboard`, `adl run`, and `bun run dev:web` (playground `.env`).
+ADL loads `.env` files from the project root (the directory with `adl.config.*`), the same way [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) does — including `.env.local` and `.env.[mode]`. Existing process environment values are not overwritten. This applies to `adl dashboard`, `adl workflow run`, and `bun run dev:web` (playground `.env`).
 
 | Variable           | Purpose                                                                   |
 | ------------------ | ------------------------------------------------------------------------- |

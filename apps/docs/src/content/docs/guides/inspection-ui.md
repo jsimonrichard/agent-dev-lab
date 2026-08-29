@@ -21,13 +21,13 @@ Framework development against `apps/playground`: `bun run dev:web` from the repo
 
 The header shows the project **name** and whether you are in framework-dev, project-dev, or serve mode.
 
-| Mode              | How it starts                             | Hot reload                                        |
-| ----------------- | ----------------------------------------- | ------------------------------------------------- |
-| **framework-dev** | `bun run dev:web` (`ADL_FRAMEWORK_DEV=1`) | Yes — Vite dev server watches the project         |
-| **project-dev**   | `adl dashboard` with a Vite source tree   | Yes (checkout / linked web package with Vite)     |
+| Mode              | How it starts                                | Hot reload                                     |
+| ----------------- | -------------------------------------------- | ---------------------------------------------- |
+| **framework-dev** | `bun run dev:web` (`ADL_FRAMEWORK_DEV=1`)    | Yes — Vite dev server watches the project      |
+| **project-dev**   | `adl dashboard` with a Vite source tree      | Yes (checkout / linked web package with Vite)  |
 | **serve**         | Published install or `adl dashboard --serve` | No — restart after registry or `.env*` changes |
 
-Standalone CLI commands (`adl run`, `adl workflows list`, etc.) are separate processes: they load the project once and never watch for changes.
+Standalone CLI commands (`adl workflow run`, `adl workflow list`, etc.) are separate processes: they load the project once and never watch for changes.
 
 ## Workflows
 

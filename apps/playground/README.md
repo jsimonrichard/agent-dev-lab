@@ -50,7 +50,7 @@ cp .env.example .env
 ```bash
 # no key needed — runs the no-LLM demo-counter workflow and prints the registry
 bun run start
-adl run demo-counter --input '{"steps":3}'
+adl workflow run demo-counter --input '{"steps":3}'
 
 # Inspection UI for this project (from apps/playground)
 bun run dashboard

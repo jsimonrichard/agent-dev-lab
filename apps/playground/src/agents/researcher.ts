@@ -5,7 +5,7 @@ import { adl } from "#adl";
 
 import { conversationTitle } from "./conversation-title";
 
-/** Sample agent for the inspection UI and `adl run` demos. */
+/** Sample agent for the inspection UI and `adl workflow run` demos. */
 export const researcher = adl.createAgent({
   id: "researcher",
   systemPrompt:

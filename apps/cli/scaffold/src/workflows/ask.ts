@@ -8,7 +8,7 @@ const askInput = z.object({
   question: z.string().default("What is Agent Dev Lab?"),
 });
 
-/** One-shot LLM workflow so a new project can `adl run ask` after setting an API key. */
+/** One-shot LLM workflow so a new project can `adl workflow run ask` after setting an API key. */
 export const ask = adl.createWorkflow({
   id: "ask",
   input: askInput,

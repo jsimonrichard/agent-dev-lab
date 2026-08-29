@@ -4,15 +4,15 @@ Internal checklist before publishing. Not linked from the docs site.
 
 ## Naming conventions (how to read the repo)
 
-| Pattern | Meaning |
-| --- | --- |
-| `*.test.ts` next to source | Unit / in-process |
-| `*.integration.test.ts` | Multi-module, still in-process (mock model, temp project) |
-| `src/e2e/` or `*.e2e.test.ts` that spawns a process | CLI / Vite spawn |
-| `create*` / `*Impl` / `inspect*` / `resolve*` | Factories, implementations, metadata helpers, resolvers |
-| `apps/web/src/lib/view-model/` | Production UI state types (not test mocks) |
-| `notes/` | Coding-agent / RC tracking only |
-| `@agent-dev-lab/core/project` process host | Inspector-only project/reload wiring |
+| Pattern                                             | Meaning                                                   |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| `*.test.ts` next to source                          | Unit / in-process                                         |
+| `*.integration.test.ts`                             | Multi-module, still in-process (mock model, temp project) |
+| `src/e2e/` or `*.e2e.test.ts` that spawns a process | CLI / Vite spawn                                          |
+| `create*` / `*Impl` / `inspect*` / `resolve*`       | Factories, implementations, metadata helpers, resolvers   |
+| `apps/web/src/lib/view-model/`                      | Production UI state types (not test mocks)                |
+| `notes/`                                            | Coding-agent / RC tracking only                           |
+| `@agent-dev-lab/core/project` process host          | Inspector-only project/reload wiring                      |
 
 Large files to read as one unit: `apps/web/src/components/app/workflow-tree-panel.tsx`, shadcn `sidebar.tsx`.
 
@@ -48,9 +48,9 @@ bun apps/cli/src/bin/cli.ts init /tmp/adl-validate --local
 cd /tmp/adl-validate
 bun install
 cp .env.example .env   # optional key for ask
-adl workflows list
-adl agents list
-adl run demo-counter --input '{"steps":3}'   # expect sum 6
+adl workflow list
+adl agent list
+adl workflow run demo-counter --input '{"steps":3}'   # expect sum 6
 adl dashboard                                # or bun run dev
 ```
 

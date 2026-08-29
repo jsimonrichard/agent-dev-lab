@@ -24,6 +24,7 @@ const adl = createAdlRuntime({
   observers: { workflows: [], agents: [] },
 });
 ```
+
 `adl.createAgent` / `adl.createWorkflow` bind the runtime automatically — use these in project code.
 
 ### Per-definition overrides
@@ -94,7 +95,7 @@ Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that
 
 - Child contexts are built from the **parent host** when `ctx.step("name", async ({ ctx }) => …)` runs.
 - `step`, `emit`, `setTitle`, and `memoryScopeWithSuffix` are bound on the context instance, so `const { step } = ctx` is safe.
-Inside a workflow step (`researcher` defined in registry; `query` from workflow input):
+  Inside a workflow step (`researcher` defined in registry; `query` from workflow input):
 
 ```ts
 await ctx.step("research", async ({ ctx: child }) => {

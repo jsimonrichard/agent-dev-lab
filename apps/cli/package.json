@@ -35,7 +35,6 @@
     "tsup": "^8.5.0",
     "typescript": "^6.0.2",
     "@types/bun": "^1.3.13",
-    "@agent-dev-lab/core": "workspace:*",
     "@agent-dev-lab/common": "workspace:*"
   },
   "tsup": {
@@ -54,9 +53,6 @@
       "@agent-dev-lab/core",
       "@agent-dev-lab/core/project"
     ]
-  },
-  "peerDependencies": {
-    "@agent-dev-lab/core": "workspace:*"
   },
   "author": "J. Simon Richard",
   "repository": {

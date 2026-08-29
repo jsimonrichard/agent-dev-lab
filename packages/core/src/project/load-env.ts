@@ -21,7 +21,7 @@ export function adlEnvFilesForMode(mode: string): string[] {
 
 /**
  * Resolves the env file mode. Unknown / unset `NODE_ENV` is treated as development
- * so `adl run` and `adl dashboard` still pick up `.env.development` / `.env.local`.
+ * so `adl workflow run` and `adl dashboard` still pick up `.env.development` / `.env.local`.
  */
 export function resolveAdlEnvMode(explicit?: string): string {
   if (explicit) {

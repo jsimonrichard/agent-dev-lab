@@ -51,16 +51,18 @@ describe("adl init e2e", () => {
     async () => {
       const { root } = dashboard();
 
-      const workflows = await runAdl(["workflows", "list"], { cwd: root });
+      const workflows = await runAdl(["workflow", "list"], { cwd: root });
       expect(workflows.exitCode).toBe(0);
       expect(workflows.stdout).toContain("demo-counter");
       expect(workflows.stdout).toContain("ask");
 
-      const agents = await runAdl(["agents", "list"], { cwd: root });
+      const agents = await runAdl(["agent", "list"], { cwd: root });
       expect(agents.exitCode).toBe(0);
       expect(agents.stdout).toContain("assistant");
 
-      const run = await runAdl(["run", "demo-counter", "--input", '{"steps":2}'], { cwd: root });
+      const run = await runAdl(["workflow", "run", "demo-counter", "--input", '{"steps":2}'], {
+        cwd: root,
+      });
       expect(run.exitCode).toBe(0);
       expect(run.stdout).toContain('"sum": 3');
       expect(run.stdout).toContain('"steps": 2');
@@ -145,10 +147,9 @@ describe("adl init e2e", () => {
       expect(sse.body).toContain("workflow_finished");
       expect(sse.body).toContain('"sum":6');
 
-      const globalSse = await fetch(
-        `${dashboard().baseUrl}/api/events?afterSeq=0`,
-        { signal: AbortSignal.timeout(2_000) },
-      ).catch(() => null);
+      const globalSse = await fetch(`${dashboard().baseUrl}/api/events?afterSeq=0`, {
+        signal: AbortSignal.timeout(2_000),
+      }).catch(() => null);
       if (globalSse) {
         expect(globalSse.status).toBe(200);
         expect(globalSse.headers.get("content-type") ?? "").toContain("text/event-stream");
@@ -157,9 +158,9 @@ describe("adl init e2e", () => {
         if (reader) {
           const { value } = await reader.read();
           const chunk = value ? new TextDecoder().decode(value) : "";
-          expect(chunk.includes("connected") || chunk.includes("event:") || chunk.includes(":")).toBe(
-            true,
-          );
+          expect(
+            chunk.includes("connected") || chunk.includes("event:") || chunk.includes(":"),
+          ).toBe(true);
           await reader.cancel();
         }
       }
@@ -189,11 +190,15 @@ describe("adl init e2e", () => {
       expect(invalid.status).toBe(400);
       expect(invalid.body.error ?? "").toMatch(/invalid|input/i);
 
-      const badJson = await runAdl(["run", "demo-counter", "--input", "{"], { cwd: root });
+      const badJson = await runAdl(["workflow", "run", "demo-counter", "--input", "{"], {
+        cwd: root,
+      });
       expect(badJson.exitCode).not.toBe(0);
       expect(`${badJson.stdout}\n${badJson.stderr}`).toMatch(/JSON|input|parse/i);
 
-      const missing = await runAdl(["run", "no-such-workflow", "--input", "{}"], { cwd: root });
+      const missing = await runAdl(["workflow", "run", "no-such-workflow", "--input", "{}"], {
+        cwd: root,
+      });
       expect(missing.exitCode).not.toBe(0);
       expect(`${missing.stdout}\n${missing.stderr}`).toMatch(/unknown|not found|no-such-workflow/i);
     },
