@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type { AdlSqliteDatabase } from "./sqlite-types.js";
 
 const STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS adl_messages (
@@ -69,12 +69,12 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
 type PragmaColumn = { name: string };
 
 function addColumnIfMissing(
-  sqlite: Database,
+  sqlite: AdlSqliteDatabase,
   table: string,
   column: string,
   sqlType: string,
 ): void {
-  const cols = sqlite.query<PragmaColumn, []>(`PRAGMA table_info(${table})`).all();
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as PragmaColumn[];
   if (cols.some((col) => col.name === column)) {
     return;
   }
@@ -82,7 +82,7 @@ function addColumnIfMissing(
 }
 
 /** Creates ADL tables if they do not exist. Safe to call on every open. */
-export function ensureAdlSchema(sqlite: Database): void {
+export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
   sqlite.exec("BEGIN");
   try {
     for (const sql of STATEMENTS) {

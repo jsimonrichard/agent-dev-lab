@@ -55,7 +55,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
   const agentCallId = "agentCallId" in event ? event.agentCallId : null;
 
   sqlite
-    .query(
+    .prepare(
       `INSERT INTO adl_workflow_events
         (workflow_run_id, agent_call_id, seq, type, at, event_schema_version, payload_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -72,7 +72,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "workflow_started") {
     sqlite
-      .query(
+      .prepare(
         `INSERT INTO adl_workflow_runs
           (workflow_run_id, workflow_id, status, started_at, finished_at, input_json, output_json)
          VALUES (?, ?, 'running', ?, NULL, ?, NULL)
@@ -89,7 +89,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "workflow_finished") {
     sqlite
-      .query(
+      .prepare(
         `UPDATE adl_workflow_runs SET status = 'ok', finished_at = ?, output_json = ? WHERE workflow_run_id = ?`,
       )
       .run(event.at, JSON.stringify(event.output), event.workflowRunId);
@@ -97,7 +97,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "workflow_failed") {
     sqlite
-      .query(
+      .prepare(
         `UPDATE adl_workflow_runs SET status = 'error', finished_at = ? WHERE workflow_run_id = ?`,
       )
       .run(event.at, event.workflowRunId);
@@ -105,7 +105,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "workflow_cancelled") {
     sqlite
-      .query(
+      .prepare(
         `UPDATE adl_workflow_runs SET status = 'cancelled', finished_at = ? WHERE workflow_run_id = ?`,
       )
       .run(event.at, event.workflowRunId);
@@ -113,7 +113,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "workflow_title_set") {
     sqlite
-      .query(
+      .prepare(
         `INSERT INTO adl_workflow_runs (workflow_run_id, workflow_id, status, started_at, title)
          VALUES (?, '', 'running', ?, ?)
          ON CONFLICT(workflow_run_id) DO UPDATE SET title = excluded.title`,
@@ -128,12 +128,12 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
       key: event.key,
     });
     sqlite
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO adl_step_outputs (workflow_run_id, slot_key, output_json) VALUES (?, ?, ?)`,
       )
       .run(event.workflowRunId, slot, JSON.stringify(event.output));
     sqlite
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO adl_step_records
           (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'ok')`,
@@ -151,7 +151,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   if (event.type === "step_failed") {
     sqlite
-      .query(
+      .prepare(
         `INSERT OR REPLACE INTO adl_step_records
           (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
          VALUES (?, ?, ?, ?, ?, ?, NULL, 'error')`,
@@ -168,7 +168,8 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 }
 
 /**
- * Durable {@link WorkflowStore} backed by Bun SQLite.
+ * Durable {@link WorkflowStore} backed by SQLite (`bun:sqlite` under Bun,
+ * `better-sqlite3` under Node).
  * File is created automatically (default `.data/agent-dev-lab.sqlite`).
  */
 export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowStore {
@@ -180,21 +181,20 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async listEvents(scope, filter) {
-      const rows =
+      const rows = (
         "workflowRunId" in scope
           ? sqlite
-              .query<
-                EventRow,
-                [string]
-              >("SELECT payload_json FROM adl_workflow_events WHERE workflow_run_id = ? ORDER BY seq ASC")
+              .prepare(
+                "SELECT payload_json FROM adl_workflow_events WHERE workflow_run_id = ? ORDER BY seq ASC",
+              )
               .all(scope.workflowRunId)
           : sqlite
-              .query<
-                EventRow,
-                [string]
-              >("SELECT payload_json FROM adl_workflow_events WHERE agent_call_id = ? ORDER BY seq ASC")
-              .all(scope.agentCallId);
-      const events = rows.map((row: EventRow) => JSON.parse(row.payload_json) as RunEvent);
+              .prepare(
+                "SELECT payload_json FROM adl_workflow_events WHERE agent_call_id = ? ORDER BY seq ASC",
+              )
+              .all(scope.agentCallId)
+      ) as EventRow[];
+      const events = rows.map((row) => JSON.parse(row.payload_json) as RunEvent);
       return applyEventFilter(events, filter);
     },
 
@@ -209,28 +209,30 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async getRun(workflowRunId) {
       const row = sqlite
-        .query<RunRow, [string]>(
+        .prepare(
           `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
            FROM adl_workflow_runs WHERE workflow_run_id = ?`,
         )
-        .get(workflowRunId);
+        .get(workflowRunId) as RunRow | undefined;
       return row ? toSummary(row) : null;
     },
 
     async listRuns(filter) {
-      const rows = filter?.workflowId
-        ? sqlite
-            .query<RunRow, [string]>(
-              `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
+      const rows = (
+        filter?.workflowId
+          ? sqlite
+              .prepare(
+                `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
                FROM adl_workflow_runs WHERE workflow_id = ? ORDER BY started_at ASC`,
-            )
-            .all(filter.workflowId)
-        : sqlite
-            .query<RunRow, []>(
-              `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
+              )
+              .all(filter.workflowId)
+          : sqlite
+              .prepare(
+                `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
                FROM adl_workflow_runs ORDER BY started_at ASC`,
-            )
-            .all();
+              )
+              .all()
+      ) as RunRow[];
       const list = rows.map(toSummary);
       if (filter?.limit) {
         return list.slice(-filter.limit);
@@ -240,11 +242,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async getRunInput(workflowRunId) {
       const row = sqlite
-        .query<
-          { input_json: string | null },
-          [string]
-        >("SELECT input_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
-        .get(workflowRunId);
+        .prepare("SELECT input_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
+        .get(workflowRunId) as { input_json: string | null } | undefined;
       if (!row?.input_json) {
         return null;
       }
@@ -253,11 +252,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async getRunOutput(workflowRunId) {
       const row = sqlite
-        .query<
-          { output_json: string | null },
-          [string]
-        >("SELECT output_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
-        .get(workflowRunId);
+        .prepare("SELECT output_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
+        .get(workflowRunId) as { output_json: string | null } | undefined;
       if (!row?.output_json) {
         return null;
       }
@@ -266,11 +262,10 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async getStepOutput(workflowRunId, slot) {
       const row = sqlite
-        .query<
-          { output_json: string },
-          [string, string]
-        >("SELECT output_json FROM adl_step_outputs WHERE workflow_run_id = ? AND slot_key = ?")
-        .get(workflowRunId, stepSlotKey(slot));
+        .prepare(
+          "SELECT output_json FROM adl_step_outputs WHERE workflow_run_id = ? AND slot_key = ?",
+        )
+        .get(workflowRunId, stepSlotKey(slot)) as { output_json: string } | undefined;
       if (!row) {
         return null;
       }
@@ -279,8 +274,12 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async getStepById(workflowRunId, stepId) {
       const row = sqlite
-        .query<
-          {
+        .prepare(
+          `SELECT step_id, name, key, path_json, parent_step_id, output_json, status
+           FROM adl_step_records WHERE workflow_run_id = ? AND step_id = ?`,
+        )
+        .get(workflowRunId, stepId) as
+        | {
             step_id: string;
             name: string;
             key: string | null;
@@ -288,13 +287,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
             parent_step_id: string | null;
             output_json: string | null;
             status: StepRecord["status"];
-          },
-          [string, string]
-        >(
-          `SELECT step_id, name, key, path_json, parent_step_id, output_json, status
-           FROM adl_step_records WHERE workflow_run_id = ? AND step_id = ?`,
-        )
-        .get(workflowRunId, stepId);
+          }
+        | undefined;
       if (!row) {
         return null;
       }
@@ -311,7 +305,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
     async setRunTitle(workflowRunId, title) {
       sqlite
-        .query(
+        .prepare(
           `INSERT INTO adl_workflow_runs (workflow_run_id, workflow_id, status, started_at, title)
            VALUES (?, '', 'running', ?, ?)
            ON CONFLICT(workflow_run_id) DO UPDATE SET title = excluded.title`,
@@ -320,19 +314,19 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async deleteRun(workflowRunId) {
-      sqlite.query(`DELETE FROM adl_workflow_events WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite.query(`DELETE FROM adl_step_outputs WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite.query(`DELETE FROM adl_step_records WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite.query(`DELETE FROM adl_workflow_runs WHERE workflow_run_id = ?`).run(workflowRunId);
+      sqlite.prepare(`DELETE FROM adl_workflow_events WHERE workflow_run_id = ?`).run(workflowRunId);
+      sqlite.prepare(`DELETE FROM adl_step_outputs WHERE workflow_run_id = ?`).run(workflowRunId);
+      sqlite.prepare(`DELETE FROM adl_step_records WHERE workflow_run_id = ?`).run(workflowRunId);
+      sqlite.prepare(`DELETE FROM adl_workflow_runs WHERE workflow_run_id = ?`).run(workflowRunId);
     },
 
     async listAgentEpisodes(filter) {
       const rows = sqlite
-        .query<EventRow, []>(
+        .prepare(
           `SELECT payload_json FROM adl_workflow_events
            WHERE type = 'agent_started' ORDER BY at DESC`,
         )
-        .all();
+        .all() as EventRow[];
       const episodes: AgentEpisodeSummary[] = [];
       for (const row of rows) {
         const event = JSON.parse(row.payload_json) as RunEvent;

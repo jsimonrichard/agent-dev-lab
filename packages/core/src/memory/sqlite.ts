@@ -9,8 +9,9 @@ export type SqliteStoreOptions = {
 };
 
 /**
- * Durable {@link MessageStore} backed by Bun SQLite.
- * File is created automatically (default `.data/agent-dev-lab.sqlite`).
+ * Durable {@link MessageStore} backed by SQLite (`bun:sqlite` under Bun,
+ * `better-sqlite3` under Node). File is created automatically (default
+ * `.data/agent-dev-lab.sqlite`).
  */
 export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageStore {
   const sqlite = openAdlSqlite(options.path ?? resolveAdlSqlitePath());
@@ -19,11 +20,8 @@ export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageSto
     kind: "sqlite",
     async load(memoryScope) {
       const row = sqlite
-        .query<
-          { messages_json: string },
-          [string]
-        >("SELECT messages_json FROM adl_messages WHERE memory_scope = ?")
-        .get(memoryScope);
+        .prepare("SELECT messages_json FROM adl_messages WHERE memory_scope = ?")
+        .get(memoryScope) as { messages_json: string } | undefined;
       if (!row) {
         return [];
       }
@@ -31,22 +29,19 @@ export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageSto
     },
     async save(memoryScope, messages) {
       sqlite
-        .query(
+        .prepare(
           "INSERT OR REPLACE INTO adl_messages (memory_scope, messages_json, updated_at) VALUES (?, ?, ?)",
         )
         .run(memoryScope, JSON.stringify(messages), new Date().toISOString());
     },
     async delete(memoryScope) {
-      sqlite.query("DELETE FROM adl_messages WHERE memory_scope = ?").run(memoryScope);
+      sqlite.prepare("DELETE FROM adl_messages WHERE memory_scope = ?").run(memoryScope);
     },
     async listScopes() {
       const rows = sqlite
-        .query<
-          { memory_scope: string },
-          []
-        >("SELECT memory_scope FROM adl_messages ORDER BY updated_at DESC")
-        .all();
-      return rows.map((row: { memory_scope: string }) => row.memory_scope);
+        .prepare("SELECT memory_scope FROM adl_messages ORDER BY updated_at DESC")
+        .all() as { memory_scope: string }[];
+      return rows.map((row) => row.memory_scope);
     },
   };
 }

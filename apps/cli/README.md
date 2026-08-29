@@ -1,6 +1,6 @@
 # @agent-dev-lab/cli
 
-Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/). Requires **Bun** — the CLI relaunches itself with `bun --bun` when invoked via Node, because SQLite stores import `bun:sqlite`.
+Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/). Runs on **Node 22+** (SQLite via `better-sqlite3`) or **Bun** (SQLite via `bun:sqlite`). Bun remains the recommended install/dev toolchain for the monorepo and scaffolds.
 
 ## Commands
 

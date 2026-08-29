@@ -52,7 +52,7 @@ export function sqliteInspectorSessionStore(options: SqliteStoreOptions = {}) {
   return {
     upsert(record: InspectorSessionRecord): void {
       sqlite
-        .query(
+        .prepare(
           `INSERT OR REPLACE INTO adl_inspector_sessions
             (memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -71,33 +71,30 @@ export function sqliteInspectorSessionStore(options: SqliteStoreOptions = {}) {
 
     list(): InspectorSessionRecord[] {
       const rows = sqlite
-        .query<SessionRow, []>(
+        .prepare(
           `SELECT memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at
            FROM adl_inspector_sessions
            WHERE deleted_at IS NULL
            ORDER BY updated_at DESC`,
         )
-        .all();
+        .all() as SessionRow[];
       return rows.map(rowToRecord);
     },
 
     listDeletedScopes(): string[] {
       const rows = sqlite
-        .query<
-          { memory_scope: string },
-          []
-        >(`SELECT memory_scope FROM adl_inspector_sessions WHERE deleted_at IS NOT NULL`)
-        .all();
+        .prepare(`SELECT memory_scope FROM adl_inspector_sessions WHERE deleted_at IS NOT NULL`)
+        .all() as { memory_scope: string }[];
       return rows.map((row) => row.memory_scope);
     },
 
     get(memoryScope: string): InspectorSessionRecord | undefined {
       const row = sqlite
-        .query<SessionRow, [string]>(
+        .prepare(
           `SELECT memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at
            FROM adl_inspector_sessions WHERE memory_scope = ?`,
         )
-        .get(memoryScope);
+        .get(memoryScope) as SessionRow | undefined;
       return row ? rowToRecord(row) : undefined;
     },
   };

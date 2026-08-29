@@ -18,7 +18,7 @@ bun run build      # Nitro `.output` (needed before publishing the CLI)
 bun .output/server/index.mjs
 ```
 
-Dev must use the Bun runtime (`bun --bun vite`) because SQLite stores import `bun:sqlite`. Production `vite build` stays on Node; `start` runs `.output` with Bun.
+Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Production `vite build` stays on Node; `adl dashboard --serve` / `.output` also run on Node with `better-sqlite3`.
 
 ## What it shows
 
