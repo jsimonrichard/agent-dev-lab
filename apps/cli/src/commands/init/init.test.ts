@@ -72,9 +72,9 @@ describe("adl init", () => {
       imports?: Record<string, string>;
       scripts?: Record<string, string>;
     };
-    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.1.0");
-    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.1.0");
-    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.1.0");
+    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.0.0");
     expect(pkg.scripts?.dev).toBe("bun --bun adl dashboard");
     expect(pkg.scripts?.dashboard).toBe("bun --bun adl dashboard");
     expect(pkg.imports?.["#adl"]).toBe("./src/adl.ts");
@@ -167,9 +167,9 @@ describe("init scaffold helpers", () => {
       dependencies: Record<string, string>;
       overrides?: unknown;
     };
-    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.1.0");
-    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.1.0");
-    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.1.0");
+    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.0.0");
     expect(pkg.dependencies["@agent-dev-lab/common"]).toBeUndefined();
     expect(pkg.overrides).toBeUndefined();
   });
