@@ -1,6 +1,6 @@
 ---
-"@agent-dev-lab/core": minor
-"@agent-dev-lab/web": minor
+"@agent-dev-lab/core": patch
+"@agent-dev-lab/web": patch
 ---
 
-Rename `createAgent({ instructions })` to `systemPrompt` and overlay the resolved prompt at the top of agent and workflow conversation views.
+Agents take `systemPrompt` (string or template). The inspection UI overlays the resolved prompt at the top of agent and workflow conversation views.

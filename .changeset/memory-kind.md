@@ -1,6 +1,6 @@
 ---
-"@agent-dev-lab/core": minor
-"@agent-dev-lab/web": minor
+"@agent-dev-lab/core": patch
+"@agent-dev-lab/web": patch
 ---
 
-Expose message-store backend kind (`in-memory` / `sqlite` / custom) on agents so the inspector Memory mode is real instead of a run id stub.
+Expose message-store backend kind (`in-memory` / `sqlite` / custom) on agents so the inspector can show the configured memory mode.

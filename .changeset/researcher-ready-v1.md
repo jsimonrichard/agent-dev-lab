@@ -1,8 +1,8 @@
 ---
-"@agent-dev-lab/core": minor
-"@agent-dev-lab/common": minor
-"@agent-dev-lab/cli": minor
-"@agent-dev-lab/web": minor
+"@agent-dev-lab/core": patch
+"@agent-dev-lab/common": patch
+"@agent-dev-lab/cli": patch
+"@agent-dev-lab/web": patch
 ---
 
-Initial public 0.1.0: SQLite stores, `adl init` / `adl run` / list commands, durable inspection UI, and playground sample agent.
+Initial public **0.0.1** alpha: SQLite-backed stores, `adl init` / `adl run` / list / `adl dashboard`, durable inspection UI, and sample scaffold workflows.

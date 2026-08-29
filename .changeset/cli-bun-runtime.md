@@ -2,4 +2,4 @@
 "@agent-dev-lab/cli": patch
 ---
 
-Relaunch `adl` under Bun when invoked via Node so `bun:sqlite` loads, and scaffold `dev` / `dashboard` scripts with `bun --bun adl dashboard`.
+Run `adl` on Node 22+ (SQLite via `better-sqlite3`) or Bun (`bun:sqlite`). Scaffold `dev` / `dashboard` scripts use `bun --bun adl dashboard` as the recommended toolchain.
