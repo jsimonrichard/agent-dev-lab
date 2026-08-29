@@ -55,6 +55,12 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
   /** Merged under each agent's `tools` (agent keys win). */
   tools?: ToolSet;
   telemetry?: AdlTelemetrySettings;
+  /**
+   * Load `.env*` into `process.env` when constructing the runtime.
+   * Defaults to `true` (project root = `process.cwd()`). Pass `false` to skip,
+   * or `{ root }` when the ADL project is not the cwd.
+   */
+  loadEnv?: boolean | { root?: string; mode?: string };
 };
 
 /** Per-call overrides when creating agents or workflows on a runtime. */

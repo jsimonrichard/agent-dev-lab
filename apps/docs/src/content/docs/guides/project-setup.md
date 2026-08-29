@@ -173,6 +173,8 @@ adl dashboard
 
 `loadAdlProject()` (and the inspection UI / CLI, which all go through it) loads `.env*` files from the **ADL project root** — the directory that contains `adl.config.*`, not the process cwd. That is why `bun run dev:web` picks up `apps/playground/.env` even though Vite starts in `apps/web`.
 
+Direct `#adl` imports (for example `bun run start`) should call `loadAdlEnv()` before reading `process.env` at module load — the scaffold does this in `src/model.ts`. `createAdlRuntime({ loadEnv })` also loads env by default (`false` to opt out).
+
 Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) (highest first). Values already set in the process environment are never overwritten:
 
 | File                | When it loads                          |

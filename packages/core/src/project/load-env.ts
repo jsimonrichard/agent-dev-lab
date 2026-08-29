@@ -95,5 +95,28 @@ export function loadAdlProjectEnv(
     }
   }
 
+  normalizeOpenAiApiKeyAlias();
   return { loadedFiles };
+}
+
+/** Accept lowercase `openai_api_key` as an alias for `OPENAI_API_KEY`. */
+function normalizeOpenAiApiKeyAlias(): void {
+  if (process.env.OPENAI_API_KEY === undefined && process.env.openai_api_key !== undefined) {
+    process.env.OPENAI_API_KEY = process.env.openai_api_key;
+  }
+}
+
+export type LoadAdlEnvOptions = {
+  /** Project root containing `.env*`. Defaults to `process.cwd()`. */
+  root?: string;
+  mode?: string;
+};
+
+/**
+ * Load ADL `.env*` files into `process.env`. Prefer calling this once at the top of
+ * `src/model.ts` / `src/adl.ts` when those modules read `process.env` at import time.
+ * {@link createAdlRuntime} also loads env by default.
+ */
+export function loadAdlEnv(options: LoadAdlEnvOptions = {}): { loadedFiles: string[] } {
+  return loadAdlProjectEnv(options.root ?? process.cwd(), { mode: options.mode });
 }

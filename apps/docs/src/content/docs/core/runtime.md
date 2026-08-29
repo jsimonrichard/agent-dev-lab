@@ -9,7 +9,7 @@ Construct the runtime in **`src/adl.ts`** (recommended) and set `adl` on `adl.co
 
 ## createAdlRuntime
 
-Drizzle/tRPC-style factory — primary app entrypoint:
+Drizzle/tRPC-style factory — primary app entrypoint. By default it loads `.env*` from `process.cwd()` (pass `loadEnv: false` to skip, or `loadEnv: { root }` for an explicit project root). If modules read `process.env` at import time (for example `ADL_MODEL` in `src/model.ts`), call `loadAdlEnv({ root })` before that read — ESM evaluates imports before `createAdlRuntime` runs.
 
 ```ts
 import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
@@ -23,31 +23,7 @@ const adl = createAdlRuntime({
   },
   observers: { workflows: [], agents: [] },
 });
-
-const researcher = adl.createAgent({
-  id: "researcher",
-  model: openai("gpt-4o"),
-  systemPrompt: "You are a research assistant.",
-});
-
-const review = adl.createWorkflow({
-  id: "literature-review",
-  run: async (input: { topic: string }, ctx) => {
-    await ctx.step("research", async ({ ctx: child }) => {
-      await researcher.run({
-        memoryScope: child.memoryScopeWithSuffix("notes"),
-        user: input.topic,
-      });
-    });
-    return { topic: input.topic };
-  },
-});
-
-const handle = review.run({ topic: "CRISPR delivery" });
-handle.workflowRunId; // subscribe immediately (WorkflowStore / future SSE)
-await handle.result;
 ```
-
 `adl.createAgent` / `adl.createWorkflow` bind the runtime automatically — use these in project code.
 
 ### Per-definition overrides

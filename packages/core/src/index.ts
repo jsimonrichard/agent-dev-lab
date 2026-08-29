@@ -184,6 +184,7 @@ export {
   findAdlProjectRootFromCwd,
   invalidateAdlConfigCache,
   loadAdlProject,
+  loadAdlEnv,
   loadAdlProjectEnv,
   resolveProjectRoot,
   shouldReloadAdlProjectPath,

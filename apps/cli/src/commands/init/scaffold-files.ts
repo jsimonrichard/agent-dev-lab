@@ -1,7 +1,6 @@
 /** Files copied into a new project from the dedicated CLI scaffold. */
 export const SCAFFOLD_SOURCE_FILES = [
   "src/adl.ts",
-  "src/env.ts",
   "src/model.ts",
   "src/agents/assistant.ts",
   "src/workflows/demo-counter.ts",

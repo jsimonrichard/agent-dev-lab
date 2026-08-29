@@ -32,8 +32,9 @@ Every agent uses one shared model from `src/model.ts` (`@ai-sdk/openai`). The Op
 provider reads the key lazily, so the project loads fine without one — agents only fail
 when actually executed.
 
-Configure via a `.env` file (loaded by `src/env.ts` for `bun run start`, the inspection
-UI, and the CLI) or via real environment variables (which take precedence):
+Configure via a `.env` file (loaded by `loadAdlEnv()` in `src/model.ts` /
+`createAdlRuntime`, and by `loadAdlProject` for the inspection UI and CLI) or via
+real environment variables (which take precedence):
 
 ```bash
 cp .env.example .env

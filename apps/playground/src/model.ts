@@ -1,7 +1,11 @@
-import "./env";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { loadAdlEnv } from "@agent-dev-lab/core";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "@agent-dev-lab/core";
+
+loadAdlEnv({ root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..") });
 
 /**
  * Shared model for every agent in this project.

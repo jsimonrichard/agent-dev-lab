@@ -1,5 +1,3 @@
-import "./env";
-
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +19,7 @@ const dbPath = resolveAdlSqlitePath(projectRoot);
  * @see apps/docs — guides/project-setup
  */
 export const adl = createAdlRuntime({
+  loadEnv: { root: projectRoot },
   defaults: {
     model,
   },

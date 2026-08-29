@@ -54,7 +54,6 @@ describe("adl init", () => {
     const generatedTs = [
       "adl.config.ts",
       "src/adl.ts",
-      "src/env.ts",
       "src/model.ts",
       "src/agents/assistant.ts",
       "src/workflows/demo-counter.ts",

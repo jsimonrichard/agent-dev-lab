@@ -7,7 +7,8 @@ export {
 } from "./config";
 export { AdlError, isAdlError } from "../errors";
 export type { AdlErrorCode } from "../errors";
-export { loadAdlProjectEnv } from "./load-env";
+export { loadAdlEnv, loadAdlProjectEnv } from "./load-env";
+export type { LoadAdlEnvOptions } from "./load-env";
 export { invalidateAdlConfigCache } from "./load-config";
 export {
   acquireAdlProject,
