@@ -5,12 +5,9 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "bun:test";
-
-import { loadAdlProject } from "./resolve";
-import { watchAdlProject } from "./watch";
+import { describe, it } from "bun:test";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const corePkg = path.join(repoRoot, "packages/core");
@@ -123,22 +120,6 @@ export default {
 
   return { root, workflowPath, writeWorkflow };
 }
-
-function workflowQuestion(project: Awaited<ReturnType<typeof loadAdlProject>>): string {
-  const parsed = project.getWorkflow("answer-question")!.input!.parse({}) as {
-    question: string;
-  };
-  return parsed.question;
-}
-
-async function workflowResult(
-  project: Awaited<ReturnType<typeof loadAdlProject>>,
-  question: string,
-): Promise<string> {
-  const output = await project.getWorkflow("answer-question")!.run({ question }).result;
-  return (output as { result: string }).result;
-}
-
 
 type ProjectApiResponse = {
   meta: {

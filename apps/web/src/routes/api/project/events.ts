@@ -4,16 +4,18 @@ import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { encodeProjectReloadSse, subscribeProjectReload } from "#/lib/project-reload-events.server";
 import type { ProjectReloadEvent } from "#/lib/project-reload-types";
 
+const HEARTBEAT_MS = 15_000;
+
 export const Route = createFileRoute("/api/project/events")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         const project = await getLoadedAdlProject();
+        let stopStream = () => {};
 
         const stream = new ReadableStream({
           start(controller) {
             if (request.signal.aborted) {
-              controller.close();
               return;
             }
 
@@ -21,40 +23,56 @@ export const Route = createFileRoute("/api/project/events")({
             let closed = false;
             let unsubscribe = () => {};
 
-            const push = (event: ProjectReloadEvent) => {
+            const enqueue = (chunk: string) => {
               if (closed) {
-                return;
+                return false;
               }
               try {
-                controller.enqueue(encoder.encode(encodeProjectReloadSse(event)));
+                controller.enqueue(encoder.encode(chunk));
+                return true;
               } catch {
-                closed = true;
-                unsubscribe();
+                stop();
+                return false;
               }
             };
 
-            unsubscribe = subscribeProjectReload(push);
+            const heartbeat = setInterval(() => {
+              enqueue(": ping\n\n");
+            }, HEARTBEAT_MS);
 
-            push({
-              type: "snapshot",
-              generation: project.generation,
-              lastReloadError: project.lastReloadError,
-            });
-
-            const onAbort = () => {
+            const stop = () => {
               if (closed) {
                 return;
               }
               closed = true;
+              clearInterval(heartbeat);
               unsubscribe();
-              try {
-                controller.close();
-              } catch {
-                // already closed
-              }
             };
 
-            request.signal.addEventListener("abort", onAbort);
+            stopStream = stop;
+
+            // Flush immediately so Vite's proxy does not treat an idle SSE body
+            // as a hung socket.
+            enqueue(": connected\n\n");
+
+            unsubscribe = subscribeProjectReload((event: ProjectReloadEvent) => {
+              enqueue(encodeProjectReloadSse(event));
+            });
+
+            enqueue(
+              encodeProjectReloadSse({
+                type: "snapshot",
+                generation: project.generation,
+                lastReloadError: project.lastReloadError,
+              }),
+            );
+
+            request.signal.addEventListener("abort", stop, { once: true });
+          },
+          cancel() {
+            // Client left (reload / HMR). Avoid controller.close() — Vite logs
+            // that as "Internal server error: socket hang up".
+            stopStream();
           },
         });
 
@@ -63,6 +81,7 @@ export const Route = createFileRoute("/api/project/events")({
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
           },
         });
       },

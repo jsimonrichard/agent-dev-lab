@@ -1,7 +1,5 @@
-import { createServer } from "node:net";
-import { mkdirSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rename, writeFile } from "node:fs/promises";
-import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -14,7 +12,6 @@ import { watchAdlProject } from "./watch";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const corePkg = path.join(repoRoot, "packages/core");
-const webPkg = path.join(repoRoot, "apps/web");
 const zodPkg = path.dirname(createRequire(import.meta.url).resolve("zod/package.json"));
 
 type PlaygroundLikeProject = {
@@ -27,21 +24,6 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-async function waitUntil(
-  predicate: () => boolean | Promise<boolean>,
-  timeoutMs: number,
-  message: string,
-): Promise<void> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    if (await predicate()) {
-      return;
-    }
-    await wait(40);
-  }
-  throw new Error(message);
 }
 
 function workflowSource(version: string): string {
@@ -220,4 +202,3 @@ describe("watchAdlProject integration (playground-like nested registry)", () => 
     { timeout: 15_000 },
   );
 });
-

@@ -2,13 +2,24 @@ import path from "node:path";
 
 import { createJiti } from "jiti";
 
-const jitiCache = new Map<string, ReturnType<typeof createJiti>>();
+const JITI_CACHE_KEY = Symbol.for("@agent-dev-lab/core:adlConfigJitiCache");
+
+function jitiCache(): Map<string, ReturnType<typeof createJiti>> {
+  const g = process as typeof process & {
+    [JITI_CACHE_KEY]?: Map<string, ReturnType<typeof createJiti>>;
+  };
+  if (!g[JITI_CACHE_KEY]) {
+    g[JITI_CACHE_KEY] = new Map();
+  }
+  return g[JITI_CACHE_KEY]!;
+}
 
 function createProjectJiti(configPath: string): ReturnType<typeof createJiti> {
   const absoluteConfigPath = path.resolve(configPath);
   const projectRoot = path.dirname(absoluteConfigPath);
+  const cache = jitiCache();
 
-  const cached = jitiCache.get(projectRoot);
+  const cached = cache.get(projectRoot);
   if (cached) {
     return cached;
   }
@@ -23,7 +34,7 @@ function createProjectJiti(configPath: string): ReturnType<typeof createJiti> {
     fsCache: false,
     tryNative: false,
   });
-  jitiCache.set(projectRoot, jiti);
+  cache.set(projectRoot, jiti);
   return jiti;
 }
 
@@ -36,10 +47,11 @@ function clearJitiModuleCache(jiti: ReturnType<typeof createJiti>): void {
 /** Clear jiti's in-memory module cache for a project (used before hot reload). */
 export function invalidateAdlConfigCache(projectRoot: string): void {
   const resolved = path.resolve(projectRoot);
-  const jiti = jitiCache.get(resolved);
+  const cache = jitiCache();
+  const jiti = cache.get(resolved);
   if (jiti) {
     clearJitiModuleCache(jiti);
-    jitiCache.delete(resolved);
+    cache.delete(resolved);
   }
 }
 

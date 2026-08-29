@@ -7,11 +7,10 @@ import { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandler
 /**
  * Process-wide inspection-UI host.
  *
- * Vite SSR (TanStack Start / Nitro) may re-evaluate `apps/web` server modules
- * in an isolated `globalThis`. `@agent-dev-lab/core/project` is `ssr.external`,
- * so module-level state here is shared by every request and by `fs.watch`
- * callbacks. Storing {@link LoadedAdlProject} on the Vite module's `globalThis`
- * made reload bump one object while `GET /api/project` kept serving another.
+ * Vite config and Nitro's fetchable worker can evaluate this module in different
+ * isolates. A module-local `const` then forks: one isolate reloads while `/api`
+ * reads another. `process[Symbol.for(...)]` is shared only within an isolate —
+ * drive reload via Nitro `dispatchFetch` so the worker that serves runs updates.
  */
 type AdlProjectProcessHost = {
   project?: LoadedAdlProject;
@@ -25,13 +24,21 @@ type AdlProjectProcessHost = {
   inspectorEventLogHydrated: boolean;
 };
 
-const host: AdlProjectProcessHost = {
-  listeners: {},
-  reloadSubscribers: new Set(),
-  inspectorAgentObserverAttached: false,
-  inspectorListedAgentIds: new Set(),
-  inspectorEventLogHydrated: false,
-};
+const HOST_KEY = Symbol.for("@agent-dev-lab/core:adlProjectProcessHost");
+
+function getHost(): AdlProjectProcessHost {
+  const g = process as typeof process & { [HOST_KEY]?: AdlProjectProcessHost };
+  if (!g[HOST_KEY]) {
+    g[HOST_KEY] = {
+      listeners: {},
+      reloadSubscribers: new Set(),
+      inspectorAgentObserverAttached: false,
+      inspectorListedAgentIds: new Set(),
+      inspectorEventLogHydrated: false,
+    };
+  }
+  return g[HOST_KEY]!;
+}
 
 export type AdlProjectHostReloadEvent =
   | { type: "reload"; generation: number; path?: string }
@@ -39,6 +46,7 @@ export type AdlProjectHostReloadEvent =
 
 /** Load or reuse the process-wide project for `root`. */
 export async function acquireAdlProject(root: string): Promise<LoadedAdlProject> {
+  const host = getHost();
   const resolved = path.resolve(root);
   if (host.project && path.resolve(host.project.root) === resolved) {
     return host.project;
@@ -56,12 +64,19 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
 
 /** Replace watch-side UI callbacks (observer). SSE uses {@link subscribeAdlProjectHostReload}. */
 export function setAdlProjectWatchListeners(listeners: AdlProjectWatchHandlers): void {
-  host.listeners = listeners;
+  getHost().listeners = listeners;
 }
 
 export function ensureAdlProjectFileWatch(enabled: boolean): void {
+  const host = getHost();
+  if (!enabled) {
+    host.watchDispose?.();
+    host.watchDispose = undefined;
+    host.watchedRoot = undefined;
+    return;
+  }
   const project = host.project;
-  if (!project || !enabled) {
+  if (!project) {
     return;
   }
   if (host.watchedRoot === project.root && host.watchDispose) {
@@ -92,6 +107,7 @@ export function ensureAdlProjectFileWatch(enabled: boolean): void {
 export function subscribeAdlProjectHostReload(
   subscriber: (event: AdlProjectHostReloadEvent) => void,
 ): () => void {
+  const host = getHost();
   host.reloadSubscribers.add(subscriber);
   return () => {
     host.reloadSubscribers.delete(subscriber);
@@ -99,21 +115,60 @@ export function subscribeAdlProjectHostReload(
 }
 
 function emitAdlProjectHostReload(event: AdlProjectHostReloadEvent): void {
-  for (const subscriber of host.reloadSubscribers) {
+  for (const subscriber of getHost().reloadSubscribers) {
     subscriber(event);
   }
 }
 
+/**
+ * Reload the process-wide project and notify SSE subscribers.
+ * Used by the Vite dev plugin (and tests) when the bundler's watcher sees
+ * registry edits — more reliable than a second `fs.watch` tree beside Vite.
+ */
+export async function requestAdlProjectReload(triggerPath?: string): Promise<{
+  generation: number;
+  lastReloadError: string | null;
+}> {
+  const host = getHost();
+  const project = host.project;
+  if (!project) {
+    throw new Error("requestAdlProjectReload: no project acquired yet");
+  }
+  try {
+    await project.reload();
+    const info = { generation: project.generation, path: triggerPath };
+    host.listeners.onReload?.(info);
+    emitAdlProjectHostReload({
+      type: "reload",
+      generation: project.generation,
+      path: triggerPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    host.listeners.onError?.(error instanceof Error ? error : new Error(message));
+    emitAdlProjectHostReload({
+      type: "error",
+      generation: project.generation,
+      message,
+    });
+  }
+  return {
+    generation: project.generation,
+    lastReloadError: project.lastReloadError,
+  };
+}
+
 export function setInspectorListedAgentIds(ids: Iterable<string>): void {
-  host.inspectorListedAgentIds = new Set(ids);
+  getHost().inspectorListedAgentIds = new Set(ids);
 }
 
 export function getInspectorListedAgentIds(): Set<string> {
-  return host.inspectorListedAgentIds;
+  return getHost().inspectorListedAgentIds;
 }
 
 /** True once per process until {@link clearInspectorAgentObserverAttached}. */
 export function markInspectorAgentObserverAttached(): boolean {
+  const host = getHost();
   if (host.inspectorAgentObserverAttached) {
     return false;
   }
@@ -122,7 +177,7 @@ export function markInspectorAgentObserverAttached(): boolean {
 }
 
 export function clearInspectorAgentObserverAttached(): void {
-  host.inspectorAgentObserverAttached = false;
+  getHost().inspectorAgentObserverAttached = false;
 }
 
 /**
@@ -130,6 +185,7 @@ export function clearInspectorAgentObserverAttached(): void {
  * Vite SSR isolates share one ring buffer.
  */
 export function getInspectorEventLog(): InMemoryEventLog {
+  const host = getHost();
   if (!host.inspectorEventLog) {
     host.inspectorEventLog = inMemoryEventLog();
   }
@@ -138,6 +194,7 @@ export function getInspectorEventLog(): InMemoryEventLog {
 
 /** True the first time per process-host generation; later calls are no-ops. */
 export function markInspectorEventLogHydrated(): boolean {
+  const host = getHost();
   if (host.inspectorEventLogHydrated) {
     return false;
   }
@@ -147,6 +204,7 @@ export function markInspectorEventLogHydrated(): boolean {
 
 /** Drop watchers and the cached project. For tests only. */
 export function resetAdlProjectProcessHost(): void {
+  const host = getHost();
   host.watchDispose?.();
   host.watchDispose = undefined;
   host.watchedRoot = undefined;

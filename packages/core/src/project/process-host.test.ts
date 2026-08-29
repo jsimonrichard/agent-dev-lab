@@ -11,6 +11,7 @@ import { AgentImpl } from "../agent/agent-impl";
 import {
   acquireAdlProject,
   ensureAdlProjectFileWatch,
+  requestAdlProjectReload,
   resetAdlProjectProcessHost,
   subscribeAdlProjectHostReload,
 } from "./process-host";
@@ -134,4 +135,31 @@ describe("adl project process host", () => {
     },
     { timeout: 15_000 },
   );
+
+  it("requestAdlProjectReload bumps generation and notifies subscribers", async () => {
+    const fixture = await createHostProject();
+    try {
+      const project = await acquireAdlProject(fixture.root);
+      const reloaded = Promise.withResolvers<number>();
+      const unsubscribe = subscribeAdlProjectHostReload((event) => {
+        if (event.type === "reload") {
+          reloaded.resolve(event.generation);
+        }
+      });
+      try {
+        await fixture.writeAgent("VERSION_C");
+        const result = await requestAdlProjectReload(path.join(fixture.root, "src/agent.ts"));
+        expect(result.generation).toBe(1);
+        expect(result.lastReloadError).toBeNull();
+        await expect(reloaded.promise).resolves.toBe(1);
+        expect((project.getAgent("test-agent") as AgentImpl).definition.systemPrompt).toBe(
+          "VERSION_C",
+        );
+      } finally {
+        unsubscribe();
+      }
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  });
 });

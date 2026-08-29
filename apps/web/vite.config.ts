@@ -10,6 +10,9 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
+import { adlProjectReloadPlugin } from "./src/lib/adl-project-reload-plugin";
+import { createAdlViteLogger } from "./src/lib/adl-vite-logger";
+
 const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
 const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
@@ -33,6 +36,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    customLogger: createAdlViteLogger(),
     envDir: projectRoot,
     envPrefix: "ADL_",
     ...(process.env.ADL_VITE_DISABLE_OPTIMIZE === "1"
@@ -43,15 +47,18 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(webRoot, "./src"),
       },
+      conditions: ["development", "bun", "module", "import", "default"],
     },
     ssr: {
+      // Keep core external so process-host / jiti state is one Node native module.
+      // `development` export condition resolves workspace packages to `src/`.
       external: ["@agent-dev-lab/core", "@agent-dev-lab/core/project", "jiti"],
       resolve: {
-        // Vite's default externalConditions omit `bun`, so SSR would load stale dist.
-        externalConditions: ["bun", "node", "module-sync"],
+        externalConditions: ["development", "bun", "node", "module-sync"],
       },
     },
     plugins: [
+      adlProjectReloadPlugin(projectRoot),
       devtools(),
       tailwindcss(),
       tanstackStart({

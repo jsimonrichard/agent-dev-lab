@@ -17,11 +17,13 @@
     ".": {
       "types": "./src/index.ts",
       "bun": "./src/index.ts",
+      "development": "./src/index.ts",
       "default": "./dist/index.js"
     },
     "./project": {
       "types": "./src/project/index.ts",
       "bun": "./src/project/index.ts",
+      "development": "./src/project/index.ts",
       "default": "./dist/project/index.js"
     },
     "./result": {

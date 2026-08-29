@@ -8,6 +8,7 @@ import {
   acquireAdlProject,
   ensureAdlProjectFileWatch,
   findAdlProjectRootFromCwd,
+  requestAdlProjectReload,
   setAdlProjectWatchListeners,
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
@@ -34,10 +35,15 @@ function resolveAdlProjectRoot(): string {
 }
 
 function shouldWatchProject(): boolean {
+  // Vite's adl-project-reload plugin owns watching in framework / dashboard dev.
+  if (process.env.ADL_VITE_PROJECT_WATCH === "1") {
+    return false;
+  }
   return process.env.ADL_INSPECTOR_SERVE !== "1";
 }
 
-if (shouldWatchProject()) {
+// Prompt / template caches honor this even when Vite (not fs.watch) drives reload.
+if (process.env.ADL_INSPECTOR_SERVE !== "1") {
   process.env[ADL_PROJECT_WATCH_ENV] = "1";
 }
 
@@ -68,4 +74,17 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
     // getAdl() throws when config.adl is missing; catalog loaders surface that.
   }
   return project;
+}
+
+/**
+ * Dev-only entry for the Vite plugin's Nitro `dispatchFetch` into
+ * `/api/project/reload` — runs in the same worker isolate as other `/api/*`
+ * handlers so the registry that executes workflows is the one that reloads.
+ */
+export async function reloadAdlProjectForViteWatcher(triggerPath?: string): Promise<{
+  generation: number;
+  lastReloadError: string | null;
+}> {
+  await getLoadedAdlProject();
+  return requestAdlProjectReload(triggerPath);
 }

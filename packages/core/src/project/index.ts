@@ -18,6 +18,7 @@ export {
   getInspectorListedAgentIds,
   markInspectorAgentObserverAttached,
   markInspectorEventLogHydrated,
+  requestAdlProjectReload,
   setAdlProjectWatchListeners,
   setInspectorListedAgentIds,
   subscribeAdlProjectHostReload,
