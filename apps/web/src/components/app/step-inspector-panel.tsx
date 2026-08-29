@@ -20,6 +20,7 @@ import {
 } from "@/components/app/inspector-stack";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatStepLabel } from "@/lib/view-model/run-projection";
 import {
   extractSystemPromptFromMessages,
@@ -29,6 +30,7 @@ import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 import { partitionScopeTranscript } from "@/lib/scope-transcript";
 import { InspectorNoun } from "@/components/app/inspector-noun";
 import { useLiveRunMessages } from "@/hooks/use-live-run-messages";
+import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 
 interface StepInspectorPanelProps {
   step: StepNode | undefined;
@@ -146,36 +148,55 @@ function ConversationInspector({
   runError?: unknown;
   runId: string;
 }) {
+  const { project } = useAppLoaderData();
+  const agentRegistered = project.agentIds.includes(episode.agentId);
   const stepLabel = formatStepLabel(step.name, step.key);
   const stepError = step.error ?? (step.status === "failed" ? runError : undefined);
   const episodeError = episode.error ?? (episode.status === "failed" ? stepError : undefined);
   const runSettled = runStatus !== "running";
+
+  const scopeLabel = (
+    <span className="min-w-0 truncate" title={episode.memoryScope}>
+      {formatMemoryScopeLabel(episode.memoryScope, runId)}
+    </span>
+  );
+  const agentLabel = (
+    <InspectorNoun icon={Bot} noun="Agent" title={episode.agentId}>
+      {episode.agentId}
+    </InspectorNoun>
+  );
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
       <div className="shrink-0 space-y-1.5 border-b border-border/40 px-3 py-2.5">
         <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs font-semibold">
           <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-          <Link
-            to="/agent/$agentId/run/$runId"
-            params={{ agentId: episode.agentId, runId: episode.memoryScope }}
-            search={agentRunSearch({ call: episode.episodeId })}
-            className="min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
-            title={episode.memoryScope}
-          >
-            {formatMemoryScopeLabel(episode.memoryScope, runId)}
-          </Link>
+          {agentRegistered ? (
+            <Link
+              to="/agent/$agentId/run/$runId"
+              params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+              search={agentRunSearch({ call: episode.episodeId })}
+              className="min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+              title={episode.memoryScope}
+            >
+              {scopeLabel}
+            </Link>
+          ) : (
+            scopeLabel
+          )}
         </p>
         <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-          <Link
-            to="/agent/$agentId"
-            params={{ agentId: episode.agentId }}
-            className="group max-w-full min-w-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            <InspectorNoun icon={Bot} noun="Agent" title={episode.agentId}>
-              {episode.agentId}
-            </InspectorNoun>
-          </Link>
+          {agentRegistered ? (
+            <Link
+              to="/agent/$agentId"
+              params={{ agentId: episode.agentId }}
+              className="group max-w-full min-w-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              {agentLabel}
+            </Link>
+          ) : (
+            agentLabel
+          )}
           <InspectorNoun icon={Layers} noun="Step" title={stepLabel}>
             {stepLabel}
           </InspectorNoun>
@@ -205,6 +226,7 @@ function ConversationInspector({
         episodeError={episodeError}
         runSettled={runSettled}
         runId={runId}
+        agentRegistered={agentRegistered}
       />
     </div>
   );
@@ -218,6 +240,7 @@ function ConversationPanel({
   episodeError,
   runSettled,
   runId,
+  agentRegistered,
 }: {
   episode: AgentEpisode;
   events: RunEvent[];
@@ -226,6 +249,7 @@ function ConversationPanel({
   episodeError: unknown;
   runSettled: boolean;
   runId: string;
+  agentRegistered: boolean;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
@@ -256,6 +280,7 @@ function ConversationPanel({
               runId={runId}
               streamingText={streamingText}
               fallbackError={episodeError}
+              agentRegistered={agentRegistered}
             />
           )}
         </Await>
@@ -282,6 +307,7 @@ function EpisodeConversation({
   runId,
   streamingText,
   fallbackError,
+  agentRegistered,
 }: {
   prefetched: PrefetchedRunMessages;
   events: RunEvent[];
@@ -289,6 +315,7 @@ function EpisodeConversation({
   runId: string;
   streamingText: string | null;
   fallbackError: unknown;
+  agentRegistered: boolean;
 }) {
   const { messagesByScope, pendingScopes } = useLiveRunMessages(runId, prefetched, events);
   const messages = messagesByScope[episode.memoryScope] ?? [];
@@ -364,20 +391,75 @@ function EpisodeConversation({
       </ScrollArea>
       <div className="shrink-0 space-y-2 border-t border-border/40 p-2">
         <p className="text-[10px] leading-snug text-muted-foreground">
-          Read-only in this workflow view. Open the conversation to view it in full.
+          {agentRegistered
+            ? "Read-only in this workflow view. Open the conversation to view it in full."
+            : "Read-only in this workflow view."}
         </p>
-        <Button size="sm" className="w-full gap-2" variant="secondary" asChild>
-          <Link
-            to="/agent/$agentId/run/$runId"
-            params={{ agentId: episode.agentId, runId: episode.memoryScope }}
-            search={agentRunSearch({ call: episode.episodeId })}
-          >
-            <MessageSquare className="size-3.5" />
-            View Conversation
-          </Link>
-        </Button>
+        <ViewConversationButton
+          agentId={episode.agentId}
+          memoryScope={episode.memoryScope}
+          episodeId={episode.episodeId}
+          agentRegistered={agentRegistered}
+        />
       </div>
     </div>
+  );
+}
+
+function ViewConversationButton({
+  agentId,
+  memoryScope,
+  episodeId,
+  agentRegistered,
+}: {
+  agentId: string;
+  memoryScope: string;
+  episodeId: string;
+  agentRegistered: boolean;
+}) {
+  const button = (
+    <Button
+      size="sm"
+      className="w-full gap-2"
+      variant="secondary"
+      disabled={!agentRegistered}
+      asChild={agentRegistered}
+    >
+      {agentRegistered ? (
+        <Link
+          to="/agent/$agentId/run/$runId"
+          params={{ agentId, runId: memoryScope }}
+          search={agentRunSearch({ call: episodeId })}
+        >
+          <MessageSquare className="size-3.5" />
+          View Conversation
+        </Link>
+      ) : (
+        <>
+          <MessageSquare className="size-3.5" />
+          View Conversation
+        </>
+      )}
+    </Button>
+  );
+
+  if (agentRegistered) {
+    return button;
+  }
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex w-full">{button}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-72 text-left">
+          Agent &quot;{agentId}&quot; is not in the project registry, so the conversation page is
+          unavailable. Add it to the <code className="font-mono">agents</code> array in{" "}
+          <code className="font-mono">adl.config.ts</code> to enable this.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
