@@ -69,6 +69,9 @@ export function AgentConfigBody({
       ) : null}
 
       <SettingsSection icon={Wrench} title="Tools">
+        <dl className="mb-3 space-y-2 text-xs">
+          <SettingRow label="End when" value={settings.endWhen} mono />
+        </dl>
         {settings.tools.length === 0 ? (
           <p className="text-xs text-muted-foreground">No tools registered for this agent.</p>
         ) : (

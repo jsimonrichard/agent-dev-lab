@@ -3,7 +3,7 @@ title: Agents
 description: adl.createAgent, run and stream, memoryScope, structured output, and tools.
 ---
 
-Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. One agent episode per `run()` — multi-step tool loops belong in workflow TypeScript (or `runAgentUntilIdle` for the common “keep going until no tool calls” pattern). The inspection UI conversation composer uses that helper.
+Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. `agent.run()` / `agent.stream()` return the **final** response. By default they keep making model requests until a reply ends with text (`endWhen: "ends-with-text"`). Tool calls and results still emit events and persist to the transcript. Pass `endWhen: "api-call-ends"` when a workflow wants to own each model call.
 
 ## createAgent
 
@@ -37,6 +37,13 @@ export const researcher = adl.createAgent({
   },
 
   outputSchema: z.object({ summary: z.string() }),
+
+  // When this agent stops making further model requests.
+  // endWhen: "ends-with-text", // default — continue if the last part is a tool call
+  // endWhen: "has-text",       // stop as soon as any user-facing text appears
+  // endWhen: "no-tool-calls",  // stop only when a request emits no tools
+  // endWhen: "api-call-ends",  // stop after this model request (workflow-owned loops)
+  // endWhen: ({ messages, oldMessages, newMessages }) => /* true to stop */
 
   // Optional: a workflow names the conversation after the first reply.
   // titleWorkflow: conversationTitle,
@@ -107,9 +114,8 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 
 ### What agents do not carry
 
-- **`stopWhen` / step limits** — workflow concern.
+- **`stopWhen` / SDK step limits** — each inner model request is still `stepCountIs(1)`. The agent loops those requests itself unless `endWhen` is `"api-call-ends"`.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
-- **Multi-step tool loops** — `stopWhen: stepCountIs(1)` limits each episode to one SDK step. Import `stepCountIs` from `@agent-dev-lab/core` (re-exported from `ai`) when you drive a tool loop in a workflow. Call `runAgentUntilIdle` (or write a `for` loop like the playground `answer-question` workflow) to continue until the model stops calling tools.
 
 ## memoryScope
 
@@ -160,6 +166,8 @@ type AgentRunInput = {
   user?: string;
   messages?: CoreMessage[];
   outputSchema?: z.ZodType<unknown>;
+  endWhen?: AgentEndWhen; // named policy or ({ messages, oldMessages, newMessages }) => boolean
+  maxTurns?: number;
   workflow?: { workflowRunId: string; stepId: string | null };
 };
 ```
@@ -169,9 +177,10 @@ type AgentRunInput = {
 1. `store.load(memoryScope)` (any `system` messages are filtered out)
 2. If `user` / `messages` → append to working list
 3. Resolve `systemPrompt` → pass as the **`system`** option to `streamText`
-4. **`streamText`** — forward text deltas to run events
+4. **`streamText`** — one SDK step; forward text deltas and tool call/result events
 5. Append `response.messages` to store via `save`
-6. Return `AgentRunResult`
+6. If `endWhen` says another request is needed, repeat from 4 (no new user message)
+7. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the request count)
 
 ## Tool calls and persistence
 
@@ -180,20 +189,17 @@ ADL persists **only** `CoreMessage` lists. Tool usage round-trips through SDK me
 - Assistant parts with `tool-call`
 - Tool role messages with `tool-result`
 
-After `run()`, extend the store with messages from `result.response.messages` — not from `toolCalls` alone.
-
-To keep calling the model after tools execute, re-run on the same `memoryScope` without a new user message (tool results are already in the store):
+After `run()`, the store already includes every request from the turn (`result.newMessages`). Tool calls also emit `agent_tool_call` / `agent_tool_result` during the stream.
 
 ```ts
-import { runAgentUntilIdle } from "@agent-dev-lab/core";
-
-const { result, turns } = await runAgentUntilIdle(researcher, {
+const { result } = researcher.run({
   memoryScope: "scope-1",
   user: "What is ADL?",
 });
+const { text, turns } = await result;
 ```
 
-`runAgentUntilIdle` is a convenience loop around `agent.run()`. Workflows that want each tool round as its own `ctx.step` should keep an explicit TypeScript loop instead.
+Default `endWhen` is `"ends-with-text"`: preamble text plus a tool call still gets a follow-up. Override on the agent or the call (`endWhen: "api-call-ends"`) when a workflow should drive each model request as its own `ctx.step`. A predicate receives `{ messages, oldMessages, newMessages }` and should return `true` to stop.
 
 ## Agents and workflows as tools
 

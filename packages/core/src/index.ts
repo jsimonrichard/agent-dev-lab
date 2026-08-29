@@ -11,8 +11,9 @@ import { readFileSync } from "node:fs";
  * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
  * `CoreMessage`, `LanguageModel`. Single internal `streamText` path for
  * `agent.run` and `agent.stream`; commits `response.messages` to MessageStore.
- * `runAgentUntilIdle` re-invokes `agent.run` until an episode has no tool calls.
- * Agent episodes forward `experimental_telemetry` (disable with
+ * `agent.run` loops model requests until `endWhen` (default `"ends-with-text"`);
+ * pass `"api-call-ends"` for one SDK step. Tool call/result events still fire.
+ * Agent turns forward `experimental_telemetry` (disable with
  * `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
@@ -20,14 +21,19 @@ import { readFileSync } from "node:fs";
  */
 export {
   createAgent,
+  AGENT_END_WHEN,
   countToolCallParts,
   CUSTOM_MODEL_ID,
-  DEFAULT_AGENT_IDLE_MAX_TURNS,
+  DEFAULT_AGENT_END_WHEN,
+  DEFAULT_AGENT_MAX_TURNS,
+  inspectAgentEndWhen,
+  evaluateEndWhen,
+  hasAssistantText,
+  lastAssistantEndPart,
   inspectLanguageModel,
   inspectSystemPrompt,
   inspectSystemPromptPath,
   resolveSystemPromptText,
-  runAgentUntilIdle,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
 } from "./agent";
@@ -36,6 +42,10 @@ export type { Err, Ok, Result } from "./result";
 export type {
   Agent,
   AgentDefinition,
+  AgentEndWhen,
+  AgentEndWhenInput,
+  AgentEndWhenName,
+  AgentEndWhenPredicate,
   AgentSystemPrompt,
   AgentMemoryConfig,
   AgentModelInfo,
@@ -48,7 +58,8 @@ export type {
   AgentWorkflowScope,
   ConversationTitleInput,
   ConversationTitleOutput,
-  RunAgentUntilIdleOptions,
+  AssistantEndPart,
+  EvaluateEndWhenOptions,
 } from "./agent";
 
 export { createWorkflow } from "./workflow";

@@ -15,9 +15,10 @@ interface UseAgentRunEventsOptions {
  * Subscribes to standalone agent run events via SSE (`agent_text_delta`, etc.).
  * Workflow-embedded agents use {@link useWorkflowRunEvents} instead.
  *
- * A conversation turn may span several episodes (tool loop). `isRunning` stays true
- * until the SSE stream closes; `onFinished` also fires when messages are committed
- * so tool calls appear before the next episode streams text.
+ * A conversation turn may include several model requests (tool loop) under one
+ * `agentCallId`. `isRunning` stays true until the SSE stream closes; `onFinished`
+ * also fires when messages are committed so tool calls appear before the next
+ * request streams text.
  */
 export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEventsOptions = {}) {
   const { enabled = true, onFinished, onTitleSet } = options;
@@ -72,7 +73,12 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
           onTitleSetRef.current?.();
         }
 
-        if (event.type === "agent_messages_committed" || event.type === "agent_finished") {
+        if (event.type === "agent_messages_committed") {
+          setStreamingText("");
+          onFinishedRef.current?.();
+        }
+
+        if (event.type === "agent_finished") {
           onFinishedRef.current?.();
         }
 

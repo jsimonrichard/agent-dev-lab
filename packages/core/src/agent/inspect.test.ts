@@ -5,6 +5,7 @@ import { err, ok } from "../result";
 import { createAdlRuntime } from "../runtime/create";
 import { createTestRuntime } from "../runtime/create-test";
 import { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
+import { inspectAgentEndWhen } from "./types";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
 function fakeModel(overrides: Partial<{ provider: string; modelId: string }> = {}): LanguageModel {
@@ -69,6 +70,38 @@ describe("Agent.modelInfo", () => {
     const adl = createTestRuntime();
     const agent = adl.createAgent({ id: "researcher", systemPrompt: "Be brief." });
     expect(agent.modelInfo).toBeNull();
+  });
+});
+
+describe("Agent.endWhen", () => {
+  it("defaults to ends-with-text", () => {
+    const adl = createTestRuntime();
+    const agent = adl.createAgent({ id: "researcher", systemPrompt: "Be brief." });
+    expect(agent.endWhen).toBe("ends-with-text");
+    expect(agent.maxTurns).toBe(20);
+  });
+
+  it("uses the agent definition when set", () => {
+    const adl = createTestRuntime();
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+      endWhen: "api-call-ends",
+      maxTurns: 4,
+    });
+    expect(agent.endWhen).toBe("api-call-ends");
+    expect(agent.maxTurns).toBe(4);
+    expect(inspectAgentEndWhen(agent.endWhen)).toBe("api-call-ends");
+  });
+
+  it("labels a predicate as predicate", () => {
+    const adl = createTestRuntime();
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+      endWhen: ({ newMessages }) => newMessages.length === 0,
+    });
+    expect(inspectAgentEndWhen(agent.endWhen)).toBe("predicate");
   });
 });
 

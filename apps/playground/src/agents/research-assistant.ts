@@ -6,10 +6,9 @@ import { model } from "../model";
 import { knowledgeTools } from "../tools/knowledge";
 
 /**
- * Tool-using agent. Each `agent.run()` is a single AI SDK step, so the model either
- * emits tool calls (executed by the SDK) or final text. The multi-step tool loop is
- * driven by the `answer-question` workflow, which re-runs this agent until it produces
- * a final answer — ADL's "tool loops live in workflow TypeScript" design.
+ * Tool-using agent. `agent.run()` loops model requests until a reply ends with
+ * text (`endWhen: "ends-with-text"`). Pass `endWhen: "api-call-ends"` for one
+ * SDK step when a workflow wants to own the loop.
  */
 export const researchAssistant = adl.createAgent({
   id: "research-assistant",
@@ -19,5 +18,6 @@ export const researchAssistant = adl.createAgent({
     "Call tools when helpful, then give a concise final answer that cites what you found.",
   model,
   tools: knowledgeTools,
+  endWhen: "ends-with-text",
   titleWorkflow: conversationTitle,
 });

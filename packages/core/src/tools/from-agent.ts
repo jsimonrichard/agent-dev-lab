@@ -24,7 +24,7 @@ export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> =
 
 const defaultInputSchema: z.ZodType<DefaultToolInput> = z.object({}).catchall(z.unknown());
 
-/** Expose a single agent episode as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}. */
+/** Expose an agent turn as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}. */
 export function createToolFromAgent<
   Context,
   Tools extends ToolSet = ToolSet,

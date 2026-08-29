@@ -19,14 +19,14 @@ export function workflowRunStreamIsTerminal(event: CoreRunEvent): boolean {
   );
 }
 
-/** Standalone agent episode settled — not the end of a multi-episode tool loop. */
+/** Standalone agent turn settled. */
 export function agentRunStreamIsTerminal(event: CoreRunEvent): boolean {
   return event.type === "agent_finished" || event.type === "agent_failed";
 }
 
 /**
- * Close conversation SSE after the current episode has settled and the inspector
- * is not about to start another `agent.run()` on this scope (tool-loop continuation).
+ * Close conversation SSE after the current turn has settled and the inspector
+ * is not about to start another `agent.run()` on this scope.
  */
 export function shouldCloseAgentConversationStream(options: {
   sawTerminalEvent: boolean;

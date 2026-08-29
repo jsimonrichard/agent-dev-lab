@@ -279,7 +279,7 @@ export function linkAgentCallId(memoryScope: string, agentCallId: string): void 
   session.updatedAt = new Date().toISOString();
 }
 
-/** Mark a standalone chat as looping `agent.run()` until no more tool calls. */
+/** Mark a standalone chat as running `agent.run()` (including its tool loop). */
 export function setConversationTurnActive(memoryScope: string, active: boolean): void {
   if (active) {
     conversationTurnActive.add(memoryScope);

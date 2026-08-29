@@ -1,8 +1,19 @@
 export { createAgent } from "./create";
 export { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
 export type { AgentModelInfo } from "./inspect";
-export { countToolCallParts, DEFAULT_AGENT_IDLE_MAX_TURNS, runAgentUntilIdle } from "./tool-loop";
-export type { RunAgentUntilIdleOptions } from "./tool-loop";
+export {
+  AGENT_END_WHEN,
+  DEFAULT_AGENT_END_WHEN,
+  DEFAULT_AGENT_MAX_TURNS,
+  inspectAgentEndWhen,
+} from "./types";
+export {
+  countToolCallParts,
+  evaluateEndWhen,
+  hasAssistantText,
+  lastAssistantEndPart,
+} from "./end-when";
+export type { AssistantEndPart, EvaluateEndWhenOptions } from "./end-when";
 export {
   inspectSystemPrompt,
   inspectSystemPromptPath,
@@ -13,6 +24,10 @@ export {
 export type {
   Agent,
   AgentDefinition,
+  AgentEndWhen,
+  AgentEndWhenInput,
+  AgentEndWhenName,
+  AgentEndWhenPredicate,
   AgentSystemPrompt,
   AgentMemoryConfig,
   AgentRunHandle,

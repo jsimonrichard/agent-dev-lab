@@ -25,16 +25,23 @@ import {
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
 } from "./resolve-system-prompt";
-import type {
-  Agent,
-  AgentDefinition,
-  AgentRunHandle,
-  AgentRunInput,
-  AgentRunResult,
-  AgentStreamHandle,
-  AgentStreamInput,
-  AgentStreamResult,
+import { evaluateEndWhen } from "./end-when";
+import {
+  DEFAULT_AGENT_END_WHEN,
+  DEFAULT_AGENT_MAX_TURNS,
+  type Agent,
+  type AgentDefinition,
+  type AgentEndWhen,
+  type AgentRunHandle,
+  type AgentRunInput,
+  type AgentRunResult,
+  type AgentStreamHandle,
+  type AgentStreamInput,
+  type AgentStreamResult,
 } from "./types";
+
+type FullStreamPart =
+  StreamTextResult<ToolSet, unknown>["fullStream"] extends AsyncIterable<infer Part> ? Part : never;
 
 /**
  * Default agent implementation: definition plus resolved runtime services.
@@ -68,6 +75,14 @@ export class AgentImpl<
     return this.definition.titleWorkflow?.id ?? null;
   }
 
+  get endWhen(): AgentEndWhen {
+    return this.definition.endWhen ?? DEFAULT_AGENT_END_WHEN;
+  }
+
+  get maxTurns(): number {
+    return this.definition.maxTurns ?? DEFAULT_AGENT_MAX_TURNS;
+  }
+
   get systemPrompt(): Result<string, string> {
     return inspectSystemPrompt(this.definition.systemPrompt);
   }
@@ -79,10 +94,9 @@ export class AgentImpl<
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
-    const finished = this.executeEpisode({
+    const finished = this.executeTurn({
       input: input as AgentRunInput<unknown>,
       abortSignal: controller.signal,
-      exposeStream: false,
       agentCallId,
     });
     return {
@@ -95,49 +109,54 @@ export class AgentImpl<
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
-    const streamReady = Promise.withResolvers<StreamTextResult<Tools, TOutput>>();
+    const textChannel = createAsyncChannel<string>();
+    const fullChannel = createAsyncChannel<FullStreamPart>();
 
-    const finished = this.executeEpisode({
+    const finished = this.executeTurn({
       input: input as AgentRunInput<unknown>,
       abortSignal: controller.signal,
-      exposeStream: true,
       agentCallId,
-      onStreamReady: (stream) => streamReady.resolve(stream),
-    }).catch((error) => {
-      streamReady.reject(error);
-      throw error;
-    });
+      textChannel,
+      fullChannel,
+    })
+      .catch((error) => {
+        textChannel.fail(error);
+        fullChannel.fail(error);
+        throw error;
+      })
+      .finally(() => {
+        textChannel.close();
+        fullChannel.close();
+      });
 
     return {
       agentCallId,
-      textStream: lazyTextStream(
-        () => streamReady.promise as unknown as Promise<StreamTextResult<ToolSet, unknown>>,
-      ) as AgentStreamResult<Tools, TOutput>["textStream"],
-      fullStream: lazyFullStream(
-        () => streamReady.promise as unknown as Promise<StreamTextResult<ToolSet, unknown>>,
-      ) as AgentStreamResult<Tools, TOutput>["fullStream"],
+      textStream: textChannel as unknown as AgentStreamResult<Tools, TOutput>["textStream"],
+      fullStream: fullChannel as unknown as AgentStreamResult<Tools, TOutput>["fullStream"],
       finished,
       cancel: () => controller.abort(),
     } satisfies AgentStreamHandle<Tools, TOutput>;
   }
 
-  private async executeEpisode(options: {
+  private async executeTurn(options: {
     input: AgentRunInput<unknown>;
     abortSignal: AbortSignal;
-    exposeStream: boolean;
     agentCallId: string;
-    onStreamReady?: (stream: StreamTextResult<Tools, TOutput>) => void;
+    textChannel?: AsyncChannel<string>;
+    fullChannel?: AsyncChannel<FullStreamPart>;
   }): Promise<AgentRunResult<Tools, TOutput>> {
-    const { input, abortSignal, exposeStream, onStreamReady, agentCallId } = options;
+    const { input, abortSignal, agentCallId, textChannel, fullChannel } = options;
     const messageStore = this.services.stores.message;
 
     const scope = this.services.workflowContextScope;
     const activeCtx = scope.peek();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
+    const endWhen = input.endWhen ?? this.endWhen;
+    const maxTurns = endWhen === "api-call-ends" ? 1 : Math.max(1, input.maxTurns ?? this.maxTurns);
 
     return withActiveSpan(
-      "agent.episode",
+      "agent.turn",
       {
         "adl.agent_id": this.definition.id,
         "adl.agent_call_id": agentCallId,
@@ -177,7 +196,7 @@ export class AgentImpl<
 
           // Conversation turns only — system text is passed via `streamText({ system })`
           // and pinned as the first stored message on a new memoryScope.
-          const messages = [...storedTranscript, ...turnMessages].filter(
+          let messages: CoreMessage[] = [...storedTranscript, ...turnMessages].filter(
             (message) => message.role !== "system",
           );
           const system = systemForEpisode.trim() ? systemForEpisode : undefined;
@@ -192,99 +211,157 @@ export class AgentImpl<
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const telemetry = this.services.telemetry;
-          const streamResult = streamText({
-            model,
-            ...(system ? { system } : {}),
-            allowSystemInMessages: false,
-            tools: { ...this.services.tools, ...this.definition.tools },
-            messages,
-            experimental_context: input.context,
-            abortSignal,
-            stopWhen: stepCountIs(1),
-            experimental_telemetry: {
-              isEnabled: telemetry?.isEnabled !== false,
-              ...(telemetry?.recordInputs !== undefined
-                ? { recordInputs: telemetry.recordInputs }
-                : {}),
-              ...(telemetry?.recordOutputs !== undefined
-                ? { recordOutputs: telemetry.recordOutputs }
-                : {}),
-              functionId: telemetry?.functionId ?? this.definition.id,
-              metadata: {
-                "adl.agent_id": this.definition.id,
-                "adl.agent_call_id": agentCallId,
-                ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
-                ...(stepId ? { "adl.step_id": stepId } : {}),
-                ...telemetry?.metadata,
+          const allNewMessages: CoreMessage[] = [];
+          let lastText = "";
+          let lastOutput: TOutput | undefined;
+          let lastSdk: StreamTextResult<Tools, TOutput> | undefined;
+          let lastPersisted = storedMessages;
+          let turns = 0;
+
+          for (let turn = 0; turn < maxTurns; turn++) {
+            throwIfAborted(abortSignal);
+            const oldMessages = messages;
+            const streamResult = streamText({
+              model,
+              ...(system ? { system } : {}),
+              allowSystemInMessages: false,
+              tools: { ...this.services.tools, ...this.definition.tools },
+              messages: messages.filter(
+                (message): message is Exclude<CoreMessage, { role: "system" }> =>
+                  message.role !== "system",
+              ),
+              experimental_context: input.context,
+              abortSignal,
+              stopWhen: stepCountIs(1),
+              experimental_telemetry: {
+                isEnabled: telemetry?.isEnabled !== false,
+                ...(telemetry?.recordInputs !== undefined
+                  ? { recordInputs: telemetry.recordInputs }
+                  : {}),
+                ...(telemetry?.recordOutputs !== undefined
+                  ? { recordOutputs: telemetry.recordOutputs }
+                  : {}),
+                functionId: telemetry?.functionId ?? this.definition.id,
+                metadata: {
+                  "adl.agent_id": this.definition.id,
+                  "adl.agent_call_id": agentCallId,
+                  ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+                  ...(stepId ? { "adl.step_id": stepId } : {}),
+                  ...telemetry?.metadata,
+                },
               },
-            },
-            ...(outputSchema
-              ? {
-                  experimental_output: Output.object({
-                    schema: outputSchema as z.ZodType,
-                  }),
+              ...(outputSchema
+                ? {
+                    experimental_output: Output.object({
+                      schema: outputSchema as z.ZodType,
+                    }),
+                  }
+                : {}),
+              onChunk: ({ chunk }) => {
+                if (chunk.type === "text-delta" && "text" in chunk) {
+                  const delta = chunk.text;
+                  textChannel?.push(delta);
+                  void runRecorder.emit({
+                    type: "agent_text_delta",
+                    agentCallId,
+                    workflowRunId,
+                    stepId,
+                    delta,
+                  });
                 }
-              : {}),
-            onChunk: ({ chunk }) => {
-              if ("type" in chunk && chunk.type === "text-delta" && "text" in chunk) {
-                void runRecorder.emit({
-                  type: "agent_text_delta",
-                  agentCallId,
-                  workflowRunId,
-                  stepId,
-                  delta: chunk.text,
-                });
+                if (chunk.type === "tool-call") {
+                  void runRecorder.emit({
+                    type: "agent_tool_call",
+                    agentCallId,
+                    workflowRunId,
+                    stepId,
+                    agentId: this.definition.id,
+                    toolCallId: chunk.toolCallId,
+                    toolName: chunk.toolName,
+                  });
+                }
+                if (chunk.type === "tool-result") {
+                  void runRecorder.emit({
+                    type: "agent_tool_result",
+                    agentCallId,
+                    workflowRunId,
+                    stepId,
+                    agentId: this.definition.id,
+                    toolCallId: chunk.toolCallId,
+                    toolName: chunk.toolName,
+                    result: chunk.output,
+                  });
+                }
+              },
+            }) as unknown as StreamTextResult<Tools, TOutput>;
+
+            const structuredPromise = outputSchema
+              ? readStructuredOutputFromStream(
+                  streamResult as unknown as StreamTextResult<ToolSet, unknown>,
+                )
+              : undefined;
+
+            if (fullChannel) {
+              for await (const part of streamResult.fullStream as AsyncIterable<FullStreamPart>) {
+                fullChannel.push(part);
               }
-            },
-          }) as unknown as StreamTextResult<Tools, TOutput>;
+            } else {
+              await streamResult.text;
+            }
 
-          onStreamReady?.(streamResult);
+            const responseMessages = (await streamResult.response).messages as CoreMessage[];
+            const stepMessages = responseMessages.length > 0 ? responseMessages : [];
+            const conversationMessages =
+              stepMessages.length > 0 ? [...messages, ...stepMessages] : messages;
 
-          const structuredPromise = outputSchema
-            ? readStructuredOutputFromStream(
-                streamResult as unknown as StreamTextResult<ToolSet, unknown>,
-              )
-            : undefined;
+            const pinnedSystem =
+              storedSystemPrompt ??
+              (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
 
-          if (!exposeStream) {
-            await streamResult.text;
+            const persistedMessages =
+              stepMessages.length > 0
+                ? pinnedSystem
+                  ? withStoredSystemPrompt(pinnedSystem, conversationMessages)
+                  : conversationMessages
+                : lastPersisted;
+
+            if (stepMessages.length > 0) {
+              await messageStore.save(input.memoryScope, persistedMessages);
+              lastPersisted = persistedMessages;
+              allNewMessages.push(...stepMessages);
+              messages = conversationMessages;
+            }
+
+            await runRecorder.emit({
+              type: "agent_messages_committed",
+              agentCallId,
+              workflowRunId,
+              stepId,
+              memoryScope: input.memoryScope,
+              count: stepMessages.length,
+              total: persistedMessages.length,
+            });
+
+            lastText = await streamResult.text;
+            lastSdk = streamResult;
+            turns += 1;
+
+            const ended = evaluateEndWhen(stepMessages, {
+              aggregatedText: lastText,
+              endWhen,
+              messages,
+              oldMessages,
+            });
+            if (outputSchema && ended) {
+              lastOutput = outputSchema.parse(await structuredPromise) as TOutput;
+            } else {
+              lastOutput = lastText as TOutput;
+            }
+
+            if (ended) {
+              break;
+            }
           }
-
-          const responseMessages = (await streamResult.response).messages as CoreMessage[];
-          const newMessages = responseMessages.length > 0 ? responseMessages : [];
-          const conversationMessages =
-            newMessages.length > 0 ? [...messages, ...newMessages] : messages;
-
-          const pinnedSystem =
-            storedSystemPrompt ??
-            (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
-
-          const persistedMessages =
-            newMessages.length > 0
-              ? pinnedSystem
-                ? withStoredSystemPrompt(pinnedSystem, conversationMessages)
-                : conversationMessages
-              : storedMessages;
-
-          if (newMessages.length > 0) {
-            await messageStore.save(input.memoryScope, persistedMessages);
-          }
-
-          await runRecorder.emit({
-            type: "agent_messages_committed",
-            agentCallId,
-            workflowRunId,
-            stepId,
-            memoryScope: input.memoryScope,
-            count: newMessages.length,
-            total: persistedMessages.length,
-          });
-
-          const text = await streamResult.text;
-          const output = outputSchema
-            ? (outputSchema.parse(await structuredPromise) as TOutput)
-            : (text as TOutput);
-          const sdk = streamResult;
 
           if (!isGeneratingConversationTitle()) {
             await this.maybeSetConversationTitle({
@@ -294,7 +371,7 @@ export class AgentImpl<
               stepId,
               memoryScope: input.memoryScope,
               isFirstTurn: storedTranscript.length === 0 && turnMessages.length > 0,
-              messages: conversationMessages,
+              messages,
             });
           }
 
@@ -307,11 +384,12 @@ export class AgentImpl<
           });
 
           return {
-            text,
-            output,
-            messages: conversationMessages,
-            newMessages,
-            sdk,
+            text: lastText,
+            output: lastOutput as TOutput,
+            messages,
+            newMessages: allNewMessages,
+            turns,
+            sdk: lastSdk as StreamTextResult<Tools, TOutput>,
           };
         } catch (error) {
           await runRecorder.emit({
@@ -361,30 +439,79 @@ export class AgentImpl<
   }
 }
 
-function lazyTextStream(
-  getStream: () => Promise<StreamTextResult<ToolSet, unknown>>,
-): StreamTextResult<ToolSet, unknown>["textStream"] {
-  return {
-    async *[Symbol.asyncIterator]() {
-      const result = await getStream();
-      for await (const chunk of result.textStream) {
-        yield chunk;
-      }
-    },
-  } as unknown as StreamTextResult<ToolSet, unknown>["textStream"];
-}
+type AsyncChannel<T> = {
+  push(value: T): void;
+  close(): void;
+  fail(error: unknown): void;
+  [Symbol.asyncIterator](): AsyncGenerator<T, void, unknown>;
+};
 
-function lazyFullStream(
-  getStream: () => Promise<StreamTextResult<ToolSet, unknown>>,
-): StreamTextResult<ToolSet, unknown>["fullStream"] {
+function createAsyncChannel<T>(): AsyncChannel<T> {
+  const buffer: T[] = [];
+  const waiters: Array<{
+    resolve: (result: IteratorResult<T>) => void;
+    reject: (error: unknown) => void;
+  }> = [];
+  let closed = false;
+  let failure: unknown;
+
+  const settleWaiters = () => {
+    while (waiters.length > 0 && (buffer.length > 0 || closed)) {
+      const waiter = waiters.shift();
+      if (!waiter) {
+        break;
+      }
+      if (failure !== undefined) {
+        waiter.reject(failure);
+        continue;
+      }
+      if (buffer.length > 0) {
+        waiter.resolve({ value: buffer.shift() as T, done: false });
+        continue;
+      }
+      waiter.resolve({ value: undefined as T, done: true });
+    }
+  };
+
   return {
+    push(value: T) {
+      if (closed) {
+        return;
+      }
+      buffer.push(value);
+      settleWaiters();
+    },
+    close() {
+      closed = true;
+      settleWaiters();
+    },
+    fail(error: unknown) {
+      failure = error;
+      closed = true;
+      settleWaiters();
+    },
     async *[Symbol.asyncIterator]() {
-      const result = await getStream();
-      for await (const part of result.fullStream) {
-        yield part;
+      while (true) {
+        if (buffer.length > 0) {
+          yield buffer.shift() as T;
+          continue;
+        }
+        if (failure !== undefined) {
+          throw failure;
+        }
+        if (closed) {
+          return;
+        }
+        const result = await new Promise<IteratorResult<T>>((resolve, reject) => {
+          waiters.push({ resolve, reject });
+        });
+        if (result.done) {
+          return;
+        }
+        yield result.value;
       }
     },
-  } as unknown as StreamTextResult<ToolSet, unknown>["fullStream"];
+  };
 }
 
 /** AI SDK exposes structured stream output only via partialOutputStream on streamText. */

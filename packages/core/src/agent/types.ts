@@ -7,6 +7,51 @@ import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
+/**
+ * Named stop policies for {@link Agent.run} / {@link Agent.stream}.
+ *
+ * - `"ends-with-text"` (default): continue while the last user-facing assistant
+ *   part is a tool call, including preamble text followed by a tool call.
+ * - `"has-text"`: stop as soon as a request includes any user-facing text.
+ * - `"no-tool-calls"`: stop only when a request emits no tool calls.
+ * - `"api-call-ends"`: stop after this model request (one SDK step).
+ */
+export const AGENT_END_WHEN = [
+  "ends-with-text",
+  "has-text",
+  "no-tool-calls",
+  "api-call-ends",
+] as const;
+export type AgentEndWhenName = (typeof AGENT_END_WHEN)[number];
+
+/** Transcript snapshot passed to an {@link AgentEndWhenPredicate}. */
+export type AgentEndWhenInput = {
+  /** Conversation after this request (no pinned system message). */
+  messages: CoreMessage[];
+  /** Conversation as sent to this request (no pinned system message). */
+  oldMessages: CoreMessage[];
+  /** Assistant + tool messages produced by this request. */
+  newMessages: CoreMessage[];
+};
+
+/** Return `true` to stop making further model requests. */
+export type AgentEndWhenPredicate = (input: AgentEndWhenInput) => boolean;
+
+/**
+ * When {@link Agent.run} / {@link Agent.stream} stop making model requests.
+ * A named policy or a predicate over the full transcript, the messages sent
+ * to this request, and this request's new messages.
+ */
+export type AgentEndWhen = AgentEndWhenName | AgentEndWhenPredicate;
+export const DEFAULT_AGENT_END_WHEN: AgentEndWhenName = "ends-with-text";
+
+/** Inspector label for a resolved {@link AgentEndWhen}. */
+export function inspectAgentEndWhen(endWhen: AgentEndWhen): AgentEndWhenName | "predicate" {
+  return typeof endWhen === "function" ? "predicate" : endWhen;
+}
+/** Default cap on model requests per `agent.run()` / `agent.stream()`. */
+export const DEFAULT_AGENT_MAX_TURNS = 20;
+
 export type AgentSystemPrompt<TInput = unknown> = string | Template<TInput>;
 
 export type AgentMemoryConfig = {
@@ -35,6 +80,18 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> =
    * `TOutput` is `string` and `output` is the episode text.
    */
   outputSchema?: z.ZodType<TOutput>;
+  /**
+   * When this agent's `run` / `stream` stop making further model requests.
+   * Overridable per call via {@link AgentRunInput.endWhen}.
+   * Defaults to {@link DEFAULT_AGENT_END_WHEN}.
+   */
+  endWhen?: AgentEndWhen;
+  /**
+   * Maximum model requests per `run` / `stream` when looping.
+   * Ignored when the resolved `endWhen` is `"api-call-ends"`.
+   * Defaults to {@link DEFAULT_AGENT_MAX_TURNS}.
+   */
+  maxTurns?: number;
   memory?: AgentMemoryConfig;
   /**
    * Optional workflow that names the conversation after the first successful episode
@@ -62,6 +119,10 @@ export type AgentRunInput<Context = unknown> = {
   messages?: CoreMessage[];
   /** Per-episode override of the agent's `outputSchema`. */
   outputSchema?: z.ZodType<unknown>;
+  /** Per-call override of the agent's `endWhen`. */
+  endWhen?: AgentEndWhen;
+  /** Per-call override of the agent's `maxTurns`. */
+  maxTurns?: number;
   /**
    * When running inside a workflow, pass the current {@link WorkflowContext} ids
    * so agent events attach to the correct step. Omit for standalone episodes.
@@ -71,22 +132,24 @@ export type AgentRunInput<Context = unknown> = {
 };
 
 /**
- * Result of one agent episode (`agent.run` / `agent.stream`'s `finished` promise).
+ * Result of one `agent.run` / `agent.stream` turn (possibly several model requests).
  *
- * **`text`:** convenience mirror of the AI SDK's aggregated text for this episode
- * (`GenerateTextResult.text` / drained `streamText`). When the model returns tool calls,
- * assistant text may be empty or partial; use `messages` / `newMessages` for the full
- * transcript and `sdk` for raw SDK fields.
+ * **`text` / `output`:** the final model response. Intermediate tool-call requests
+ * are in `messages` / `newMessages` and as `agent_tool_call` / `agent_tool_result`
+ * events — not in `text`.
  *
- * **`output`:** typed episode payload. Inferred from {@link AgentDefinition.outputSchema}
+ * **`output`:** typed payload from {@link AgentDefinition.outputSchema}
  * (or a per-call override). When no schema is set, this is the same string as `text`.
  */
 export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   text: string;
   output: TOutput;
   messages: CoreMessage[];
+  /** All model/tool messages appended during this turn (every request). */
   newMessages: CoreMessage[];
-  /** Raw AI SDK stream result. The agent runner uses `streamText` internally for both `run` and `stream`. */
+  /** Number of model requests made during this turn. */
+  turns: number;
+  /** Raw AI SDK stream result of the last request. */
   sdk: StreamTextResult<Tools, TOutput>;
 };
 
@@ -140,6 +203,14 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out
    * Id of {@link AgentDefinition.titleWorkflow} when this agent auto-titles conversations.
    */
   readonly titleWorkflowId: string | null;
+  /**
+   * Resolved stop policy (`definition.endWhen`, or {@link DEFAULT_AGENT_END_WHEN}).
+   */
+  readonly endWhen: AgentEndWhen;
+  /**
+   * Resolved request cap (`definition.maxTurns`, or {@link DEFAULT_AGENT_MAX_TURNS}).
+   */
+  readonly maxTurns: number;
   /**
    * Live resolved system prompt from the agent definition (inspectors).
    * `{ isErr: true }` when the template cannot render (for example required Zod

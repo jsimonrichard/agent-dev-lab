@@ -1,6 +1,7 @@
 import {
   AdlError,
-  runAgentUntilIdle,
+  DEFAULT_AGENT_END_WHEN,
+  inspectAgentEndWhen,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type CoreMessage,
@@ -119,6 +120,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
+      endWhen: inspectAgentEndWhen(agent?.endWhen ?? DEFAULT_AGENT_END_WHEN),
       outputSchema: inspectAgentOutputSchema(agent),
       systemPrompt: agent?.systemPrompt ?? ok(""),
       systemPromptPath: agent?.systemPromptPath ?? null,
@@ -315,32 +317,18 @@ export async function startAgentTurn(options: {
   touchAgentSession(options.memoryScope);
   setConversationTurnActive(options.memoryScope, true);
 
-  let agentCallId: string | undefined;
-  const done = runAgentUntilIdle(
-    agent,
-    {
-      memoryScope: options.memoryScope,
-      user: options.user,
-      workflow: options.workflow,
-    },
-    {
-      onHandle: (handle) => {
-        agentCallId = handle.agentCallId;
-        linkAgentCallId(options.memoryScope, handle.agentCallId);
-        const linked = getAgentSessionByMemoryScope(options.memoryScope);
-        if (linked) {
-          void persistInspectorSession(linked);
-        }
-      },
-    },
-  );
-
-  if (!agentCallId) {
-    setConversationTurnActive(options.memoryScope, false);
-    throw new Error("Agent turn failed to start");
+  const handle = agent.run({
+    memoryScope: options.memoryScope,
+    user: options.user,
+    workflow: options.workflow,
+  });
+  linkAgentCallId(options.memoryScope, handle.agentCallId);
+  const linked = getAgentSessionByMemoryScope(options.memoryScope);
+  if (linked) {
+    void persistInspectorSession(linked);
   }
 
-  void done
+  void handle.result
     .catch((error) => {
       console.warn(`[adl-web] agent run failed for ${options.memoryScope}:`, error);
     })
@@ -348,7 +336,7 @@ export async function startAgentTurn(options: {
       setConversationTurnActive(options.memoryScope, false);
     });
 
-  return { agentCallId };
+  return { agentCallId: handle.agentCallId };
 }
 
 export async function forkAgentFromWorkflow(options: {

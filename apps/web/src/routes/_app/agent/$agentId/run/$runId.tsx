@@ -36,6 +36,7 @@ function AgentRunPage() {
     memoryMode: "custom",
     tools: [],
     titleWorkflowId: null,
+    endWhen: "ends-with-text",
     outputSchema: null,
     systemPrompt: ok(""),
     systemPromptPath: null,
