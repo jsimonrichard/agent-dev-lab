@@ -8,13 +8,13 @@ import {
   findEpisodeInTree,
   findStepInTree,
   resolveRunSelection,
-} from "@/lib/mock/run-projection";
+} from "@/lib/view-model/run-projection";
 import type {
   AgentEpisode,
-  MockRunSummary,
+  InspectorRunSummary,
   PrefetchedRunMessages,
   RunEvent,
-} from "@/lib/mock/types";
+} from "@/lib/view-model/types";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { ErrorIndicator } from "@/components/app/error-details";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
@@ -29,7 +29,7 @@ import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow-location";
 const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 
 interface RunWorkspaceProps {
-  summary: MockRunSummary;
+  summary: InspectorRunSummary;
   initialEvents: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
 }

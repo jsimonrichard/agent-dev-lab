@@ -5,7 +5,7 @@ import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { StartWorkflowButton } from "@/components/app/start-workflow-dialog";
-import type { RunStatus } from "@/lib/mock/types";
+import type { RunStatus } from "@/lib/view-model/types";
 import {
   parseWorkflowLocation,
   workflowRunLabel,

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import type { MockMessage, RunEvent } from "./mock/types";
+import type { InspectorMessage, RunEvent } from "./view-model/types";
 import { partitionScopeTranscript, splitTranscriptTurns } from "./scope-transcript";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
-function msg(id: string, role: MockMessage["role"], content: string): MockMessage {
+function msg(id: string, role: InspectorMessage["role"], content: string): InspectorMessage {
   return { id, role, content };
 }
 

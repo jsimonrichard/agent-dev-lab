@@ -5,15 +5,15 @@ import {
   collectToolCallIds,
   collectToolResults,
   conversationMessagesWithoutSystem,
-  coreMessageToMock,
-  mockMessageToCore,
+  coreMessageToInspector,
+  inspectorMessageToCore,
   parseStructuredJson,
   toChatDisplayItems,
 } from "./chat-messages";
 
-describe("coreMessageToMock", () => {
+describe("coreMessageToInspector", () => {
   it("keeps plain text user and assistant messages", () => {
-    expect(coreMessageToMock({ role: "user", content: "hello" }, 0)).toEqual({
+    expect(coreMessageToInspector({ role: "user", content: "hello" }, 0)).toEqual({
       id: "msg-0",
       role: "user",
       content: "hello",
@@ -36,7 +36,7 @@ describe("coreMessageToMock", () => {
       ],
     } as CoreMessage;
 
-    expect(coreMessageToMock(message, 2)).toEqual({
+    expect(coreMessageToInspector(message, 2)).toEqual({
       id: "msg-2",
       role: "assistant",
       content: "Looking that up.",
@@ -66,7 +66,7 @@ describe("coreMessageToMock", () => {
       ],
     } as CoreMessage;
 
-    expect(coreMessageToMock(message, 0).parts).toEqual([
+    expect(coreMessageToInspector(message, 0).parts).toEqual([
       {
         type: "tool-call",
         toolCallId: "call-1",
@@ -89,7 +89,7 @@ describe("coreMessageToMock", () => {
       ],
     } as CoreMessage;
 
-    expect(coreMessageToMock(message, 3).parts).toEqual([
+    expect(coreMessageToInspector(message, 3).parts).toEqual([
       {
         type: "tool-result",
         toolCallId: "call-1",
@@ -113,7 +113,7 @@ describe("coreMessageToMock", () => {
       ],
     } as CoreMessage;
 
-    expect(coreMessageToMock(message, 0).parts).toEqual([
+    expect(coreMessageToInspector(message, 0).parts).toEqual([
       {
         type: "tool-result",
         toolCallId: "call-9",
@@ -125,9 +125,9 @@ describe("coreMessageToMock", () => {
   });
 });
 
-describe("mockMessageToCore", () => {
+describe("inspectorMessageToCore", () => {
   it("round-trips a tool call plus result into AI SDK message shapes", () => {
-    const assistant = coreMessageToMock(
+    const assistant = coreMessageToInspector(
       {
         role: "assistant",
         content: [
@@ -141,7 +141,7 @@ describe("mockMessageToCore", () => {
       } as CoreMessage,
       0,
     );
-    const tool = coreMessageToMock(
+    const tool = coreMessageToInspector(
       {
         role: "tool",
         content: [
@@ -156,7 +156,7 @@ describe("mockMessageToCore", () => {
       1,
     );
 
-    expect(mockMessageToCore(assistant)).toEqual({
+    expect(inspectorMessageToCore(assistant)).toEqual({
       role: "assistant",
       content: [
         {
@@ -167,7 +167,7 @@ describe("mockMessageToCore", () => {
         },
       ],
     });
-    expect(mockMessageToCore(tool)).toEqual({
+    expect(inspectorMessageToCore(tool)).toEqual({
       role: "tool",
       content: [
         {
@@ -184,8 +184,8 @@ describe("mockMessageToCore", () => {
 describe("toChatDisplayItems", () => {
   it("splits mixed assistant turns into text, tool-call, and tool-result messages", () => {
     const messages = [
-      coreMessageToMock({ role: "user", content: "Find papers" }, 0),
-      coreMessageToMock(
+      coreMessageToInspector({ role: "user", content: "Find papers" }, 0),
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -195,14 +195,14 @@ describe("toChatDisplayItems", () => {
         } as CoreMessage,
         1,
       ),
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "tool",
           content: [{ type: "tool-result", toolCallId: "c1", toolName: "search", output: "ok" }],
         } as CoreMessage,
         2,
       ),
-      coreMessageToMock({ role: "assistant", content: "Here they are." }, 3),
+      coreMessageToInspector({ role: "assistant", content: "Here they are." }, 3),
     ];
 
     expect(toChatDisplayItems(messages)).toEqual([
@@ -231,7 +231,7 @@ describe("toChatDisplayItems", () => {
 
   it("splits text around an inlined tool call into separate messages", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -253,7 +253,7 @@ describe("toChatDisplayItems", () => {
 
   it("keeps multiple tool calls in one assistant message as separate rows", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -263,7 +263,7 @@ describe("toChatDisplayItems", () => {
         } as CoreMessage,
         0,
       ),
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "tool",
           content: [
@@ -286,7 +286,7 @@ describe("toChatDisplayItems", () => {
 
   it("marks a tool call pending when its result has not arrived", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [{ type: "tool-call", toolCallId: "c1", toolName: "search", input: {} }],
@@ -311,7 +311,7 @@ describe("toChatDisplayItems", () => {
 
   it("renders a hosted OpenAI web_search action as a pseudo tool-call", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -373,7 +373,7 @@ describe("toChatDisplayItems", () => {
 
   it("unwraps AI SDK result envelopes without dropping payload fields", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -401,7 +401,7 @@ describe("toChatDisplayItems", () => {
 
   it("does not treat a local tool result action as a hosted OpenAI action", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: [
@@ -432,7 +432,7 @@ describe("toChatDisplayItems", () => {
 
   it("renders assistant JSON objects as structured json items", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: JSON.stringify({
@@ -459,7 +459,7 @@ describe("toChatDisplayItems", () => {
 
   it("renders fenced assistant JSON as a structured json item", () => {
     const messages = [
-      coreMessageToMock(
+      coreMessageToInspector(
         {
           role: "assistant",
           content: '```json\n{"score":8,"verdict":"ship"}\n```',
@@ -480,9 +480,9 @@ describe("toChatDisplayItems", () => {
 
   it("keeps user JSON and invalid assistant JSON as text", () => {
     const messages = [
-      coreMessageToMock({ role: "user", content: '{"q":"hello"}' }, 0),
-      coreMessageToMock({ role: "assistant", content: "{not json" }, 1),
-      coreMessageToMock({ role: "assistant", content: "42" }, 2),
+      coreMessageToInspector({ role: "user", content: '{"q":"hello"}' }, 0),
+      coreMessageToInspector({ role: "assistant", content: "{not json" }, 1),
+      coreMessageToInspector({ role: "assistant", content: "42" }, 2),
     ];
 
     expect(toChatDisplayItems(messages).map((item) => item.type)).toEqual(["text", "text", "text"]);

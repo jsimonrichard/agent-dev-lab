@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { RunEvent } from "#/lib/mock/types";
+import type { RunEvent } from "#/lib/view-model/types";
 import { adaptCoreEventsForWorkflowRun } from "#/lib/event-adapter";
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 

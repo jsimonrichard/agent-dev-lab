@@ -1,4 +1,4 @@
-import type { AgentEpisode, RunStatus, StepNode, StepNodeStatus } from "@/lib/mock/types";
+import type { AgentEpisode, RunStatus, StepNode, StepNodeStatus } from "@/lib/view-model/types";
 
 export interface WaterfallScale {
   originMs: number;

@@ -1,4 +1,4 @@
-import type { MessagesByScope, RunEvent } from "@/lib/mock/types";
+import type { MessagesByScope, RunEvent } from "@/lib/view-model/types";
 
 export function memoryScopesFromEvents(events: RunEvent[]): string[] {
   const scopes: string[] = [];

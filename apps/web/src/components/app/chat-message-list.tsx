@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef } from "react";
 import type { Result } from "@agent-dev-lab/core/result";
 
 import { cn } from "@/lib/utils";
-import type { MockMessage } from "@/lib/mock/types";
+import type { InspectorMessage } from "@/lib/view-model/types";
 import { type ChatDisplayItem, parseStructuredJson, toChatDisplayItems } from "@/lib/chat-messages";
 import { ChatToolCall } from "@/components/app/chat-tool-call";
 import { ErrorDetails } from "@/components/app/error-details";
@@ -11,7 +11,7 @@ import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
 
 interface ChatMessageListProps {
-  messages: MockMessage[];
+  messages: InspectorMessage[];
   streamingText?: string | null;
   /** When false, streamed text stays visible but without the live "Streaming…" chrome. */
   isStreaming?: boolean;
@@ -262,7 +262,7 @@ function ChatBubble({
   structured = false,
   rowRef,
 }: {
-  role: MockMessage["role"];
+  role: InspectorMessage["role"];
   children: ReactNode;
   streaming?: boolean;
   compact?: boolean;

@@ -10,7 +10,7 @@ import {
   sendAgentMessage,
 } from "#/lib/inspector-server";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
-import type { MockAgentSummary, MockMessage, ResolvedAgentConversation } from "@/lib/mock/types";
+import type { InspectorAgentSummary, InspectorMessage, ResolvedAgentConversation } from "@/lib/view-model/types";
 import { messageIdsForAgentCall } from "@/lib/agent-call-focus";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 interface AgentRunWorkspaceProps {
-  agent: MockAgentSummary;
+  agent: InspectorAgentSummary;
   conversation: ResolvedAgentConversation;
   settings: AgentInspectorMeta;
   callId?: string;
@@ -46,7 +46,7 @@ export function AgentRunWorkspace({
   const navigate = useNavigate();
   const forkSession = conversation.forkSession;
   const workflowLink = conversation.workflowLink;
-  const [messages, setMessages] = useState<MockMessage[]>(() => conversation.messages);
+  const [messages, setMessages] = useState<InspectorMessage[]>(() => conversation.messages);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [forking, setForking] = useState(false);

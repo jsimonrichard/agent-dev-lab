@@ -1,6 +1,6 @@
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
-import type { JsonValue, RunEvent as UiRunEvent, RunStatus } from "#/lib/mock/types";
+import type { JsonValue, RunEvent as UiRunEvent, RunStatus } from "#/lib/view-model/types";
 
 /** Run inputs/outputs from the store are JSON-serialized; assert that at the UI boundary. */
 function asJson(value: unknown): JsonValue {

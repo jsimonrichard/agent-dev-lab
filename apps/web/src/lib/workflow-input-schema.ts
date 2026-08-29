@@ -1,5 +1,5 @@
 import type { WorkflowInputField, WorkflowInputFieldKind } from "#/lib/inspector-types";
-import type { JsonValue } from "#/lib/mock/types";
+import type { JsonValue } from "#/lib/view-model/types";
 
 /**
  * Walk a Zod schema without `instanceof` so it works across duplicate `zod` copies

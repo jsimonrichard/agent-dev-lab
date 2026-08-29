@@ -1,9 +1,9 @@
-import type { AgentEpisode, MockMessage, RunEvent } from "@/lib/mock/types";
+import type { AgentEpisode, InspectorMessage, RunEvent } from "@/lib/view-model/types";
 
 export type ScopeTranscriptPartition = {
-  prior: MockMessage[];
-  current: MockMessage[];
-  later: MockMessage[];
+  prior: InspectorMessage[];
+  current: InspectorMessage[];
+  later: InspectorMessage[];
 };
 
 export type ScopeTranscriptPartitionOptions = {
@@ -19,7 +19,7 @@ export type ScopeTranscriptPartitionOptions = {
  * context that call saw, and later turns from subsequent calls on the same scope.
  */
 export function partitionScopeTranscript(
-  messages: MockMessage[],
+  messages: InspectorMessage[],
   events: RunEvent[],
   episode: Pick<AgentEpisode, "episodeId" | "memoryScope">,
   options: ScopeTranscriptPartitionOptions = {},
@@ -32,7 +32,7 @@ export function partitionScopeTranscript(
 }
 
 function partitionByCommitTotals(
-  messages: MockMessage[],
+  messages: InspectorMessage[],
   events: RunEvent[],
   episode: Pick<AgentEpisode, "episodeId" | "memoryScope">,
   commitTotalOffset: number,
@@ -91,7 +91,7 @@ function partitionByCommitTotals(
 }
 
 function partitionByTurns(
-  messages: MockMessage[],
+  messages: InspectorMessage[],
   events: RunEvent[],
   episode: Pick<AgentEpisode, "episodeId" | "memoryScope">,
 ): ScopeTranscriptPartition {
@@ -114,9 +114,9 @@ function partitionByTurns(
 }
 
 /** One agent call is typically a user message plus the assistant/tool follow-through. */
-export function splitTranscriptTurns(messages: MockMessage[]): MockMessage[][] {
-  const turns: MockMessage[][] = [];
-  let current: MockMessage[] = [];
+export function splitTranscriptTurns(messages: InspectorMessage[]): InspectorMessage[][] {
+  const turns: InspectorMessage[][] = [];
+  let current: InspectorMessage[] = [];
   for (const message of messages) {
     if (message.role === "user" && current.length > 0) {
       turns.push(current);

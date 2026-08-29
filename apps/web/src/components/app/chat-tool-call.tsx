@@ -1,6 +1,6 @@
 import { ChevronRight, CircleAlert, CornerDownRight, Loader2, Wrench } from "lucide-react";
 
-import type { ChatToolCallPart, ChatToolResultPart } from "@/lib/mock/types";
+import type { ChatToolCallPart, ChatToolResultPart } from "@/lib/view-model/types";
 import { isEmptyToolArgs } from "@/lib/chat-messages";
 import { JsonPreview } from "@/components/app/json-preview";
 import { Badge } from "@/components/ui/badge";

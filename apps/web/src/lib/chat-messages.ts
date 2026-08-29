@@ -5,8 +5,8 @@ import type {
   ChatToolCallPart,
   ChatToolResultPart,
   JsonValue,
-  MockMessage,
-} from "./mock/types";
+  InspectorMessage,
+} from "./view-model/types";
 
 type UnknownPart = {
   type?: unknown;
@@ -23,7 +23,7 @@ type UnknownPart = {
   providerExecuted?: unknown;
 };
 
-export function messageParts(message: MockMessage): ChatMessagePart[] {
+export function messageParts(message: InspectorMessage): ChatMessagePart[] {
   if (message.parts && message.parts.length > 0) {
     return message.parts;
   }
@@ -38,7 +38,7 @@ export function messageText(parts: ChatMessagePart[]): string {
 }
 
 /** Pinned system prompt from the first stored message, when present. */
-export function extractSystemPromptFromMessages(messages: MockMessage[]): string | null {
+export function extractSystemPromptFromMessages(messages: InspectorMessage[]): string | null {
   const first = messages[0];
   if (!first || first.role !== "system") {
     return null;
@@ -48,7 +48,7 @@ export function extractSystemPromptFromMessages(messages: MockMessage[]): string
 }
 
 /** Transcript rows excluding pinned and stray system messages. */
-export function conversationMessagesWithoutSystem(messages: MockMessage[]): MockMessage[] {
+export function conversationMessagesWithoutSystem(messages: InspectorMessage[]): InspectorMessage[] {
   const rest = messages[0]?.role === "system" ? messages.slice(1) : messages;
   return rest.filter((message) => message.role !== "system");
 }
@@ -58,7 +58,7 @@ export function conversationMessagesWithoutSystem(messages: MockMessage[]): Mock
  * the assistant reply (avoids a gap when `isRunning` flips false before refresh).
  */
 export function shouldShowStreamingAssistant(
-  messages: MockMessage[],
+  messages: InspectorMessage[],
   streamingText: string | undefined | null,
   options: { isRunning: boolean; sending: boolean },
 ): boolean {
@@ -73,9 +73,9 @@ export function shouldShowStreamingAssistant(
 
 /** Prefer fresher local optimistic rows over a stale loader snapshot. */
 export function mergeConversationMessages(
-  local: MockMessage[],
-  fromLoader: MockMessage[],
-): MockMessage[] {
+  local: InspectorMessage[],
+  fromLoader: InspectorMessage[],
+): InspectorMessage[] {
   if (fromLoader.length > local.length) {
     return fromLoader;
   }
@@ -97,9 +97,9 @@ export function mergeConversationMessages(
 
 /** Keep stable React keys for optimistic user rows after refresh. */
 export function reconcileFetchedMessages(
-  fetched: MockMessage[],
-  local: MockMessage[],
-): MockMessage[] {
+  fetched: InspectorMessage[],
+  local: InspectorMessage[],
+): InspectorMessage[] {
   const pendingUsers = local.filter(
     (message) => message.role === "user" && message.id.startsWith("pending-"),
   );
@@ -126,7 +126,7 @@ export function reconcileFetchedMessages(
   });
 }
 
-export function collectToolResults(messages: MockMessage[]): Map<string, ChatToolResultPart> {
+export function collectToolResults(messages: InspectorMessage[]): Map<string, ChatToolResultPart> {
   const results = new Map<string, ChatToolResultPart>();
   for (const message of messages) {
     for (const part of messageParts(message)) {
@@ -138,7 +138,7 @@ export function collectToolResults(messages: MockMessage[]): Map<string, ChatToo
   return results;
 }
 
-export function collectToolCallIds(messages: MockMessage[]): Set<string> {
+export function collectToolCallIds(messages: InspectorMessage[]): Set<string> {
   const ids = new Set<string>();
   for (const message of messages) {
     for (const part of messageParts(message)) {
@@ -153,14 +153,14 @@ export function collectToolCallIds(messages: MockMessage[]): Set<string> {
 export type ChatDisplayTextItem = {
   type: "text";
   key: string;
-  role: MockMessage["role"];
+  role: InspectorMessage["role"];
   text: string;
 };
 
 export type ChatDisplayJsonItem = {
   type: "json";
   key: string;
-  role: MockMessage["role"];
+  role: InspectorMessage["role"];
   value: unknown;
 };
 
@@ -217,7 +217,7 @@ export function parseStructuredJson(text: string): unknown | undefined {
  * Flatten stored messages into transcript rows so tool calls and tool results
  * render as their own messages instead of nesting inside assistant bubbles.
  */
-export function toChatDisplayItems(messages: MockMessage[]): ChatDisplayItem[] {
+export function toChatDisplayItems(messages: InspectorMessage[]): ChatDisplayItem[] {
   const resultsById = collectToolResults(messages);
   const items: ChatDisplayItem[] = [];
 
@@ -278,8 +278,8 @@ export function toChatDisplayItems(messages: MockMessage[]): ChatDisplayItem[] {
   return items;
 }
 
-export function coreMessageToMock(message: CoreMessage, index: number): MockMessage {
-  const role: MockMessage["role"] =
+export function coreMessageToInspector(message: CoreMessage, index: number): InspectorMessage {
+  const role: InspectorMessage["role"] =
     message.role === "system" ||
     message.role === "user" ||
     message.role === "assistant" ||
@@ -295,7 +295,7 @@ export function coreMessageToMock(message: CoreMessage, index: number): MockMess
   };
 }
 
-export function mockMessageToCore(message: MockMessage): CoreMessage {
+export function inspectorMessageToCore(message: InspectorMessage): CoreMessage {
   const parts = messageParts(message);
 
   if (message.role === "tool") {
@@ -474,7 +474,7 @@ function firstNonEmptyArgs(...candidates: unknown[]): JsonValue {
   return asJsonValue(candidates.find((value) => value !== undefined) ?? {});
 }
 
-function findToolCall(messages: MockMessage[], toolCallId: string): ChatToolCallPart | undefined {
+function findToolCall(messages: InspectorMessage[], toolCallId: string): ChatToolCallPart | undefined {
   for (const message of messages) {
     for (const part of messageParts(message)) {
       if (part.type === "tool-call" && part.toolCallId === toolCallId) {

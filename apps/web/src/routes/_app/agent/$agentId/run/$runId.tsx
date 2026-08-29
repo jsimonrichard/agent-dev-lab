@@ -6,7 +6,7 @@ import { AgentRunWorkspace } from "@/components/app/agent-run-workspace";
 import { fetchAgentConversation } from "#/lib/inspector-server";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { parseAgentRunSearch } from "@/lib/agent-location";
-import type { MockAgentSummary } from "@/lib/mock/types";
+import type { InspectorAgentSummary } from "@/lib/view-model/types";
 
 export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
   component: AgentRunPage,
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/agent/$agentId/run/$runId")({
     if (!conversation || conversation.agentId !== params.agentId) {
       throw notFound();
     }
-    const agent: MockAgentSummary = {
+    const agent: InspectorAgentSummary = {
       id: conversation.agentId,
       description: `Agent ${conversation.agentId} from project registry`,
     };

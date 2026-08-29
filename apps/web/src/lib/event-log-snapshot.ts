@@ -1,6 +1,6 @@
 import type { LoggedRunEvent } from "@agent-dev-lab/core";
 
-import type { JsonValue } from "#/lib/mock/types";
+import type { JsonValue } from "#/lib/view-model/types";
 
 /**
  * JSON-cloned log row for TanStack Start loaders. Core `RunEvent.input` is `unknown`,

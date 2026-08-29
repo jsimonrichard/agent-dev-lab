@@ -6,7 +6,7 @@ import {
   memoryScopesFromEvents,
   overlayNewerThanPrefetch,
 } from "@/lib/run-messages";
-import type { MessagesByScope, PrefetchedRunMessages, RunEvent } from "@/lib/mock/types";
+import type { MessagesByScope, PrefetchedRunMessages, RunEvent } from "@/lib/view-model/types";
 
 export function useLiveRunMessages(
   runId: string,

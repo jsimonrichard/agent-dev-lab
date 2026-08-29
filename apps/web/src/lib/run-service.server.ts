@@ -14,7 +14,7 @@ import { ok } from "@agent-dev-lab/core/result";
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getAdlRuntime, getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
 import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent-tools";
-import { coreMessageToMock, mockMessageToCore } from "#/lib/chat-messages";
+import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector-types";
 import { persistInspectorSession } from "#/lib/inspector-session-persist.server";
@@ -40,7 +40,7 @@ import {
   formatInputPreview,
   mapWorkflowRunStatus,
 } from "#/lib/event-adapter";
-import type { MockRunSummary, MockMessage } from "#/lib/mock/types";
+import type { InspectorRunSummary, InspectorMessage } from "#/lib/view-model/types";
 import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow-input-schema";
 
 export type { ProjectInspectorMeta };
@@ -140,12 +140,12 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
   };
 }
 
-export async function listWorkflowRunSummaries(): Promise<MockRunSummary[]> {
+export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]> {
   const project = await getLoadedAdlProject();
   const listedWorkflowIds = new Set(project.listWorkflowIds());
   const store = await getWorkflowStore();
   const runs = await store.listRuns();
-  const summaries: MockRunSummary[] = [];
+  const summaries: InspectorRunSummary[] = [];
 
   for (const run of runs) {
     if (!listedWorkflowIds.has(run.workflowId)) {
@@ -166,7 +166,7 @@ export async function listWorkflowRunSummaries(): Promise<MockRunSummary[]> {
   return summaries.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
-export async function getWorkflowRunSummary(runId: string): Promise<MockRunSummary | null> {
+export async function getWorkflowRunSummary(runId: string): Promise<InspectorRunSummary | null> {
   const store = await getWorkflowStore();
   const run = await store.getRun(runId);
   if (!run) {
@@ -263,14 +263,14 @@ export async function getAgentRunEvents(agentCallId: string): Promise<CoreRunEve
   return store.listEvents({ agentCallId });
 }
 
-export async function loadMessagesForScope(memoryScope: string): Promise<MockMessage[]> {
+export async function loadMessagesForScope(memoryScope: string): Promise<InspectorMessage[]> {
   const store = await getMessageStore();
   const messages = await store.load(memoryScope);
-  return messages.map((message, index) => coreMessageToMock(message, index));
+  return messages.map((message, index) => coreMessageToInspector(message, index));
 }
 
 export async function loadMessagesForWorkflowRun(runId: string): Promise<{
-  messagesByScope: Record<string, MockMessage[]>;
+  messagesByScope: Record<string, InspectorMessage[]>;
   eventSeq: number;
 }> {
   const events = await getWorkflowRunEvents(runId);
@@ -286,7 +286,7 @@ export async function loadMessagesForWorkflowRun(runId: string): Promise<{
   const entries = await Promise.all(
     [...scopes].map(async (scope) => {
       const messages = await store.load(scope);
-      return [scope, messages.map((message, index) => coreMessageToMock(message, index))] as const;
+      return [scope, messages.map((message, index) => coreMessageToInspector(message, index))] as const;
     }),
   );
 
@@ -346,12 +346,12 @@ export async function forkAgentFromWorkflow(options: {
   sourceStepId: string;
   sourceEpisodeId: string;
   sourceMemoryScope: string;
-  messages: MockMessage[];
+  messages: InspectorMessage[];
 }): Promise<{ memoryScope: string }> {
   const memoryScope = createMemoryScope();
   const messageStore = await getMessageStore();
 
-  const coreMessages: CoreMessage[] = options.messages.map(mockMessageToCore);
+  const coreMessages: CoreMessage[] = options.messages.map(inspectorMessageToCore);
   const fromPayload = splitStoredSystemPrompt(coreMessages);
   const sourceStored = await messageStore.load(options.sourceMemoryScope);
   const sourcePin = splitStoredSystemPrompt(sourceStored);

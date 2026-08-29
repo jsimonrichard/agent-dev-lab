@@ -1,6 +1,6 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 
-import type { MockMessage } from "#/lib/mock/types";
+import type { InspectorMessage } from "#/lib/view-model/types";
 
 import {
   forkAgentFromWorkflow,
@@ -121,7 +121,7 @@ export const forkAgentConversation = createServerFn({ method: "POST" })
       sourceStepId: string;
       sourceEpisodeId: string;
       sourceMemoryScope: string;
-      messages: MockMessage[];
+      messages: InspectorMessage[];
     }) => payload,
   )
   .handler(async ({ data }) => {

@@ -1,14 +1,14 @@
 import { getRouteApi } from "@tanstack/react-router";
 
 import type { AgentSession } from "#/lib/agent-sessions";
-import type { MockRunSummary } from "#/lib/mock/types";
+import type { InspectorRunSummary } from "#/lib/view-model/types";
 import type { ProjectInspectorMeta } from "#/lib/inspector-types";
 
 const appRoute = getRouteApi("/_app");
 
 export type AppLoaderData = {
   project: ProjectInspectorMeta;
-  runs: MockRunSummary[];
+  runs: InspectorRunSummary[];
   sessions: AgentSession[];
 };
 

@@ -1,6 +1,6 @@
 import type { Result } from "@agent-dev-lab/core/result";
 
-import type { JsonValue } from "#/lib/mock/types";
+import type { JsonValue } from "#/lib/view-model/types";
 
 /** Client-safe inspector project metadata (no Node / core runtime imports). */
 export interface ProjectInspectorMeta {

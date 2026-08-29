@@ -15,8 +15,8 @@ import { ChevronRight, GitBranch, Layers, Loader2, MessageSquare } from "lucide-
 import { ErrorDetails, ErrorIndicator } from "@/components/app/error-details";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/mock/run-projection";
-import type { AgentEpisode, RunViewState, StepNode, StepNodeStatus } from "@/lib/mock/types";
+import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/view-model/run-projection";
+import type { AgentEpisode, RunViewState, StepNode, StepNodeStatus } from "@/lib/view-model/types";
 import { cn } from "@/lib/utils";
 import {
   computeSpanWaterfallBar,

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { RunStatus } from "@/lib/mock/types";
+import type { RunStatus } from "@/lib/view-model/types";
 
 const variantByStatus: Record<RunStatus, "default" | "secondary" | "destructive" | "outline"> = {
   running: "default",

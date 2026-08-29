@@ -7,7 +7,7 @@ import type {
   RunEvent,
   RunStatus,
   StepNode,
-} from "@/lib/mock/types";
+} from "@/lib/view-model/types";
 import { ChatMessageList, SystemPromptBanner } from "@/components/app/chat-message-list";
 import { ConversationSkeleton } from "@/components/app/conversation-skeleton";
 import { agentRunSearch } from "@/lib/agent-location";
@@ -20,7 +20,7 @@ import {
 } from "@/components/app/inspector-stack";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatStepLabel } from "@/lib/mock/run-projection";
+import { formatStepLabel } from "@/lib/view-model/run-projection";
 import {
   extractSystemPromptFromMessages,
   conversationMessagesWithoutSystem,

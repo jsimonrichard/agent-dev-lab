@@ -1,4 +1,4 @@
-/** UI view-model shapes aligned with notes/streaming-api.md and workflow-api.md. */
+/** Production inspector UI view-model shapes (not test fixtures). */
 
 /** JSON-serializable value — used for fields crossing the server-function boundary. */
 export type JsonValue =
@@ -13,7 +13,7 @@ export type RunStatus = "running" | "completed" | "failed" | "cancelled";
 
 export type DevMode = "framework-dev" | "project-dev" | "serve";
 
-export interface MockProject {
+export interface InspectorProject {
   name: string;
   root: string;
   configPath: string;
@@ -23,17 +23,17 @@ export interface MockProject {
   agentIds: string[];
 }
 
-export interface MockWorkflowSummary {
+export interface InspectorWorkflowSummary {
   id: string;
   description: string;
 }
 
-export interface MockAgentSummary {
+export interface InspectorAgentSummary {
   id: string;
   description: string;
 }
 
-export interface MockRunSummary {
+export interface InspectorRunSummary {
   runId: string;
   workflowId: string;
   status: RunStatus;
@@ -205,11 +205,11 @@ export interface ForkedAgentSession {
   sourceEpisodeId: string;
   sourceMemoryScope: string;
   createdAt: string;
-  messages: MockMessage[];
+  messages: InspectorMessage[];
 }
 
 /** Standalone agent chat listed in the agent sidebar (mock). */
-export interface MockAgentConversation {
+export interface InspectorAgentConversation {
   runId: string;
   agentId: string;
   title: string;
@@ -231,7 +231,7 @@ export interface ResolvedAgentConversation {
   runId: string;
   agentId: string;
   title: string;
-  messages: MockMessage[];
+  messages: InspectorMessage[];
   /** Latest agent call on this conversation, when one has started. */
   latestAgentCallId: string | null;
   forkSession: ForkedAgentSession | null;
@@ -278,7 +278,7 @@ export type ChatToolResultPart = {
 
 export type ChatMessagePart = ChatTextPart | ChatToolCallPart | ChatToolResultPart;
 
-export interface MockMessage {
+export interface InspectorMessage {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -286,7 +286,7 @@ export interface MockMessage {
 }
 
 /** Transcripts keyed by agent `memoryScope`, prefetched per workflow run. */
-export type MessagesByScope = Record<string, MockMessage[]>;
+export type MessagesByScope = Record<string, InspectorMessage[]>;
 
 export interface PrefetchedRunMessages {
   messagesByScope: MessagesByScope;
@@ -297,5 +297,5 @@ export interface PrefetchedRunMessages {
 export interface MockConversation {
   memoryScope: string;
   agentId: string;
-  messages: MockMessage[];
+  messages: InspectorMessage[];
 }
