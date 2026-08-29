@@ -19,8 +19,10 @@ import type { RuntimeServices } from "../runtime/types";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import {
+  formatSystemPromptConflictWarning,
   inspectSystemPrompt,
   inspectSystemPromptPath,
+  resolveEpisodeSystemPrompt,
   resolveSystemPromptText,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
@@ -94,13 +96,16 @@ export class AgentImpl<
   run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
+    const memoryScope = resolveMemoryScope(input.memoryScope);
     const finished = this.executeTurn({
-      input: input as AgentRunInput<unknown>,
+      input: { ...(input as AgentRunInput<unknown>), memoryScope },
       abortSignal: controller.signal,
       agentCallId,
+      memoryScope,
     });
     return {
       agentCallId,
+      memoryScope,
       result: finished,
       cancel: () => controller.abort(),
     } satisfies AgentRunHandle<Tools, TOutput>;
@@ -109,13 +114,15 @@ export class AgentImpl<
   stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
+    const memoryScope = resolveMemoryScope(input.memoryScope);
     const textChannel = createAsyncChannel<string>();
     const fullChannel = createAsyncChannel<FullStreamPart>();
 
     const finished = this.executeTurn({
-      input: input as AgentRunInput<unknown>,
+      input: { ...(input as AgentRunInput<unknown>), memoryScope },
       abortSignal: controller.signal,
       agentCallId,
+      memoryScope,
       textChannel,
       fullChannel,
     })
@@ -131,6 +138,7 @@ export class AgentImpl<
 
     return {
       agentCallId,
+      memoryScope,
       textStream: textChannel as unknown as AgentStreamResult<Tools, TOutput>["textStream"],
       fullStream: fullChannel as unknown as AgentStreamResult<Tools, TOutput>["fullStream"],
       finished,
@@ -139,13 +147,14 @@ export class AgentImpl<
   }
 
   private async executeTurn(options: {
-    input: AgentRunInput<unknown>;
+    input: AgentRunInput<unknown> & { memoryScope: string };
     abortSignal: AbortSignal;
     agentCallId: string;
+    memoryScope: string;
     textChannel?: AsyncChannel<string>;
     fullChannel?: AsyncChannel<FullStreamPart>;
   }): Promise<AgentRunResult<Tools, TOutput>> {
-    const { input, abortSignal, agentCallId, textChannel, fullChannel } = options;
+    const { input, abortSignal, agentCallId, memoryScope, textChannel, fullChannel } = options;
     const messageStore = this.services.stores.message;
 
     const scope = this.services.workflowContextScope;
@@ -160,7 +169,7 @@ export class AgentImpl<
       {
         "adl.agent_id": this.definition.id,
         "adl.agent_call_id": agentCallId,
-        "adl.memory_scope": input.memoryScope,
+        "adl.memory_scope": memoryScope,
         ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
         ...(stepId ? { "adl.step_id": stepId } : {}),
       },
@@ -173,14 +182,17 @@ export class AgentImpl<
           workflowRunId,
           stepId,
           agentId: this.definition.id,
-          memoryScope: input.memoryScope,
+          memoryScope,
         });
 
         try {
           throwIfAborted(abortSignal);
-          const storedMessages = await messageStore.load(input.memoryScope);
-          const { systemPrompt: storedSystemPrompt, transcript: storedTranscript } =
-            splitStoredSystemPrompt(storedMessages);
+          const storedMessages = await messageStore.load(memoryScope);
+          const {
+            systemPrompt: storedSystemPrompt,
+            agentId: storedAgentId,
+            transcript: storedTranscript,
+          } = splitStoredSystemPrompt(storedMessages);
           const isNewConversation = storedMessages.length === 0;
 
           const turnMessages: CoreMessage[] = [];
@@ -192,7 +204,24 @@ export class AgentImpl<
           }
 
           const currentSystemPrompt = resolveSystemPromptText(this.definition.systemPrompt);
-          const systemForEpisode = storedSystemPrompt ?? currentSystemPrompt;
+          const strategy = input.systemPromptConflict ?? "keep-pinned";
+          const { systemPrompt: systemForEpisode, conflict } = resolveEpisodeSystemPrompt({
+            storedSystemPrompt,
+            currentSystemPrompt,
+            storedAgentId,
+            currentAgentId: this.definition.id,
+            strategy,
+          });
+          if (conflict && !input.suppressSystemPromptConflictWarning) {
+            console.warn(
+              formatSystemPromptConflictWarning({
+                agentId: this.definition.id,
+                scopeAgentId: storedAgentId ?? "unknown",
+                memoryScope,
+                strategy,
+              }),
+            );
+          }
 
           // Conversation turns only — system text is passed via `streamText({ system })`
           // and pinned as the first stored message on a new memoryScope.
@@ -321,12 +350,14 @@ export class AgentImpl<
             const persistedMessages =
               stepMessages.length > 0
                 ? pinnedSystem
-                  ? withStoredSystemPrompt(pinnedSystem, conversationMessages)
+                  ? withStoredSystemPrompt(pinnedSystem, conversationMessages, {
+                      agentId: storedAgentId ?? this.definition.id,
+                    })
                   : conversationMessages
                 : lastPersisted;
 
             if (stepMessages.length > 0) {
-              await messageStore.save(input.memoryScope, persistedMessages);
+              await messageStore.save(memoryScope, persistedMessages);
               lastPersisted = persistedMessages;
               allNewMessages.push(...stepMessages);
               messages = conversationMessages;
@@ -337,7 +368,7 @@ export class AgentImpl<
               agentCallId,
               workflowRunId,
               stepId,
-              memoryScope: input.memoryScope,
+              memoryScope,
               count: stepMessages.length,
               total: persistedMessages.length,
             });
@@ -369,7 +400,7 @@ export class AgentImpl<
               agentCallId,
               workflowRunId,
               stepId,
-              memoryScope: input.memoryScope,
+              memoryScope,
               isFirstTurn: storedTranscript.length === 0 && turnMessages.length > 0,
               messages,
             });
@@ -389,6 +420,7 @@ export class AgentImpl<
             messages,
             newMessages: allNewMessages,
             turns,
+            memoryScope,
             sdk: lastSdk as StreamTextResult<Tools, TOutput>,
           };
         } catch (error) {
@@ -527,4 +559,9 @@ async function readStructuredOutputFromStream(
     return undefined;
   }
   return last;
+}
+
+function resolveMemoryScope(memoryScope: string | undefined): string {
+  const trimmed = memoryScope?.trim();
+  return trimmed ? trimmed : createId();
 }

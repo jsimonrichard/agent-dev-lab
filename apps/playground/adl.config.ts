@@ -2,13 +2,14 @@ import type { AdlProjectConfig, Agent, ToolSet } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
 
-import { editor, outliner, researchAssistant, writer } from "./src/agents";
+import { drafter, editor, outliner, researchAssistant, reviser, writer } from "./src/agents";
 import { critic } from "./src/agents/critic";
 import { researcher } from "./src/agents/researcher";
 import { promptTemplates } from "./src/prompts";
 import { answerQuestion } from "./src/workflows/answer-question";
 import { demoCounter } from "./src/workflows/demo-counter";
 import { literatureReview } from "./src/workflows/literature-review";
+import { sharedScope } from "./src/workflows/shared-scope";
 import { writeArticle } from "./src/workflows/write-article";
 
 // Agents with a concrete `tools` shape are invariant in `Tools`, so widen to the
@@ -17,6 +18,8 @@ const agents: Agent<unknown, ToolSet, unknown>[] = [
   outliner,
   writer,
   editor,
+  drafter,
+  reviser,
   researchAssistant as unknown as Agent<unknown, ToolSet, unknown>,
   researcher,
   critic,
@@ -32,6 +35,6 @@ export default {
   name: "playground",
   adl,
   agents,
-  workflows: [demoCounter, writeArticle, answerQuestion, literatureReview],
+  workflows: [demoCounter, writeArticle, answerQuestion, literatureReview, sharedScope],
   templates: promptTemplates,
 } satisfies AdlProjectConfig;

@@ -31,8 +31,10 @@ export {
   hasAssistantText,
   lastAssistantEndPart,
   inspectLanguageModel,
+  formatSystemPromptConflictWarning,
   inspectSystemPrompt,
   inspectSystemPromptPath,
+  resolveEpisodeSystemPrompt,
   resolveSystemPromptText,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
@@ -60,6 +62,9 @@ export type {
   ConversationTitleOutput,
   AssistantEndPart,
   EvaluateEndWhenOptions,
+  ResolveEpisodeSystemPromptInput,
+  ResolveEpisodeSystemPromptResult,
+  SystemPromptConflictStrategy,
 } from "./agent";
 
 export { createWorkflow } from "./workflow";

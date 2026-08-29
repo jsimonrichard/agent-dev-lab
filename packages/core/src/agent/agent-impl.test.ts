@@ -1,8 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import type { CoreMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
 
 import { createTestRuntime } from "../runtime/create-test";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
+
+function flattenText(message: CoreMessage): string {
+  if (typeof message.content === "string") {
+    return message.content;
+  }
+  return message.content
+    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .map((part) => part.text)
+    .join("");
+}
 
 function mockTextModel(text = "briefing") {
   return new MockLanguageModelV2({
@@ -208,14 +219,259 @@ describe("AgentImpl shared memoryScope commits", () => {
     });
     await agentV1.run({ memoryScope: "notes", user: "first" }).result;
 
-    const agentV2 = adl.createAgent({
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+
+    try {
+      const agentV2 = adl.createAgent({
+        id: "researcher",
+        systemPrompt: "Live prompt B",
+      });
+      await agentV2.run({ memoryScope: "notes", user: "second" }).result;
+
+      const stored = await adl.services.stores.message.load("notes");
+      expect(stored[0]).toEqual({
+        role: "system",
+        content: "Pinned prompt A",
+        providerOptions: { adl: { agentId: "researcher" } },
+      });
+      expect(warnings.some((warning) => warning.includes("pinned"))).toBe(false);
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+});
+
+describe("AgentImpl optional memoryScope and messages", () => {
+  it("accepts an explicit message list and allocates a random scope when omitted", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
       id: "researcher",
-      systemPrompt: "Live prompt B",
+      systemPrompt: "Be brief.",
     });
-    await agentV2.run({ memoryScope: "notes", user: "second" }).result;
+
+    const handle = agent.run({
+      messages: [{ role: "user", content: "from messages" }],
+    });
+    const result = await handle.result;
+
+    expect(handle.memoryScope).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(result.memoryScope).toBe(handle.memoryScope);
+    expect(result.messages.some((message) => message.content === "from messages")).toBe(true);
+    const stored = await adl.services.stores.message.load(handle.memoryScope);
+    expect(stored[0]).toEqual({
+      role: "system",
+      content: "Be brief.",
+      providerOptions: { adl: { agentId: "researcher" } },
+    });
+  });
+
+  it("does not share history across calls that omit memoryScope", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    const first = await agent.run({ user: "first" }).result;
+    const second = await agent.run({ user: "second" }).result;
+
+    expect(first.memoryScope).not.toBe(second.memoryScope);
+    expect(second.messages.some((message) => message.content === "first")).toBe(false);
+  });
+
+  it("appends an explicit message list onto an existing memoryScope", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    await agent.run({ memoryScope: "notes", user: "first" }).result;
+    const result = await agent.run({
+      memoryScope: "notes",
+      messages: [
+        { role: "user", content: "injected user" },
+        { role: "assistant", content: "injected assistant" },
+        { role: "user", content: "continue" },
+      ],
+    }).result;
+
+    expect(result.messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+    ]);
+    expect(result.messages.map((message) => flattenText(message))).toEqual([
+      "first",
+      "ok",
+      "injected user",
+      "injected assistant",
+      "continue",
+      "ok",
+    ]);
 
     const stored = await adl.services.stores.message.load("notes");
-    expect(stored[0]).toEqual({ role: "system", content: "Pinned prompt A" });
+    expect(stored.map((message) => flattenText(message))).toEqual([
+      "Be brief.",
+      "first",
+      "ok",
+      "injected user",
+      "injected assistant",
+      "continue",
+      "ok",
+    ]);
+  });
+});
+
+describe("AgentImpl system prompt conflict", () => {
+  it("warns and keeps the pinned prompt when another agent shares the scope", async () => {
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+
+    try {
+      const seenPrompts: unknown[] = [];
+      const adl = createTestRuntime({
+        defaults: {
+          model: new MockLanguageModelV2({
+            doStream: async (options) => {
+              seenPrompts.push(options.prompt);
+              return {
+                stream: convertArrayToReadableStream([
+                  { type: "stream-start", warnings: [] },
+                  { type: "text-start", id: "text-1" },
+                  { type: "text-delta", id: "text-1", delta: "ok" },
+                  { type: "text-end", id: "text-1" },
+                  {
+                    type: "finish",
+                    finishReason: "stop",
+                    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  },
+                ]),
+              };
+            },
+          }),
+        },
+      });
+      const researcher = adl.createAgent({
+        id: "researcher",
+        systemPrompt: "You are a researcher.",
+      });
+      const editor = adl.createAgent({
+        id: "editor",
+        systemPrompt: "You are an editor.",
+      });
+
+      await researcher.run({ memoryScope: "shared", user: "draft" }).result;
+      await editor.run({ memoryScope: "shared", user: "revise" }).result;
+
+      expect(warnings.some((warning) => warning.includes('Agent "editor"'))).toBe(true);
+      const stored = await adl.services.stores.message.load("shared");
+      expect(stored[0]).toEqual({
+        role: "system",
+        content: "You are a researcher.",
+        providerOptions: { adl: { agentId: "researcher" } },
+      });
+      const secondPrompt = JSON.stringify(seenPrompts[1]);
+      expect(secondPrompt).toContain("You are a researcher.");
+      expect(secondPrompt).not.toContain("You are an editor.");
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+
+  it("applies this agent's prompt for the episode when systemPromptConflict is use-current", async () => {
+    const seenPrompts: unknown[] = [];
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async (options) => {
+            seenPrompts.push(options.prompt);
+            return {
+              stream: convertArrayToReadableStream([
+                { type: "stream-start", warnings: [] },
+                { type: "text-start", id: "text-1" },
+                { type: "text-delta", id: "text-1", delta: "ok" },
+                { type: "text-end", id: "text-1" },
+                {
+                  type: "finish",
+                  finishReason: "stop",
+                  usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                },
+              ]),
+            };
+          },
+        }),
+      },
+    });
+    const researcher = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "You are a researcher.",
+    });
+    const editor = adl.createAgent({
+      id: "editor",
+      systemPrompt: "You are an editor.",
+    });
+
+    await researcher.run({ memoryScope: "shared", user: "draft" }).result;
+    await editor.run({
+      memoryScope: "shared",
+      user: "revise",
+      systemPromptConflict: "use-current",
+      suppressSystemPromptConflictWarning: true,
+    }).result;
+
+    const stored = await adl.services.stores.message.load("shared");
+    expect(stored[0]).toEqual({
+      role: "system",
+      content: "You are a researcher.",
+      providerOptions: { adl: { agentId: "researcher" } },
+    });
+    const secondPrompt = JSON.stringify(seenPrompts[1]);
+    expect(secondPrompt).toContain("You are an editor.");
+    expect(secondPrompt).not.toContain("You are a researcher.");
+  });
+
+  it("does not warn when suppressSystemPromptConflictWarning is set", async () => {
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(" "));
+    };
+
+    try {
+      const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+      const researcher = adl.createAgent({
+        id: "researcher",
+        systemPrompt: "You are a researcher.",
+      });
+      const editor = adl.createAgent({
+        id: "editor",
+        systemPrompt: "You are an editor.",
+      });
+
+      await researcher.run({ memoryScope: "shared", user: "draft" }).result;
+      await editor.run({
+        memoryScope: "shared",
+        user: "revise",
+        suppressSystemPromptConflictWarning: true,
+      }).result;
+
+      expect(warnings.some((warning) => warning.includes("pinned system prompt"))).toBe(false);
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 });
 

@@ -134,7 +134,7 @@ for (const topic of topics) {
 
 **Resume** here means **re-entering a workflow run**: skip completed steps via cached output, re-run the rest. That uses [`WorkflowStore`](/api/interfaces/workflowstore/). Inspection replay also reads this store; it does not re-execute the workflow.
 
-[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — memoryScope](/core/agents/#memoryscope). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
+[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
 
 ### Steps are atomic retry units
 

@@ -19,7 +19,18 @@ export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> =
   mapRun: (
     toolArgs: TToolInput,
     meta: { ctx: WorkflowContext },
-  ) => Pick<AgentRunInput<Context>, "memoryScope" | "user" | "context" | "messages" | "workflow">;
+  ) => Pick<
+    AgentRunInput<Context>,
+    | "memoryScope"
+    | "user"
+    | "context"
+    | "messages"
+    | "endWhen"
+    | "maxTurns"
+    | "workflow"
+    | "systemPromptConflict"
+    | "suppressSystemPromptConflictWarning"
+  >;
 };
 
 const defaultInputSchema: z.ZodType<DefaultToolInput> = z.object({}).catchall(z.unknown());

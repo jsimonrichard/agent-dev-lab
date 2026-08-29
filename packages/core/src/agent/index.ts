@@ -15,11 +15,17 @@ export {
 } from "./end-when";
 export type { AssistantEndPart, EvaluateEndWhenOptions } from "./end-when";
 export {
+  formatSystemPromptConflictWarning,
   inspectSystemPrompt,
   inspectSystemPromptPath,
+  resolveEpisodeSystemPrompt,
   resolveSystemPromptText,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
+} from "./resolve-system-prompt";
+export type {
+  ResolveEpisodeSystemPromptInput,
+  ResolveEpisodeSystemPromptResult,
 } from "./resolve-system-prompt";
 export type {
   Agent,
@@ -39,4 +45,5 @@ export type {
   AgentWorkflowScope,
   ConversationTitleInput,
   ConversationTitleOutput,
+  SystemPromptConflictStrategy,
 } from "./types";

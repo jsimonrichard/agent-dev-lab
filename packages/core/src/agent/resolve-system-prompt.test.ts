@@ -4,8 +4,10 @@ import { describe, expect, it } from "bun:test";
 import { err, ok } from "../result";
 import type { Template } from "../template/types";
 import {
+  formatSystemPromptConflictWarning,
   inspectSystemPrompt,
   inspectSystemPromptPath,
+  resolveEpisodeSystemPrompt,
   resolveSystemPromptText,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
@@ -75,6 +77,18 @@ describe("inspectSystemPrompt", () => {
 });
 
 describe("splitStoredSystemPrompt", () => {
+  it("reads the pinning agent id from a stored system message", () => {
+    const messages: CoreMessage[] = [
+      {
+        role: "system",
+        content: "You are helpful.",
+        providerOptions: { adl: { agentId: "researcher" } },
+      },
+      { role: "user", content: "Hi" },
+    ];
+    expect(splitStoredSystemPrompt(messages).agentId).toBe("researcher");
+  });
+
   it("extracts a leading system message from the store", () => {
     const messages: CoreMessage[] = [
       { role: "system", content: "You are helpful." },
@@ -82,6 +96,7 @@ describe("splitStoredSystemPrompt", () => {
     ];
     expect(splitStoredSystemPrompt(messages)).toEqual({
       systemPrompt: "You are helpful.",
+      agentId: null,
       transcript: [{ role: "user", content: "Hi" }],
     });
   });
@@ -93,6 +108,7 @@ describe("splitStoredSystemPrompt", () => {
     ];
     expect(splitStoredSystemPrompt(messages)).toEqual({
       systemPrompt: null,
+      agentId: null,
       transcript: [{ role: "user", content: "Hi" }],
     });
   });
@@ -108,5 +124,83 @@ describe("withStoredSystemPrompt", () => {
       { role: "system", content: "Pinned" },
       { role: "user", content: "Hi" },
     ]);
+  });
+
+  it("records the pinning agent id when provided", () => {
+    expect(withStoredSystemPrompt("Pinned", [], { agentId: "researcher" })[0]).toEqual({
+      role: "system",
+      content: "Pinned",
+      providerOptions: { adl: { agentId: "researcher" } },
+    });
+  });
+});
+
+describe("resolveEpisodeSystemPrompt", () => {
+  it("uses the current prompt when nothing is pinned", () => {
+    expect(
+      resolveEpisodeSystemPrompt({
+        storedSystemPrompt: null,
+        currentSystemPrompt: "You are B.",
+        currentAgentId: "editor",
+      }),
+    ).toEqual({ systemPrompt: "You are B.", conflict: false });
+  });
+
+  it("is not a conflict when the same agent continues the scope", () => {
+    expect(
+      resolveEpisodeSystemPrompt({
+        storedSystemPrompt: "You are A.",
+        currentSystemPrompt: "You are A (reloaded).",
+        storedAgentId: "researcher",
+        currentAgentId: "researcher",
+      }),
+    ).toEqual({ systemPrompt: "You are A.", conflict: false });
+  });
+
+  it("is not a conflict when another agent uses the same prompt text", () => {
+    expect(
+      resolveEpisodeSystemPrompt({
+        storedSystemPrompt: "Be brief.",
+        currentSystemPrompt: "Be brief.",
+        storedAgentId: "researcher",
+        currentAgentId: "editor",
+      }),
+    ).toEqual({ systemPrompt: "Be brief.", conflict: false });
+  });
+
+  it("keeps the pin by default when a different agent has a different prompt", () => {
+    expect(
+      resolveEpisodeSystemPrompt({
+        storedSystemPrompt: "You are A.",
+        currentSystemPrompt: "You are B.",
+        storedAgentId: "researcher",
+        currentAgentId: "editor",
+      }),
+    ).toEqual({ systemPrompt: "You are A.", conflict: true });
+  });
+
+  it("applies the current prompt when strategy is use-current", () => {
+    expect(
+      resolveEpisodeSystemPrompt({
+        storedSystemPrompt: "You are A.",
+        currentSystemPrompt: "You are B.",
+        storedAgentId: "researcher",
+        currentAgentId: "editor",
+        strategy: "use-current",
+      }),
+    ).toEqual({ systemPrompt: "You are B.", conflict: true });
+  });
+});
+
+describe("formatSystemPromptConflictWarning", () => {
+  it("names the agent, scope, and default strategy", () => {
+    expect(
+      formatSystemPromptConflictWarning({
+        agentId: "editor",
+        scopeAgentId: "researcher",
+        memoryScope: "notes",
+        strategy: "keep-pinned",
+      }),
+    ).toContain('started by agent "researcher"');
   });
 });

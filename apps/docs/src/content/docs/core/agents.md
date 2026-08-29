@@ -1,6 +1,6 @@
 ---
 title: Agents
-description: adl.createAgent, run and stream, memoryScope, structured output, and tools.
+description: adl.createAgent, run and stream, conversation input, structured output, and tools.
 ---
 
 Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. `agent.run()` / `agent.stream()` return the **final** response. By default they keep making model requests until a reply ends with text (`endWhen: "ends-with-text"`). Tool calls and results still emit events and persist to the transcript. Pass `endWhen: "api-call-ends"` when a workflow wants to own each model call.
@@ -99,6 +99,25 @@ Keep the title workflow out of the `adl.config` `workflows` array if you do not 
 
 Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`system`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
 
+Calling the **same** agent again on that scope is the normal conversation pattern — no warning, the pin stays:
+
+```ts
+await researcher.run({ memoryScope: "notes", user: "First turn" }).result;
+await researcher.run({ memoryScope: "notes", user: "Follow-up" }).result;
+```
+
+A **different** agent with a **different** system prompt is the conflict case: the runner **keeps the pinned prompt** and `console.warn`s. Prompts are not stacked — the AI SDK `system` option is a single string, and two identities in one blob usually fight each other. Pass `suppressSystemPromptConflictWarning: true` to silence the warning, or `systemPromptConflict: "use-current"` to apply this agent's prompt for that episode only (the stored pin is not rewritten):
+
+```ts
+await researcher.run({ memoryScope: "notes", user: "Draft the section" }).result;
+
+await editor.run({
+  memoryScope: "notes",
+  user: "Tighten the draft",
+  suppressSystemPromptConflictWarning: true,
+});
+```
+
 The inspection UI shows the pinned stored prompt when one exists, and overlays the live `agent.systemPrompt` inspect result for empty or legacy scopes that have not pinned yet (`isErr` when a template cannot render). Stray `system` messages in caller `messages` are dropped before the model call.
 
 Volatile turn context belongs in **user** messages, not in the system prompt.
@@ -117,20 +136,86 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 - **`stopWhen` / SDK step limits** — each inner model request is still `stepCountIs(1)`. The agent loops those requests itself unless `endWhen` is `"api-call-ends"`.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
 
-## memoryScope
+## Calling an agent
 
-Opaque string selecting a **conversation message list** in the store:
+`agent.run` and `agent.stream` share one input shape (`AgentRunInput`) and one `streamText` path. Each call is **one episode**: load a conversation (if any), append this turn, then loop `streamText` until `endWhen` says stop (default `"ends-with-text"`).
+
+| API                | Caller sees                           | Runner behavior                                                  |
+| ------------------ | ------------------------------------- | ---------------------------------------------------------------- |
+| **`agent.run`**    | `AgentRunHandle` (`result`, `cancel`) | Drains stream internally; observers still get `agent_text_delta` |
+| **`agent.stream`** | `AgentStreamHandle` with SDK streams  | Exposes `textStream` / `fullStream`; same persistence on finish  |
+
+The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt).
+
+```ts
+import type { CoreMessage } from "@agent-dev-lab/core";
+import type { z } from "zod";
+
+type AgentRunInput = {
+  memoryScope?: string;
+  context?: unknown;
+  user?: string;
+  messages?: CoreMessage[];
+  outputSchema?: z.ZodType<unknown>;
+  endWhen?: AgentEndWhen; // named policy or ({ messages, oldMessages, newMessages }) => boolean
+  maxTurns?: number;
+  systemPromptConflict?: "keep-pinned" | "use-current";
+  suppressSystemPromptConflictWarning?: boolean;
+  workflow?: { workflowRunId: string; stepId: string | null };
+};
+```
+
+Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active context — omit `workflow` unless you are linking a standalone call.
+
+The playground `shared-scope` workflow (`drafter` then `reviser`) is a runnable example of the combinations below.
+
+### Turn input
+
+This episode’s new turns come from **`user`** and/or **`messages`**. Both are optional. Together they append onto whatever is already stored for the scope (empty when the scope is new or omitted):
+
+1. stored transcript
+2. `{ role: "user", content: user }` when `user` is set
+3. each entry in `messages`
+4. the model reply (persisted on success)
+
+```ts
+// Convenience: one user string
+await researcher.run({ memoryScope: "notes", user: "Summarize this" }).result;
+
+// Explicit list — works with or without a scope
+await researcher.run({
+  memoryScope: "notes",
+  messages: [
+    { role: "user", content: "Here is extra context." },
+    { role: "assistant", content: "Noted." },
+    { role: "user", content: "Continue from there." },
+  ],
+}).result;
+```
+
+Stray `system` messages in `messages` are dropped before the model call (the agent’s system prompt is passed via the AI SDK `system` option).
+
+### memoryScope
+
+`memoryScope` is the **conversation key** in [`MessageStore`](/api/interfaces/messagestore/) — an opaque string you choose:
 
 ```ts
 `run:${runId}:step:outline`;
 `user:${userId}:chat:${chatId}`;
 ```
 
-Same agent + same `memoryScope` → shared history. New scope → new conversation.
+| Call                                     | Effect                                                                        |
+| ---------------------------------------- | ----------------------------------------------------------------------------- |
+| Same agent + same `memoryScope`          | Shared history — the intended conversation loop                               |
+| New or omitted `memoryScope`             | New conversation                                                              |
+| Different agent + existing `memoryScope` | Same transcript; system-prompt conflict rules apply ([above](#system-prompt)) |
+| `memoryScope` + `messages`               | The list is appended onto the stored transcript                               |
 
-This is **conversation memory**, not workflow resume: the runner `load`s the transcript, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
+`memoryScope` is **optional**. When omitted, the runner allocates a random id (on the handle and `AgentRunResult`) so a one-shot `user` / `messages` call still persists. Inner `endWhen` requests reuse that same generated id. The next `agent.run` will not see that transcript unless you pass the id back.
 
-## Run context
+This is **conversation memory**, not workflow resume. The runner `load`s, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
+
+### Run context
 
 Optional **`context`** on `agent.run()` forwards to tool `execute` via AI SDK `experimental_context`:
 
@@ -147,40 +232,16 @@ await researcher.run({
 
 `context` is **not** stored in `MessageStore` and is **not** sent to the model unless a tool or workflow copies it into a message.
 
-## agent.run and agent.stream
-
-Both use the same internal `streamText` implementation:
-
-| API                | Caller sees                           | Runner behavior                                                  |
-| ------------------ | ------------------------------------- | ---------------------------------------------------------------- |
-| **`agent.run`**    | `AgentRunHandle` (`result`, `cancel`) | Drains stream internally; observers still get `agent_text_delta` |
-| **`agent.stream`** | `AgentStreamHandle` with SDK streams  | Exposes `textStream` / `fullStream`; same persistence on finish  |
-
-```ts
-import type { CoreMessage } from "@agent-dev-lab/core";
-import type { z } from "zod";
-
-type AgentRunInput = {
-  memoryScope: string;
-  context?: unknown;
-  user?: string;
-  messages?: CoreMessage[];
-  outputSchema?: z.ZodType<unknown>;
-  endWhen?: AgentEndWhen; // named policy or ({ messages, oldMessages, newMessages }) => boolean
-  maxTurns?: number;
-  workflow?: { workflowRunId: string; stepId: string | null };
-};
-```
-
 ### Per-run flow
 
-1. `store.load(memoryScope)` (any `system` messages are filtered out)
-2. If `user` / `messages` → append to working list
-3. Resolve `systemPrompt` → pass as the **`system`** option to `streamText`
-4. **`streamText`** — one SDK step; forward text deltas and tool call/result events
-5. Append `response.messages` to store via `save`
-6. If `endWhen` says another request is needed, repeat from 4 (no new user message)
-7. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the request count)
+1. Resolve `memoryScope` (caller value, or a random id)
+2. `store.load(memoryScope)` (leading pin extracted; stray `system` messages dropped)
+3. If `user` / `messages` → append to the stored transcript
+4. Resolve `systemPrompt` (pinned copy, unless `systemPromptConflict: "use-current"`) → pass as the **`system`** option to `streamText`
+5. **`streamText`** — one SDK step; forward text deltas and tool call/result events
+6. Append `response.messages` to store via `save`
+7. If `endWhen` says another request is needed, repeat from 5 (no new user message)
+8. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the request count)
 
 ## Tool calls and persistence
 

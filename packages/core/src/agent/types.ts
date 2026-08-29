@@ -112,10 +112,37 @@ export type AgentWorkflowScope = {
   stepId: string | null;
 };
 
+/**
+ * What to do when a *different* agent runs on a `memoryScope` whose pinned
+ * system prompt differs from this agent's. Calling the **same** agent again on
+ * that scope is the normal conversation pattern and is never a conflict
+ * (including a hot-reloaded definition — the pin still wins).
+ *
+ * - `"keep-pinned"` (default): reuse the stored prompt.
+ * - `"use-current"`: apply this agent's prompt for this episode only. The
+ *   stored pin is not rewritten.
+ *
+ * A warning is emitted unless {@link AgentRunInput.suppressSystemPromptConflictWarning}
+ * is set. Prompts are not concatenated — the AI SDK `system` option is a single
+ * string, and stacking identities is usually worse than picking one.
+ */
+export type SystemPromptConflictStrategy = "keep-pinned" | "use-current";
+
 export type AgentRunInput<Context = unknown> = {
-  memoryScope: string;
+  /**
+   * Conversation key in {@link MessageStore}. Omit to allocate a random scope
+   * for this call — later episodes will not share history unless the caller
+   * reuses the resolved scope from the handle / result.
+   */
+  memoryScope?: string;
   context?: Context;
   user?: string;
+  /**
+   * Turn messages appended after `user` (if set) and any transcript already
+   * stored on {@link AgentRunInput.memoryScope}. Combine with a scope to inject
+   * extra turns into an existing conversation; omit the scope for a one-shot
+   * list on a generated id.
+   */
   messages?: CoreMessage[];
   /** Per-episode override of the agent's `outputSchema`. */
   outputSchema?: z.ZodType<unknown>;
@@ -123,6 +150,16 @@ export type AgentRunInput<Context = unknown> = {
   endWhen?: AgentEndWhen;
   /** Per-call override of the agent's `maxTurns`. */
   maxTurns?: number;
+  /**
+   * When a different agent hits this scope with a different system prompt.
+   * Defaults to `"keep-pinned"`. Ignored for same-agent follow-ups.
+   */
+  systemPromptConflict?: SystemPromptConflictStrategy;
+  /**
+   * Do not `console.warn` when a different agent’s system prompt conflicts
+   * with the pin on this scope.
+   */
+  suppressSystemPromptConflictWarning?: boolean;
   /**
    * When running inside a workflow, pass the current {@link WorkflowContext} ids
    * so agent events attach to the correct step. Omit for standalone episodes.
@@ -149,6 +186,8 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
   newMessages: CoreMessage[];
   /** Number of model requests made during this turn. */
   turns: number;
+  /** Scope this episode persisted to (caller-supplied or a generated id). */
+  memoryScope: string;
   /** Raw AI SDK stream result of the last request. */
   sdk: StreamTextResult<Tools, TOutput>;
 };
@@ -165,6 +204,8 @@ export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = string>
 export type AgentRunHandle<Tools extends ToolSet = ToolSet, TOutput = string> = {
   /** Stable id for this agent episode; available before `agent_started` is emitted. */
   agentCallId: string;
+  /** Scope this episode will persist to; available before `agent_started` is emitted. */
+  memoryScope: string;
   result: Promise<AgentRunResult<Tools, TOutput>>;
   cancel: () => void;
 };
@@ -175,6 +216,8 @@ export type AgentStreamHandle<
 > = AgentStreamResult<Tools, TOutput> & {
   /** Stable id for this agent episode; available before `agent_started` is emitted. */
   agentCallId: string;
+  /** Scope this episode will persist to; available before `agent_started` is emitted. */
+  memoryScope: string;
   cancel: () => void;
 };
 
@@ -216,7 +259,9 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out
    * `{ isErr: true }` when the template cannot render (for example required Zod
    * fields and no `demo`) — catalog loads still succeed.
    * New conversations pin the successful text as the first stored message; later
-   * episodes reuse that pinned copy so hot-reload does not change in-flight chats.
+   * episodes from the **same** agent reuse that pin (hot-reload does not change
+   * in-flight chats). A *different* agent on the same `memoryScope` keeps the
+   * pin by default and warns; see {@link AgentRunInput.systemPromptConflict}.
    */
   readonly systemPrompt: Result<string, string>;
   /**

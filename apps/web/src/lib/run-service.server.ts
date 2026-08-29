@@ -354,8 +354,12 @@ export async function forkAgentFromWorkflow(options: {
   const coreMessages: CoreMessage[] = options.messages.map(mockMessageToCore);
   const fromPayload = splitStoredSystemPrompt(coreMessages);
   const sourceStored = await messageStore.load(options.sourceMemoryScope);
-  const pin = fromPayload.systemPrompt ?? splitStoredSystemPrompt(sourceStored).systemPrompt;
-  const toSave = pin ? withStoredSystemPrompt(pin, fromPayload.transcript) : fromPayload.transcript;
+  const sourcePin = splitStoredSystemPrompt(sourceStored);
+  const pin = fromPayload.systemPrompt ?? sourcePin.systemPrompt;
+  const agentId = fromPayload.systemPrompt ? fromPayload.agentId : sourcePin.agentId;
+  const toSave = pin
+    ? withStoredSystemPrompt(pin, fromPayload.transcript, { agentId })
+    : fromPayload.transcript;
 
   await messageStore.save(memoryScope, toSave);
 
