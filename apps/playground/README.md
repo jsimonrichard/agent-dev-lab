@@ -40,7 +40,7 @@ real environment variables (which take precedence):
 cp .env.example .env
 # then edit .env:
 #   OPENAI_API_KEY=sk-...
-#   ADL_OPENAI_MODEL=gpt-5.5   # optional, default: gpt-5.4-mini
+#   ADL_MODEL=gpt-5.5   # optional, default: gpt-5.4-mini
 ```
 
 `.env` / `.env.local` are gitignored; `.env.example` documents the supported variables.

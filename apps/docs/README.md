@@ -21,8 +21,6 @@ bun run build       # includes docs build via Turbo
 
 Smaller single-API docs live as JSDoc on `packages/core` exports to avoid duplicating Starlight pages.
 
-Coding-agent gap tracking: repo root `notes/`.
-
 ## TypeDoc
 
 Configured in `astro.config.mjs` — entry point `packages/core/src/index.ts`. Regenerated on `astro dev` and `astro build`.

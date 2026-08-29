@@ -269,7 +269,7 @@ OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 
 ## Templates in workflows
 
-Templates are standalone — no `ctx.render`. Define with `adl.createTemplate` in your prompts module:
+Templates are standalone — no `ctx.render`. They use **Handlebars** (`{{var}}`, `{{#each}}`, …) after Zod parse. Define with `adl.createTemplate` in your prompts module:
 
 ```ts
 // prompts/find-papers.ts

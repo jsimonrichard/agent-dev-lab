@@ -27,7 +27,7 @@ Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Product
 - SSE tails of persisted `RunEvent`s (`GET /api/runs/:id/events`)
 - Standalone agent chats, conversation titles, fork from a workflow episode
 
-User-facing guide: [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/). Architecture notes: `notes/inspection-ui.md`.
+User-facing guide: [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/).
 
 ## Tests
 

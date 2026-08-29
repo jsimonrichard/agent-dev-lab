@@ -23,7 +23,9 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
     Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>.
   </Card>
   <Card title="Shared infrastructure" icon="setting">
-    `@agent-dev-lab/common` — TBA
+    `@agent-dev-lab/common` — SQLite path helpers, Pino logging, and shared ESLint/tsconfig
+    used by the monorepo. Published for the framework; most end-user projects only depend on
+    `core`, `cli`, and `web`.
   </Card>
   <Card title="Web Inspection UI" icon="laptop">
     `apps/web` — An optional UI built on TanStack Start that triggers runs and consumes telemetry

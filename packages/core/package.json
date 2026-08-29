@@ -51,5 +51,26 @@
     "tsdown": "^0.22.3",
     "typescript": "^6.0.2",
     "unrun": "^0.3.1"
+  },
+  "description": "Headless Agent Dev Lab runtime — agents, workflows, templates, and stores on the Vercel AI SDK",
+  "author": "J. Simon Richard",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsimonrichard/agent-dev-lab.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/jsimonrichard/agent-dev-lab/issues"
+  },
+  "homepage": "https://github.com/jsimonrichard/agent-dev-lab#readme",
+  "keywords": [
+    "ai",
+    "agents",
+    "workflows",
+    "vercel-ai-sdk",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=22"
   }
 }

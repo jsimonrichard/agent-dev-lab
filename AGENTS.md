@@ -12,7 +12,7 @@ Bun + Turborepo monorepo for an agentic workflow research framework.
 | `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                       |
 | `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev  |
 | `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321              |
-| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK, v1 API draft)       |
+| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK)                     |
 | `@agent-dev-lab/common`     | `packages/common` | Shared infra: Drizzle+SQLite, Pino logging, ESLint config |
 
 ### Commands

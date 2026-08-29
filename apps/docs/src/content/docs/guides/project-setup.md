@@ -54,7 +54,9 @@ export default {
 
 ## `#adl` import alias (recommended)
 
-Registry modules import the runtime often. Set a **TypeScript path alias** so every file can use the same stable import — no `../../../src/adl` as your tree grows.
+Registry modules import the runtime often. Set a **TypeScript path alias** and a matching
+`package.json` `"imports"` entry so every file can use the same stable import — no
+`../../../src/adl` as your tree grows.
 
 In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
 
@@ -68,10 +70,20 @@ In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
 }
 ```
 
+In `package.json` (required for Node / Bun runtime resolution of `#adl`):
+
+```json
+{
+  "imports": {
+    "#adl": "./src/adl.ts"
+  }
+}
+```
+
 Then use it everywhere you define agents, workflows, or templates:
 
 ```ts
-// agents/researcher.ts
+// src/agents/researcher.ts
 import { openai } from "@ai-sdk/openai";
 
 import { adl } from "#adl";
@@ -87,20 +99,22 @@ The `#adl` prefix is the recommended convention (short, unlikely to clash with n
 
 ## Recommended layout
 
-This structure keeps import cycles predictable when registry modules call `adl.createAgent`:
+This structure matches `adl init` (agents and workflows under `src/`):
 
 ```
 my-research/
+  package.json           # imports["#adl"] → ./src/adl.ts
   tsconfig.json          # paths["#adl"] → ./src/adl.ts
   adl.config.ts          # registry + metadata; sets config.adl
+  .env.example
   src/
     adl.ts               # createAdlRuntime() — recommended runtime module
-  agents/
-    researcher.ts
-  workflows/
-    literature-review.ts
-  prompts/
-    …
+    model.ts
+    agents/
+      assistant.ts
+    workflows/
+      demo-counter.ts
+      ask.ts
 ```
 
 | Piece                | Role                                                                          |
@@ -202,3 +216,25 @@ ADL_MODEL=gpt-4o-mini
 | `DEBUG=adl`        | Print CLI stack traces                                    |
 
 See [Project config](/core/project/) and [Runtime](/core/runtime/) for API detail.
+
+## Templates (Handlebars)
+
+`adl.createTemplate` renders markdown with **[Handlebars](https://handlebarsjs.com/)** after Zod validates the input.
+Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.url` so relative paths resolve.
+
+## Common pitfalls (users)
+
+- **`adl init` scaffolds a new project** — not the monorepo playground. After init, `bun run dev` is `adl dashboard`.
+- **`ADL_MODEL`** is the shared model env name (scaffold default `gpt-4o-mini`). Copy `.env.example` → `.env`.
+- **Published `adl dashboard` has no hot reload** — `@agent-dev-lab/web` ships Nitro `.output` only. Restart after registry edits. Vite HMR is monorepo `bun run dev:web`.
+- **`better-sqlite3` may need a native compile** on first install under Node (build tools / Python). Bun uses `bun:sqlite` instead when the runtime is Bun.
+- **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
+- **System prompt pin:** the first episode wins; a different agent on the same scope warns and keeps the pin unless `systemPromptConflict: "use-current"`.
+- **`createToolFromAgent` / `createToolFromWorkflow`** require an active workflow ALS — only inside a workflow run.
+- Only ids listed in `adl.config` `agents` / `workflows` appear in the CLI/UI. Leave `titleWorkflow` helpers out of those arrays.
+- After install, `npx adl` / `bunx adl` / `node_modules/.bin/adl` work (`@agent-dev-lab/cli` `"bin": { "adl": ... }`). Do not look for a separate npm package named only `adl`.
+
+## Contributors
+
+- **Playground ≠ scaffold.** Framework UI work uses `bun run dev:web` (`ADL_FRAMEWORK_DEV=1`) against `apps/playground`.
+- Hot reload does not apply `.env*` or store-implementation changes — restart even in Vite.

@@ -57,5 +57,24 @@
   },
   "peerDependencies": {
     "@agent-dev-lab/core": "workspace:*"
+  },
+  "author": "J. Simon Richard",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsimonrichard/agent-dev-lab.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/jsimonrichard/agent-dev-lab/issues"
+  },
+  "homepage": "https://github.com/jsimonrichard/agent-dev-lab#readme",
+  "keywords": [
+    "cli",
+    "adl",
+    "agents",
+    "workflows"
+  ],
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -3,38 +3,22 @@ title: Overview
 description: High-level orientation for the Agent Dev Lab docs site.
 ---
 
-The **Agent Dev Lab** is a TypeScript-first workspace for experimenting with agentic workflows: a headless core library (`@agent-dev-lab/core`), a TanStack Start inspection UI (`apps/web`), CLI (`adl`), and shared infrastructure.
+**Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), an inspection UI (`@agent-dev-lab/web`), a CLI (`adl`), and shared infrastructure.
 
-## What is implemented today
+## What you get
 
-The **headless runtime** in `@agent-dev-lab/core` is usable without the UI or CLI execution path:
-
-| Area                                                                      | Status      |
-| ------------------------------------------------------------------------- | ----------- |
-| `createAdlRuntime`, agents, workflows, templates                          | Implemented |
-| `agent.run` / `agent.stream` via AI SDK `streamText`                      | Implemented |
-| `workflow.run` / `workflow.stream`, `ctx.step`, nesting, isolated runs    | Implemented |
-| Conversation titles (`titleWorkflow`, `ctx.setTitle`)                     | Implemented |
-| `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
-| Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
-| `EventLog` / `inMemoryEventLog` process-wide observer                     | Implemented |
-| `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
-| Project hot reload (`reload`, `watchAdlProject`) in dev                   | Implemented |
-| `adl.createToolFromAgent` / `adl.createToolFromWorkflow`                  | Implemented |
-| CLI `adl run` / list / `adl dashboard`                                    | Implemented |
-| CLI `adl init`                                                            | Scaffold    |
-| Inspection UI: waterfall, SSE, cancel, agent chats, fork, event log       | Implemented |
-| Playground multi-agent samples                                            | Implemented |
+- **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `CoreMessage`)
+- **Persisted run events** for waterfalls, SSE tails, and replay (`WorkflowStore` / SQLite)
+- **`adl init` / `adl run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
+- **Hot reload in monorepo / Vite** — published installs use the Nitro serve build (restart after registry edits)
 
 ## Documentation map
 
 ### Guides (Starlight)
 
-Cross-cutting concepts and project layout:
-
-- [Project setup](/guides/project-setup/) — required vs recommended layout; `#adl` import alias; how tooling gets `config.adl`
+- [Project setup](/guides/project-setup/) — layout, `#adl` alias, env, common pitfalls
 - [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
-- [Runtime](/core/runtime/) — `adl` runtime, ALS for workflow context
+- [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context
 - [Agents](/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
 - [Project config](/core/project/) — registry, `loadAdlProject`
@@ -55,8 +39,7 @@ Use the **Core API** sidebar for the full export list.
 - **Runtime/UI split** — workflows run from scripts, tests, or server; UI reads persisted output.
 - **TypeScript-first** — plain TS orchestration, no workflow graph DSL.
 - **AI SDK native** — `CoreMessage`, `streamText`, `tool()` without parallel abstractions.
-- **Colocated prompts** — markdown beside code; templates via `createTemplate`.
-- **Docs near code** — smaller single-API surfaces documented in JSDoc; conceptual guides stay in Starlight.
+- **Colocated prompts** — markdown beside code; templates via Handlebars + Zod (`createTemplate`).
 
 ## Monorepo packages
 
@@ -67,7 +50,7 @@ Use the **Core API** sidebar for the full export list.
 | `@agent-dev-lab/cli`    | `adl` CLI                                 |
 | `@agent-dev-lab/docs`   | This site (port 4321)                     |
 | `@agent-dev-lab/common` | Drizzle + SQLite helpers, logging, ESLint |
-| `apps/playground`       | Framework dev project                     |
+| `apps/playground`       | Framework-dev sample project              |
 
 ## Development
 
@@ -76,7 +59,5 @@ From the repo root:
 ```bash
 bun install
 bun run dev:docs   # this site on :4321
-bun run dev:web    # inspection UI on :3000
+bun run dev:web    # inspection UI on :3000 (playground)
 ```
-
-Coding-agent tracking notes (RC remaining work, deferred design) live in the repo `notes/` directory.

@@ -218,7 +218,7 @@ const corePackage = JSON.parse(
 /** Package identity for health checks and dev tooling. */
 export function createCoreShell() {
   return {
-    name: "agent-development-lab/core",
+    name: "@agent-dev-lab/core",
     version: corePackage.version,
   };
 }

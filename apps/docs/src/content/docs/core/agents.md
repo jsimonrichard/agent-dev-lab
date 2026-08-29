@@ -118,7 +118,7 @@ await editor.run({
 });
 ```
 
-The inspection UI shows the pinned stored prompt when one exists, and overlays the live `agent.systemPrompt` inspect result for empty or legacy scopes that have not pinned yet (`isErr` when a template cannot render). Stray `system` messages in caller `messages` are dropped before the model call.
+The inspection UI shows the pinned stored prompt when one exists, and overlays the live `agent.systemPrompt` inspect result for empty / not-yet-pinned conversations (`isErr` when a template cannot render). Stray `system` messages in caller `messages` are dropped before the model call.
 
 Volatile turn context belongs in **user** messages, not in the system prompt.
 

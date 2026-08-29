@@ -22,7 +22,7 @@ interface ChatMessageListProps {
   muted?: boolean;
   /** When false, skip the empty-state placeholder. Default true. */
   showEmpty?: boolean;
-  /** Fallback overlay when the transcript has no pinned system message (legacy scopes). */
+  /** Fallback overlay when the transcript has no pinned system message (empty / not-yet-pinned conversations). */
   systemPrompt?: Result<string, string> | null;
   /** Highlight every stored bubble that belongs to these message ids (one agent call). */
   focusMessageIds?: ReadonlySet<string>;
@@ -325,7 +325,7 @@ function SystemPromptFrame({ children, compact }: { children: ReactNode; compact
   );
 }
 
-/** Overlay of the agent's resolved system prompt (legacy scopes without a stored system message). */
+/** Overlay of the agent's resolved system prompt (conversations without a stored system message). */
 export function SystemPromptBanner({
   content,
   compact = false,

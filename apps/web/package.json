@@ -61,5 +61,25 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "zod": "^4.3.5"
+  },
+  "description": "Agent Dev Lab inspection UI (TanStack Start / Nitro)",
+  "author": "J. Simon Richard",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsimonrichard/agent-dev-lab.git",
+    "directory": "apps/web"
+  },
+  "bugs": {
+    "url": "https://github.com/jsimonrichard/agent-dev-lab/issues"
+  },
+  "homepage": "https://github.com/jsimonrichard/agent-dev-lab#readme",
+  "keywords": [
+    "ui",
+    "inspection",
+    "tanstack",
+    "agents"
+  ],
+  "engines": {
+    "node": ">=22"
   }
 }

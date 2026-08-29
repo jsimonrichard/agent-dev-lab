@@ -12,11 +12,11 @@ loadAdlEnv({ root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".
  *
  * The OpenAI provider reads `OPENAI_API_KEY` lazily (at request time), so building
  * `model` at module load is safe even before a key is present — agents only fail
- * when actually run without a key. Override the model id with `ADL_OPENAI_MODEL`.
+ * when actually run without a key. Override the model id with `ADL_MODEL`.
  */
 const openai = createOpenAI();
 
-export const DEFAULT_MODEL_ID = process.env.ADL_OPENAI_MODEL ?? "gpt-5.4-mini";
+export const DEFAULT_MODEL_ID = process.env.ADL_MODEL ?? "gpt-5.4-mini";
 
 export const model: LanguageModel = openai(DEFAULT_MODEL_ID);
 

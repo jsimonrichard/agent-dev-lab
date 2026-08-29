@@ -52,5 +52,25 @@
     "@types/node": "^22.10.2",
     "drizzle-kit": "^0.31.6",
     "typescript": "^6.0.2"
+  },
+  "description": "Shared Agent Dev Lab infrastructure — SQLite helpers, logging, ESLint config",
+  "author": "J. Simon Richard",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jsimonrichard/agent-dev-lab.git",
+    "directory": "packages/common"
+  },
+  "bugs": {
+    "url": "https://github.com/jsimonrichard/agent-dev-lab/issues"
+  },
+  "homepage": "https://github.com/jsimonrichard/agent-dev-lab#readme",
+  "keywords": [
+    "sqlite",
+    "drizzle",
+    "logging",
+    "eslint"
+  ],
+  "engines": {
+    "node": ">=22"
   }
 }

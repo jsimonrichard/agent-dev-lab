@@ -10,19 +10,22 @@ The inspection UI (`@agent-dev-lab/web`) is how you **start, watch, and replay**
 From a project with `adl.config.*`:
 
 ```bash
-adl dashboard          # Vite in the monorepo; Nitro `--serve` for published installs
+adl dashboard          # Nitro serve for published installs; Vite when a Vite tree is present
+adl dashboard --serve  # force Nitro `.output`
 adl dashboard --project ../other-research
 ```
 
 Framework development against `apps/playground`: `bun run dev:web` from the repo root (`ADL_FRAMEWORK_DEV=1`).
+
+**Published npm installs always get the Nitro build** (`@agent-dev-lab/web` ships `.output` only) — there is **no hot reload**. Restart `adl dashboard` after changing registry modules. Vite HMR is for monorepo framework development.
 
 The header shows the project **name** and whether you are in framework-dev, project-dev, or serve mode.
 
 | Mode              | How it starts                             | Hot reload                                        |
 | ----------------- | ----------------------------------------- | ------------------------------------------------- |
 | **framework-dev** | `bun run dev:web` (`ADL_FRAMEWORK_DEV=1`) | Yes — Vite dev server watches the project         |
-| **project-dev**   | `adl dashboard` with a Vite dev tree      | Yes                                               |
-| **serve**         | `adl dashboard --serve` or Nitro `start`  | No — `ADL_INSPECTOR_SERVE=1` disables the watcher |
+| **project-dev**   | `adl dashboard` with a Vite source tree   | Yes (checkout / linked web package with Vite)     |
+| **serve**         | Published install or `adl dashboard --serve` | No — restart after registry or `.env*` changes |
 
 Standalone CLI commands (`adl run`, `adl workflows list`, etc.) are separate processes: they load the project once and never watch for changes.
 
@@ -64,5 +67,3 @@ The log is a ring buffer (default 10_000 events). It is not a durable store of i
 
 - A template playground (edit/render `createTemplate` markdown in the UI)
 - A dedicated raw token-debug pane (assistant text already streams via `agent_text_delta` in chat/run views)
-
-Those stay deferred; see the repo `notes/v1-scope.md` for RC tracking.

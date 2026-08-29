@@ -33,7 +33,6 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | File                                             | Purpose                                    |
 | ------------------------------------------------ | ------------------------------------------ |
 | [`v1-scope.md`](./v1-scope.md)                   | RC inventory, remaining work, validation   |
-| [`design-overview.md`](./design-overview.md)     | Repo orientation                           |
 | [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, client reducer |
 | [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry             |
 | [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate) |

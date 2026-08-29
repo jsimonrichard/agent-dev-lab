@@ -32,16 +32,17 @@ Requires [Bun](https://bun.sh) `1.3.13`.
 bunx @agent-dev-lab/cli init my-research
 cd my-research
 bun install
-export OPENAI_API_KEY=sk-...          # needed for the sample LLM workflow
+cp .env.example .env   # then set OPENAI_API_KEY
 adl run demo-counter --input '{"steps":3}'
 adl run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl dashboard                         # inspection UI on :3000 (or bun run dev)
+adl dashboard          # inspection UI (Nitro for published installs)
 ```
 
-Or add the packages to an existing project:
+Or add the packages to an existing project (still need `adl.config.ts`, `src/adl.ts`, and `.env`):
 
 ```bash
 bun add @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
+cp .env.example .env   # or create one with OPENAI_API_KEY / ADL_MODEL
 ```
 
 ### Environment variables
@@ -127,35 +128,21 @@ All standard scripts live in the root `package.json` and run through Turbo:
 
 ## Status
 
-The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI or CLI execution path.
+The **headless runtime** in `@agent-dev-lab/core` is usable today without the UI.
 
-| Area                                                                      | Status      |
-| ------------------------------------------------------------------------- | ----------- |
-| `createAdlRuntime`, agents, workflows, templates                          | Implemented |
-| `agent.run` / `agent.stream` via AI SDK `streamText`                      | Implemented |
-| `workflow.run` / `workflow.stream`, `ctx.step`, nesting, isolated runs    | Implemented |
-| Conversation titles (`titleWorkflow`, `ctx.setTitle`)                     | Implemented |
-| `MessageStore` + `WorkflowStore` (in-memory + SQLite)                     | Implemented |
-| Observers, `RunRecorder`, run events, OTel spans at run/step/agent bounds | Implemented |
-| `loadAdlProject` + registry indexes + `.env*` loading                     | Implemented |
-| CLI `adl run` / list / `adl dashboard`                                    | Implemented |
-| CLI `adl init`                                                            | Scaffold    |
-| Inspection UI: waterfall, SSE, cancel, agent chats, fork                  | Implemented |
-| Playground multi-agent samples                                            | Implemented |
+After `adl init` you get a runnable project with `demo-counter`, a sample `ask` agent workflow, SQLite stores, and `adl dashboard`.
 
 ## Documentation
 
 Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com). You can also run the docs site locally with `bun run dev:docs` (port 4321).
 
 - [Overview](https://agent-dev-lab.com/guides/overview/) — high-level orientation
-- [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias
+- [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias, pitfalls
 - [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context propagation
 - [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
 - [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
 - [Project config](https://agent-dev-lab.com/core/project/) — registry, `loadAdlProject`
-
-Coding-agent tracking notes (RC remaining work, deferred design) live in [`notes/`](notes/).
 
 ## License
 
