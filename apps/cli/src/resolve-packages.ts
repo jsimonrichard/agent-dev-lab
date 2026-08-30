@@ -120,7 +120,16 @@ export interface LoadedProjectForCli {
         run: (input: unknown) => { workflowRunId: string; result: Promise<unknown> };
       }
     | undefined;
-  getAgent(id: string): { id: string } | undefined;
+  getAgent(id: string):
+    | {
+        id: string;
+        run: (input: { user?: string; memoryScope?: string }) => {
+          agentCallId: string;
+          memoryScope: string;
+          result: Promise<{ output: unknown }>;
+        };
+      }
+    | undefined;
   listWorkflowIds(): string[];
   listAgentIds(): string[];
 }

@@ -23,3 +23,13 @@ export function requireWorkflow(project: LoadedProjectForCli, workflowId: string
   }
   return workflow;
 }
+
+export function requireAgent(project: LoadedProjectForCli, agentId: string) {
+  const agent = project.getAgent(agentId);
+  if (!agent) {
+    const known = project.listAgentIds();
+    const hint = known.length > 0 ? ` Known: ${known.join(", ")}.` : "";
+    throw new AdlError("UNKNOWN_AGENT", `Unknown agent "${agentId}".${hint}`);
+  }
+  return agent;
+}

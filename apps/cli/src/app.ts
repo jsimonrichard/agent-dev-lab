@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { buildApplication, buildRouteMap } from "@stricli/core";
 
 import { agentsListCommand } from "./commands/agent/list/command";
+import { agentsRunCommand } from "./commands/agent/run/command";
 import { dashboardCommand } from "./commands/dashboard/command";
 import { initCommand } from "./commands/init/command";
 import { workflowsListCommand } from "./commands/workflow/list/command";
@@ -27,9 +28,10 @@ const workflow = buildRouteMap({
 const agent = buildRouteMap({
   routes: {
     list: agentsListCommand,
+    run: agentsRunCommand,
   },
   docs: {
-    brief: "Inspect registered agents",
+    brief: "Inspect and run registered agents",
   },
 });
 

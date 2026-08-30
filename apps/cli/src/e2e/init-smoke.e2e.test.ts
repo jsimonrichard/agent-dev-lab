@@ -201,6 +201,14 @@ describe("adl init e2e", () => {
       });
       expect(missing.exitCode).not.toBe(0);
       expect(`${missing.stdout}\n${missing.stderr}`).toMatch(/unknown|not found|no-such-workflow/i);
+
+      const missingAgent = await runAdl(["agent", "run", "no-such-agent", "--input", "hi"], {
+        cwd: root,
+      });
+      expect(missingAgent.exitCode).not.toBe(0);
+      expect(`${missingAgent.stdout}\n${missingAgent.stderr}`).toMatch(
+        /unknown|not found|no-such-agent/i,
+      );
     },
     { timeout: 30_000 },
   );
