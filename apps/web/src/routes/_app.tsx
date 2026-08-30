@@ -2,8 +2,10 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { NotFoundPage } from "@/components/app/not-found";
 import { ProjectReloadErrorBanner } from "@/components/app/project-reload-error-banner";
+import { ServerOfflineBanner } from "@/components/app/server-offline-banner";
 import { ResizableAppShell } from "@/components/app/resizable-app-shell";
 import { useProjectHotReload } from "@/hooks/use-project-hot-reload";
+import { InspectorConnectionProvider } from "#/lib/inspector-connection";
 import {
   fetchAgentSessions,
   fetchProjectMeta,
@@ -28,14 +30,17 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
-  useProjectHotReload();
+  const connection = useProjectHotReload();
 
   return (
-    <ResizableAppShell>
-      <div className="relative h-full min-h-0">
-        <ProjectReloadErrorBanner />
-        <Outlet />
-      </div>
-    </ResizableAppShell>
+    <InspectorConnectionProvider value={connection}>
+      <ResizableAppShell>
+        <div className="relative h-full min-h-0">
+          <ServerOfflineBanner />
+          <ProjectReloadErrorBanner />
+          <Outlet />
+        </div>
+      </ResizableAppShell>
+    </InspectorConnectionProvider>
   );
 }

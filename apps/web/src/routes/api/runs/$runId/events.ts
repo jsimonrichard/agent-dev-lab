@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
+import { onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
 import {
   encodeRunEventSse,
   shouldCloseWorkflowRunStream,
@@ -90,7 +91,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               });
             }, 400);
 
-            request.signal.addEventListener("abort", close);
+            onRequestOrServerShutdown(request, close);
           },
         });
 

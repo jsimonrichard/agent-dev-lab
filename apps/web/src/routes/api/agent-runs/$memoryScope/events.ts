@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { getAgentSessionByMemoryScope, isConversationTurnActive } from "#/lib/agent/agent-sessions";
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
+import { onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
 import {
   encodeRunEventSse,
   agentRunStreamIsTerminal,
@@ -84,10 +85,14 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               });
             }, 400);
 
-            request.signal.addEventListener("abort", () => {
+            onRequestOrServerShutdown(request, () => {
               stopPolling();
               closed = true;
-              controller.close();
+              try {
+                controller.close();
+              } catch {
+                // already closed
+              }
             });
           },
         });

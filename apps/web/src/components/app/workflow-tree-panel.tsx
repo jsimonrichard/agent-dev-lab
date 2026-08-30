@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/view-model/run-projection";
 import type { AgentEpisode, RunViewState, StepNode, StepNodeStatus } from "@/lib/view-model/types";
 import { cn } from "@/lib/utils";
+import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
   computeSpanWaterfallBar,
   computeWaterfallScale,
@@ -52,7 +53,8 @@ export function WorkflowTreePanel({
   onSelectStep,
   onSelectEpisode,
 }: WorkflowTreePanelProps) {
-  const live = view.status === "running";
+  const { offline } = useInspectorConnection();
+  const live = view.status === "running" && !offline;
   const nowMs = useLiveNow(live);
   const [collapsedStepIds, setCollapsedStepIds] = useState<Set<string>>(() => new Set());
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
@@ -692,12 +694,25 @@ function RowStatusIcon({
   status: StepNodeStatus;
   kind: "step" | "conversation";
 }) {
+  const { offline } = useInspectorConnection();
   if (status === "completed") return null;
   if (status === "running") {
     return (
       <Loader2
-        className="size-3.5 shrink-0 animate-spin text-primary"
-        aria-label={kind === "step" ? "Step running" : "Conversation running"}
+        className={cn(
+          "size-3.5 shrink-0 text-primary",
+          !offline && "animate-spin",
+          offline && "opacity-50",
+        )}
+        aria-label={
+          offline
+            ? kind === "step"
+              ? "Step interrupted"
+              : "Conversation interrupted"
+            : kind === "step"
+              ? "Step running"
+              : "Conversation running"
+        }
       />
     );
   }

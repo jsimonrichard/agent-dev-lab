@@ -71,6 +71,7 @@ export default defineConfig(({ mode }) => {
       }),
       viteReact(),
       nitro({
+        plugins: ["./plugins/adl-shutdown.ts"],
         rolldownConfig: {
           external: [/^@agent-dev-lab\/core(\/.*)?$/, "jiti"],
         },

@@ -3,6 +3,7 @@ import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-route
 import { ArrowLeft, PanelRight } from "lucide-react";
 
 import { cancelInspectionWorkflowRun } from "#/lib/inspector/inspector-server";
+import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
   buildRunViewState,
   collectRunWarnings,
@@ -39,6 +40,7 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
   const search = runRoute.useSearch();
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const router = useRouter();
+  const { offline } = useInspectorConnection();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
   const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
@@ -135,10 +137,11 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
           </div>
           <p className="truncate text-xs text-muted-foreground">
             {view.workflowId}
-            {view.status === "running" ? " · live" : ""}
+            {view.status === "running" && !offline ? " · live" : ""}
+            {view.status === "running" && offline ? " · server stopped" : ""}
           </p>
         </div>
-        {view.status === "running" ? (
+        {view.status === "running" && !offline ? (
           <Button
             variant="outline"
             size="sm"

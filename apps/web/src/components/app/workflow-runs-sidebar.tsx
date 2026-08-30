@@ -15,6 +15,7 @@ import {
   deleteInspectionWorkflowRun,
   renameInspectionWorkflowRun,
 } from "#/lib/inspector/inspector-server";
+import { useInspectorConnection } from "#/lib/inspector-connection";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { cn } from "@/lib/utils";
 import { ContextSidebar } from "@/components/app/context-sidebar";
@@ -216,15 +217,18 @@ export function WorkflowRunsSidebar() {
 }
 
 function RunStatusDot({ status }: { status: RunStatus }) {
+  const { offline } = useInspectorConnection();
   if (status === "completed" || status === "cancelled") return null;
+  const showPulse = status === "running" && !offline;
   return (
     <span
       className={cn(
         "size-2 shrink-0 rounded-full",
-        status === "running" && "animate-pulse bg-primary",
+        showPulse && "animate-pulse bg-primary",
+        status === "running" && offline && "bg-muted-foreground/50",
         status === "failed" && "bg-destructive",
       )}
-      title={status}
+      title={status === "running" && offline ? "server stopped" : status}
     />
   );
 }

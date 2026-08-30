@@ -4,6 +4,7 @@ import {
   inspectAgentEndWhen,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
+  type AgentRunHandle,
   type CoreMessage,
   type RunEvent as CoreRunEvent,
   type WorkflowRunHandle,
@@ -40,6 +41,7 @@ import {
   formatInputPreview,
   mapWorkflowRunStatus,
 } from "#/lib/event-log/event-adapter";
+import { registerShutdownRunHooks } from "#/lib/server-shutdown.server";
 import type { InspectorRunSummary, InspectorMessage } from "#/lib/view-model/types";
 import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow/workflow-input-schema";
 
@@ -56,7 +58,46 @@ export function resolveDevMode(): ProjectInspectorMeta["devMode"] {
 }
 
 const activeWorkflowRuns = new Map<string, WorkflowRunHandle<unknown>>();
+const activeAgentTurns = new Map<
+  string,
+  Pick<AgentRunHandle, "agentCallId" | "memoryScope" | "cancel"> & {
+    result: Promise<unknown>;
+  }
+>();
 let sessionsHydrated = false;
+
+function activeRunCount(): number {
+  return activeWorkflowRuns.size + activeAgentTurns.size;
+}
+
+async function waitForActiveRuns(): Promise<void> {
+  const pending = [
+    ...[...activeWorkflowRuns.values()].map((handle) => handle.result),
+    ...[...activeAgentTurns.values()].map((handle) => handle.result),
+  ];
+  if (pending.length === 0) {
+    return;
+  }
+  await Promise.allSettled(pending);
+}
+
+async function cancelActiveRuns(): Promise<void> {
+  for (const handle of activeWorkflowRuns.values()) {
+    handle.cancel();
+  }
+  for (const handle of activeAgentTurns.values()) {
+    handle.cancel();
+  }
+  // Do not await handle.result — abort is sync; terminal events persist as the
+  // run unwinds. Force-shutdown must not block on provider teardown.
+}
+
+registerShutdownRunHooks({
+  activeCount: activeRunCount,
+  waitForActive: waitForActiveRuns,
+  cancelActive: cancelActiveRuns,
+});
+
 
 async function inspectorSessionStore() {
   const project = await getLoadedAdlProject();
@@ -329,6 +370,7 @@ export async function startAgentTurn(options: {
     workflow: options.workflow,
   });
   linkAgentCallId(options.memoryScope, handle.agentCallId);
+  activeAgentTurns.set(handle.agentCallId, handle);
   const linked = getAgentSessionByMemoryScope(options.memoryScope);
   if (linked) {
     void persistInspectorSession(linked);
@@ -340,6 +382,7 @@ export async function startAgentTurn(options: {
       void error;
     })
     .finally(() => {
+      activeAgentTurns.delete(handle.agentCallId);
       setConversationTurnActive(options.memoryScope, false);
     });
 

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { getAdlRuntime } from "#/lib/adl-runtime.server";
 import { getEventLog, tailLoggedEvents } from "#/lib/event-log/event-log.server";
+import { onRequestOrServerShutdown, getServerShutdownSignal } from "#/lib/server-shutdown.server";
 import { encodeLoggedRunEventSse } from "#/lib/sse.server";
 
 const HEARTBEAT_MS = 15_000;
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/api/events")({
                 controller.enqueue(encoder.encode(chunk));
                 return true;
               } catch {
-                stop();
+                stop(false);
                 return false;
               }
             };
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/api/events")({
               enqueue(": ping\n\n");
             }, HEARTBEAT_MS);
 
-            const stop = () => {
+            const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
@@ -53,22 +54,34 @@ export const Route = createFileRoute("/api/events")({
               if (!abort.signal.aborted) {
                 abort.abort();
               }
+              // End the HTTP body on process shutdown so srvx graceful close
+              // is not blocked by this keep-alive stream. Skip on client cancel
+              // (Vite proxies treat that close as a hang-up error).
+              if (endResponse) {
+                try {
+                  controller.close();
+                } catch {
+                  // already closed
+                }
+              }
             };
 
-            stopStream = stop;
+            stopStream = () => stop(false);
 
             // First bytes flush the SSE response. An idle body looks like a hung
             // socket to Vite's proxy (`Internal server error: socket hang up`).
             enqueue(": connected\n\n");
 
-            request.signal.addEventListener("abort", stop, { once: true });
+            onRequestOrServerShutdown(request, () => {
+              stop(getServerShutdownSignal().aborted);
+            });
 
             void tailLoggedEvents(
               eventLog,
               cursor,
               (entry) => enqueue(encodeLoggedRunEventSse(entry)),
               abort.signal,
-            ).finally(stop);
+            ).finally(() => stop(false));
           },
           cancel() {
             // Client left (reload, HMR, navigating away). Do not controller.close() —

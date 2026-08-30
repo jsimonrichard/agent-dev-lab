@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { encodeProjectReloadSse, subscribeProjectReload } from "#/lib/project-reload-events.server";
 import type { ProjectReloadEvent } from "#/lib/project-reload-types";
+import { onRequestOrServerShutdown, getServerShutdownSignal } from "#/lib/server-shutdown.server";
 
 const HEARTBEAT_MS = 15_000;
 
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/api/project/events")({
                 controller.enqueue(encoder.encode(chunk));
                 return true;
               } catch {
-                stop();
+                stop(false);
                 return false;
               }
             };
@@ -40,16 +41,23 @@ export const Route = createFileRoute("/api/project/events")({
               enqueue(": ping\n\n");
             }, HEARTBEAT_MS);
 
-            const stop = () => {
+            const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
               closed = true;
               clearInterval(heartbeat);
               unsubscribe();
+              if (endResponse) {
+                try {
+                  controller.close();
+                } catch {
+                  // already closed
+                }
+              }
             };
 
-            stopStream = stop;
+            stopStream = () => stop(false);
 
             // Flush immediately so Vite's proxy does not treat an idle SSE body
             // as a hung socket.
@@ -67,7 +75,9 @@ export const Route = createFileRoute("/api/project/events")({
               }),
             );
 
-            request.signal.addEventListener("abort", stop, { once: true });
+            onRequestOrServerShutdown(request, () => {
+              stop(getServerShutdownSignal().aborted);
+            });
           },
           cancel() {
             // Client left (reload / HMR). Avoid controller.close() — Vite logs

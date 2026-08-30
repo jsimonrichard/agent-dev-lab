@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
+import { useInspectorConnection } from "#/lib/inspector-connection";
 
 interface UseAgentRunEventsOptions {
   /** Connect after a turn starts and the server has linked the session agentCallId. */
@@ -22,6 +23,7 @@ interface UseAgentRunEventsOptions {
  */
 export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEventsOptions = {}) {
   const { enabled = true, onFinished, onTitleSet } = options;
+  const { offline } = useInspectorConnection();
   const [streamingText, setStreamingText] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const lastSeqRef = useRef(0);
@@ -37,7 +39,13 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
   }, [memoryScope]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (offline) {
+      setIsRunning(false);
+    }
+  }, [offline]);
+
+  useEffect(() => {
+    if (!enabled || offline) {
       setIsRunning(false);
       return;
     }
@@ -99,7 +107,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
     return () => {
       source.close();
     };
-  }, [memoryScope, enabled]);
+  }, [memoryScope, enabled, offline]);
 
-  return { streamingText, isRunning };
+  return { streamingText, isRunning: isRunning && !offline };
 }

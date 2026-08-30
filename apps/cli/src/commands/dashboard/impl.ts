@@ -31,18 +31,37 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
     },
   });
 
-  await new Promise<void>((resolve, reject) => {
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        reject(new Error(`Inspection UI exited from signal ${signal}`));
-        return;
-      }
-      if (code !== 0 && code !== null) {
-        reject(new Error(`Inspection UI exited with code ${code}`));
-        return;
-      }
-      resolve();
+  // Stay alive on Ctrl+C so we can wait for the UI child's graceful exit.
+  // The child is in the same process group and receives SIGINT itself (serve
+  // path) or via the terminal (vite). Without this, the CLI exits first and
+  // the shell races the still-shutting-down server.
+  const ignoreSignal = () => {};
+  this.process.on("SIGINT", ignoreSignal);
+  this.process.on("SIGTERM", ignoreSignal);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("exit", (code, signal) => {
+        if (signal) {
+          // Terminated by signal after shutdown / force-kill — treat as success
+          // when the user interrupted (SIGINT/SIGTERM).
+          if (signal === "SIGINT" || signal === "SIGTERM") {
+            resolve();
+            return;
+          }
+          reject(new Error(`Inspection UI exited from signal ${signal}`));
+          return;
+        }
+        if (code !== 0 && code !== null) {
+          reject(new Error(`Inspection UI exited with code ${code}`));
+          return;
+        }
+        resolve();
+      });
     });
-  });
+  } finally {
+    this.process.off("SIGINT", ignoreSignal);
+    this.process.off("SIGTERM", ignoreSignal);
+  }
 }
