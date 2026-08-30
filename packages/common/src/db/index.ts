@@ -10,7 +10,22 @@ export type { AdlSqliteDatabase, AdlSqliteStatement } from "./sqlite-types.js";
 
 export const DEFAULT_SQLITE_RELATIVE_PATH = ".data/agent-dev-lab.sqlite";
 
-const require = createRequire(import.meta.url);
+/**
+ * Native SQLite / Drizzle adapters are dependencies of this package. When this
+ * module is bundled into another app's SSR output (e.g. inspection UI `.output`),
+ * `import.meta.url` points at the chunk and cannot resolve those deps — anchor
+ * `require` at the installed `@agent-dev-lab/common` entry instead.
+ */
+function createPackageRequire(): NodeRequire {
+  const fromThisFile = createRequire(import.meta.url);
+  try {
+    return createRequire(fromThisFile.resolve("@agent-dev-lab/common"));
+  } catch {
+    return fromThisFile;
+  }
+}
+
+const require = createPackageRequire();
 
 type CachedDb = {
   sqlite: AdlSqliteDatabase;
