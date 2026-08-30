@@ -1,3 +1,11 @@
+/**
+ * Build helper (not a test): `prebuild` runs this so the CLI package fails
+ * fast when the inspection UI has not been built. `adl dashboard --serve`
+ * needs `apps/web/.output` (Nitro server entry + public assets).
+ *
+ * Long-term: keep this next to other `apps/cli/scripts/` packaging checks.
+ * It is not leftover debug — published tarballs embed that `.output` tree.
+ */
 import { existsSync, readFileSync, statSync } from "node:fs";
 
 import { webOutputRoot, webPackageRoot } from "../src/paths";

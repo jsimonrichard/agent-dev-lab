@@ -1,10 +1,16 @@
+/**
+ * Build helper (not a test): copies `apps/cli/scaffold` into `dist/scaffold`
+ * so the published CLI can run `adl init` without the monorepo tree.
+ *
+ * Invoked by `bun run package-scaffold` after tsup.
+ */
 import { cpSync, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  listScaffoldSourceFiles,
   SCAFFOLD_PACKAGED_FILES,
-  SCAFFOLD_SOURCE_FILES,
 } from "../src/commands/init/scaffold-files";
 
 const cliRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +28,7 @@ if (!existsSync(path.join(scaffoldRoot, "adl.config.ts"))) {
 
 mkdirSync(destRoot, { recursive: true });
 
-for (const relative of [...SCAFFOLD_SOURCE_FILES, ...SCAFFOLD_PACKAGED_FILES]) {
+for (const relative of [...listScaffoldSourceFiles(scaffoldRoot), ...SCAFFOLD_PACKAGED_FILES]) {
   const from = path.join(scaffoldRoot, relative);
   if (!existsSync(from) || !statSync(from).isFile()) {
     fail(`Missing scaffold file ${relative} at ${from}`);

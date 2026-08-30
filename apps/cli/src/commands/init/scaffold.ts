@@ -5,7 +5,7 @@ import { AdlError } from "@agent-dev-lab/core";
 
 import { cliPackageRoot } from "../../paths";
 
-export { SCAFFOLD_SOURCE_FILES } from "./scaffold-files";
+export { listScaffoldSourceFiles, SCAFFOLD_PACKAGED_FILES } from "./scaffold-files";
 
 const SCAFFOLD_NAME = "adl-scaffold";
 

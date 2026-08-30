@@ -7,22 +7,12 @@ export interface InitFlags {
 }
 
 export function initCommandFlags(showLocal: boolean) {
-  const brief = "Pin @agent-dev-lab packages to this checkout with file: (framework development)";
-  if (showLocal) {
-    return {
-      local: {
-        kind: "boolean" as const,
-        brief,
-        default: false,
-      },
-    };
-  }
   return {
     local: {
       kind: "boolean" as const,
-      brief,
+      brief: "Pin @agent-dev-lab packages to this checkout with file: (framework development)",
       default: false,
-      hidden: true as const,
+      hidden: !showLocal,
     },
   };
 }

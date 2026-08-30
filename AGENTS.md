@@ -6,14 +6,14 @@
 
 Bun + Turborepo monorepo for an agentic workflow research framework.
 
-| Package                     | Path              | Role                                                      |
-| --------------------------- | ----------------- | --------------------------------------------------------- |
-| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000       |
-| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                       |
-| `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev  |
-| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321              |
-| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK)                     |
-| `@agent-dev-lab/common`     | `packages/common` | Shared infra: Drizzle+SQLite, Pino logging, ESLint config |
+| Package                     | Path              | Role                                                                             |
+| --------------------------- | ----------------- | -------------------------------------------------------------------------------- |
+| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                              |
+| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                              |
+| `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev                         |
+| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321                                     |
+| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK)                                            |
+| `@agent-dev-lab/common`     | `packages/common` | Internal shared infra (published for core/cli/web): Drizzle+SQLite, Pino, ESLint |
 
 ### Commands
 
@@ -45,3 +45,10 @@ All standard commands are in root `package.json`:
 - No Docker, no external services required.
 - CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
+
+### Tests vs other files
+
+- **`*.test.ts` / `*.e2e.test.ts`** — Bun tests (`bun test`).
+- **`apps/cli/scripts/`** — build helpers, not tests (`verify-web-output.ts`, `package-scaffold.ts`). See `apps/cli/scripts/README.md`.
+- **`packages/core/src/stores/store.contract.test.ts`** — shared store contract suite (test infra).
+- **`packages/core/src/template/fixtures/`** — prompt fixtures used by template tests.

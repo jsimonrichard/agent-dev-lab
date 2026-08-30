@@ -7,14 +7,13 @@ import type { AdlCliContext } from "../../context";
 import { adlMonorepoRootFromCli, initScaffoldRoot, isAdlCliSourceCheckout } from "../../paths";
 import type { InitFlags } from "./command";
 import {
-  SCAFFOLD_SOURCE_FILES,
+  listScaffoldSourceFiles,
   assertLocalInitAllowed,
   buildInitGitignore,
   buildInitPackageJson,
   readScaffoldPackageJson,
   rewriteScaffoldConfigName,
 } from "./scaffold";
-import { INIT_README, INIT_TSCONFIG } from "./templates";
 
 function render(template: string, values: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => values[key] ?? "");
@@ -48,9 +47,7 @@ export default async function init(
       "package.json",
       buildInitPackageJson(name, readScaffoldPackageJson(scaffoldRoot), { localRoot }),
     ],
-    ["tsconfig.json", INIT_TSCONFIG],
     [".gitignore", buildInitGitignore(readFileSync(path.join(scaffoldRoot, ".gitignore"), "utf8"))],
-    ["README.md", render(INIT_README, values)],
   ];
   if (localRoot) {
     // Bun's isolated linker leaves empty directories for `file:` workspace
@@ -58,12 +55,12 @@ export default async function init(
     files.push(["bunfig.toml", '[install]\nlinker = "hoisted"\n']);
   }
 
-  for (const relative of SCAFFOLD_SOURCE_FILES) {
+  for (const relative of listScaffoldSourceFiles(scaffoldRoot)) {
     let contents = readFileSync(path.join(scaffoldRoot, relative), "utf8");
     if (relative === "adl.config.ts") {
       contents = rewriteScaffoldConfigName(contents, name);
     }
-    files.push([relative, contents]);
+    files.push([relative, render(contents, values)]);
   }
 
   for (const [relative, contents] of files) {

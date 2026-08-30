@@ -12,7 +12,7 @@ import { adlMonorepoRootFromCli, isAdlCliSourceCheckout, sourceScaffoldRoot } fr
 import { findMonorepoRoot } from "../../resolve-packages";
 import { initCommandFlags } from "./command";
 import init from "./impl";
-import { SCAFFOLD_SOURCE_FILES } from "./scaffold-files";
+import { listScaffoldSourceFiles } from "./scaffold-files";
 import {
   assertLocalInitAllowed,
   buildInitGitignore,
@@ -41,11 +41,13 @@ describe("adl init", () => {
     const name = path.basename(dir);
     const scaffold = sourceScaffoldRoot();
 
-    for (const relative of SCAFFOLD_SOURCE_FILES) {
+    for (const relative of listScaffoldSourceFiles(scaffold)) {
       const actual = await readFile(path.join(dir, relative), "utf8");
       const expected = await readFile(path.join(scaffold, relative), "utf8");
       if (relative === "adl.config.ts") {
         expect(actual).toBe(rewriteScaffoldConfigName(expected, name));
+      } else if (relative === "README.md") {
+        expect(actual).toBe(expected.replaceAll("{{DISPLAY_NAME}}", name));
       } else {
         expect(actual).toBe(expected);
       }
@@ -80,6 +82,8 @@ describe("adl init", () => {
     expect(pkg.imports?.["#adl"]).toBe("./src/adl.ts");
     expect(await readFile(path.join(dir, ".gitignore"), "utf8")).toContain("node_modules/");
     expect(await readFile(path.join(dir, ".env.example"), "utf8")).toContain("OPENAI_API_KEY");
+    expect(await readFile(path.join(dir, "tsconfig.json"), "utf8")).toContain('"#adl"');
+    expect(await readFile(path.join(dir, "README.md"), "utf8")).toContain(`# ${name}`);
   });
 
   it("pins generated dependencies to this checkout with --local", async () => {
@@ -199,7 +203,7 @@ describe("init scaffold helpers", () => {
 
   it("hides --local in published CLI help and shows it from this checkout", () => {
     expect(isAdlCliSourceCheckout()).toBe(true);
-    expect("hidden" in initCommandFlags(true).local).toBe(false);
+    expect(initCommandFlags(true).local.hidden).toBe(false);
     expect(initCommandFlags(false).local.hidden).toBe(true);
   });
 
