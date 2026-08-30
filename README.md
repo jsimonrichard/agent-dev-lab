@@ -15,14 +15,14 @@ Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agent
 
 Bun + Turborepo monorepo.
 
-| Package                     | Path              | Role                                                        |
-| --------------------------- | ----------------- | ----------------------------------------------------------- |
-| `@agent-dev-lab/core`       | `packages/core`   | Headless runtime — agents, workflows, templates, stores     |
-| `@agent-dev-lab/common`     | `packages/common` | Shared infra: Drizzle + SQLite, Pino logging, ESLint config |
-| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000         |
-| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                         |
-| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight guides + TypeDoc API reference — port 4321  |
-| `@agent-dev-lab/playground` | `apps/playground` | Sample ADL project (`adl.config.ts`) for framework dev      |
+| Package                     | Path              | Role                                                                                        |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------------------------- |
+| `@agent-dev-lab/core`       | `packages/core`   | Headless runtime — agents, workflows, templates, stores                                     |
+| `@agent-dev-lab/common`     | `packages/common` | Internal shared infra (published so core/cli/web can depend on it): SQLite, logging, ESLint |
+| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                                         |
+| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                                         |
+| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight guides + TypeDoc API reference — port 4321                                  |
+| `@agent-dev-lab/playground` | `apps/playground` | Sample ADL project (`adl.config.ts`) for framework dev                                      |
 
 ## Getting started
 

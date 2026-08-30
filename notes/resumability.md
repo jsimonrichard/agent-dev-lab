@@ -2,7 +2,7 @@
 
 **Resume** in ADL means **re-entering a workflow run** after failure (and, later, after a crash): skip completed `ctx.step` callbacks via stored outputs, re-run the rest. That is a [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts) concern. Same-`runId` **step skip** is implemented; mid-closure replay and crash-safe re-entry are not.
 
-[`MessageStore`](../packages/core/src/memory/types.ts) is **not** a resume mechanism. It holds the conversation transcript for a `memoryScope`. The next `agent.run` with that scope **loads** the list, appends the new turn, and **saves** — ordinary chat memory, independent of workflow retry. See the [agents guide](../apps/docs/src/content/docs/core/agents.md#memoryscope).
+[`MessageStore`](../packages/core/src/stores/types.ts) is **not** a resume mechanism. It holds the conversation transcript for a `memoryScope`. The next `agent.run` with that scope **loads** the list, appends the new turn, and **saves** — ordinary chat memory, independent of workflow retry. See the [agents guide](../apps/docs/src/content/docs/core/agents.md#memoryscope).
 
 The stores **interact** when a retried step calls `agent.run` again: skip uses `WorkflowStore`; the agent still **loads** whatever `MessageStore` already has for that scope. Choose continue / fork / clear explicitly. Do not treat that load as “the run resumed.”
 
@@ -244,4 +244,4 @@ interface WorkflowCheckpointStore {
 
 Optional **`WorkflowResumer`** reads the store — see [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts). Observers alone are insufficient for resume.
 
-Cross-links: [`MessageStore`](../packages/core/src/memory/types.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [agents — memoryScope](../apps/docs/src/content/docs/core/agents.md#memoryscope).
+Cross-links: [`MessageStore`](../packages/core/src/stores/types.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [agents — memoryScope](../apps/docs/src/content/docs/core/agents.md#memoryscope).

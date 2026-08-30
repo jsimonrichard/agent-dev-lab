@@ -2,7 +2,7 @@
 
 **Status:** Not v1. Captures direction for hooks, human approval, and a possible **extension system** so the small core stays small while research projects can add RAG, guardrails, and custom policy.
 
-Related: [agents guide](../apps/docs/src/content/docs/core/agents.md), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [project config](../apps/docs/src/content/docs/core/project.md), [`MessageStore`](../packages/core/src/memory/types.ts), [`memory-pipeline.md`](./memory-pipeline.md).
+Related: [agents guide](../apps/docs/src/content/docs/core/agents.md), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [project config](../apps/docs/src/content/docs/core/project.md), [`MessageStore`](../packages/core/src/stores/types.ts), [`memory-pipeline.md`](./memory-pipeline.md).
 
 **Explicitly out of scope here:** evals / scorers (no ADL primitive planned; use external tools + observers if needed).
 
@@ -33,7 +33,7 @@ interface AdlExtension {
   id: string;
   onBeforeModelCall?(ctx: ModelHookContext): Promise<ModelMessage[] | void>;
   onAfterModelCall?(ctx: ModelHookContext): Promise<void>;
-  onBeforePersist?(ctx: PersistHookContext): Promise<CoreMessage[] | void>;
+  onBeforePersist?(ctx: PersistHookContext): Promise<ModelMessage[] | void>;
   onAfterPersist?(ctx: PersistHookContext): Promise<void>;
 }
 ```
@@ -66,7 +66,7 @@ Hooks should **not** replace `MessageStore` — they operate on the in-flight li
 
 **After persist:** secondary indexes, webhooks, analytics — must not block the critical path without explicit async queue (project choice).
 
-These hooks see **`CoreMessage[]`** in the same shape committed to [`MessageStore`](../packages/core/src/memory/types.ts).
+These hooks see **`ModelMessage[]`** in the same shape committed to [`MessageStore`](../packages/core/src/stores/types.ts).
 
 ---
 
@@ -135,6 +135,15 @@ Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a u
 - Automatic **workflow** replay from closure state — still [`resumability.md`](./resumability.md) (step I/O + skip)
 
 ---
+
+## Standalone core HTTP API (deferred)
+
+`@agent-dev-lab/core` is a **library** in 0.0.1. CLI and the inspection UI are the hosts that load a project and call `workflow.run` / `agent.run`.
+
+A later release can add a **process host export** (same package, e.g. `@agent-dev-lab/core/server`) that serves agents and workflows over HTTP/SSE — not a second runtime package. Absorbing `@agent-dev-lab/common` into that surface is the same track: common still owns shared tsconfig, ESLint, and SQLite helpers used by web/cli/core. Folding it into core before 0.0.1 would couple build tooling to the runtime.
+
+- [ ] Defer standalone API server
+- [ ] Defer merging `common` into `core` (keep shared tsconfig / eslint / sqlite)
 
 ## v1
 

@@ -4,7 +4,7 @@
 
 ## Intent
 
-Between loading stored messages and calling the AI SDK, ADL needs a hook to shape the message list (e.g. `lastMessages(n)`, future summarization, pruning). This should operate only on `ModelMessage` / `CoreMessage` arrays—not on templates or storage keys.
+Between loading stored messages and calling the AI SDK, ADL needs a hook to shape the message list (e.g. `lastMessages(n)`, future summarization, pruning). This should operate only on `ModelMessage` / `ModelMessage` arrays—not on templates or storage keys.
 
 ## Likely shape (non-final)
 
@@ -22,5 +22,5 @@ Between loading stored messages and calling the AI SDK, ADL needs a hook to shap
 ## References
 
 - Agent run flow: [agents guide](../apps/docs/src/content/docs/core/agents.md)
-- Message store contract: [`MessageStore`](../packages/core/src/memory/types.ts)
+- Message store contract: [`MessageStore`](../packages/core/src/stores/types.ts)
 - Mastra uses processor-style `MessageHistory` on a message list; ADL may adopt a similar _idea_ with a simpler function pipeline once the above is settled.

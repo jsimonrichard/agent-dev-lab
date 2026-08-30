@@ -70,8 +70,8 @@ Encode persisted **`RunEvent`** JSON only. Do **not** adopt TanStack AI [StreamC
 
 **Do not copy TanStack AI’s simplifications** (they skip SSE `id:` because one POST = one chat stream). ADL needs:
 
-- Monotonic **`seq`** on every `RunEvent`, scoped per event stream (`workflowRunId` or standalone `agentCallId` — not global)
-- SSE **`id: <seq>`** per event for `Last-Event-ID` / reconnect
+- Monotonic **`runSeq`** on every `RunEvent`, scoped per event stream (`workflowRunId` or standalone `agentCallId` — not global). Distinct from process-wide **`logSeq`**.
+- SSE **`id: <runSeq>`** per event for `Last-Event-ID` / reconnect
 - **`?afterSeq=`** on GET for polling fallback and gap fill
 - Stream ends when **`workflow_finished` / `workflow_failed` / `workflow_cancelled`** is persisted—not only `data: [DONE]`
 
@@ -100,12 +100,13 @@ Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, n
 - [x] Run list + run detail route(s)
 - [x] `EventSource` subscribed after `runId` known
 - [x] In-memory **reducer**: apply `RunEvent[]` → view model (step tree, agent rows)
-- [x] On reconnect: pass `afterSeq` from last applied `seq`
+- [x] On reconnect: pass `afterSeq` from last applied `runSeq`
 - [x] Project banner from `/api/project`
 - [x] Live assistant text via `agent_text_delta` (chat / run views — not a dedicated token-debug pane)
 - [x] Event log page (`/events`): filters, pagination, store hydrate, deep-links into run/chat
 - [ ] ⏸ Dedicated live token debug pane
 - [ ] ⏸ `@agent-dev-lab/hooks` — later
+- [ ] ⏸ Registry `adl.config.tools` browser: list shared tools and run one manually (no agent turn)
 
 ### Runtime prerequisite (not in `apps/web`)
 
@@ -195,7 +196,7 @@ type RunViewState = {
 };
 
 function applyRunEvent(state: RunViewState, event: RunEvent): RunViewState {
-  if (event.seq <= state.lastSeq) return state;
+  if (event.runSeq <= state.lastSeq) return state;
   // switch (event.type): step_*, agent_*, agent_text_delta (append), run_finished, ...
 }
 ```

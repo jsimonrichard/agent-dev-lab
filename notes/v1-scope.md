@@ -52,6 +52,7 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | ------------------------------------------------------- | ---------------------------------------- |
 | `adl dashboard` / `adl dashboard --serve` / `--project` | ✅                                       |
 | `adl workflow run <workflow-id> --input '{}'`           | ✅                                       |
+| `adl agent run <agent-id> --input '…'` (string user)    | ✅                                       |
 | `adl workflow list` / `adl agent list`                  | ✅                                       |
 | `adl init` dedicated scaffold (`apps/cli/scaffold`)     | ✅ typecheck + demo-counter in CLI tests |
 | Packaged `dist/scaffold` for published CLI              | ✅ copies `apps/cli/scaffold`            |
@@ -217,20 +218,23 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 
 ## Gaps already decided (not RC)
 
-| Topic                     | Status                             | Notes                                                      |
-| ------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| Model / provider setup    | ✅                                 | `createAdlRuntime({ defaults: { model } })` + env docs     |
-| Workflow input validation | ✅                                 | Zod on `createWorkflow`; parsed at `run()`                 |
-| Shared `tools` in config  | ✅                                 | Runtime `tools` merge; `adl.config.tools` is registry-only |
-| Error types               | ✅                                 | `AdlError` + CLI messages (`DEBUG=adl` for stacks)         |
-| Testing helpers           | ✅                                 | `createTestRuntime()`                                      |
-| OTEL default observer     | ✅ spans + AI SDK telemetry option | App installs exporter                                      |
-| Event schema versioning   | ✅                                 | `eventSchemaVersion: 1`                                    |
-| Secrets / API keys        | ✅                                 | Document env vars only                                     |
-| Human approval            | ⏸                                  | [`future-extensions.md`](./future-extensions.md)           |
-| Memory pipeline           | ⏸                                  | [`memory-pipeline.md`](./memory-pipeline.md)               |
-| Checkpoints               | ⏸                                  | [`resumability.md`](./resumability.md)                     |
-| Workflow catalog grouping | ⏸                                  | [`workflow-catalog.md`](./workflow-catalog.md)             |
+| Topic                      | Status                             | Notes                                                         |
+| -------------------------- | ---------------------------------- | ------------------------------------------------------------- |
+| Model / provider setup     | ✅                                 | `createAdlRuntime({ defaults: { model } })` + env docs        |
+| Workflow input validation  | ✅                                 | Zod on `createWorkflow`; parsed at `run()`                    |
+| Shared `tools` in config   | ✅                                 | Runtime `tools` merge; `adl.config.tools` is registry-only    |
+| Error types                | ✅                                 | `AdlError` + CLI messages (`DEBUG=adl` for stacks)            |
+| Testing helpers            | ✅                                 | `createTestRuntime()`                                         |
+| OTEL default observer      | ✅ spans + AI SDK telemetry option | App installs exporter                                         |
+| Event schema versioning    | ✅                                 | `eventSchemaVersion: 1`                                       |
+| Secrets / API keys         | ✅                                 | Document env vars only                                        |
+| Standalone core HTTP API   | ⏸                                  | [`future-extensions.md`](./future-extensions.md)              |
+| Merge `common` into `core` | ⏸                                  | Shared tsconfig/eslint/sqlite; not 0.0.1                      |
+| Manual tool-run UI         | ⏸                                  | [`inspection-ui.md`](./inspection-ui.md) — `adl.config.tools` |
+| Human approval             | ⏸                                  | [`future-extensions.md`](./future-extensions.md)              |
+| Memory pipeline            | ⏸                                  | [`memory-pipeline.md`](./memory-pipeline.md)                  |
+| Checkpoints                | ⏸                                  | [`resumability.md`](./resumability.md)                        |
+| Workflow catalog grouping  | ⏸                                  | [`workflow-catalog.md`](./workflow-catalog.md)                |
 
 ---
 

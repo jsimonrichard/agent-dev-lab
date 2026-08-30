@@ -53,7 +53,7 @@
     "drizzle-kit": "^0.31.6",
     "typescript": "^6.0.2"
   },
-  "description": "Shared Agent Dev Lab infrastructure — SQLite helpers, logging, ESLint config",
+  "description": "Internal Agent Dev Lab infrastructure (SQLite, logging, ESLint). Published because core, CLI, and the inspection UI depend on it — not a user-facing SDK.",
   "author": "J. Simon Richard",
   "repository": {
     "type": "git",

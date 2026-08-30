@@ -2,7 +2,7 @@
 
 How ADL fits with **OpenTelemetry** — no parallel tracing API in `@agent-dev-lab/core`.
 
-**Status:** Workflow / step / agent boundaries start OTel spans (`withActiveSpan`); `RunRecorder` also mirrors run events onto the active span. AI SDK `experimental_telemetry` is **not** forwarded yet. Install an exporter in the application; ADL does not ship a parallel tracing API.
+**Status:** Workflow / step / agent boundaries start OTel spans (`withActiveSpan`); `RunRecorder` also mirrors run events onto the active span. Agent `streamText` calls forward AI SDK `experimental_telemetry` (OpenTelemetry, not Vercel analytics) via `createAdlRuntime({ telemetry })`. Install an exporter in the application; ADL does not ship a parallel tracing API.
 
 Related: [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
 
