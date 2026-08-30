@@ -14,9 +14,14 @@ export type CreateToolFromWorkflowOptions<TRawInput, TToolInput = TRawInput> = {
 
 const defaultInputSchema = z.object({}).catchall(z.unknown());
 
-/** Expose a workflow as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromWorkflow}. */
+/**
+ * Expose a workflow as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromWorkflow}.
+ *
+ * Works outside a workflow: `workflow.run` starts its own run (or nests via ALS
+ * when the tool is invoked from an active workflow body or step).
+ */
 export function createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToolInput = TRawInput>(
-  runtime: AdlRuntime,
+  _runtime: AdlRuntime,
   workflow: Workflow<TInput, TOutput, TRawInput>,
   options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
 ): Tool<TToolInput, TOutput> {
@@ -25,11 +30,6 @@ export function createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToo
     description: options.description,
     inputSchema: (options.inputSchema ?? defaultInputSchema) as z.ZodType<TToolInput>,
     execute: async (toolArgs: TToolInput) => {
-      if (!runtime.services.workflowContextScope.peek()) {
-        throw new Error(
-          "createToolFromWorkflow: no WorkflowContext — call from within a workflow run or step",
-        );
-      }
       const input = options.mapInput
         ? options.mapInput(toolArgs)
         : (toolArgs as unknown as TRawInput);

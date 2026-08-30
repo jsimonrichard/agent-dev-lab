@@ -244,9 +244,7 @@ function forceExitSoon(): void {
   const hooks = runHooks();
   const count = hooks?.activeCount() ?? 0;
   if (count > 0) {
-    writeShutdown(
-      `Cancelling ${count} active run(s)… (Ctrl+C again exits immediately)`,
-    );
+    writeShutdown(`Cancelling ${count} active run(s)… (Ctrl+C again exits immediately)`);
     try {
       void hooks!.cancelActive();
     } catch {

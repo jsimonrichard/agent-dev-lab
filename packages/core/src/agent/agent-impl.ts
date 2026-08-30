@@ -2,7 +2,7 @@ import {
   Output,
   stepCountIs,
   streamText,
-  type CoreMessage,
+  type ModelMessage,
   type StreamTextResult,
   type ToolSet,
 } from "ai";
@@ -12,7 +12,7 @@ import { AdlError } from "../errors";
 import { linkAbortController, abortError, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
-import { inspectMessageStoreKind } from "../memory/inspect";
+import { inspectMessageStoreKind } from "../stores/inspect";
 import type { Result } from "../result";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
@@ -195,7 +195,7 @@ export class AgentImpl<
           } = splitStoredSystemPrompt(storedMessages);
           const isNewConversation = storedMessages.length === 0;
 
-          const turnMessages: CoreMessage[] = [];
+          const turnMessages: ModelMessage[] = [];
           if (input.user) {
             turnMessages.push({ role: "user", content: input.user });
           }
@@ -234,7 +234,7 @@ export class AgentImpl<
 
           // Conversation turns only — system text is passed via `streamText({ system })`
           // and pinned as the first stored message on a new memoryScope.
-          let messages: CoreMessage[] = [...storedTranscript, ...turnMessages].filter(
+          let messages: ModelMessage[] = [...storedTranscript, ...turnMessages].filter(
             (message) => message.role !== "system",
           );
           const system = systemForEpisode.trim() ? systemForEpisode : undefined;
@@ -249,7 +249,7 @@ export class AgentImpl<
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const telemetry = this.services.telemetry;
-          const allNewMessages: CoreMessage[] = [];
+          const allNewMessages: ModelMessage[] = [];
           let lastText = "";
           let lastOutput: TOutput | undefined;
           let lastSdk: StreamTextResult<Tools, TOutput> | undefined;
@@ -265,7 +265,7 @@ export class AgentImpl<
               allowSystemInMessages: false,
               tools: { ...this.services.tools, ...this.definition.tools },
               messages: messages.filter(
-                (message): message is Exclude<CoreMessage, { role: "system" }> =>
+                (message): message is Exclude<ModelMessage, { role: "system" }> =>
                   message.role !== "system",
               ),
               experimental_context: input.context,
@@ -347,7 +347,7 @@ export class AgentImpl<
               await streamResult.text;
             }
 
-            const responseMessages = (await streamResult.response).messages as CoreMessage[];
+            const responseMessages = (await streamResult.response).messages as ModelMessage[];
             const stepMessages = responseMessages.length > 0 ? responseMessages : [];
             const conversationMessages =
               stepMessages.length > 0 ? [...messages, ...stepMessages] : messages;
@@ -457,7 +457,7 @@ export class AgentImpl<
     stepId: string | null;
     memoryScope: string;
     isFirstTurn: boolean;
-    messages: CoreMessage[];
+    messages: ModelMessage[];
   }): Promise<void> {
     const titleWorkflow = this.definition.titleWorkflow;
     if (!options.isFirstTurn || !titleWorkflow) {

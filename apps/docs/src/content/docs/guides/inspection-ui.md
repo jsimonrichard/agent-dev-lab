@@ -38,7 +38,7 @@ Registered ids come from `adl.config` `workflows`. The sidebar lists startable w
 3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`.
 4. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, and child `agent.run` / `streamText` calls on that run. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
 
-Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `seq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
+Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `runSeq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
 
 Helpers that you **do not** put in `workflows: []` still persist if they `run()`, but they do not appear as startable targets or in the default run list. Conversation [`titleWorkflow`](/core/agents/#conversation-titles) uses `{ isolated: true }` so naming a chat does not inject steps into another workflow's tree.
 
@@ -56,7 +56,7 @@ Registered `agents` can be opened as **conversations** (standalone `memoryScope`
 The **Event log** page (`/events`) is a process-wide tail of every `RunEvent` the inspector has seen — workflow runs and standalone agent conversations — not one run at a time.
 
 - Open it from the home sidebar or the rail. The context sidebar is hidden so the table can use the full width.
-- Live updates use **SSE** (`GET /api/events?afterSeq=`). The stream id is the process `logSeq`, not per-run `seq`. Reconnects replay from the last applied `logSeq`.
+- Live updates use **SSE** (`GET /api/events?afterSeq=`). The stream id is the process `logSeq`, not per-run `runSeq`. Reconnects replay from the last applied `logSeq`.
 - On inspector start, an empty in-memory buffer is **hydrated** from the last 100 persisted workflow runs and standalone agent episodes in [`WorkflowStore`](/api/interfaces/workflowstore/). **Clear** empties the in-memory view only; persisted runs stay. Restart hydrates again.
 - Default filters hide `agent_text_delta`. Add field clauses (equals / not-equals / contains on strings / exists / empty). Click a name to open that run, conversation, call, or step — conversations highlight the matching transcript slice (`?call=`). Right-click a value to filter; ⋯ opens the full JSON payload.
 - The footer paginates the filtered list (oldest page first; page 1 is the live tail when you stay on it).

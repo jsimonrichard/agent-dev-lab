@@ -14,7 +14,7 @@ import type {
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
-import type { SqliteStoreOptions } from "../memory/sqlite";
+import type { SqliteStoreOptions } from "../stores/sqlite";
 
 type EventRow = {
   payload_json: string;
@@ -42,7 +42,7 @@ function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEve
   }
   if (filter?.afterSeq !== undefined) {
     const afterSeq = filter.afterSeq;
-    list = list.filter((event) => event.seq > afterSeq);
+    list = list.filter((event) => event.runSeq > afterSeq);
   }
   if (filter?.limit !== undefined) {
     list = list.slice(0, filter.limit);
@@ -57,13 +57,13 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
   sqlite
     .prepare(
       `INSERT INTO adl_workflow_events
-        (workflow_run_id, agent_call_id, seq, type, at, event_schema_version, payload_json)
+        (workflow_run_id, agent_call_id, run_seq, type, at, event_schema_version, payload_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       workflowRunId,
       agentCallId,
-      event.seq,
+      event.runSeq,
       event.type,
       event.at,
       event.eventSchemaVersion,
@@ -185,12 +185,12 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
         "workflowRunId" in scope
           ? sqlite
               .prepare(
-                "SELECT payload_json FROM adl_workflow_events WHERE workflow_run_id = ? ORDER BY seq ASC",
+                "SELECT payload_json FROM adl_workflow_events WHERE workflow_run_id = ? ORDER BY run_seq ASC",
               )
               .all(scope.workflowRunId)
           : sqlite
               .prepare(
-                "SELECT payload_json FROM adl_workflow_events WHERE agent_call_id = ? ORDER BY seq ASC",
+                "SELECT payload_json FROM adl_workflow_events WHERE agent_call_id = ? ORDER BY run_seq ASC",
               )
               .all(scope.agentCallId)
       ) as EventRow[];

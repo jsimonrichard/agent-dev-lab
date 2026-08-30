@@ -1,7 +1,7 @@
-import type { CoreMessage, LanguageModel, StreamTextResult, ToolSet } from "ai";
+import type { LanguageModel, ModelMessage, StreamTextResult, ToolSet } from "ai";
 import type { z } from "zod";
 
-import type { MessageStore } from "../memory/types";
+import type { MessageStore } from "../stores/types";
 import type { Result } from "../result";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
@@ -9,6 +9,9 @@ import type { AgentModelInfo } from "./inspect";
 
 /**
  * Named stop policies for {@link Agent.run} / {@link Agent.stream}.
+ *
+ * This is **not** AI SDK `stopWhen` (that option is used internally as
+ * `stepCountIs(1)` so ADL owns the episode loop). There is no `exit` policy.
  *
  * - `"ends-with-text"` (default): continue while the last user-facing assistant
  *   part is a tool call, including preamble text followed by a tool call.
@@ -27,11 +30,11 @@ export type AgentEndWhenName = (typeof AGENT_END_WHEN)[number];
 /** Transcript snapshot passed to an {@link AgentEndWhenPredicate}. */
 export type AgentEndWhenInput = {
   /** Conversation after this request (no pinned system message). */
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   /** Conversation as sent to this request (no pinned system message). */
-  oldMessages: CoreMessage[];
+  oldMessages: ModelMessage[];
   /** Assistant + tool messages produced by this request. */
-  newMessages: CoreMessage[];
+  newMessages: ModelMessage[];
 };
 
 /** Return `true` to stop making further model requests. */
@@ -60,7 +63,7 @@ export type AgentMemoryConfig = {
 
 /** Input contract for {@link AgentDefinition.titleWorkflow}. */
 export type ConversationTitleInput = {
-  messages: CoreMessage[];
+  messages: ModelMessage[];
 };
 
 /** Typed result of {@link AgentDefinition.titleWorkflow}. */
@@ -143,7 +146,7 @@ export type AgentRunInput<Context = unknown> = {
    * extra turns into an existing conversation; omit the scope for a one-shot
    * list on a generated id.
    */
-  messages?: CoreMessage[];
+  messages?: ModelMessage[];
   /** Per-episode override of the agent's `outputSchema`. */
   outputSchema?: z.ZodType<unknown>;
   /** Per-call override of the agent's `endWhen`. */
@@ -181,9 +184,9 @@ export type AgentRunInput<Context = unknown> = {
 export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   text: string;
   output: TOutput;
-  messages: CoreMessage[];
+  messages: ModelMessage[];
   /** All model/tool messages appended during this turn (every request). */
-  newMessages: CoreMessage[];
+  newMessages: ModelMessage[];
   /** Number of model requests made during this turn. */
   turns: number;
   /** Scope this episode persisted to (caller-supplied or a generated id). */

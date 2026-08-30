@@ -174,6 +174,7 @@ const output = await handle.result;
 adl init my-research
 adl workflow list
 adl agent list
+adl agent run assistant --input "What is Agent Dev Lab?"
 adl workflow run demo-counter --input '{"steps":3}'
 adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard
@@ -181,6 +182,7 @@ adl dashboard
 
 - **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`
 - **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
+- **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
 - **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
 
 ### Environment variables
@@ -230,7 +232,7 @@ Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.
 - **`better-sqlite3` may need a native compile** on first install under Node (build tools / Python). Bun uses `bun:sqlite` instead when the runtime is Bun.
 - **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
 - **System prompt pin:** the first episode wins; a different agent on the same scope warns and keeps the pin unless `systemPromptConflict: "use-current"`.
-- **`createToolFromAgent` / `createToolFromWorkflow`** require an active workflow ALS — only inside a workflow run.
+- **`createToolFromAgent` / `createToolFromWorkflow`** work standalone; `meta.ctx` is set only when invoked from a workflow. `createWorkflowFromAgent` wraps an agent as a string-input workflow.
 - Only ids listed in `adl.config` `agents` / `workflows` appear in the CLI/UI. Leave `titleWorkflow` helpers out of those arrays.
 - After install, `npx adl` / `bunx adl` / `node_modules/.bin/adl` work (`@agent-dev-lab/cli` `"bin": { "adl": ... }`). Do not look for a separate npm package named only `adl`.
 

@@ -91,8 +91,8 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
   let title: string | undefined;
 
   for (const event of events) {
-    if (event.seq <= lastSeq) continue;
-    lastSeq = event.seq;
+    if (event.runSeq <= lastSeq) continue;
+    lastSeq = event.runSeq;
 
     switch (event.type) {
       case "run_started":

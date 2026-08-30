@@ -5,7 +5,7 @@ import {
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type AgentRunHandle,
-  type CoreMessage,
+  type ModelMessage,
   type RunEvent as CoreRunEvent,
   type WorkflowRunHandle,
 } from "@agent-dev-lab/core";
@@ -97,7 +97,6 @@ registerShutdownRunHooks({
   waitForActive: waitForActiveRuns,
   cancelActive: cancelActiveRuns,
 });
-
 
 async function inspectorSessionStore() {
   const project = await getLoadedAdlProject();
@@ -318,7 +317,7 @@ export async function loadMessagesForWorkflowRun(runId: string): Promise<{
   eventSeq: number;
 }> {
   const events = await getWorkflowRunEvents(runId);
-  const eventSeq = events.reduce((max, event) => Math.max(max, event.seq), 0);
+  const eventSeq = events.reduce((max, event) => Math.max(max, event.runSeq), 0);
   const scopes = new Set<string>();
   for (const event of events) {
     if (event.type === "agent_started" || event.type === "agent_messages_committed") {
@@ -401,7 +400,7 @@ export async function forkAgentFromWorkflow(options: {
   const memoryScope = createMemoryScope();
   const messageStore = await getMessageStore();
 
-  const coreMessages: CoreMessage[] = options.messages.map(inspectorMessageToCore);
+  const coreMessages: ModelMessage[] = options.messages.map(inspectorMessageToCore);
   const fromPayload = splitStoredSystemPrompt(coreMessages);
   const sourceStored = await messageStore.load(options.sourceMemoryScope);
   const sourcePin = splitStoredSystemPrompt(sourceStored);

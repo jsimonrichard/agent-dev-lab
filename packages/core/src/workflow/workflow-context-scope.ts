@@ -8,7 +8,7 @@ import type { WorkflowContext } from "./types";
  * Per-runtime AsyncLocalStorage for the active workflow context.
  * Owned by {@link RuntimeServices} — one instance per {@link createAdlRuntime} call.
  *
- * Step- or workflow-body-local binding so {@link WorkflowContextScope.peek} can resolve the
+ * Step- or workflow-body-local binding so {@link WorkflowContextScope#peek} can resolve the
  * current frame for agent.run and workflow tools. Not a stack: each scope sets one context
  * for immediate children on the same async chain.
  *

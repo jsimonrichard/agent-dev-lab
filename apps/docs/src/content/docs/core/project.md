@@ -90,12 +90,13 @@ The UI subscribes to `GET /api/project/events` (SSE) and refreshes sidebars and 
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
 
-| Entry                       | What it does                              |
-| --------------------------- | ----------------------------------------- |
-| **`workflow.run(input)`**   | The execution primitive                   |
-| **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)` |
-| **`adl dashboard` / UI**    | List ids + start / inspect runs           |
-| **Direct import**           | Skip registry; still use `.run`           |
+| Entry                       | What it does                                                              |
+| --------------------------- | ------------------------------------------------------------------------- |
+| **`workflow.run(input)`**   | The execution primitive                                                   |
+| **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)`                                 |
+| **`adl agent run <id>`**    | Load project → `getAgent(id).run({ user })` — `--input` is a plain string |
+| **`adl dashboard` / UI**    | List ids + start / inspect runs                                           |
+| **Direct import**           | Skip registry; still use `.run`                                           |
 
 ```ts
 import { loadAdlProject } from "@agent-dev-lab/core";
@@ -128,6 +129,7 @@ adl workflow run demo-counter --input '{"steps":3}'
 adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl workflow list
 adl agent list
+adl agent run assistant --input "What is Agent Dev Lab?"
 adl dashboard
 ```
 

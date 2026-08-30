@@ -1,5 +1,5 @@
 import { openAdlSqlite, resolveAdlSqlitePath } from "@agent-dev-lab/common";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import type { MessageStore } from "./types";
 
@@ -25,7 +25,7 @@ export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageSto
       if (!row) {
         return [];
       }
-      return JSON.parse(row.messages_json) as CoreMessage[];
+      return JSON.parse(row.messages_json) as ModelMessage[];
     },
     async save(memoryScope, messages) {
       sqlite

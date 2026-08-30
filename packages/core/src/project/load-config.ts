@@ -2,6 +2,16 @@ import path from "node:path";
 
 import { createJiti } from "jiti";
 
+/**
+ * Vite HMR reloads the inspection UI, not the user's `adl.config.ts`. CLI and
+ * the dashboard server still transpile that file with jiti. `tryNative` is off
+ * so Bun/Vite `import()` caches cannot pin a stale registry.
+ *
+ * The map is keyed by project root because one Node process can load more than
+ * one tree (unit tests, `acquireAdlProject` switching roots). A hosted runtime
+ * still has a single active project — extra keys are unused, not a multi-tenant
+ * feature.
+ */
 const JITI_CACHE_KEY = Symbol.for("@agent-dev-lab/core:adlConfigJitiCache");
 
 function jitiCache(): Map<string, ReturnType<typeof createJiti>> {

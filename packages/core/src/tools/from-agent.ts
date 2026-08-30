@@ -18,7 +18,7 @@ export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> =
   inputSchema?: z.ZodType<TToolInput>;
   mapRun: (
     toolArgs: TToolInput,
-    meta: { ctx: WorkflowContext },
+    meta: { ctx?: WorkflowContext },
   ) => Pick<
     AgentRunInput<Context>,
     | "memoryScope"
@@ -35,7 +35,12 @@ export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> =
 
 const defaultInputSchema: z.ZodType<DefaultToolInput> = z.object({}).catchall(z.unknown());
 
-/** Expose an agent turn as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}. */
+/**
+ * Expose an agent turn as an AI SDK tool. Prefer {@link AdlRuntime.createToolFromAgent}.
+ *
+ * Works outside a workflow: `meta.ctx` is set only when the tool runs inside a
+ * workflow body or step. Standalone calls allocate their own agent episode.
+ */
 export function createToolFromAgent<
   Context,
   Tools extends ToolSet = ToolSet,
@@ -53,11 +58,6 @@ export function createToolFromAgent<
     inputSchema: options.inputSchema ?? (defaultInputSchema as z.ZodType<TToolInput>),
     execute: async (toolArgs: TToolInput) => {
       const workflowCtx = runtime.services.workflowContextScope.peek();
-      if (!workflowCtx) {
-        throw new Error(
-          "createToolFromAgent: no WorkflowContext — call from within a workflow run or step",
-        );
-      }
       const runInput = options.mapRun(toolArgs, { ctx: workflowCtx });
       const handle = agent.run(runInput);
       const result = await handle.result;

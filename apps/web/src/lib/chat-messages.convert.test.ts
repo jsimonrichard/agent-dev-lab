@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { CoreMessage } from "@agent-dev-lab/core";
+import type { ModelMessage } from "@agent-dev-lab/core";
 
 import { coreMessageToInspector, inspectorMessageToCore } from "./chat-messages";
 
@@ -26,7 +26,7 @@ describe("coreMessageToInspector", () => {
         },
         { type: "reasoning", text: "hidden" },
       ],
-    } as CoreMessage;
+    } as ModelMessage;
 
     expect(coreMessageToInspector(message, 2)).toEqual({
       id: "msg-2",
@@ -56,7 +56,7 @@ describe("coreMessageToInspector", () => {
           args: { query: "from-args" },
         },
       ],
-    } as CoreMessage;
+    } as ModelMessage;
 
     expect(coreMessageToInspector(message, 0).parts).toEqual([
       {
@@ -79,7 +79,7 @@ describe("coreMessageToInspector", () => {
           output: [{ title: "Paper" }],
         },
       ],
-    } as CoreMessage;
+    } as ModelMessage;
 
     expect(coreMessageToInspector(message, 3).parts).toEqual([
       {
@@ -103,7 +103,7 @@ describe("coreMessageToInspector", () => {
           error: "timeout",
         },
       ],
-    } as CoreMessage;
+    } as ModelMessage;
 
     expect(coreMessageToInspector(message, 0).parts).toEqual([
       {
@@ -130,7 +130,7 @@ describe("inspectorMessageToCore", () => {
             input: { id: 1 },
           },
         ],
-      } as CoreMessage,
+      } as ModelMessage,
       0,
     );
     const tool = coreMessageToInspector(
@@ -144,7 +144,7 @@ describe("inspectorMessageToCore", () => {
             output: { ok: true },
           },
         ],
-      } as CoreMessage,
+      } as ModelMessage,
       1,
     );
 

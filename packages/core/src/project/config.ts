@@ -28,9 +28,13 @@ export interface AdlProjectConfig {
   /** Registry key is `template.name` (filename basename). */
   templates?: Template<unknown>[];
   /**
-   * Registry-only shared tools (documentation / future UI). Runtime merge uses
-   * {@link AdlRuntimeConfig.tools} on `createAdlRuntime` — agents are created
-   * before this config object is finished loading.
+   * Registry-only shared tools. Runtime merge uses {@link AdlRuntimeConfig.tools}
+   * on `createAdlRuntime` — agents are created before this config object is
+   * finished loading.
+   *
+   * Future inspection UI: list these tools and trigger a manual tool run
+   * (same idea as starting a workflow) without going through an agent turn.
+   * See notes/inspection-ui.md.
    */
   tools?: ToolSet;
 }

@@ -10,13 +10,13 @@ describe("createTemplate", () => {
 
   it("renders a fixture prompt from path", () => {
     const tpl = createTemplate(runtime, {
-      path: "../prompt/fixtures/sample-agent.md",
+      path: "./fixtures/sample-agent.md",
       from: import.meta.url,
       inputData: z.object({ project: z.string() }),
     });
 
     expect(tpl.name).toBe("sample-agent");
-    expect(tpl.path).toBe("../prompt/fixtures/sample-agent.md");
+    expect(tpl.path).toBe("./fixtures/sample-agent.md");
     expect(tpl.source).toContain("research workflows");
     expect(tpl.render({ project: "Ada" })).toContain("Ada");
   });

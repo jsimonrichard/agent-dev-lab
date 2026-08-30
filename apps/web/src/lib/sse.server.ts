@@ -1,7 +1,7 @@
 import type { LoggedRunEvent, RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
 export function encodeRunEventSse(event: CoreRunEvent): string {
-  const lines = [`id: ${event.seq}`, `data: ${JSON.stringify(event)}`, "", ""];
+  const lines = [`id: ${event.runSeq}`, `data: ${JSON.stringify(event)}`, "", ""];
   return lines.join("\n");
 }
 

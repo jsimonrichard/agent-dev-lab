@@ -1,4 +1,6 @@
 export { createWorkflow } from "./create";
+export { createWorkflowFromAgent } from "./from-agent";
+export type { CreateWorkflowFromAgentOptions } from "./from-agent";
 export type {
   CustomWorkflowEvent,
   StepFn,

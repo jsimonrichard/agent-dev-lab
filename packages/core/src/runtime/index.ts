@@ -11,6 +11,7 @@ export type {
   AdlRuntimeDefaults,
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
+  AdlOpenTelemetrySettings,
   AdlTelemetrySettings,
   RuntimeObservers,
   RuntimeServices,

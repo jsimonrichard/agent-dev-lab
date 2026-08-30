@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
                 );
                 let sawTerminal = false;
                 for (const event of events) {
-                  cursor = event.seq;
+                  cursor = event.runSeq;
                   controller.enqueue(encoder.encode(encodeRunEventSse(event)));
                   if (workflowRunStreamIsTerminal(event)) {
                     sawTerminal = true;

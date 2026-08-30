@@ -1,4 +1,4 @@
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { describe, expect, it } from "bun:test";
 
 import { err, ok } from "../result";
@@ -78,7 +78,7 @@ describe("inspectSystemPrompt", () => {
 
 describe("splitStoredSystemPrompt", () => {
   it("reads the pinning agent id from a stored system message", () => {
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       {
         role: "system",
         content: "You are helpful.",
@@ -90,7 +90,7 @@ describe("splitStoredSystemPrompt", () => {
   });
 
   it("extracts a leading system message from the store", () => {
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: "system", content: "You are helpful." },
       { role: "user", content: "Hi" },
     ];
@@ -102,7 +102,7 @@ describe("splitStoredSystemPrompt", () => {
   });
 
   it("strips stray system messages when there is no leading pin", () => {
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: "user", content: "Hi" },
       { role: "system", content: "stray" },
     ];
@@ -116,7 +116,7 @@ describe("splitStoredSystemPrompt", () => {
 
 describe("withStoredSystemPrompt", () => {
   it("prepends a system message and strips duplicates", () => {
-    const transcript: CoreMessage[] = [
+    const transcript: ModelMessage[] = [
       { role: "system", content: "old" },
       { role: "user", content: "Hi" },
     ];

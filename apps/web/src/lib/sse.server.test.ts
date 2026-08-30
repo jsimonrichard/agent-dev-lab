@@ -15,7 +15,7 @@ const AT = "2026-01-01T00:00:00.000Z";
 function event(type: CoreRunEvent["type"]): CoreRunEvent {
   return {
     type,
-    seq: 1,
+    runSeq: 1,
     at: AT,
     eventSchemaVersion: 1,
     workflowRunId: "run-1",
@@ -130,7 +130,7 @@ describe("encodeLoggedRunEventSse", () => {
         workflowRunId: "run-1",
         workflowId: "demo",
         input: { n: 1 },
-        seq: 1,
+        runSeq: 1,
         at: AT,
         eventSchemaVersion: EVENT_SCHEMA_VERSION,
       },

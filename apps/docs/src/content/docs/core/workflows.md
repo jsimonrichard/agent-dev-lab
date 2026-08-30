@@ -227,7 +227,7 @@ type WorkflowContext = {
 
   step: StepFn;
   memoryScopeWithSuffix: (suffix: string) => string;
-  emit(event: { type: "custom"; name: string; payload: unknown }): void;
+  emit(name: string, payload?: unknown): void;
   setTitle(title: string): Promise<void>;
 };
 ```

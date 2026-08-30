@@ -9,12 +9,13 @@ import { readFileSync } from "node:fs";
  * Focused API docs live here as JSDoc on exports.
  *
  * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
- * `CoreMessage`, `LanguageModel`. Single internal `streamText` path for
- * `agent.run` and `agent.stream`; commits `response.messages` to MessageStore.
+ * `ModelMessage` (preferred; `CoreMessage` is the deprecated AI SDK alias),
+ * `LanguageModel`. Single internal `streamText` path for `agent.run` and
+ * `agent.stream`; commits `response.messages` to MessageStore.
  * `agent.run` loops model requests until `endWhen` (default `"ends-with-text"`);
  * pass `"api-call-ends"` for one SDK step. Tool call/result events still fire.
- * Agent turns forward `experimental_telemetry` (disable with
- * `createAdlRuntime({ telemetry: { isEnabled: false } })`).
+ * Agent turns forward OpenTelemetry via AI SDK `experimental_telemetry` (disable
+ * with `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
  * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
@@ -67,8 +68,9 @@ export type {
   SystemPromptConflictStrategy,
 } from "./agent";
 
-export { createWorkflow } from "./workflow";
+export { createWorkflow, createWorkflowFromAgent } from "./workflow";
 export type {
+  CreateWorkflowFromAgentOptions,
   CustomWorkflowEvent,
   StepFn,
   StepIdentity,
@@ -93,6 +95,7 @@ export type {
   AdlRuntimeDefaults,
   AdlRuntimeOptions,
   AdlRuntimeOverrides,
+  AdlOpenTelemetrySettings,
   AdlTelemetrySettings,
   RuntimeObservers,
   RuntimeServices,
@@ -117,13 +120,13 @@ export {
   inspectMessageStoreKind,
   sqliteInspectorSessionStore,
   sqliteMessageStore,
-} from "./memory";
+} from "./stores";
 export type {
   InspectorSessionFork,
   InspectorSessionRecord,
   MessageStore,
   SqliteStoreOptions,
-} from "./memory";
+} from "./stores";
 export {
   DEFAULT_EVENT_LOG_MAX_EVENTS,
   EVENT_SCHEMA_VERSION,
@@ -172,8 +175,8 @@ export type {
   DefaultToolInput,
 } from "./tools";
 
-export { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./prompt/load";
-export { renderPromptTemplate } from "./prompt/render";
+export { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./template/load";
+export { renderPromptTemplate } from "./template/render";
 
 export {
   ADL_CONFIG_FILENAMES,
@@ -205,6 +208,7 @@ export type {
   InferToolInput,
   InferToolOutput,
   LanguageModel,
+  ModelMessage,
   Tool,
   ToolSet,
 } from "ai";

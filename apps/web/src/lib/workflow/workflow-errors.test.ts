@@ -39,7 +39,7 @@ describe("adaptCoreEventsForWorkflowRun", () => {
       {
         type: "workflow_failed",
         workflowRunId: "run-1",
-        seq: 1,
+        runSeq: 1,
         at: AT,
         eventSchemaVersion: 1,
         error,
@@ -47,7 +47,7 @@ describe("adaptCoreEventsForWorkflowRun", () => {
       {
         type: "step_failed",
         workflowRunId: "run-1",
-        seq: 2,
+        runSeq: 2,
         at: AT,
         eventSchemaVersion: 1,
         stepId: "step-1",
@@ -61,7 +61,7 @@ describe("adaptCoreEventsForWorkflowRun", () => {
         workflowRunId: "run-1",
         stepId: "step-1",
         agentCallId: "ep-1",
-        seq: 3,
+        runSeq: 3,
         at: AT,
         eventSchemaVersion: 1,
         agentId: "researcher",
@@ -71,10 +71,10 @@ describe("adaptCoreEventsForWorkflowRun", () => {
 
     const adapted = adaptCoreEventsForWorkflowRun("run-1", events);
     expect(adapted).toEqual([
-      { seq: 1, runId: "run-1", type: "run_failed", at: AT, error },
-      { seq: 2, runId: "run-1", type: "step_failed", at: AT, stepId: "step-1", error },
+      { runSeq: 1, runId: "run-1", type: "run_failed", at: AT, error },
+      { runSeq: 2, runId: "run-1", type: "step_failed", at: AT, stepId: "step-1", error },
       {
-        seq: 3,
+        runSeq: 3,
         runId: "run-1",
         type: "agent_failed",
         at: AT,
@@ -92,7 +92,7 @@ describe("adaptCoreEventsForWorkflowRun", () => {
         workflowRunId: "run-1",
         stepId: "step-1",
         agentCallId: "ep-1",
-        seq: 1,
+        runSeq: 1,
         at: AT,
         eventSchemaVersion: 1,
         memoryScope: "notes",
@@ -102,7 +102,7 @@ describe("adaptCoreEventsForWorkflowRun", () => {
     ]);
     expect(adapted).toEqual([
       {
-        seq: 1,
+        runSeq: 1,
         runId: "run-1",
         type: "messages_committed",
         at: AT,
@@ -121,7 +121,7 @@ describe("buildRunViewState", () => {
     const error = { name: "Error", message: "API key missing" };
     const events: RunEvent[] = [
       {
-        seq: 1,
+        runSeq: 1,
         runId: "run-1",
         type: "run_started",
         at: AT,
@@ -129,7 +129,7 @@ describe("buildRunViewState", () => {
         input: { topic: "x" },
       },
       {
-        seq: 2,
+        runSeq: 2,
         runId: "run-1",
         type: "step_started",
         at: AT,
@@ -139,7 +139,7 @@ describe("buildRunViewState", () => {
         path: ["research"],
       },
       {
-        seq: 3,
+        runSeq: 3,
         runId: "run-1",
         type: "agent_started",
         at: AT,
@@ -149,7 +149,7 @@ describe("buildRunViewState", () => {
         episodeId: "ep-1",
       },
       {
-        seq: 4,
+        runSeq: 4,
         runId: "run-1",
         type: "agent_failed",
         at: AT,
@@ -158,7 +158,7 @@ describe("buildRunViewState", () => {
         error,
       },
       {
-        seq: 5,
+        runSeq: 5,
         runId: "run-1",
         type: "step_failed",
         at: AT,
@@ -166,7 +166,7 @@ describe("buildRunViewState", () => {
         error,
       },
       {
-        seq: 6,
+        runSeq: 6,
         runId: "run-1",
         type: "run_failed",
         at: AT,
@@ -191,7 +191,7 @@ describe("buildRunViewState", () => {
   it("settles in-flight steps when the run fails without a step_failed event", () => {
     const events: RunEvent[] = [
       {
-        seq: 1,
+        runSeq: 1,
         runId: "run-1",
         type: "run_started",
         at: AT,
@@ -199,7 +199,7 @@ describe("buildRunViewState", () => {
         input: {},
       },
       {
-        seq: 2,
+        runSeq: 2,
         runId: "run-1",
         type: "step_started",
         at: AT,
@@ -209,7 +209,7 @@ describe("buildRunViewState", () => {
         path: ["work"],
       },
       {
-        seq: 3,
+        runSeq: 3,
         runId: "run-1",
         type: "run_failed",
         at: AT,
@@ -224,7 +224,7 @@ describe("buildRunViewState", () => {
   it("keeps a still-running sibling episode after the other agent finishes", () => {
     const events: RunEvent[] = [
       {
-        seq: 1,
+        runSeq: 1,
         runId: "run-1",
         type: "run_started",
         at: AT,
@@ -232,7 +232,7 @@ describe("buildRunViewState", () => {
         input: { topic: "x" },
       },
       {
-        seq: 2,
+        runSeq: 2,
         runId: "run-1",
         type: "step_started",
         at: AT,
@@ -242,7 +242,7 @@ describe("buildRunViewState", () => {
         path: ["research"],
       },
       {
-        seq: 3,
+        runSeq: 3,
         runId: "run-1",
         type: "agent_started",
         at: AT,
@@ -252,7 +252,7 @@ describe("buildRunViewState", () => {
         episodeId: "ep-researcher",
       },
       {
-        seq: 4,
+        runSeq: 4,
         runId: "run-1",
         type: "agent_started",
         at: AT,
@@ -262,7 +262,7 @@ describe("buildRunViewState", () => {
         episodeId: "ep-critic",
       },
       {
-        seq: 5,
+        runSeq: 5,
         runId: "run-1",
         type: "text_delta",
         at: AT,
@@ -271,7 +271,7 @@ describe("buildRunViewState", () => {
         delta: "partial",
       },
       {
-        seq: 6,
+        runSeq: 6,
         runId: "run-1",
         type: "agent_finished",
         at: AT,

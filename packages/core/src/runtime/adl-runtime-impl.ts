@@ -3,6 +3,10 @@ import type { ToolSet, Tool } from "ai";
 import { AgentImpl } from "../agent/agent-impl";
 import type { Agent, AgentDefinition } from "../agent/types";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
+import {
+  createWorkflowFromAgent,
+  type CreateWorkflowFromAgentOptions,
+} from "../workflow/from-agent";
 import { WorkflowImpl } from "../workflow/workflow-impl";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
@@ -62,6 +66,13 @@ export class AdlRuntimeImpl implements AdlRuntime {
     options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
   ): Tool<TToolInput, TOutput> {
     return createToolFromWorkflow(this, workflow, options);
+  }
+
+  createWorkflowFromAgent<Context, Tools extends ToolSet = ToolSet, TOutput = string>(
+    agent: Agent<Context, Tools, TOutput>,
+    options?: CreateWorkflowFromAgentOptions<Context>,
+  ): Workflow<string, TOutput, string> {
+    return createWorkflowFromAgent(this, agent, options);
   }
 
   createTemplate<TSchema extends z.ZodType>(config: TemplateConfig<TSchema>) {

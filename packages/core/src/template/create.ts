@@ -2,7 +2,7 @@ import path from "node:path";
 
 import type { z } from "zod";
 
-import { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "../prompt/load";
+import { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./load";
 import type { AdlRuntime } from "../runtime/types";
 import type { TemplateEngine } from "./engine";
 import type { Template, TemplateConfig } from "./types";

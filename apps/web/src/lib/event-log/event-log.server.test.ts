@@ -21,7 +21,7 @@ function started(seq: number, workflowRunId = "run-1"): RunEvent {
     workflowRunId,
     workflowId: "demo",
     input: { n: seq },
-    seq,
+    runSeq: seq,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   };
@@ -87,7 +87,7 @@ function agentStarted(agentCallId = "call-solo"): RunEvent {
     agentCallId,
     agentId: "writer",
     memoryScope: "notes",
-    seq: 1,
+    runSeq: 1,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   };
@@ -98,7 +98,7 @@ function agentFinished(agentCallId = "call-solo"): RunEvent {
     type: "agent_finished",
     agentCallId,
     agentId: "writer",
-    seq: 2,
+    runSeq: 2,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   };

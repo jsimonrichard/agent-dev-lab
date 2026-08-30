@@ -11,7 +11,7 @@ function msg(id: string, role: InspectorMessage["role"], content: string): Inspe
 
 function started(seq: number, episodeId: string, scope = "notes"): RunEvent {
   return {
-    seq,
+    runSeq: seq,
     runId: "run-1",
     type: "agent_started",
     at: AT,
@@ -30,7 +30,7 @@ function committed(
   scope = "notes",
 ): RunEvent {
   return {
-    seq,
+    runSeq: seq,
     runId: "run-1",
     type: "messages_committed",
     at: AT,
@@ -178,7 +178,7 @@ describe("partitionScopeTranscript", () => {
     const events: RunEvent[] = [
       started(1, "ep-1"),
       {
-        seq: 2,
+        runSeq: 2,
         runId: "run-1",
         type: "messages_committed",
         at: AT,
@@ -189,7 +189,7 @@ describe("partitionScopeTranscript", () => {
       },
       started(3, "ep-2"),
       {
-        seq: 4,
+        runSeq: 4,
         runId: "run-1",
         type: "messages_committed",
         at: AT,

@@ -60,7 +60,7 @@ export type RunEventType =
   | "run_title_set";
 
 export interface RunEventBase {
-  seq: number;
+  runSeq: number;
   runId: string;
   type: RunEventType;
   at: string;
@@ -304,7 +304,7 @@ export type MessagesByScope = Record<string, InspectorMessage[]>;
 
 export interface PrefetchedRunMessages {
   messagesByScope: MessagesByScope;
-  /** Highest run-event seq observed when these messages were loaded. */
+  /** Highest run-event runSeq observed when these messages were loaded. */
   eventSeq: number;
 }
 

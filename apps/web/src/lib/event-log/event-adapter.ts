@@ -22,7 +22,7 @@ export function adaptCoreEventsForWorkflowRun(
     switch (event.type) {
       case "workflow_started":
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "run_started",
           at: event.at,
@@ -32,7 +32,7 @@ export function adaptCoreEventsForWorkflowRun(
         break;
       case "workflow_finished":
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "run_finished",
           at: event.at,
@@ -41,7 +41,7 @@ export function adaptCoreEventsForWorkflowRun(
         break;
       case "workflow_failed":
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "run_failed",
           at: event.at,
@@ -50,7 +50,7 @@ export function adaptCoreEventsForWorkflowRun(
         break;
       case "workflow_cancelled":
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "run_cancelled",
           at: event.at,
@@ -59,7 +59,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "step_started":
         if (!event.workflowRunId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "step_started",
           at: event.at,
@@ -73,7 +73,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "step_finished":
         if (!event.workflowRunId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "step_finished",
           at: event.at,
@@ -85,7 +85,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "step_failed":
         if (!event.workflowRunId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "step_failed",
           at: event.at,
@@ -96,7 +96,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_started":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "agent_started",
           at: event.at,
@@ -109,7 +109,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_finished":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "agent_finished",
           at: event.at,
@@ -121,7 +121,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_text_delta":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "text_delta",
           at: event.at,
@@ -133,7 +133,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_messages_committed":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "messages_committed",
           at: event.at,
@@ -147,7 +147,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_failed":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "agent_failed",
           at: event.at,
@@ -159,7 +159,7 @@ export function adaptCoreEventsForWorkflowRun(
       case "agent_warning":
         if (!event.workflowRunId || !event.stepId) break;
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "agent_warning",
           at: event.at,
@@ -179,7 +179,7 @@ export function adaptCoreEventsForWorkflowRun(
         break;
       case "workflow_title_set":
         out.push({
-          seq: event.seq,
+          runSeq: event.runSeq,
           runId: event.workflowRunId,
           type: "run_title_set",
           at: event.at,

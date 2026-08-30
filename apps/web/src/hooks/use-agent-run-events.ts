@@ -94,7 +94,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
           stop();
         }
 
-        lastSeqRef.current = Math.max(lastSeqRef.current, event.seq);
+        lastSeqRef.current = Math.max(lastSeqRef.current, event.runSeq);
       } catch {
         // ignore malformed chunks
       }

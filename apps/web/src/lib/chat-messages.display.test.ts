@@ -19,14 +19,14 @@ describe("toChatDisplayItems", () => {
             { type: "text", text: "Looking that up." },
             { type: "tool-call", toolCallId: "c1", toolName: "search", input: { q: "ALS" } },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         1,
       ),
       coreMessageToInspector(
         {
           role: "tool",
           content: [{ type: "tool-result", toolCallId: "c1", toolName: "search", output: "ok" }],
-        } as CoreMessage,
+        } as ModelMessage,
         2,
       ),
       coreMessageToInspector({ role: "assistant", content: "Here they are." }, 3),
@@ -66,7 +66,7 @@ describe("toChatDisplayItems", () => {
             { type: "tool-call", toolCallId: "c1", toolName: "search", input: {} },
             { type: "text", text: "After." },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
     ];
@@ -87,7 +87,7 @@ describe("toChatDisplayItems", () => {
             { type: "tool-call", toolCallId: "a", toolName: "one", input: {} },
             { type: "tool-call", toolCallId: "b", toolName: "two", input: { n: 2 } },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
       coreMessageToInspector(
@@ -97,7 +97,7 @@ describe("toChatDisplayItems", () => {
             { type: "tool-result", toolCallId: "a", toolName: "one", output: 1 },
             { type: "tool-result", toolCallId: "b", toolName: "two", output: 2 },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         1,
       ),
     ];
@@ -117,7 +117,7 @@ describe("toChatDisplayItems", () => {
         {
           role: "assistant",
           content: [{ type: "tool-call", toolCallId: "c1", toolName: "search", input: {} }],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
     ];
@@ -163,7 +163,7 @@ describe("toChatDisplayItems", () => {
               providerExecuted: true,
             },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
     ];
@@ -212,7 +212,7 @@ describe("toChatDisplayItems", () => {
               output: { type: "json", value: { ok: true, extra: 1 } },
             },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
     ];
@@ -240,7 +240,7 @@ describe("toChatDisplayItems", () => {
               output: { action: { query: "nope" }, ok: true },
             },
           ],
-        } as CoreMessage,
+        } as ModelMessage,
         0,
       ),
     ];

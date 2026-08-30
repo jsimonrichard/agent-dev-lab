@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
 import { tool } from "ai";
 import { z } from "zod";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import { createTestRuntime } from "../runtime/create-test";
 import {
@@ -67,7 +67,7 @@ function textAndToolCallStream(text: string, toolName: string, input: string) {
 
 describe("countToolCallParts", () => {
   it("counts assistant tool-call parts and ignores other roles", () => {
-    const messages: CoreMessage[] = [
+    const messages: ModelMessage[] = [
       { role: "user", content: "hi" },
       {
         role: "assistant",
@@ -153,13 +153,13 @@ describe("lastAssistantEndPart", () => {
 });
 
 describe("evaluateEndWhen", () => {
-  const toolOnly: CoreMessage[] = [
+  const toolOnly: ModelMessage[] = [
     {
       role: "assistant",
       content: [{ type: "tool-call", toolCallId: "c1", toolName: "lookup", input: {} }],
     },
   ];
-  const textThenTool: CoreMessage[] = [
+  const textThenTool: ModelMessage[] = [
     {
       role: "assistant",
       content: [
@@ -168,7 +168,7 @@ describe("evaluateEndWhen", () => {
       ],
     },
   ];
-  const toolThenText: CoreMessage[] = [
+  const toolThenText: ModelMessage[] = [
     {
       role: "assistant",
       content: [
@@ -209,7 +209,7 @@ describe("evaluateEndWhen", () => {
   });
 
   it("predicate returns true to stop", () => {
-    const prior: CoreMessage[] = [{ role: "user", content: "hi" }];
+    const prior: ModelMessage[] = [{ role: "user", content: "hi" }];
     expect(
       evaluateEndWhen(toolOnly, {
         messages: [...prior, ...toolOnly],
@@ -227,8 +227,8 @@ describe("evaluateEndWhen", () => {
   });
 
   it("derives oldMessages from messages when omitted", () => {
-    const prior: CoreMessage[] = [{ role: "user", content: "hi" }];
-    let seen: CoreMessage[] | undefined;
+    const prior: ModelMessage[] = [{ role: "user", content: "hi" }];
+    let seen: ModelMessage[] | undefined;
     evaluateEndWhen(toolOnly, {
       messages: [...prior, ...toolOnly],
       endWhen: ({ oldMessages }) => {

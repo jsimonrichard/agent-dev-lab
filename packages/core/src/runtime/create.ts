@@ -1,5 +1,5 @@
 import { loadAdlEnv } from "../project/load-env";
-import { AdlRuntimeImpl } from "./adl-runtime";
+import { AdlRuntimeImpl } from "./adl-runtime-impl";
 import type { AdlRuntime, AdlRuntimeConfig } from "./types";
 
 export type { AdlRuntime } from "./types";

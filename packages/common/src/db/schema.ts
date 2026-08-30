@@ -21,7 +21,8 @@ export const workflowEvents = sqliteTable("adl_workflow_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   workflowRunId: text("workflow_run_id"),
   agentCallId: text("agent_call_id"),
-  seq: integer("seq").notNull(),
+  /** Per-run / per-episode order. Same value as `RunEvent.runSeq`. */
+  runSeq: integer("run_seq").notNull(),
   type: text("type").notNull(),
   at: text("at").notNull(),
   eventSchemaVersion: integer("event_schema_version").notNull(),

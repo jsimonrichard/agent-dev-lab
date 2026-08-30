@@ -12,11 +12,11 @@ function isWorkflowRunTerminal(event: RunEvent): boolean {
 
 export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = []) {
   const [events, setEvents] = useState<RunEvent[]>(initialEvents);
-  const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.seq), 0));
+  const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0));
 
   useEffect(() => {
     setEvents(initialEvents);
-    lastSeqRef.current = initialEvents.reduce((max, e) => Math.max(max, e.seq), 0);
+    lastSeqRef.current = initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0);
   }, [runId, initialEvents]);
 
   useEffect(() => {
@@ -27,14 +27,14 @@ export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = 
     source.onmessage = (message) => {
       try {
         const core = JSON.parse(message.data) as CoreRunEvent;
-        lastSeqRef.current = Math.max(lastSeqRef.current, core.seq);
+        lastSeqRef.current = Math.max(lastSeqRef.current, core.runSeq);
         const adapted = adaptCoreEventsForWorkflowRun(runId, [core]);
         if (adapted.length === 0) {
           return;
         }
         const uiEvent = adapted[0]!;
         setEvents((prev) => {
-          if (prev.some((e) => e.seq === uiEvent.seq)) {
+          if (prev.some((e) => e.runSeq === uiEvent.runSeq)) {
             return prev;
           }
           return [...prev, uiEvent];

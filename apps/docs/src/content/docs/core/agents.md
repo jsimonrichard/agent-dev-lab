@@ -133,7 +133,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 
 ### What agents do not carry
 
-- **`stopWhen` / SDK step limits** — each inner model request is still `stepCountIs(1)`. The agent loops those requests itself unless `endWhen` is `"api-call-ends"`.
+- **AI SDK `stopWhen`** — each inner `streamText` call uses `stopWhen: stepCountIs(1)` as an implementation detail. That is **not** the public ADL API. Use **`endWhen`** to decide when the _episode_ stops looping model requests. There is no `exit` policy.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
 
 ## Calling an agent
@@ -148,14 +148,14 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt).
 
 ```ts
-import type { CoreMessage } from "@agent-dev-lab/core";
+import type { ModelMessage } from "@agent-dev-lab/core";
 import type { z } from "zod";
 
 type AgentRunInput = {
   memoryScope?: string;
   context?: unknown;
   user?: string;
-  messages?: CoreMessage[];
+  messages?: ModelMessage[];
   outputSchema?: z.ZodType<unknown>;
   endWhen?: AgentEndWhen; // named policy or ({ messages, oldMessages, newMessages }) => boolean
   maxTurns?: number;
@@ -245,7 +245,7 @@ await researcher.run({
 
 ## Tool calls and persistence
 
-ADL persists **only** `CoreMessage` lists. Tool usage round-trips through SDK message shape:
+ADL persists **only** `ModelMessage` lists (AI SDK v5; `ModelMessage` is a deprecated alias). Tool usage round-trips through SDK message shape:
 
 - Assistant parts with `tool-call`
 - Tool role messages with `tool-result`
@@ -283,15 +283,19 @@ const researcherTool = adl.createToolFromAgent(researcher, {
     query: z.string(),
   }),
   mapRun: (toolArgs, { ctx }) => ({
-    memoryScope: ctx.memoryScopeWithSuffix(`tool:${toolArgs.threadId}`),
+    memoryScope:
+      ctx?.memoryScopeWithSuffix(`tool:${toolArgs.threadId}`) ?? `tool:${toolArgs.threadId}`,
     user: toolArgs.query,
   }),
 });
+
+const askAsWorkflow = adl.createWorkflowFromAgent(researcher, { id: "ask-researcher" });
+await askAsWorkflow.run("What is CRISPR?").result;
 ```
 
 `createToolFromAgent` / `createToolFromWorkflow` return an AI SDK `Tool<TInput, TOutput>`. Agent tools use the agent's `TOutput` (inferred from `outputSchema`, otherwise `string`). Pass `inputSchema` so `mapRun` / `mapInput` receive typed arguments instead of a catch-all object.
 
-These helpers require an active workflow context (ALS).
+These helpers work **outside** a workflow. `mapRun` receives `ctx` only when the tool runs inside a workflow body or step. `createWorkflowFromAgent` wraps an agent as a workflow that takes a string user message.
 
 ## Events
 

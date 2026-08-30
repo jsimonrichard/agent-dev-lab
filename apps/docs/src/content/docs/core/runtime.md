@@ -56,7 +56,7 @@ const researcher = adl.createAgent(
 
 ## EventLog
 
-[`inMemoryEventLog()`](/api/functions/inmemoryeventlog/) is a ring-buffer [`EventLog`](/api/interfaces/eventlog/) that also implements `WorkflowObserver` and `AgentObserver`. Register the **same instance** on both lists so workflow and agent events share one `logSeq` (process-wide, unlike per-run `RunEvent.seq`):
+[`inMemoryEventLog()`](/api/functions/inmemoryeventlog/) is a ring-buffer [`EventLog`](/api/interfaces/eventlog/) that also implements `WorkflowObserver` and `AgentObserver`. Register the **same instance** on both lists so workflow and agent events share one `logSeq` (process-wide, unlike per-run `RunEvent.runSeq`):
 
 ```ts
 import { createAdlRuntime, inMemoryEventLog } from "@agent-dev-lab/core";
@@ -106,7 +106,7 @@ await ctx.step("research", async ({ ctx: child }) => {
 });
 ```
 
-Tools created via `adl.createToolFromAgent` / `adl.createToolFromWorkflow` **require** ALS — they must be called from within a workflow run.
+Tools created via `adl.createToolFromAgent` / `adl.createToolFromWorkflow` work **outside** a workflow as well. When the tool runs inside a workflow body or step, ALS still supplies `meta.ctx` so the tool can nest on the parent run. `adl.createWorkflowFromAgent` wraps an agent as a workflow that accepts a string user message.
 
 ## workflow.run
 
@@ -147,4 +147,4 @@ Pass `defaults.model` (or a mock `LanguageModel`) when the test constructs agent
 
 ## Tracing
 
-`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so model and tool spans nest under the agent span. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.
+`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so **OpenTelemetry** model and tool spans nest under the agent span — this is not Vercel product analytics. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. The option type is `AdlOpenTelemetrySettings`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.

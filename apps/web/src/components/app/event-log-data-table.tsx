@@ -576,7 +576,7 @@ function EventLogCell({
     "block truncate rounded-sm px-1.5 py-1 text-[11px]",
     field === "at" ? "max-w-56" : "max-w-44",
     named ? null : "font-mono",
-    field === "logSeq" || field === "seq" || field === "at" ? "tabular-nums" : null,
+    field === "logSeq" || field === "runSeq" || field === "at" ? "tabular-nums" : null,
     active && "bg-accent",
     !cell && "text-muted-foreground/40",
   );

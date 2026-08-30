@@ -26,7 +26,7 @@ const workflow = logged(9, {
   workflowRunId: "run-1",
   workflowId: "demo",
   input: {},
-  seq: 1,
+  runSeq: 1,
   at: AT,
   eventSchemaVersion: EVENT_SCHEMA_VERSION,
 });
@@ -35,7 +35,7 @@ const agent = logged(10, {
   type: "agent_text_delta",
   agentCallId: "call-1",
   workflowRunId: "run-1",
-  seq: 4,
+  runSeq: 4,
   at: AT,
   eventSchemaVersion: EVENT_SCHEMA_VERSION,
   delta: "Hi",
@@ -61,7 +61,7 @@ describe("eventLogTableCell", () => {
           stepId: null,
           name: "root-note",
           payload: {},
-          seq: 4,
+          runSeq: 4,
           at: AT,
           eventSchemaVersion: EVENT_SCHEMA_VERSION,
         }),
@@ -72,7 +72,7 @@ describe("eventLogTableCell", () => {
 
   it("omits agent-only columns on workflow events and the reverse", () => {
     const workflowFields = eventLogTableCells(workflow).map((cell) => cell.field);
-    expect(workflowFields).toEqual(["logSeq", "at", "type", "seq", "workflow", "workflowRun"]);
+    expect(workflowFields).toEqual(["logSeq", "at", "type", "runSeq", "workflow", "workflowRun"]);
 
     const resolve = {
       workflowIds: new Map([["run-1", "demo"]]),
@@ -88,7 +88,7 @@ describe("eventLogTableCell", () => {
       "logSeq",
       "at",
       "type",
-      "seq",
+      "runSeq",
       "workflow",
       "workflowRun",
       "agent",
@@ -101,7 +101,7 @@ describe("eventLogTableCell", () => {
 describe("eventLogPresentFields", () => {
   it("includes only fields that appear on at least one event", () => {
     const present = eventLogPresentFields([workflow]);
-    expect([...present]).toEqual(["logSeq", "at", "type", "seq", "workflow", "workflowRun"]);
+    expect([...present]).toEqual(["logSeq", "at", "type", "runSeq", "workflow", "workflowRun"]);
     expect(present.has("agentCall")).toBe(false);
     expect(present.has("stepId")).toBe(false);
   });
@@ -112,7 +112,7 @@ describe("eventLogColumnVisibility", () => {
     const present = eventLogPresentFields([workflow, agent]);
     expect(eventLogColumnVisibility({}, present)).toMatchObject({
       logSeq: false,
-      seq: false,
+      runSeq: false,
     });
     expect(eventLogColumnVisibility({ stepId: true, agentCall: false }, present)).toEqual({
       stepId: false,
@@ -120,22 +120,22 @@ describe("eventLogColumnVisibility", () => {
       conversation: false,
       agentCall: false,
       logSeq: false,
-      seq: false,
+      runSeq: false,
     });
-    expect(eventLogHiddenColumnIds({}, present)).toEqual(["logSeq", "seq"]);
+    expect(eventLogHiddenColumnIds({}, present)).toEqual(["logSeq", "runSeq"]);
     expect(eventLogHiddenColumnIds({ agentCall: false }, present)).toEqual([
       "logSeq",
-      "seq",
+      "runSeq",
       "agentCall",
     ]);
-    expect(eventLogRowHiddenColumnIds(["logSeq", "seq", "agentCall"])).toEqual(["agentCall"]);
+    expect(eventLogRowHiddenColumnIds(["logSeq", "runSeq", "agentCall"])).toEqual(["agentCall"]);
   });
 
   it("keeps a default-hidden column visible when the user opts in", () => {
     const present = eventLogPresentFields([workflow, agent]);
     expect(eventLogColumnVisibility({ logSeq: true }, present).logSeq).not.toBe(false);
     expect(
-      eventLogUserColumnVisibility({ logSeq: true, seq: false, agentCall: false }, present),
+      eventLogUserColumnVisibility({ logSeq: true, runSeq: false, agentCall: false }, present),
     ).toEqual({ logSeq: true, agentCall: false });
   });
 
@@ -162,7 +162,7 @@ describe("eventLogFilterFieldList", () => {
       "logSeq",
       "at",
       "type",
-      "seq",
+      "runSeq",
       "workflow",
       "workflowRun",
       "agent",
@@ -187,7 +187,7 @@ describe("eventLogFilterFieldList", () => {
         workflowRunId: "run-1",
         workflowId: "demo",
         input: { messages: [{ role: "user", content: "hi" }] },
-        seq: 1,
+        runSeq: 1,
         at: AT,
         eventSchemaVersion: EVENT_SCHEMA_VERSION,
       }),

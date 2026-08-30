@@ -1,10 +1,10 @@
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 /**
  * Persistent or in-process storage for a **conversation transcript** keyed by
  * `memoryScope` on {@link AgentRunInput}.
  *
- * **Role:** supplies `CoreMessage[]` to the model on the next `agent.run`.
+ * **Role:** supplies `ModelMessage[]` to the model on the next `agent.run`.
  * Separate from {@link WorkflowStore} (run/step observability). Do not rebuild
  * agent memory by replaying run events.
  *
@@ -28,10 +28,10 @@ export interface MessageStore {
   readonly kind?: string;
 
   /** Full transcript for this scope (empty array when new). */
-  load(memoryScope: string): Promise<CoreMessage[]>;
+  load(memoryScope: string): Promise<ModelMessage[]>;
 
   /** Replace the transcript after the runner merges new messages. */
-  save(memoryScope: string, messages: CoreMessage[]): Promise<void>;
+  save(memoryScope: string, messages: ModelMessage[]): Promise<void>;
 
   /** Drop the transcript for this scope. */
   delete(memoryScope: string): Promise<void>;

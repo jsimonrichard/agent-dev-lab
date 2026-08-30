@@ -1,4 +1,4 @@
-import type { CoreMessage } from "@agent-dev-lab/core";
+import type { ModelMessage } from "@agent-dev-lab/core";
 
 import type {
   ChatMessagePart,
@@ -280,7 +280,7 @@ export function toChatDisplayItems(messages: InspectorMessage[]): ChatDisplayIte
   return items;
 }
 
-export function coreMessageToInspector(message: CoreMessage, index: number): InspectorMessage {
+export function coreMessageToInspector(message: ModelMessage, index: number): InspectorMessage {
   const role: InspectorMessage["role"] =
     message.role === "system" ||
     message.role === "user" ||
@@ -297,7 +297,7 @@ export function coreMessageToInspector(message: CoreMessage, index: number): Ins
   };
 }
 
-export function inspectorMessageToCore(message: InspectorMessage): CoreMessage {
+export function inspectorMessageToCore(message: InspectorMessage): ModelMessage {
   const parts = messageParts(message);
 
   if (message.role === "tool") {
@@ -315,7 +315,7 @@ export function inspectorMessageToCore(message: InspectorMessage): CoreMessage {
             ]
           : [],
       ),
-    } as CoreMessage;
+    } as ModelMessage;
   }
 
   if (message.role === "assistant" && parts.some((part) => part.type !== "text")) {
@@ -332,7 +332,7 @@ export function inspectorMessageToCore(message: InspectorMessage): CoreMessage {
         });
       }
     }
-    return { role: "assistant", content } as CoreMessage;
+    return { role: "assistant", content } as ModelMessage;
   }
 
   if (message.role === "system") {

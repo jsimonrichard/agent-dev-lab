@@ -21,9 +21,10 @@ const TRACER_NAME = "agent-dev-lab";
  *   code can use `@opentelemetry/api` directly. `RunRecorder` still persists agent episodes when a
  *   workflow store is present (optional history); it does not replace custom OTel instrumentation.
  *
- * `seq` is scoped to the event stream a consumer subscribes to: per `workflowRunId` for workflow
+ * `runSeq` is scoped to the event stream a consumer subscribes to: per `workflowRunId` for workflow
  * runs (all workflow + step + agent events share one counter), per `agentCallId` for standalone
  * agent episodes. Not globally unique — meaningful only within a single `listEvents` query scope.
+ * Distinct from process-wide {@link LoggedRunEvent.logSeq}.
  */
 export class RunRecorder {
   private workflowSeq = 0;
@@ -83,7 +84,7 @@ export class RunRecorder {
     if ("workflowRunId" in event && event.workflowRunId) {
       return {
         ...event,
-        seq: ++this.workflowSeq,
+        runSeq: ++this.workflowSeq,
         at: this.now(),
         eventSchemaVersion: EVENT_SCHEMA_VERSION,
       } as RunEvent;
@@ -91,7 +92,7 @@ export class RunRecorder {
     if ("agentCallId" in event) {
       return {
         ...event,
-        seq: ++this.agentSeq,
+        runSeq: ++this.agentSeq,
         at: this.now(),
         eventSchemaVersion: EVENT_SCHEMA_VERSION,
       } as RunEvent;

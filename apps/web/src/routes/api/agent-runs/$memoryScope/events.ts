@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               }
               const events = await store.listEvents({ agentCallId }, { afterSeq: cursor });
               for (const event of events) {
-                cursor = event.seq;
+                cursor = event.runSeq;
                 controller.enqueue(encoder.encode(encodeRunEventSse(event)));
                 if (agentRunStreamIsTerminal(event)) {
                   sawTerminal = true;

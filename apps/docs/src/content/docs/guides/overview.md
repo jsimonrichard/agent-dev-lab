@@ -7,9 +7,9 @@ description: High-level orientation for the Agent Dev Lab docs site.
 
 ## What you get
 
-- **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `CoreMessage`)
+- **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `ModelMessage`)
 - **Persisted run events** for waterfalls, SSE tails, and replay (`WorkflowStore` / SQLite)
-- **`adl init` / `adl workflow run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
+- **`adl init` / `adl workflow run` / `adl agent run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
 - **Hot reload in monorepo / Vite** — published installs use the Nitro serve build (restart after registry edits)
 
 ## Documentation map
@@ -38,19 +38,19 @@ Use the **Core API** sidebar for the full export list.
 
 - **Runtime/UI split** — workflows run from scripts, tests, or server; UI reads persisted output.
 - **TypeScript-first** — plain TS orchestration, no workflow graph DSL.
-- **AI SDK native** — `CoreMessage`, `streamText`, `tool()` without parallel abstractions.
+- **AI SDK native** — `ModelMessage`, `streamText`, `tool()` without parallel abstractions.
 - **Colocated prompts** — markdown beside code; templates via Handlebars + Zod (`createTemplate`).
 
 ## Monorepo packages
 
-| Package                 | Role                                      |
-| ----------------------- | ----------------------------------------- |
-| `@agent-dev-lab/core`   | Headless runtime                          |
-| `@agent-dev-lab/web`    | Inspection UI (port 3000)                 |
-| `@agent-dev-lab/cli`    | `adl` CLI                                 |
-| `@agent-dev-lab/docs`   | This site (port 4321)                     |
-| `@agent-dev-lab/common` | Drizzle + SQLite helpers, logging, ESLint |
-| `apps/playground`       | Framework-dev sample project              |
+| Package                 | Role                                               |
+| ----------------------- | -------------------------------------------------- |
+| `@agent-dev-lab/core`   | Headless runtime                                   |
+| `@agent-dev-lab/web`    | Inspection UI (port 3000)                          |
+| `@agent-dev-lab/cli`    | `adl` CLI                                          |
+| `@agent-dev-lab/docs`   | This site (port 4321)                              |
+| `@agent-dev-lab/common` | Internal shared infra (published for core/cli/web) |
+| `apps/playground`       | Framework-dev sample project                       |
 
 ## Development
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
 import { z } from "zod";
 
 import { createTestRuntime } from "../runtime/create-test";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
-function flattenText(message: CoreMessage): string {
+function flattenText(message: ModelMessage): string {
   if (typeof message.content === "string") {
     return message.content;
   }

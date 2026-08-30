@@ -5,12 +5,17 @@ import { loadAdlProject, type LoadedAdlProject } from "./resolve";
 import { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandlers } from "./watch";
 
 /**
- * Process-wide inspection-UI host.
+ * Process-wide inspection-UI host (one project per Node process).
  *
  * Vite config and Nitro's fetchable worker can evaluate this module in different
  * isolates. A module-local `const` then forks: one isolate reloads while `/api`
  * reads another. `process[Symbol.for(...)]` is shared only within an isolate —
  * drive reload via Nitro `dispatchFetch` so the worker that serves runs updates.
+ *
+ * File watch (`watchAdlProject` / `reload-gate`) is a fallback when the Vite
+ * plugin does not see a change. The host still owns the loaded project, the
+ * inspector event log, and SSE reload subscribers. Tests call
+ * {@link resetAdlProjectProcessHost}.
  */
 type AdlProjectProcessHost = {
   project?: LoadedAdlProject;

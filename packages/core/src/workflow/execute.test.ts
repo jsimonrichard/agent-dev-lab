@@ -38,7 +38,7 @@ describe("workflow.run", () => {
       run: async (_input, ctx) => {
         const { step, emit, setTitle, memoryScopeWithSuffix } = ctx;
         await setTitle("destructured");
-        emit({ type: "custom", name: "ping", payload: { ok: true } });
+        emit("ping", { ok: true });
         const value = await step("add", async () => 2);
         expect(memoryScopeWithSuffix("notes")).toContain(":notes");
         return { value };

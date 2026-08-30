@@ -1,5 +1,5 @@
 import type { AgentMemoryConfig } from "../agent/types";
-import { inMemoryMessageStore } from "../memory/in-memory";
+import { inMemoryMessageStore } from "../stores/in-memory";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import { TemplateEngine } from "../template/engine";
 import { WorkflowContextScope } from "../workflow/workflow-context-scope";

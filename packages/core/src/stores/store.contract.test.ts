@@ -1,6 +1,6 @@
 /**
- * Contract tests for MessageStore / WorkflowStore implementations
- * living under memory/ and observability/ (this folder holds only the shared suite).
+ * Contract tests for MessageStore / WorkflowStore implementations.
+ * Message stores live in this folder; workflow stores live under observability/.
  */
 
 import { mkdtemp } from "node:fs/promises";
@@ -10,11 +10,11 @@ import path from "node:path";
 import { describe, expect, it } from "bun:test";
 
 import { createAdlRuntime } from "../runtime/create";
-import { inMemoryMessageStore } from "../memory/in-memory";
-import { sqliteMessageStore } from "../memory/sqlite";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import { sqliteWorkflowStore } from "../observability/sqlite-workflow-store";
-import type { MessageStore } from "../memory/types";
+import { inMemoryMessageStore } from "./in-memory";
+import { sqliteMessageStore } from "./sqlite";
+import type { MessageStore } from "./types";
 import type { WorkflowStore } from "../observability/workflow-store";
 import { EVENT_SCHEMA_VERSION } from "../observability/events";
 
@@ -131,7 +131,7 @@ describe("sqlite stores share a file", () => {
       agentCallId: "call-1",
       agentId: "researcher",
       memoryScope: "conv:1",
-      seq: 1,
+      runSeq: 1,
       at: "2026-01-01T00:00:00.000Z",
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });

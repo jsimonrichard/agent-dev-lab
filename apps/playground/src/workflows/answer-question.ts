@@ -45,11 +45,7 @@ export const answerQuestion = adl.createWorkflow({
     });
 
     const answer = turn.text || "(no final answer produced within the turn limit)";
-    ctx.emit({
-      type: "custom",
-      name: "answer-ready",
-      payload: { turns: turn.turns, toolCalls: turn.toolCalls },
-    });
+    ctx.emit("answer-ready", { turns: turn.turns, toolCalls: turn.toolCalls });
     return { answer, turns: turn.turns, toolCalls: turn.toolCalls };
   },
 });

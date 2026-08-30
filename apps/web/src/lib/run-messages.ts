@@ -20,7 +20,7 @@ export function latestCommitSeqByScope(events: RunEvent[]): Record<string, numbe
   const latest: Record<string, number> = {};
   for (const event of events) {
     if (event.type === "messages_committed") {
-      latest[event.memoryScope] = event.seq;
+      latest[event.memoryScope] = event.runSeq;
     }
   }
   return latest;

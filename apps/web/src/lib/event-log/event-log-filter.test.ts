@@ -30,7 +30,7 @@ function customEvent(): RunEvent {
   return {
     type: "custom",
     workflowRunId: "run-1",
-    seq: 3,
+    runSeq: 3,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
     name: "answer-ready",
@@ -44,7 +44,7 @@ function started(): RunEvent {
     workflowRunId: "run-1",
     workflowId: "answer-question",
     input: { question: "hello" },
-    seq: 1,
+    runSeq: 1,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   };
@@ -61,7 +61,7 @@ function startedWithMessages(): RunEvent {
         { role: "assistant", content: [{ input: { topic: "quasars" } }] },
       ],
     },
-    seq: 1,
+    runSeq: 1,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   };
@@ -72,7 +72,7 @@ function delta(): RunEvent {
     type: "agent_text_delta",
     agentCallId: "call-1",
     workflowRunId: "run-1",
-    seq: 4,
+    runSeq: 4,
     at: AT,
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
     delta: "Hello",
@@ -95,7 +95,7 @@ describe("flattenLoggedEvent", () => {
 describe("collectFieldPaths", () => {
   it("unions keys across events and aliases id columns", () => {
     const keys = collectFieldPaths([logged(1, started()), logged(2, customEvent())]);
-    expect(keys.slice(0, 6)).toEqual(["logSeq", "at", "type", "seq", "workflow", "workflowRun"]);
+    expect(keys.slice(0, 6)).toEqual(["logSeq", "at", "type", "runSeq", "workflow", "workflowRun"]);
     expect(keys).toContain("payload.turns");
     expect(keys).toContain("input.question");
     expect(keys).not.toContain("workflowRunId");
@@ -250,7 +250,7 @@ describe("eventMatchesFilters", () => {
       workflowRunId: "run-1",
       name: "root-note",
       payload: {},
-      seq: 4,
+      runSeq: 4,
       at: AT,
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
@@ -295,7 +295,7 @@ describe("eventMatchesFilters", () => {
       stepId: null,
       name: "root-note",
       payload: {},
-      seq: 4,
+      runSeq: 4,
       at: AT,
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });

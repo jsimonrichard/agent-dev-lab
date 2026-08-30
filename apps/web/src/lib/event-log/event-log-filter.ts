@@ -80,7 +80,7 @@ const EVENT_LOG_PRESENCE_FILTER_OPS = new Set<EventLogFilterOp>([
 /** Closed-set / non-text columns. Source aliases resolve through {@link aliasEventLogFilterField}. */
 const EVENT_LOG_KNOWN_FILTER_FIELD_KINDS: Record<string, EventLogFilterFieldKind> = {
   logSeq: "number",
-  seq: "number",
+  runSeq: "number",
   eventSchemaVersion: "number",
   durationMs: "number",
   count: "number",
@@ -260,7 +260,7 @@ const EVENT_LOG_FILTER_FIELD_PRIORITY = [
   "logSeq",
   "at",
   "type",
-  "seq",
+  "runSeq",
   "workflow",
   "workflowRun",
   "agent",

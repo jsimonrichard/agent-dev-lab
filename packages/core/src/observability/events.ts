@@ -3,16 +3,18 @@
  *
  * Includes workflow lifecycle, step tree, agent episodes (`agent_text_delta` when streaming),
  * `custom` events from `WorkflowContext.emit`, and title events (`workflow_title_set`,
- * `agent_title_set`). `seq` is monotonic per `workflowRunId` or `agentCallId`.
+ * `agent_title_set`). `runSeq` is monotonic per `workflowRunId` or `agentCallId`
+ * (one counter per run / standalone episode). Distinct from {@link LoggedRunEvent.logSeq},
+ * which is process-global on the in-memory event log.
  */
 
 /** Current persisted {@link RunEvent} schema. Bump when the wire shape changes. */
-export const EVENT_SCHEMA_VERSION = 1;
+export const EVENT_SCHEMA_VERSION = 2;
 
 /** Workflow + step events (always tied to a workflow invocation). */
 export type WorkflowRunEventBase = {
   workflowRunId: string;
-  seq: number;
+  runSeq: number;
   at: string;
   eventSchemaVersion: number;
 };
@@ -26,7 +28,7 @@ export type AgentEventBase = {
   agentCallId: string;
   workflowRunId?: string;
   stepId?: string | null;
-  seq: number;
+  runSeq: number;
   at: string;
   eventSchemaVersion: number;
 };
@@ -193,9 +195,9 @@ export type RunEventType = RunEvent["type"];
 
 export type RunEventOfType<T extends RunEventType> = Extract<RunEvent, { type: T }>;
 
-/** Event payload before {@link RunRecorder} assigns `seq` / `at` / schema version. */
+/** Event payload before {@link RunRecorder} assigns `runSeq` / `at` / schema version. */
 export type RunEventEmit = {
-  [T in RunEvent as T["type"]]: Omit<T, "seq" | "at" | "eventSchemaVersion">;
+  [T in RunEvent as T["type"]]: Omit<T, "runSeq" | "at" | "eventSchemaVersion">;
 }[RunEventType];
 
 /** Workflow + step + in-workflow custom events. */

@@ -5,14 +5,14 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
 
 import { createTestRuntime } from "../runtime/create-test";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function flattenText(message: CoreMessage): string {
+function flattenText(message: ModelMessage): string {
   if (typeof message.content === "string") {
     return message.content;
   }

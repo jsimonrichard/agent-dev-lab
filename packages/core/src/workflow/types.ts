@@ -2,10 +2,13 @@ import type { RunEvent } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { z } from "zod";
 
+/**
+ * Author-emitted run event. Persisted as `type: "custom"` — system event types
+ * (`workflow_*`, `step_*`, `agent_*`) are reserved for the runtime.
+ */
 export type CustomWorkflowEvent = {
-  type: "custom";
   name: string;
-  payload: unknown;
+  payload?: unknown;
 };
 
 export type StepOptions = {
@@ -26,8 +29,8 @@ export type StepIdentity = {
  * Workflow execution scope. Implemented by {@link WorkflowContextImpl} (class); prefer
  * `ctx.step(...)` on the instance. Bound methods are arrow fields, so destructuring is safe.
  *
- * Passed to the workflow author's `run` function. Callers may pass {@link WorkflowRunStartOptions.parentCtx}
- * on {@link Workflow.run} to nest under a parent run; otherwise the runtime supplies context.
+ * Passed to the workflow author's `run` function. Callers may pass `parentCtx`
+ * on {@link Workflow#run} to nest under a parent run; otherwise the runtime supplies context.
  *
  * @see apps/docs — core/runtime
  */
@@ -57,10 +60,11 @@ export interface WorkflowContext {
   readonly memoryScopeWithSuffix: (suffix: string) => string;
 
   /**
-   * Emit a custom run event. `stepId` on the persisted event is omitted at workflow root
-   * (when {@link stepId} is null).
+   * Emit a custom run event (`type: "custom"`). `stepId` on the persisted event is
+   * omitted at workflow root (when {@link WorkflowContext.stepId} is null).
+   * System lifecycle events cannot be authored this way.
    */
-  emit(event: CustomWorkflowEvent): void;
+  emit(name: string, payload?: unknown): void;
 
   /**
    * Set the inspector display title for this workflow run. Safe to call at the start

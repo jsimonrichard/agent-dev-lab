@@ -50,12 +50,12 @@ export async function hydrateEventLogFromWorkflowStore(
 
 function storedEventKey(event: RunEvent): string {
   if ("workflowRunId" in event && event.workflowRunId) {
-    return `wf:${event.workflowRunId}:${event.seq}:${event.type}:${event.at}`;
+    return `wf:${event.workflowRunId}:${event.runSeq}:${event.type}:${event.at}`;
   }
   if ("agentCallId" in event) {
-    return `ag:${event.agentCallId}:${event.seq}:${event.type}:${event.at}`;
+    return `ag:${event.agentCallId}:${event.runSeq}:${event.type}:${event.at}`;
   }
-  return `other:${event.type}:${event.seq}:${event.at}`;
+  return `other:${event.type}:${event.runSeq}:${event.at}`;
 }
 
 async function mergeStoredRunEvents(
@@ -98,7 +98,7 @@ async function collectStoredRunEvents(store: WorkflowStore): Promise<RunEvent[]>
 
   collected.sort((left, right) => {
     const byTime = left.at.localeCompare(right.at);
-    return byTime !== 0 ? byTime : left.seq - right.seq;
+    return byTime !== 0 ? byTime : left.runSeq - right.runSeq;
   });
   return collected;
 }

@@ -2,12 +2,13 @@ import type { LanguageModel, Tool, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
-import type { MessageStore } from "../memory/types";
+import type { MessageStore } from "../stores/types";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { WorkflowStore } from "../observability/workflow-store";
 import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Template, TemplateConfig } from "../template/types";
+import type { CreateWorkflowFromAgentOptions } from "../workflow/from-agent";
 import type { Workflow, WorkflowDefinition } from "../workflow/types";
 import type { TemplateEngine } from "../template/engine";
 import type { WorkflowContextScope } from "../workflow/workflow-context-scope";
@@ -37,11 +38,14 @@ export type AdlRuntimeDefaults = {
 };
 
 /**
- * Forwarded to AI SDK `streamText` as `experimental_telemetry` so model and tool
- * spans nest under the ADL agent episode span. Defaults to enabled (`isEnabled` is
- * not `false`). Pass `{ isEnabled: false }` to disable.
+ * OpenTelemetry settings forwarded to AI SDK `streamText` as `experimental_telemetry`
+ * so model and tool spans nest under the ADL agent episode span. This is **not**
+ * Vercel analytics — it uses `@opentelemetry/api`. Defaults to enabled
+ * (`isEnabled` is not `false`). Pass `{ isEnabled: false }` to disable.
+ *
+ * @see notes/tracing.md
  */
-export type AdlTelemetrySettings = {
+export type AdlOpenTelemetrySettings = {
   isEnabled?: boolean;
   recordInputs?: boolean;
   recordOutputs?: boolean;
@@ -49,12 +53,16 @@ export type AdlTelemetrySettings = {
   metadata?: Record<string, string>;
 };
 
+/** @deprecated Use {@link AdlOpenTelemetrySettings}. */
+export type AdlTelemetrySettings = AdlOpenTelemetrySettings;
+
 /** Options for {@link createAdlRuntime}. */
 export type AdlRuntimeConfig = AdlRuntimeOptions & {
   defaults?: AdlRuntimeDefaults;
   /** Merged under each agent's `tools` (agent keys win). */
   tools?: ToolSet;
-  telemetry?: AdlTelemetrySettings;
+  /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
+  telemetry?: AdlOpenTelemetrySettings;
   /**
    * Load `.env*` into `process.env` when constructing the runtime.
    * Defaults to `true` (project root = `process.cwd()`). Pass `false` to skip,
@@ -77,7 +85,8 @@ export type RuntimeServices = {
   workflowContextScope: WorkflowContextScope;
   defaults: AdlRuntimeDefaults;
   tools: ToolSet;
-  telemetry?: AdlTelemetrySettings;
+  /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
+  telemetry?: AdlOpenTelemetrySettings;
 };
 
 /**
@@ -113,6 +122,11 @@ export interface AdlRuntime {
     workflow: Workflow<TInput, TOutput, TRawInput>,
     options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
   ): Tool<TToolInput, TOutput>;
+
+  createWorkflowFromAgent<Context, Tools extends ToolSet = ToolSet, TOutput = string>(
+    agent: Agent<Context, Tools, TOutput>,
+    options?: CreateWorkflowFromAgentOptions<Context>,
+  ): Workflow<string, TOutput, string>;
 
   createTemplate<TSchema extends z.ZodType>(
     config: TemplateConfig<TSchema>,

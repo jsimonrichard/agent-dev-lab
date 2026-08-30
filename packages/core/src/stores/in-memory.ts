@@ -1,4 +1,4 @@
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import type { MessageStore } from "./types";
 
@@ -7,7 +7,7 @@ import type { MessageStore } from "./types";
  * `createAdlRuntime()` omits `stores.message`. Not durable across process restarts.
  */
 export function inMemoryMessageStore(): MessageStore {
-  const scopes = new Map<string, CoreMessage[]>();
+  const scopes = new Map<string, ModelMessage[]>();
 
   return {
     kind: "in-memory",

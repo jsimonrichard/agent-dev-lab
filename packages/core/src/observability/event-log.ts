@@ -2,7 +2,7 @@ import type { RunEvent, RunEventType } from "./events";
 
 /**
  * Process-global wrapper around a {@link RunEvent}. `logSeq` is monotonic for this
- * log instance (unlike `RunEvent.seq`, which is scoped per workflow run or agent call).
+ * log instance (unlike `RunEvent.runSeq`, which is scoped per workflow run or agent call).
  */
 export type LoggedRunEvent = {
   logSeq: number;

@@ -17,7 +17,7 @@ export const EVENT_LOG_TABLE_COLUMNS = [
   { field: "logSeq", label: "logSeq" },
   { field: "at", label: "at" },
   { field: "type", label: "type" },
-  { field: "seq", label: "seq" },
+  { field: "runSeq", label: "runSeq" },
   { field: "workflow", label: "workflow" },
   { field: "workflowRun", label: "workflowRun" },
   { field: "agent", label: "agent" },
@@ -31,7 +31,7 @@ export type EventLogTableField = (typeof EVENT_LOG_TABLE_COLUMNS)[number]["field
 /** Sequence counters are always present and rarely useful in the table. */
 export const EVENT_LOG_DEFAULT_HIDDEN_FIELDS: ReadonlySet<EventLogTableField> = new Set([
   "logSeq",
-  "seq",
+  "runSeq",
 ]);
 
 export type EventLogTableCell = {

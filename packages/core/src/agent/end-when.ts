@@ -1,4 +1,4 @@
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import { DEFAULT_AGENT_END_WHEN, type AgentEndWhen } from "./types";
 
@@ -8,15 +8,15 @@ export type EvaluateEndWhenOptions = {
   aggregatedText?: string;
   endWhen?: AgentEndWhen;
   /** Full conversation after this request; used by predicate `endWhen`. */
-  messages?: CoreMessage[];
+  messages?: ModelMessage[];
   /** Conversation as sent to this request; used by predicate `endWhen`. */
-  oldMessages?: CoreMessage[];
+  oldMessages?: ModelMessage[];
 };
 
 /**
  * Count `tool-call` parts on assistant messages produced in one model request.
  */
-export function countToolCallParts(messages: CoreMessage[]): number {
+export function countToolCallParts(messages: ModelMessage[]): number {
   let count = 0;
   for (const message of messages) {
     if (message.role !== "assistant" || !Array.isArray(message.content)) {
@@ -40,7 +40,7 @@ export function countToolCallParts(messages: CoreMessage[]): number {
  * True when assistant messages include non-empty user-facing text.
  * Ignores tool/reasoning parts and whitespace-only strings.
  */
-export function hasAssistantText(messages: CoreMessage[]): boolean {
+export function hasAssistantText(messages: ModelMessage[]): boolean {
   for (const message of messages) {
     if (message.role !== "assistant") {
       continue;
@@ -79,7 +79,7 @@ function isNonEmptyTextPart(part: unknown): boolean {
  * Last user-facing assistant part in request order: non-empty text or a tool call.
  * Tool-result messages and reasoning parts are ignored.
  */
-export function lastAssistantEndPart(messages: CoreMessage[]): AssistantEndPart {
+export function lastAssistantEndPart(messages: ModelMessage[]): AssistantEndPart {
   let last: AssistantEndPart = "none";
   for (const message of messages) {
     if (message.role !== "assistant") {
@@ -110,7 +110,7 @@ export function lastAssistantEndPart(messages: CoreMessage[]): AssistantEndPart 
   return last;
 }
 
-function oldMessagesFrom(messages: CoreMessage[], newMessages: CoreMessage[]): CoreMessage[] {
+function oldMessagesFrom(messages: ModelMessage[], newMessages: ModelMessage[]): ModelMessage[] {
   if (newMessages.length === 0 || messages.length < newMessages.length) {
     return [];
   }
@@ -127,7 +127,7 @@ function oldMessagesFrom(messages: CoreMessage[], newMessages: CoreMessage[]): C
  * A predicate `endWhen` should return `true` to stop.
  */
 export function evaluateEndWhen(
-  newMessages: CoreMessage[],
+  newMessages: ModelMessage[],
   options?: EvaluateEndWhenOptions,
 ): boolean {
   const endWhen = options?.endWhen ?? DEFAULT_AGENT_END_WHEN;

@@ -1,12 +1,19 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import type { Workflow } from "../workflow/types";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
 const MAX_TITLE_LENGTH = 80;
 
+/**
+ * Re-entrancy guard for auto-title, not a UI flag.
+ *
+ * `titleWorkflow` may itself call `agent.run`. Without this ALS, that nested
+ * episode would try to title *its* conversation, which can recurse. The store
+ * is `true` only for the async subtree of {@link generateConversationTitle}.
+ */
 const titleGeneration = new AsyncLocalStorage<boolean>();
 
 /** True while an agent's `titleWorkflow` is running (skip nested auto-title). */
@@ -18,7 +25,7 @@ export function runTitleGeneration<T>(fn: () => T): T {
   return titleGeneration.run(true, fn);
 }
 
-export function formatTranscriptForTitle(messages: CoreMessage[]): string {
+export function formatTranscriptForTitle(messages: ModelMessage[]): string {
   return messages
     .map((message) => {
       const role =
@@ -27,7 +34,7 @@ export function formatTranscriptForTitle(messages: CoreMessage[]): string {
           : message.role === "user"
             ? "User"
             : message.role;
-      const text = coreMessageText(message);
+      const text = modelMessageText(message);
       return text ? `${role}: ${text}` : "";
     })
     .filter((line) => line.length > 0)
@@ -49,7 +56,7 @@ export function sanitizeConversationTitle(raw: string): string | undefined {
 
 export async function generateConversationTitle(
   titleWorkflow: Workflow<ConversationTitleInput, ConversationTitleOutput>,
-  messages: CoreMessage[],
+  messages: ModelMessage[],
 ): Promise<string | undefined> {
   if (messages.length === 0) {
     return undefined;
@@ -62,7 +69,7 @@ export async function generateConversationTitle(
   });
 }
 
-function coreMessageText(message: CoreMessage): string {
+function modelMessageText(message: ModelMessage): string {
   if (typeof message.content === "string") {
     return message.content.trim();
   }

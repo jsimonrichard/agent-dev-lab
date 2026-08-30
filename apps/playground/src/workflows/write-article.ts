@@ -56,11 +56,7 @@ export const writeArticle = adl.createWorkflow({
 
     await ctx.setTitle(outline.title);
 
-    ctx.emit({
-      type: "custom",
-      name: "outline-ready",
-      payload: { title: outline.title, sections: outline.sections.length },
-    });
+    ctx.emit("outline-ready", { title: outline.title, sections: outline.sections.length });
 
     const draftScope = ctx.memoryScopeWithSuffix("draft");
 

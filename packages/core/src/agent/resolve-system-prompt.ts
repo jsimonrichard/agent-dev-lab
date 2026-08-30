@@ -1,4 +1,4 @@
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 
 import { fromThrowable, type Result } from "../result";
 import type { Template } from "../template/types";
@@ -43,7 +43,7 @@ export function inspectSystemPromptPath(systemPrompt: AgentSystemPrompt): string
 /** `providerOptions` namespace used to record which agent owns a scope's pin. */
 const ADL_PROVIDER = "adl";
 
-function readSystemMessageContent(message: CoreMessage): string | null {
+function readSystemMessageContent(message: ModelMessage): string | null {
   if (message.role !== "system") {
     return null;
   }
@@ -54,7 +54,7 @@ function readSystemMessageContent(message: CoreMessage): string | null {
   return null;
 }
 
-function readStoredAgentId(message: CoreMessage): string | null {
+function readStoredAgentId(message: ModelMessage): string | null {
   if (message.role !== "system") {
     return null;
   }
@@ -70,10 +70,10 @@ function readStoredAgentId(message: CoreMessage): string | null {
  * Split a stored transcript into an optional pinned system prompt (first message)
  * and the user/assistant/tool turns that follow.
  */
-export function splitStoredSystemPrompt(messages: CoreMessage[]): {
+export function splitStoredSystemPrompt(messages: ModelMessage[]): {
   systemPrompt: string | null;
   agentId: string | null;
-  transcript: CoreMessage[];
+  transcript: ModelMessage[];
 } {
   if (messages.length === 0) {
     return { systemPrompt: null, agentId: null, transcript: [] };
@@ -97,16 +97,16 @@ export function splitStoredSystemPrompt(messages: CoreMessage[]): {
 /** Prepend a pinned system prompt to a transcript for {@link MessageStore.save}. */
 export function withStoredSystemPrompt(
   systemPrompt: string,
-  transcript: CoreMessage[],
+  transcript: ModelMessage[],
   options?: { agentId?: string | null },
-): CoreMessage[] {
+): ModelMessage[] {
   const withoutSystem = transcript.filter((message) => message.role !== "system");
   const trimmed = systemPrompt.trim();
   if (!trimmed) {
     return withoutSystem;
   }
   const agentId = options?.agentId?.trim();
-  const pin: CoreMessage = agentId
+  const pin: ModelMessage = agentId
     ? {
         role: "system",
         content: trimmed,

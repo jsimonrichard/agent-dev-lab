@@ -251,7 +251,7 @@ function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEve
     list = list.filter((e) => types.includes(e.type));
   }
   if (filter?.afterSeq !== undefined) {
-    list = list.filter((e) => e.seq > filter.afterSeq!);
+    list = list.filter((e) => e.runSeq > filter.afterSeq!);
   }
   if (filter?.limit !== undefined) {
     list = list.slice(0, filter.limit);

@@ -28,15 +28,18 @@ const toolCallOptions = {
 };
 
 describe("createToolFromAgent runtime", () => {
-  it("requires an active workflow context", async () => {
-    const adl = createTestRuntime({ defaults: { model: mockTextModel() } });
+  it("runs the agent without a workflow context", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("solo") } });
     const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
     const wrapped = adl.createToolFromAgent(agent, {
       description: "Run the agent",
-      mapRun: () => ({ memoryScope: "s", user: "hi" }),
+      mapRun: (_args, { ctx }) => {
+        expect(ctx).toBeUndefined();
+        return { memoryScope: "s", user: "hi" };
+      },
     });
 
-    await expect(wrapped.execute?.({}, toolCallOptions)).rejects.toThrow(/no WorkflowContext/);
+    await expect(wrapped.execute?.({}, toolCallOptions)).resolves.toBe("solo");
   });
 
   it("runs the agent inside a workflow step and nests on the parent run", async () => {
@@ -45,7 +48,7 @@ describe("createToolFromAgent runtime", () => {
     const wrapped = adl.createToolFromAgent(agent, {
       description: "Run the agent",
       mapRun: (_args, { ctx }) => ({
-        memoryScope: ctx.memoryScopeWithSuffix("tool"),
+        memoryScope: ctx!.memoryScopeWithSuffix("tool"),
         user: "hi",
       }),
     });
@@ -66,7 +69,7 @@ describe("createToolFromAgent runtime", () => {
 });
 
 describe("createToolFromWorkflow runtime", () => {
-  it("requires an active workflow context", async () => {
+  it("runs the workflow without a parent workflow context", async () => {
     const adl = createTestRuntime();
     const child = adl.createWorkflow({
       id: "child",
@@ -77,7 +80,7 @@ describe("createToolFromWorkflow runtime", () => {
       description: "Run the workflow",
     });
 
-    await expect(wrapped.execute?.({}, toolCallOptions)).rejects.toThrow(/no WorkflowContext/);
+    await expect(wrapped.execute?.({}, toolCallOptions)).resolves.toEqual({ ok: true });
   });
 
   it("nests the child workflow under the caller by default", async () => {
@@ -111,5 +114,16 @@ describe("createToolFromWorkflow runtime", () => {
     const runs = await adl.services.stores.workflow?.listRuns();
     expect(runs).toHaveLength(1);
     expect(runs?.[0]?.workflowRunId).toBe(handle.workflowRunId);
+  });
+});
+
+describe("createWorkflowFromAgent", () => {
+  it("wraps an agent as a string-in workflow", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("wrapped") } });
+    const agent = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
+    const workflow = adl.createWorkflowFromAgent(agent);
+
+    await expect(workflow.run("hello").result).resolves.toBe("wrapped");
+    expect(workflow.id).toBe("plain-as-workflow");
   });
 });

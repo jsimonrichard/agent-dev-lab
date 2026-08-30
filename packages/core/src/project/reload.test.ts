@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "bun:test";
-import type { CoreMessage } from "ai";
+import type { ModelMessage } from "ai";
 import { createRequire } from "node:module";
 
 import { AgentImpl } from "../agent/agent-impl";
@@ -236,7 +236,7 @@ describe("LoadedAdlProject.reload", () => {
       const workflowBefore = project.getWorkflow("test-workflow");
       const storeBefore = project.getAdl().services.stores.message;
 
-      const messages: CoreMessage[] = [{ role: "user", content: "hello" }];
+      const messages: ModelMessage[] = [{ role: "user", content: "hello" }];
       await storeBefore.save("scope-1", messages);
 
       await fixture.writeAgent("VERSION_B");
@@ -332,7 +332,7 @@ describe("LoadedAdlProject.reload", () => {
         agentCallId: "call-1",
         agentId: "test-agent",
         memoryScope: "scope",
-        seq: 1,
+        runSeq: 1,
         at: new Date().toISOString(),
         eventSchemaVersion: 1,
       });
