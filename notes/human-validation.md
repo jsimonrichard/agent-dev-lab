@@ -105,7 +105,7 @@ Manual extras:
 1. After tarball install, run with **Node** (not Bun):
 
    ```bash
-   node node_modules/@agent-dev-lab/cli/dist/cli.js run demo-counter --input '{"steps":3}'
+   node node_modules/@agent-dev-lab/cli/dist/cli.js workflow run demo-counter --input '{"steps":3}'
    node node_modules/@agent-dev-lab/cli/dist/cli.js dashboard --serve --port 3010
    ```
 

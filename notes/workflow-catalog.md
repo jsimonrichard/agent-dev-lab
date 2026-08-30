@@ -31,7 +31,7 @@ Agents have the same flat `agents: []` list; any catalog feature should consider
 
 ## Why this will matter
 
-Nesting is a documented composition primitive. As projects grow, authors will want helpers in the registry too (start them from the UI, `adl run`, inspect input schemas). A flat list then mixes entry points with library modules.
+Nesting is a documented composition primitive. As projects grow, authors will want helpers in the registry too (start them from the UI, `adl workflow run`, inspect input schemas). A flat list then mixes entry points with library modules.
 
 That is a **catalog** problem (how definitions are browsed). It is separate from the **call graph** (how a run nests), which the waterfall already shows.
 
