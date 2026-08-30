@@ -36,7 +36,7 @@ export function spawnInspectionUi(options: {
   env: NodeJS.ProcessEnv;
 }): ChildProcess {
   const webRoot = webPackageRoot();
-  const env = { ...options.env, PORT: String(options.port) };
+  const env: NodeJS.ProcessEnv = { ...options.env, PORT: String(options.port) };
 
   switch (options.mode) {
     case "framework-dev":
@@ -51,9 +51,14 @@ export function spawnInspectionUi(options: {
         },
       );
     case "serve":
-      return spawn("bun", ["run", "start"], {
+      // Published path: run Nitro `.output` under Node (better-sqlite3). Call the
+      // server entry directly — do not go through `bun run start` (Bun / bun:sqlite).
+      return spawn("node", [path.join(webRoot, ".output/server/index.mjs")], {
         cwd: webRoot,
-        env: { ...env, ADL_INSPECTOR_SERVE: "1" },
+        env: {
+          ...env,
+          ADL_INSPECTOR_SERVE: "1",
+        },
         stdio: "inherit",
       });
   }

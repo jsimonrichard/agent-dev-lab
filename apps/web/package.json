@@ -19,6 +19,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "bun .output/server/index.mjs",
+    "start-node": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "bun test src"
   },

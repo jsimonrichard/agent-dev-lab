@@ -15,10 +15,11 @@ From this package:
 ```bash
 bun --bun vite dev --port 3000
 bun run build      # Nitro `.output` (needed before publishing the CLI)
-bun .output/server/index.mjs
+bun run start      # Bun runtime (bun:sqlite) — local convenience
+bun run start-node # Node runtime (better-sqlite3) — matches `adl dashboard --serve`
 ```
 
-Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Production `vite build` stays on Node; `adl dashboard --serve` / `.output` also run on Node with `better-sqlite3`.
+Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Production `vite build` stays on Node. The CLI’s `--serve` path runs `.output/server/index.mjs` with Node directly (not via `start`), using `better-sqlite3`.
 
 ## What it shows
 
