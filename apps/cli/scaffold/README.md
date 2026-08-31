@@ -6,6 +6,7 @@ ADL project scaffolded by `adl init`.
 
 ```bash
 bun install
+# or: npm install
 ```
 
 Add provider keys to `.env` at the project root (loaded automatically, like Next.js):
@@ -27,5 +28,7 @@ adl workflow run demo-counter --input '{"steps":3}'
 adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl agent run assistant --input "What is Agent Dev Lab?"
 ```
+
+The `dev` / `dashboard` scripts above call `bun --bun adl dashboard`. Without Bun installed, run the CLI directly instead: `npx adl dashboard` (or `node_modules/.bin/adl dashboard`) — it works the same way on Node 22+.
 
 Runs and chats persist in `.data/agent-dev-lab.sqlite`.
