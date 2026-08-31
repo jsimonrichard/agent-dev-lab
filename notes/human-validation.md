@@ -125,6 +125,6 @@ Manual extras:
 
 ## I. Publish notes for humans
 
-- In-repo versions are **0.0.0**; remaining `.changeset/*.md` are **patch** only → `bun run version-packages` yields **0.0.1**.
+- In-repo versions are **0.0.0**; remaining `.changeset/*.md` are **patch** only → `bun run version-packages` yields **0.0.1**. Merging to `main` opens a Version Packages PR via `.github/workflows/release.yml`; merging that PR publishes core, cli, and web.
 - Pinning `@tanstack/*: latest` in `apps/web` is still a human judgment call.
 - `notes/` stays internal; do not link it from product docs.

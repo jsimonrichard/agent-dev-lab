@@ -182,8 +182,9 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 
 ### Release dry-run
 
-- `changeset` versions already target **0.1.0**
-- `bun run build` then `changeset publish` (npm org `agent-dev-lab`)
+- Changeset files are **patch** only → first version is **0.0.1**
+- Pushes to `main` run `.github/workflows/release.yml`: Version Packages PR, then `changeset publish` for `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` (OIDC trusted publishing; docs and playground ignored)
+- Local: `bun run publish:packages` (npm org `agent-dev-lab`)
 - Install `@agent-dev-lab/cli` + `core` in a **directory outside this monorepo**, `adl init`, `adl workflow run`, `adl dashboard --serve`
 
 ---

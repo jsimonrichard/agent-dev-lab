@@ -43,6 +43,7 @@ All standard commands are in root `package.json`:
 - `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.
 - CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
+- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
 
 ### Tests vs other files
