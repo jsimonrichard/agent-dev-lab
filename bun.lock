@@ -8,7 +8,7 @@
         "@agent-dev-lab/core": "workspace:*",
         "@changesets/cli": "^2.29.8",
         "@eslint/js": "^9.39.1",
-        "@types/bun": "^1.3.3",
+        "@types/bun": "1.3.13",
         "eslint": "^9.39.1",
         "globals": "^16.5.0",
         "jsonc-parser": "^3.3.1",
@@ -31,7 +31,7 @@
         "@stricli/core": "^1.2.7",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.13",
+        "@types/bun": "1.3.13",
         "@types/node": "^22.10.2",
         "tsup": "^8.5.0",
         "typescript": "^6.0.2",
@@ -62,7 +62,7 @@
         "zod": "^3.25.76",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.13",
+        "@types/bun": "1.3.13",
         "typescript": "^6.0.2",
       },
     },
@@ -124,7 +124,7 @@
         "zod": "^3.25.76",
       },
       "devDependencies": {
-        "@types/bun": "^1.3.13",
+        "@types/bun": "1.3.13",
         "@types/node": "^22.10.2",
         "drizzle-kit": "^0.31.6",
         "tsdown": "^0.22.3",
