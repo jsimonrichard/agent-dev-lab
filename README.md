@@ -30,10 +30,11 @@ cd my-research
 bun install
 # or: npm install
 cp .env.example .env   # then set OPENAI_API_KEY
-adl workflow run demo-counter --input '{"steps":3}'
-adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl agent run assistant --input "What is Agent Dev Lab?"
-adl dashboard          # inspection UI (Nitro for published installs)
+bunx adl workflow run demo-counter --input '{"steps":3}'
+bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+bunx adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl dashboard      # inspection UI (Nitro for published installs)
+# or with npm: npx adl ...
 ```
 
 Or add the packages to an existing project (still need `adl.config.ts`, `src/adl.ts`, and `.env`):

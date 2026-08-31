@@ -47,7 +47,7 @@ export default async function init(
       "package.json",
       buildInitPackageJson(name, readScaffoldPackageJson(scaffoldRoot), { localRoot }),
     ],
-    [".gitignore", buildInitGitignore(readFileSync(path.join(scaffoldRoot, ".gitignore"), "utf8"))],
+    [".gitignore", buildInitGitignore(readFileSync(path.join(scaffoldRoot, "gitignore"), "utf8"))],
   ];
   if (localRoot) {
     // Bun's isolated linker leaves empty directories for `file:` workspace

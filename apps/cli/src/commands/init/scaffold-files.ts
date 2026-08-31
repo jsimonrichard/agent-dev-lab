@@ -5,7 +5,8 @@ import path from "node:path";
  * Scaffold files that are rewritten at init time (not copied as-is).
  * `.env` is never copied — only `.env.example` ships.
  */
-export const SCAFFOLD_REWRITTEN_FILES = ["package.json", ".gitignore"] as const;
+// "gitignore" has no leading dot on disk — npm's packlist strips files literally named ".gitignore" from published tarballs.
+export const SCAFFOLD_REWRITTEN_FILES = ["package.json", "gitignore"] as const;
 
 /** Extra scaffold files packaged with the CLI (versions + gitignore), not copied as-is. */
 export const SCAFFOLD_PACKAGED_FILES = SCAFFOLD_REWRITTEN_FILES;

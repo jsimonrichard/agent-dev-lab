@@ -22,11 +22,11 @@ Optional: `ADL_MODEL` (default `gpt-4o-mini`), `ADL_SQLITE_PATH` (default `.data
 ```bash
 bun run dev
 bun run dashboard
-adl workflow list
-adl agent list
-adl workflow run demo-counter --input '{"steps":3}'
-adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl workflow list
+bunx adl agent list
+bunx adl workflow run demo-counter --input '{"steps":3}'
+bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+bunx adl agent run assistant --input "What is Agent Dev Lab?"
 ```
 
 The `dev` / `dashboard` scripts above call `bun --bun adl dashboard`. Without Bun installed, run the CLI directly instead: `npx adl dashboard` (or `node_modules/.bin/adl dashboard`) — it works the same way on Node 22+.

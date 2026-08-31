@@ -10,19 +10,20 @@ Adding ADL to an _existing_ project instead, or want to know exactly what's requ
 ## Quick start
 
 ```bash
-adl init my-research
+bunx @agent-dev-lab/cli init my-research
+# or: npx @agent-dev-lab/cli init my-research
 cd my-research
 bun install
 cp .env.example .env   # then set OPENAI_API_KEY
 ```
 
 ```bash
-adl workflow list
-adl agent list
-adl agent run assistant --input "What is Agent Dev Lab?"
-adl workflow run demo-counter --input '{"steps":3}'
-adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl dashboard
+bunx adl workflow list
+bunx adl agent list
+bunx adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl workflow run demo-counter --input '{"steps":3}'
+bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+bunx adl dashboard
 ```
 
 - **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.

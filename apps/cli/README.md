@@ -13,12 +13,12 @@ cd my-research
 bun install
 # or: npm install
 cp .env.example .env   # then set OPENAI_API_KEY
-adl workflow run demo-counter --input '{"steps":3}'
-adl agent run assistant --input "What is Agent Dev Lab?"
-adl dashboard          # inspection UI
+bunx adl workflow run demo-counter --input '{"steps":3}'
+bunx adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl dashboard      # inspection UI
 ```
 
-`adl init` scaffolds a project depending on `@agent-dev-lab/core` (and `@agent-dev-lab/web` for `adl dashboard`) — this package is not meant to be used standalone without those. After install, `npx adl`, `bunx adl`, or `node_modules/.bin/adl` all work (the `"bin"` entry is `adl`, not this package's own name).
+`adl init` scaffolds a project depending on `@agent-dev-lab/core` (and `@agent-dev-lab/web` for `adl dashboard`) — this package is not meant to be used standalone without those. After install, `bunx adl`, `npx adl`, or `node_modules/.bin/adl` all work (the `"bin"` entry is `adl`, not this package's own name) — `bunx`/`npx` resolve the local `node_modules/.bin` copy first, so no global install is needed.
 
 ## Commands
 

@@ -12,9 +12,9 @@ The inspection UI (`@agent-dev-lab/web`) is how you **start, watch, and replay**
 From a project with `adl.config.*`:
 
 ```bash
-adl dashboard
-adl dashboard --serve
-adl dashboard --project ../other-research
+bunx adl dashboard
+bunx adl dashboard --serve
+bunx adl dashboard --project ../other-research
 ```
 
 The header shows the project **name**. Plain `adl dashboard` watches the project and hot-reloads agent/workflow/template edits; `--serve` runs the Nitro build shipped in `@agent-dev-lab/web` and does not watch — restart it after any change. Either way, `.env*` edits need a restart. `--project` points at another directory that contains `adl.config.*`.

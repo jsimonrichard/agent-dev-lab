@@ -123,13 +123,14 @@ Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input
 ## CLI
 
 ```bash
-adl init my-research
-adl workflow run demo-counter --input '{"steps":3}'
-adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl workflow list
-adl agent list
-adl agent run assistant --input "What is Agent Dev Lab?"
-adl dashboard
+bunx @agent-dev-lab/cli init my-research
+cd my-research && bun install
+bunx adl workflow run demo-counter --input '{"steps":3}'
+bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+bunx adl workflow list
+bunx adl agent list
+bunx adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl dashboard
 ```
 
 ## Why registries stay static
