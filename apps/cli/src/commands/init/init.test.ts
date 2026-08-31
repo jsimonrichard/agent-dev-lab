@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -8,7 +8,12 @@ import { describe, expect, it } from "bun:test";
 import { loadAdlProject } from "@agent-dev-lab/core";
 
 import { buildContext } from "../../context";
-import { adlMonorepoRootFromCli, isAdlCliSourceCheckout, sourceScaffoldRoot } from "../../paths";
+import {
+  adlMonorepoRootFromCli,
+  cliPackageRoot,
+  isAdlCliSourceCheckout,
+  sourceScaffoldRoot,
+} from "../../paths";
 import { findMonorepoRoot } from "../../resolve-packages";
 import { initCommandFlags } from "./command";
 import init from "./impl";
@@ -19,6 +24,14 @@ import {
   buildInitPackageJson,
   rewriteScaffoldConfigName,
 } from "./scaffold";
+
+// Mirrors buildInitPackageJson's own derivation, so this stays correct across version bumps.
+const cliVersion = (
+  JSON.parse(readFileSync(path.join(cliPackageRoot(), "package.json"), "utf8")) as {
+    version: string;
+  }
+).version;
+const EXPECTED_ADL_DEP_VERSION = `^${cliVersion}`;
 
 const LOCAL_FROM = /from\s+["'](\.[^"']+)["']/g;
 
@@ -74,9 +87,9 @@ describe("adl init", () => {
       imports?: Record<string, string>;
       scripts?: Record<string, string>;
     };
-    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.0.0");
-    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.0.0");
-    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe(EXPECTED_ADL_DEP_VERSION);
+    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe(EXPECTED_ADL_DEP_VERSION);
+    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe(EXPECTED_ADL_DEP_VERSION);
     expect(pkg.scripts?.dev).toBe("bun --bun adl dashboard");
     expect(pkg.scripts?.dashboard).toBe("bun --bun adl dashboard");
     expect(pkg.imports?.["#adl"]).toBe("./src/adl.ts");
@@ -171,9 +184,9 @@ describe("init scaffold helpers", () => {
       dependencies: Record<string, string>;
       overrides?: unknown;
     };
-    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.0.0");
-    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.0.0");
-    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.0.0");
+    expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe(EXPECTED_ADL_DEP_VERSION);
+    expect(pkg.dependencies["@agent-dev-lab/core"]).toBe(EXPECTED_ADL_DEP_VERSION);
+    expect(pkg.dependencies["@agent-dev-lab/web"]).toBe(EXPECTED_ADL_DEP_VERSION);
     expect(pkg.overrides).toBeUndefined();
   });
 
