@@ -20,6 +20,7 @@
     "preview": "vite preview",
     "start": "bun .output/server/index.mjs",
     "start-node": "node .output/server/index.mjs",
+    "ci:publish": "bash ../../scripts/ci-publish.sh",
     "typecheck": "tsc --noEmit",
     "test": "bun test src"
   },

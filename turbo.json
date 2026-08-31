@@ -19,6 +19,10 @@
     "test:e2e": {
       "cache": false,
       "outputs": []
+    },
+    "ci:publish": {
+      "dependsOn": ["^ci:publish"],
+      "cache": false
     }
   }
 }

@@ -19,6 +19,7 @@
     "prebuild": "bun run verify:web-output && tsc -p tsconfig.json --noEmit",
     "build": "tsup --silent && bun run package-scaffold",
     "package-scaffold": "bun run scripts/package-scaffold.ts",
+    "ci:publish": "bash ../../scripts/ci-publish.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "verify:web-output": "bun run scripts/verify-web-output.ts",

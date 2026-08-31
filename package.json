@@ -24,7 +24,7 @@
     "changeset": "changeset",
     "version": "changeset version && bun install",
     "version-packages": "bun run version",
-    "publish:packages": "bun run build:publish && changeset publish",
+    "publish:packages": "bun run build:publish && bun turbo run ci:publish --filter=@agent-dev-lab/core --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli",
     "ci:publish": "bun run publish:packages"
   },
   "devDependencies": {
