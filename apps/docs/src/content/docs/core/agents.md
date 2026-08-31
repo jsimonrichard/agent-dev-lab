@@ -3,7 +3,7 @@ title: Agents
 description: adl.createAgent, run and stream, conversation input, structured output, and tools.
 ---
 
-Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. `agent.run()` / `agent.stream()` return the **final** response. By default they keep making model requests until a reply ends with text (`endWhen: "ends-with-text"`). Tool calls and results still emit events and persist to the transcript. Pass `endWhen: "api-call-ends"` when a workflow wants to own each model call.
+Agents are reusable model configurations: identity (system prompt), model, tools, memory binding, and optional structured output. `agent.run()` / `agent.stream()` return the **final** response. Loop control is [AI SDK `stopWhen`](https://ai-sdk.dev/docs/agents/loop-control) (default `stepCountIs(20)`). Tool calls and results still emit events and persist to the transcript. Pass `stopWhen: stepCountIs(1)` when a workflow wants to own each model step.
 
 ## createAgent
 
@@ -11,7 +11,7 @@ Registry modules `import { adl } from "#adl"` (`src/adl.ts`) and call `adl.creat
 
 ```ts
 // agents/researcher.ts
-import { tool } from "@agent-dev-lab/core";
+import { hasToolCall, stepCountIs, tool } from "@agent-dev-lab/core";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
@@ -38,12 +38,10 @@ export const researcher = adl.createAgent({
 
   outputSchema: z.object({ summary: z.string() }),
 
-  // When this agent stops making further model requests.
-  // endWhen: "ends-with-text", // default — continue if the last part is a tool call
-  // endWhen: "has-text",       // stop as soon as any user-facing text appears
-  // endWhen: "no-tool-calls",  // stop only when a request emits no tools
-  // endWhen: "api-call-ends",  // stop after this model request (workflow-owned loops)
-  // endWhen: ({ messages, oldMessages, newMessages }) => /* true to stop */
+  // AI SDK stopWhen — default is stepCountIs(20).
+  // stopWhen: stepCountIs(1), // one model step (workflow-owned loops)
+  // stopWhen: hasToolCall("done"),
+  // stopWhen: ({ steps }) => steps.some((step) => step.text.includes("ANSWER:")),
 
   // Optional: a workflow names the conversation after the first reply.
   // titleWorkflow: conversationTitle,
@@ -135,12 +133,11 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 
 ### What agents do not carry
 
-- **AI SDK `stopWhen`** — each inner `streamText` call uses `stopWhen: stepCountIs(1)` as an implementation detail. That is **not** the public ADL API. Use **`endWhen`** to decide when the _episode_ stops looping model requests. There is no `exit` policy.
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
 
 ## Calling an agent
 
-`agent.run` and `agent.stream` share one input shape (`AgentRunInput`) and one `streamText` path. Each call is **one episode**: load a conversation (if any), append this turn, then loop `streamText` until `endWhen` says stop (default `"ends-with-text"`).
+`agent.run` and `agent.stream` share one input shape (`AgentRunInput`) and one `streamText` path. Each call is **one episode**: load a conversation (if any), append this turn, then `streamText` with AI SDK `stopWhen` (default `stepCountIs(20)`).
 
 | API                | Caller sees                           | Runner behavior                                                  |
 | ------------------ | ------------------------------------- | ---------------------------------------------------------------- |
@@ -159,8 +156,7 @@ type AgentRunInput = {
   user?: string;
   messages?: ModelMessage[];
   outputSchema?: z.ZodType<unknown>;
-  endWhen?: AgentEndWhen; // named policy or ({ messages, oldMessages, newMessages }) => boolean
-  maxTurns?: number;
+  stopWhen?: StopCondition | StopCondition[]; // AI SDK stopWhen; default stepCountIs(20)
   systemPromptConflict?: "keep-pinned" | "use-current";
   suppressSystemPromptConflictWarning?: boolean;
   workflow?: { workflowRunId: string; stepId: string | null };
@@ -211,7 +207,7 @@ Stray `system` messages in `messages` are dropped before the model call (the age
 | Different agent + existing `memoryScope` | Same transcript; system-prompt conflict rules apply ([above](#system-prompt)) |
 | `memoryScope` + `messages`               | The list is appended onto the stored transcript                               |
 
-`memoryScope` is **optional**. When omitted, the runner allocates a random id (on the handle and `AgentRunResult`) so a one-shot `user` / `messages` call still persists. Inner `endWhen` requests reuse that same generated id. The next `agent.run` will not see that transcript unless you pass the id back.
+`memoryScope` is **optional**. When omitted, the runner allocates a random id (on the handle and `AgentRunResult`) so a one-shot `user` / `messages` call still persists. Follow-up `stopWhen` steps reuse that same generated id. The next `agent.run` will not see that transcript unless you pass the id back.
 
 This is **conversation memory**, not workflow resume. The runner `load`s, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
 
@@ -238,10 +234,8 @@ await researcher.run({
 2. `store.load(memoryScope)` (leading pin extracted; stray `system` messages dropped)
 3. If `user` / `messages` → append to the stored transcript
 4. Resolve `systemPrompt` (pinned copy, unless `systemPromptConflict: "use-current"`) → pass as the **`system`** option to `streamText`
-5. **`streamText`** — one SDK step; forward text deltas and tool call/result events
-6. Append `response.messages` to store via `save`
-7. If `endWhen` says another request is needed, repeat from 5 (no new user message)
-8. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the request count)
+5. **`streamText`** with AI SDK `stopWhen` — forward text deltas and tool call/result events; persist after each step
+6. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the SDK step count)
 
 ## Tool calls and persistence
 
@@ -260,7 +254,7 @@ const { result } = researcher.run({
 const { text, turns } = await result;
 ```
 
-Default `endWhen` is `"ends-with-text"`: preamble text plus a tool call still gets a follow-up. Override on the agent or the call (`endWhen: "api-call-ends"`) when a workflow should drive each model request as its own `ctx.step`. A predicate receives `{ messages, oldMessages, newMessages }` and should return `true` to stop.
+Default `stopWhen` is `stepCountIs(20)`: the SDK continues after tool results until a non-tool finish or the step cap. Override on the agent or the call (`stopWhen: stepCountIs(1)`) when a workflow should drive each model request as its own `ctx.step`. Custom conditions receive `{ steps }` — see [AI SDK loop control](https://ai-sdk.dev/docs/agents/loop-control).
 
 ## Agents and workflows as tools
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import type { LanguageModel } from "ai";
+import { stepCountIs, type LanguageModel } from "ai";
 
 import { err, ok } from "../result";
 import { createAdlRuntime } from "../runtime/create";
 import { createTestRuntime } from "../runtime/create-test";
 import { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
-import { inspectAgentEndWhen } from "./types";
+import { DEFAULT_AGENT_STOP_WHEN, inspectAgentStopWhen } from "./types";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
 function fakeModel(overrides: Partial<{ provider: string; modelId: string }> = {}): LanguageModel {
@@ -73,35 +73,20 @@ describe("Agent.modelInfo", () => {
   });
 });
 
-describe("Agent.endWhen", () => {
-  it("defaults to ends-with-text", () => {
+describe("Agent.stopWhen", () => {
+  it("defaults to stepCountIs(20) and labels a definition override as custom", () => {
     const adl = createTestRuntime();
-    const agent = adl.createAgent({ id: "researcher", systemPrompt: "Be brief." });
-    expect(agent.endWhen).toBe("ends-with-text");
-    expect(agent.maxTurns).toBe(20);
-  });
-
-  it("uses the agent definition when set", () => {
-    const adl = createTestRuntime();
-    const agent = adl.createAgent({
-      id: "researcher",
+    const once = stepCountIs(1);
+    const plain = adl.createAgent({ id: "plain", systemPrompt: "Be brief." });
+    const custom = adl.createAgent({
+      id: "custom",
       systemPrompt: "Be brief.",
-      endWhen: "api-call-ends",
-      maxTurns: 4,
+      stopWhen: once,
     });
-    expect(agent.endWhen).toBe("api-call-ends");
-    expect(agent.maxTurns).toBe(4);
-    expect(inspectAgentEndWhen(agent.endWhen)).toBe("api-call-ends");
-  });
-
-  it("labels a predicate as predicate", () => {
-    const adl = createTestRuntime();
-    const agent = adl.createAgent({
-      id: "researcher",
-      systemPrompt: "Be brief.",
-      endWhen: ({ newMessages }) => newMessages.length === 0,
-    });
-    expect(inspectAgentEndWhen(agent.endWhen)).toBe("predicate");
+    expect(plain.stopWhen).toBe(DEFAULT_AGENT_STOP_WHEN);
+    expect(inspectAgentStopWhen(plain.stopWhen)).toBe("default");
+    expect(custom.stopWhen).toBe(once);
+    expect(inspectAgentStopWhen(custom.stopWhen)).toBe("custom");
   });
 });
 

@@ -10,13 +10,13 @@ import { readFileSync } from "node:fs";
  * Focused API docs live here as JSDoc on exports.
  *
  * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
- * `ModelMessage` (preferred; `CoreMessage` is the deprecated AI SDK alias),
- * `LanguageModel`. Single internal `streamText` path for `agent.run` and
- * `agent.stream`; commits `response.messages` to MessageStore.
- * `agent.run` loops model requests until `endWhen` (default `"ends-with-text"`);
- * pass `"api-call-ends"` for one SDK step. Tool call/result events still fire.
- * Agent turns forward OpenTelemetry via AI SDK `experimental_telemetry` (disable
- * with `createAdlRuntime({ telemetry: { isEnabled: false } })`).
+ * `hasToolCall`, `StopCondition`, `ModelMessage` (preferred; `CoreMessage` is
+ * the deprecated AI SDK alias), `LanguageModel`. Single internal `streamText`
+ * path for `agent.run` and `agent.stream`; commits `response.messages` to
+ * MessageStore. `agent.run` passes AI SDK `stopWhen` through (default
+ * `stepCountIs(20)`). Tool call/result events still fire. Agent turns forward
+ * OpenTelemetry via AI SDK `experimental_telemetry` (disable with
+ * `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `adl.createWorkflowFromAgent`,
  * `adl.createToolFromAgent` / `adl.createToolFromWorkflow`, `memoryScope`, MessageStore,
@@ -24,13 +24,11 @@ import { readFileSync } from "node:fs";
  */
 export {
   createAgent,
-  AGENT_END_WHEN,
   countToolCallParts,
   CUSTOM_MODEL_ID,
-  DEFAULT_AGENT_END_WHEN,
-  DEFAULT_AGENT_MAX_TURNS,
-  inspectAgentEndWhen,
-  evaluateEndWhen,
+  DEFAULT_AGENT_MAX_STEPS,
+  DEFAULT_AGENT_STOP_WHEN,
+  inspectAgentStopWhen,
   hasAssistantText,
   lastAssistantEndPart,
   inspectLanguageModel,
@@ -47,10 +45,8 @@ export type { Err, Ok, Result } from "./result";
 export type {
   Agent,
   AgentDefinition,
-  AgentEndWhen,
-  AgentEndWhenInput,
-  AgentEndWhenName,
-  AgentEndWhenPredicate,
+  AgentStopWhen,
+  AgentStopWhenLabel,
   AgentSystemPrompt,
   AgentMemoryConfig,
   AgentModelInfo,
@@ -64,7 +60,6 @@ export type {
   ConversationTitleInput,
   ConversationTitleOutput,
   AssistantEndPart,
-  EvaluateEndWhenOptions,
   ResolveEpisodeSystemPromptInput,
   ResolveEpisodeSystemPromptResult,
   SystemPromptConflictStrategy,
@@ -204,13 +199,14 @@ export {
 
 export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "./db";
 
-export { generateText, stepCountIs, streamText, tool } from "ai";
+export { generateText, hasToolCall, stepCountIs, streamText, tool } from "ai";
 export type {
   CoreMessage,
   InferToolInput,
   InferToolOutput,
   LanguageModel,
   ModelMessage,
+  StopCondition,
   Tool,
   ToolSet,
 } from "ai";

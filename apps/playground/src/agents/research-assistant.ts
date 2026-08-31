@@ -6,9 +6,9 @@ import { model } from "../model";
 import { knowledgeTools } from "../tools/knowledge";
 
 /**
- * Tool-using agent. `agent.run()` loops model requests until a reply ends with
- * text (`endWhen: "ends-with-text"`). Pass `endWhen: "api-call-ends"` for one
- * SDK step when a workflow wants to own the loop.
+ * Tool-using agent. `agent.run()` uses AI SDK `stopWhen` (default
+ * `stepCountIs(20)`). Pass `stopWhen: stepCountIs(1)` when a workflow wants
+ * to own each model step.
  */
 export const researchAssistant = adl.createAgent({
   id: "research-assistant",
@@ -18,6 +18,5 @@ export const researchAssistant = adl.createAgent({
     "Call tools when helpful, then give a concise final answer that cites what you found.",
   model,
   tools: knowledgeTools,
-  endWhen: "ends-with-text",
   titleWorkflow: conversationTitle,
 });

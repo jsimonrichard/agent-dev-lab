@@ -6,10 +6,10 @@ import { adl } from "#adl";
 import { researchAssistant } from "../agents/research-assistant";
 
 /**
- * Tool-using research workflow. `research-assistant` loops until a request ends
- * with text (`endWhen: "ends-with-text"`). This workflow is one `ctx.step` around
- * that turn; use `endWhen: "api-call-ends"` if you want each model call as its
- * own step.
+ * Tool-using research workflow. `research-assistant` loops via AI SDK
+ * `stopWhen` (default `stepCountIs(20)`). This workflow is one `ctx.step`
+ * around that turn; pass `stopWhen: stepCountIs(1)` if you want each model
+ * call as its own step.
  *
  * Input defaults so the run is launchable from the inspection UI with empty input.
  */

@@ -1,19 +1,9 @@
 export { createAgent } from "./create";
 export { CUSTOM_MODEL_ID, inspectLanguageModel } from "./inspect";
 export type { AgentModelInfo } from "./inspect";
-export {
-  AGENT_END_WHEN,
-  DEFAULT_AGENT_END_WHEN,
-  DEFAULT_AGENT_MAX_TURNS,
-  inspectAgentEndWhen,
-} from "./types";
-export {
-  countToolCallParts,
-  evaluateEndWhen,
-  hasAssistantText,
-  lastAssistantEndPart,
-} from "./end-when";
-export type { AssistantEndPart, EvaluateEndWhenOptions } from "./end-when";
+export { DEFAULT_AGENT_MAX_STEPS, DEFAULT_AGENT_STOP_WHEN, inspectAgentStopWhen } from "./types";
+export { countToolCallParts, hasAssistantText, lastAssistantEndPart } from "./stop-when";
+export type { AssistantEndPart } from "./stop-when";
 export {
   formatSystemPromptConflictWarning,
   inspectSystemPrompt,
@@ -30,10 +20,8 @@ export type {
 export type {
   Agent,
   AgentDefinition,
-  AgentEndWhen,
-  AgentEndWhenInput,
-  AgentEndWhenName,
-  AgentEndWhenPredicate,
+  AgentStopWhen,
+  AgentStopWhenLabel,
   AgentSystemPrompt,
   AgentMemoryConfig,
   AgentRunHandle,

@@ -1,7 +1,6 @@
 import {
   AdlError,
-  DEFAULT_AGENT_END_WHEN,
-  inspectAgentEndWhen,
+  inspectAgentStopWhen,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type AgentRunHandle,
@@ -162,7 +161,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
-      endWhen: inspectAgentEndWhen(agent?.endWhen ?? DEFAULT_AGENT_END_WHEN),
+      stopWhen: inspectAgentStopWhen(agent?.stopWhen),
       outputSchema: inspectAgentOutputSchema(agent),
       systemPrompt: agent?.systemPrompt ?? ok(""),
       systemPromptPath: agent?.systemPromptPath ?? null,

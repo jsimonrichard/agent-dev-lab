@@ -1,17 +1,6 @@
 import type { ModelMessage } from "ai";
 
-import { DEFAULT_AGENT_END_WHEN, type AgentEndWhen } from "./types";
-
 export type AssistantEndPart = "text" | "tool-call" | "none";
-
-export type EvaluateEndWhenOptions = {
-  aggregatedText?: string;
-  endWhen?: AgentEndWhen;
-  /** Full conversation after this request; used by predicate `endWhen`. */
-  messages?: ModelMessage[];
-  /** Conversation as sent to this request; used by predicate `endWhen`. */
-  oldMessages?: ModelMessage[];
-};
 
 /**
  * Count `tool-call` parts on assistant messages produced in one model request.
@@ -108,51 +97,4 @@ export function lastAssistantEndPart(messages: ModelMessage[]): AssistantEndPart
     }
   }
   return last;
-}
-
-function oldMessagesFrom(messages: ModelMessage[], newMessages: ModelMessage[]): ModelMessage[] {
-  if (newMessages.length === 0 || messages.length < newMessages.length) {
-    return [];
-  }
-  const start = messages.length - newMessages.length;
-  const tail = messages.slice(start);
-  if (tail.every((message, index) => message === newMessages[index])) {
-    return messages.slice(0, start);
-  }
-  return [];
-}
-
-/**
- * Whether this turn should stop, given {@link AgentEndWhen}.
- * A predicate `endWhen` should return `true` to stop.
- */
-export function evaluateEndWhen(
-  newMessages: ModelMessage[],
-  options?: EvaluateEndWhenOptions,
-): boolean {
-  const endWhen = options?.endWhen ?? DEFAULT_AGENT_END_WHEN;
-  if (typeof endWhen === "function") {
-    const messages = options?.messages ?? newMessages;
-    return endWhen({
-      messages,
-      oldMessages: options?.oldMessages ?? oldMessagesFrom(messages, newMessages),
-      newMessages,
-    });
-  }
-  switch (endWhen) {
-    case "api-call-ends":
-      return true;
-    case "no-tool-calls":
-      return countToolCallParts(newMessages) === 0;
-    case "has-text":
-      if (countToolCallParts(newMessages) === 0) {
-        return true;
-      }
-      if (options?.aggregatedText?.trim()) {
-        return true;
-      }
-      return hasAssistantText(newMessages);
-    case "ends-with-text":
-      return lastAssistantEndPart(newMessages) !== "tool-call";
-  }
 }

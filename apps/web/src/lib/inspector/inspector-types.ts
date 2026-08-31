@@ -52,8 +52,8 @@ export interface AgentInspectorMeta {
   model: AgentModelInspectorMeta | null;
   /** Id of the optional conversation-title workflow, when configured. */
   titleWorkflowId: string | null;
-  /** Resolved stop policy. */
-  endWhen: "ends-with-text" | "has-text" | "no-tool-calls" | "api-call-ends" | "predicate";
+  /** Resolved `stopWhen` label (`default` is `stepCountIs(20)`). */
+  stopWhen: "default" | "custom";
   /** Compact description of structured output, when the agent has an `outputSchema`. */
   outputSchema: string | null;
   /** Live system prompt inspect result shown at the top of conversation views. */

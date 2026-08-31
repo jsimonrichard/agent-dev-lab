@@ -1,11 +1,4 @@
-import {
-  Output,
-  stepCountIs,
-  streamText,
-  type ModelMessage,
-  type StreamTextResult,
-  type ToolSet,
-} from "ai";
+import { Output, streamText, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
 import type { z } from "zod";
 
 import { AdlError } from "../errors";
@@ -27,16 +20,14 @@ import {
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
 } from "./resolve-system-prompt";
-import { evaluateEndWhen } from "./end-when";
 import {
-  DEFAULT_AGENT_END_WHEN,
-  DEFAULT_AGENT_MAX_TURNS,
+  DEFAULT_AGENT_STOP_WHEN,
   type Agent,
   type AgentDefinition,
-  type AgentEndWhen,
   type AgentRunHandle,
   type AgentRunInput,
   type AgentRunResult,
+  type AgentStopWhen,
   type AgentStreamHandle,
   type AgentStreamInput,
   type AgentStreamResult,
@@ -77,12 +68,8 @@ export class AgentImpl<
     return this.definition.titleWorkflow?.id ?? null;
   }
 
-  get endWhen(): AgentEndWhen {
-    return this.definition.endWhen ?? DEFAULT_AGENT_END_WHEN;
-  }
-
-  get maxTurns(): number {
-    return this.definition.maxTurns ?? DEFAULT_AGENT_MAX_TURNS;
+  get stopWhen(): AgentStopWhen {
+    return this.definition.stopWhen ?? DEFAULT_AGENT_STOP_WHEN;
   }
 
   get systemPrompt(): Result<string, string> {
@@ -161,8 +148,7 @@ export class AgentImpl<
     const activeCtx = scope.peek();
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
-    const endWhen = input.endWhen ?? this.endWhen;
-    const maxTurns = endWhen === "api-call-ends" ? 1 : Math.max(1, input.maxTurns ?? this.maxTurns);
+    const stopWhen = input.stopWhen ?? this.stopWhen;
 
     return withActiveSpan(
       "agent.turn",
@@ -249,115 +235,22 @@ export class AgentImpl<
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const telemetry = this.services.telemetry;
-          const allNewMessages: ModelMessage[] = [];
-          let lastText = "";
-          let lastOutput: TOutput | undefined;
-          let lastSdk: StreamTextResult<Tools, TOutput> | undefined;
+          const initialMessages = messages;
+          let allNewMessages: ModelMessage[] = [];
           let lastPersisted = storedMessages;
-          let turns = 0;
+          let committedFromResponse = 0;
 
-          for (let turn = 0; turn < maxTurns; turn++) {
-            throwIfAborted(abortSignal);
-            const oldMessages = messages;
-            const streamResult = streamText({
-              model,
-              ...(system ? { system } : {}),
-              allowSystemInMessages: false,
-              tools: { ...this.services.tools, ...this.definition.tools },
-              messages: messages.filter(
-                (message): message is Exclude<ModelMessage, { role: "system" }> =>
-                  message.role !== "system",
-              ),
-              experimental_context: input.context,
-              abortSignal,
-              stopWhen: stepCountIs(1),
-              experimental_telemetry: {
-                isEnabled: telemetry?.isEnabled !== false,
-                ...(telemetry?.recordInputs !== undefined
-                  ? { recordInputs: telemetry.recordInputs }
-                  : {}),
-                ...(telemetry?.recordOutputs !== undefined
-                  ? { recordOutputs: telemetry.recordOutputs }
-                  : {}),
-                functionId: telemetry?.functionId ?? this.definition.id,
-                metadata: {
-                  "adl.agent_id": this.definition.id,
-                  "adl.agent_call_id": agentCallId,
-                  ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
-                  ...(stepId ? { "adl.step_id": stepId } : {}),
-                  ...telemetry?.metadata,
-                },
-              },
-              ...(outputSchema
-                ? {
-                    experimental_output: Output.object({
-                      schema: outputSchema as z.ZodType,
-                    }),
-                  }
-                : {}),
-              onChunk: ({ chunk }) => {
-                if (chunk.type === "text-delta" && "text" in chunk) {
-                  const delta = chunk.text;
-                  textChannel?.push(delta);
-                  void runRecorder.emit({
-                    type: "agent_text_delta",
-                    agentCallId,
-                    workflowRunId,
-                    stepId,
-                    delta,
-                  });
-                }
-                if (chunk.type === "tool-call") {
-                  void runRecorder.emit({
-                    type: "agent_tool_call",
-                    agentCallId,
-                    workflowRunId,
-                    stepId,
-                    agentId: this.definition.id,
-                    toolCallId: chunk.toolCallId,
-                    toolName: chunk.toolName,
-                  });
-                }
-                if (chunk.type === "tool-result") {
-                  void runRecorder.emit({
-                    type: "agent_tool_result",
-                    agentCallId,
-                    workflowRunId,
-                    stepId,
-                    agentId: this.definition.id,
-                    toolCallId: chunk.toolCallId,
-                    toolName: chunk.toolName,
-                    result: chunk.output,
-                  });
-                }
-              },
-            }) as unknown as StreamTextResult<Tools, TOutput>;
+          const pinnedSystem =
+            storedSystemPrompt ??
+            (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
 
-            const structuredPromise = outputSchema
-              ? readStructuredOutputFromStream(
-                  streamResult as unknown as StreamTextResult<ToolSet, unknown>,
-                )
-              : undefined;
-
-            if (fullChannel) {
-              for await (const part of streamResult.fullStream as AsyncIterable<FullStreamPart>) {
-                fullChannel.push(part);
-              }
-            } else {
-              await streamResult.text;
-            }
-
-            const responseMessages = (await streamResult.response).messages as ModelMessage[];
-            const stepMessages = responseMessages.length > 0 ? responseMessages : [];
+          const persistResponseMessages = async (responseMessages: ModelMessage[]) => {
+            const stepMessages = responseMessages.slice(committedFromResponse);
+            committedFromResponse = responseMessages.length;
             const conversationMessages =
-              stepMessages.length > 0 ? [...messages, ...stepMessages] : messages;
-
-            const pinnedSystem =
-              storedSystemPrompt ??
-              (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
-
+              responseMessages.length > 0 ? [...initialMessages, ...responseMessages] : messages;
             const persistedMessages =
-              stepMessages.length > 0
+              responseMessages.length > 0
                 ? pinnedSystem
                   ? withStoredSystemPrompt(pinnedSystem, conversationMessages, {
                       agentId: storedAgentId ?? this.definition.id,
@@ -365,10 +258,10 @@ export class AgentImpl<
                   : conversationMessages
                 : lastPersisted;
 
-            if (stepMessages.length > 0) {
+            if (responseMessages.length > 0) {
               await messageStore.save(memoryScope, persistedMessages);
               lastPersisted = persistedMessages;
-              allNewMessages.push(...stepMessages);
+              allNewMessages = responseMessages;
               messages = conversationMessages;
             }
 
@@ -381,27 +274,106 @@ export class AgentImpl<
               count: stepMessages.length,
               total: persistedMessages.length,
             });
+          };
 
-            lastText = await streamResult.text;
-            lastSdk = streamResult;
-            turns += 1;
+          throwIfAborted(abortSignal);
+          const streamResult = streamText({
+            model,
+            ...(system ? { system } : {}),
+            allowSystemInMessages: false,
+            tools: { ...this.services.tools, ...this.definition.tools },
+            messages: messages.filter(
+              (message): message is Exclude<ModelMessage, { role: "system" }> =>
+                message.role !== "system",
+            ),
+            experimental_context: input.context,
+            abortSignal,
+            stopWhen,
+            experimental_telemetry: {
+              isEnabled: telemetry?.isEnabled !== false,
+              ...(telemetry?.recordInputs !== undefined
+                ? { recordInputs: telemetry.recordInputs }
+                : {}),
+              ...(telemetry?.recordOutputs !== undefined
+                ? { recordOutputs: telemetry.recordOutputs }
+                : {}),
+              functionId: telemetry?.functionId ?? this.definition.id,
+              metadata: {
+                "adl.agent_id": this.definition.id,
+                "adl.agent_call_id": agentCallId,
+                ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+                ...(stepId ? { "adl.step_id": stepId } : {}),
+                ...telemetry?.metadata,
+              },
+            },
+            ...(outputSchema
+              ? {
+                  experimental_output: Output.object({
+                    schema: outputSchema as z.ZodType,
+                  }),
+                }
+              : {}),
+            onStepFinish: async (step) => {
+              await persistResponseMessages(step.response.messages as ModelMessage[]);
+            },
+            onChunk: ({ chunk }) => {
+              if (chunk.type === "text-delta" && "text" in chunk) {
+                const delta = chunk.text;
+                textChannel?.push(delta);
+                void runRecorder.emit({
+                  type: "agent_text_delta",
+                  agentCallId,
+                  workflowRunId,
+                  stepId,
+                  delta,
+                });
+              }
+              if (chunk.type === "tool-call") {
+                void runRecorder.emit({
+                  type: "agent_tool_call",
+                  agentCallId,
+                  workflowRunId,
+                  stepId,
+                  agentId: this.definition.id,
+                  toolCallId: chunk.toolCallId,
+                  toolName: chunk.toolName,
+                });
+              }
+              if (chunk.type === "tool-result") {
+                void runRecorder.emit({
+                  type: "agent_tool_result",
+                  agentCallId,
+                  workflowRunId,
+                  stepId,
+                  agentId: this.definition.id,
+                  toolCallId: chunk.toolCallId,
+                  toolName: chunk.toolName,
+                  result: chunk.output,
+                });
+              }
+            },
+          }) as unknown as StreamTextResult<Tools, TOutput>;
 
-            const ended = evaluateEndWhen(stepMessages, {
-              aggregatedText: lastText,
-              endWhen,
-              messages,
-              oldMessages,
-            });
-            if (outputSchema && ended) {
-              lastOutput = outputSchema.parse(await structuredPromise) as TOutput;
-            } else {
-              lastOutput = lastText as TOutput;
+          const structuredPromise = outputSchema
+            ? readStructuredOutputFromStream(
+                streamResult as unknown as StreamTextResult<ToolSet, unknown>,
+              )
+            : undefined;
+
+          if (fullChannel) {
+            for await (const part of streamResult.fullStream as AsyncIterable<FullStreamPart>) {
+              fullChannel.push(part);
             }
-
-            if (ended) {
-              break;
-            }
+          } else {
+            await streamResult.text;
           }
+
+          const lastText = await streamResult.text;
+          const lastSdk = streamResult;
+          const turns = (await streamResult.steps).length;
+          const lastOutput = outputSchema
+            ? (outputSchema.parse(await structuredPromise) as TOutput)
+            : (lastText as TOutput);
 
           if (!isGeneratingConversationTitle()) {
             await this.maybeSetConversationTitle({

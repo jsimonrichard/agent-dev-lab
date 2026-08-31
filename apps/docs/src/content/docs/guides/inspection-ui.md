@@ -36,10 +36,10 @@ Helpers that you **do not** put in `workflows: []` still persist if they `run()`
 
 Registered `agents` can be opened as **conversations** (standalone `memoryScope`s), not only as nodes inside a workflow.
 
-- New chat → `agent.run()` (loops until `endWhen`, default `"ends-with-text"`); first successful turn may set a title via `titleWorkflow`. Tool call/result events still fire while the model works.
+- New chat → `agent.run()` (AI SDK `stopWhen`, default `stepCountIs(20)`); first successful turn may set a title via `titleWorkflow`. Tool call/result events still fire while the model works.
 - **Fork** from a workflow agent episode copies that transcript into a new conversation you can continue.
 - Shared scopes show history **up to** the selected episode; later turns are muted so you can see what the model had at that call.
-- The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `endWhen`, and title workflow id.
+- The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `stopWhen` (`default` / `custom`), and title workflow id.
 
 ## Event log
 

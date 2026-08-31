@@ -19,7 +19,7 @@ description: High-level orientation for the Agent Dev Lab docs site.
 - [Project setup](/guides/project-setup/) — layout, `#adl` alias, env, common pitfalls
 - [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
 - [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
-- [Agents](/core/agents/) — `adl.createAgent`, `endWhen`, memory, `adl agent run`
+- [Agents](/core/agents/) — `adl.createAgent`, `stopWhen`, memory, `adl agent run`
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
 - [Project config](/core/project/) — registry, `loadAdlProject`
 

@@ -140,7 +140,7 @@ Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com). 
 - [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias, pitfalls
 - [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
-- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, `endWhen`, `adl agent run`
+- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, `stopWhen`, `adl agent run`
 - [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
 - [Project config](https://agent-dev-lab.com/core/project/) — registry, `loadAdlProject`
 

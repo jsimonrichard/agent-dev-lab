@@ -1,4 +1,11 @@
-import type { LanguageModel, ModelMessage, StreamTextResult, ToolSet } from "ai";
+import {
+  stepCountIs,
+  type LanguageModel,
+  type ModelMessage,
+  type StopCondition,
+  type StreamTextResult,
+  type ToolSet,
+} from "ai";
 import type { z } from "zod";
 
 import type { MessageStore } from "../stores/types";
@@ -8,52 +15,27 @@ import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
 /**
- * Named stop policies for {@link Agent.run} / {@link Agent.stream}.
- *
- * This is **not** AI SDK `stopWhen` (that option is used internally as
- * `stepCountIs(1)` so ADL owns the episode loop). There is no `exit` policy.
- *
- * - `"ends-with-text"` (default): continue while the last user-facing assistant
- *   part is a tool call, including preamble text followed by a tool call.
- * - `"has-text"`: stop as soon as a request includes any user-facing text.
- * - `"no-tool-calls"`: stop only when a request emits no tool calls.
- * - `"api-call-ends"`: stop after this model request (one SDK step).
+ * AI SDK `stopWhen` accepted by {@link Agent.run} / {@link Agent.stream}.
+ * Passed through to `streamText`. See https://ai-sdk.dev/docs/agents/loop-control
  */
-export const AGENT_END_WHEN = [
-  "ends-with-text",
-  "has-text",
-  "no-tool-calls",
-  "api-call-ends",
-] as const;
-export type AgentEndWhenName = (typeof AGENT_END_WHEN)[number];
+export type AgentStopWhen = StopCondition<ToolSet> | Array<StopCondition<ToolSet>>;
 
-/** Transcript snapshot passed to an {@link AgentEndWhenPredicate}. */
-export type AgentEndWhenInput = {
-  /** Conversation after this request (no pinned system message). */
-  messages: ModelMessage[];
-  /** Conversation as sent to this request (no pinned system message). */
-  oldMessages: ModelMessage[];
-  /** Assistant + tool messages produced by this request. */
-  newMessages: ModelMessage[];
-};
-
-/** Return `true` to stop making further model requests. */
-export type AgentEndWhenPredicate = (input: AgentEndWhenInput) => boolean;
+/** Default cap on model steps per `agent.run()` / `agent.stream()`. */
+export const DEFAULT_AGENT_MAX_STEPS = 20;
 
 /**
- * When {@link Agent.run} / {@link Agent.stream} stop making model requests.
- * A named policy or a predicate over the full transcript, the messages sent
- * to this request, and this request's new messages.
+ * Default {@link AgentDefinition.stopWhen}: continue after tool results until
+ * {@link DEFAULT_AGENT_MAX_STEPS} (AI SDK `streamText` defaults to one step).
  */
-export type AgentEndWhen = AgentEndWhenName | AgentEndWhenPredicate;
-export const DEFAULT_AGENT_END_WHEN: AgentEndWhenName = "ends-with-text";
+export const DEFAULT_AGENT_STOP_WHEN: AgentStopWhen = stepCountIs(DEFAULT_AGENT_MAX_STEPS);
 
-/** Inspector label for a resolved {@link AgentEndWhen}. */
-export function inspectAgentEndWhen(endWhen: AgentEndWhen): AgentEndWhenName | "predicate" {
-  return typeof endWhen === "function" ? "predicate" : endWhen;
+/** Inspector label for a resolved {@link AgentStopWhen}. */
+export type AgentStopWhenLabel = "default" | "custom";
+
+/** Inspector label for a resolved {@link AgentStopWhen}. */
+export function inspectAgentStopWhen(stopWhen: AgentStopWhen | undefined): AgentStopWhenLabel {
+  return stopWhen === undefined || stopWhen === DEFAULT_AGENT_STOP_WHEN ? "default" : "custom";
 }
-/** Default cap on model requests per `agent.run()` / `agent.stream()`. */
-export const DEFAULT_AGENT_MAX_TURNS = 20;
 
 export type AgentSystemPrompt<TInput = unknown> = string | Template<TInput>;
 
@@ -84,17 +66,12 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> =
    */
   outputSchema?: z.ZodType<TOutput>;
   /**
-   * When this agent's `run` / `stream` stop making further model requests.
-   * Overridable per call via {@link AgentRunInput.endWhen}.
-   * Defaults to {@link DEFAULT_AGENT_END_WHEN}.
+   * AI SDK `stopWhen` for this agent's `run` / `stream`.
+   * Overridable per call via {@link AgentRunInput.stopWhen}.
+   * Defaults to {@link DEFAULT_AGENT_STOP_WHEN} (`stepCountIs(20)`).
+   * Pass `stepCountIs(1)` when a workflow should own each model step.
    */
-  endWhen?: AgentEndWhen;
-  /**
-   * Maximum model requests per `run` / `stream` when looping.
-   * Ignored when the resolved `endWhen` is `"api-call-ends"`.
-   * Defaults to {@link DEFAULT_AGENT_MAX_TURNS}.
-   */
-  maxTurns?: number;
+  stopWhen?: AgentStopWhen;
   memory?: AgentMemoryConfig;
   /**
    * Optional workflow that names the conversation after the first successful episode
@@ -149,10 +126,8 @@ export type AgentRunInput<Context = unknown> = {
   messages?: ModelMessage[];
   /** Per-episode override of the agent's `outputSchema`. */
   outputSchema?: z.ZodType<unknown>;
-  /** Per-call override of the agent's `endWhen`. */
-  endWhen?: AgentEndWhen;
-  /** Per-call override of the agent's `maxTurns`. */
-  maxTurns?: number;
+  /** Per-call override of the agent's `stopWhen`. */
+  stopWhen?: AgentStopWhen;
   /**
    * When a different agent hits this scope with a different system prompt.
    * Defaults to `"keep-pinned"`. Ignored for same-agent follow-ups.
@@ -187,11 +162,11 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
   messages: ModelMessage[];
   /** All model/tool messages appended during this turn (every request). */
   newMessages: ModelMessage[];
-  /** Number of model requests made during this turn. */
+  /** Number of AI SDK steps (model requests) made during this turn. */
   turns: number;
   /** Scope this episode persisted to (caller-supplied or a generated id). */
   memoryScope: string;
-  /** Raw AI SDK stream result of the last request. */
+  /** Raw AI SDK stream result for this episode. */
   sdk: StreamTextResult<Tools, TOutput>;
 };
 
@@ -250,13 +225,9 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out
    */
   readonly titleWorkflowId: string | null;
   /**
-   * Resolved stop policy (`definition.endWhen`, or {@link DEFAULT_AGENT_END_WHEN}).
+   * Resolved `stopWhen` (`definition.stopWhen`, or {@link DEFAULT_AGENT_STOP_WHEN}).
    */
-  readonly endWhen: AgentEndWhen;
-  /**
-   * Resolved request cap (`definition.maxTurns`, or {@link DEFAULT_AGENT_MAX_TURNS}).
-   */
-  readonly maxTurns: number;
+  readonly stopWhen: AgentStopWhen;
   /**
    * Live resolved system prompt from the agent definition (inspectors).
    * `{ isErr: true }` when the template cannot render (for example required Zod
