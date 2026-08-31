@@ -37,8 +37,8 @@ All standard commands are in root `package.json`:
 - Inspection UI **dev** uses the Bun toolchain (`bun --bun vite`). SQLite uses `bun:sqlite` under Bun and `better-sqlite3` under Node 22+ (`adl` no longer relaunches into Bun). Production `vite build` stays on Node; `start` / `--serve` run `.output` on Node.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
 - **End-user / CLI** (`adl dashboard`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
-- End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`.
-- SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`.
+- End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`. There is no `@agent-dev-lab/common` package — SQLite/ESLint/tsconfig are `@agent-dev-lab/core/db`, `./eslint`, and `./tsconfig/node.json`.
+- SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`. Event order is `run_seq` (same as `RunEvent.runSeq`).
 - `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).
 - `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.

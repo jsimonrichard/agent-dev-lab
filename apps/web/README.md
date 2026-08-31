@@ -25,7 +25,8 @@ Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Product
 
 - Project banner and dashboard (recent workflow runs and agent conversations)
 - Workflow start (Zod input form), waterfall, step inspector, cancel
-- SSE tails of persisted `RunEvent`s (`GET /api/runs/:id/events`)
+- SSE tails of persisted `RunEvent`s (`GET /api/runs/:id/events?afterSeq=` — cursor is per-run `runSeq`)
+- Process event log (`GET /api/events?afterSeq=` — cursor is process-wide `logSeq`)
 - Standalone agent chats, conversation titles, fork from a workflow episode
 
 User-facing guide: [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/).

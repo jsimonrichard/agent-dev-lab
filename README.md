@@ -8,7 +8,7 @@ Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agent
 
 - **Runtime/UI split** — workflows run from scripts, tests, or a server; the UI reads persisted output.
 - **TypeScript-first** — plain TS orchestration (`if` / `for` / `try` / `await` / `Promise.all`), no workflow graph DSL.
-- **AI SDK native** — `CoreMessage`, `streamText`, and `tool()` without parallel abstractions.
+- **AI SDK native** — `ModelMessage`, `streamText`, and `tool()` without parallel abstractions.
 - **Colocated prompts** — markdown beside code; templates via `createTemplate`.
 
 ## Monorepo layout
@@ -34,6 +34,7 @@ bun install
 cp .env.example .env   # then set OPENAI_API_KEY
 adl workflow run demo-counter --input '{"steps":3}'
 adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl agent run assistant --input "What is Agent Dev Lab?"
 adl dashboard          # inspection UI (Nitro for published installs)
 ```
 
@@ -138,9 +139,9 @@ Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com). 
 - [Overview](https://agent-dev-lab.com/guides/overview/) — high-level orientation
 - [Project setup](https://agent-dev-lab.com/guides/project-setup/) — required vs. recommended layout, the `#adl` alias, pitfalls
 - [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
-- [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context propagation
-- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
-- [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
+- [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
+- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, `endWhen`, `adl agent run`
+- [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
 - [Project config](https://agent-dev-lab.com/core/project/) — registry, `loadAdlProject`
 
 ## License

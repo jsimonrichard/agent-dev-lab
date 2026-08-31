@@ -95,6 +95,8 @@ export const researcher = adl.createAgent({
 
 Keep the title workflow out of the `adl.config` `workflows` array if you do not want those runs listed in the inspection UI. Keep any inner title-namer agent out of the `agents` array unless you want those helper conversations listed. The runtime starts the title workflow with [`{ isolated: true }`](/core/workflows/#isolated-runs) so it is a separate persisted run and is not nested inside another workflow's tree.
 
+Title generation uses an AsyncLocalStorage flag so a `titleWorkflow` that itself calls `agent.run` does not recurse into another auto-title. That ALS is a re-entrancy guard, not a UI-only switch.
+
 ### System prompt
 
 Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`system`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
@@ -145,7 +147,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 | **`agent.run`**    | `AgentRunHandle` (`result`, `cancel`) | Drains stream internally; observers still get `agent_text_delta` |
 | **`agent.stream`** | `AgentStreamHandle` with SDK streams  | Exposes `textStream` / `fullStream`; same persistence on finish  |
 
-The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt).
+The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`).
 
 ```ts
 import type { ModelMessage } from "@agent-dev-lab/core";
@@ -245,7 +247,7 @@ await researcher.run({
 
 ## Tool calls and persistence
 
-ADL persists **only** `ModelMessage` lists (AI SDK v5; `ModelMessage` is a deprecated alias). Tool usage round-trips through SDK message shape:
+ADL persists **only** AI SDK `ModelMessage` lists. `CoreMessage` is still re-exported as the deprecated AI SDK alias. Tool usage round-trips through SDK message shape:
 
 - Assistant parts with `tool-call`
 - Tool role messages with `tool-result`

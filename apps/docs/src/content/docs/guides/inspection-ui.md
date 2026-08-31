@@ -27,7 +27,7 @@ The header shows the project **name** and whether you are in framework-dev, proj
 | **project-dev**   | `adl dashboard` with a Vite source tree      | Yes (checkout / linked web package with Vite)  |
 | **serve**         | Published install or `adl dashboard --serve` | No — restart after registry or `.env*` changes |
 
-Standalone CLI commands (`adl workflow run`, `adl workflow list`, etc.) are separate processes: they load the project once and never watch for changes.
+Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list`, etc.) are separate processes: they load the project once and never watch for changes.
 
 ## Workflows
 
@@ -67,3 +67,4 @@ The log is a ring buffer (default 10_000 events). It is not a durable store of i
 
 - A template playground (edit/render `createTemplate` markdown in the UI)
 - A dedicated raw token-debug pane (assistant text already streams via `agent_text_delta` in chat/run views)
+- Manual runs of `adl.config.tools` (registry-only today; runtime merge is `createAdlRuntime({ tools })`)

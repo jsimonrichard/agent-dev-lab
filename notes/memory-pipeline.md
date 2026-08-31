@@ -4,7 +4,7 @@
 
 ## Intent
 
-Between loading stored messages and calling the AI SDK, ADL needs a hook to shape the message list (e.g. `lastMessages(n)`, future summarization, pruning). This should operate only on `ModelMessage` / `ModelMessage` arrays—not on templates or storage keys.
+Between loading stored messages and calling the AI SDK, ADL needs a hook to shape the message list (e.g. `lastMessages(n)`, future summarization, pruning). This should operate only on `ModelMessage` arrays—not on templates or storage keys.
 
 ## Likely shape (non-final)
 

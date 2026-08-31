@@ -149,7 +149,7 @@ Still not in CI:
 | ---------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
 | Workflow run / skip / keys / nest / isolate / titles / Zod | `execute.test.ts`                                    | Inspector session store still thin; duplicate id errors light |
 | Agent prompt / titles / commit counts / stream / abort     | `agent-impl.test.ts`                                 | `outputSchema` mock coverage still light                      |
-| `createToolFromAgent` / `createToolFromWorkflow`           | `from-agent.test.ts`                                 | ALS required; nested vs isolated (tools nest by default)      |
+| `createToolFromAgent` / `createToolFromWorkflow`           | `from-agent.test.ts`                                 | Work outside a workflow; `mapRun` gets `ctx?` when nested     |
 | SQLite + in-memory store contract                          | `store.contract.test.ts`                             | Inspector session store                                       |
 | Project load / env / reload / watch                        | `load.test.ts`, `load-env.test.ts`, `reload.test.ts` | Duplicate id errors are light                                 |
 | Templates                                                  | `create.test.ts`                                     | —                                                             |
@@ -226,7 +226,7 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 | Error types                | ✅                                 | `AdlError` + CLI messages (`DEBUG=adl` for stacks)             |
 | Testing helpers            | ✅                                 | `createTestRuntime()`                                          |
 | OTEL default observer      | ✅ spans + AI SDK telemetry option | App installs exporter                                          |
-| Event schema versioning    | ✅                                 | `eventSchemaVersion: 1`                                        |
+| Event schema versioning    | ✅                                 | `eventSchemaVersion: 2` (`runSeq`; SQLite `run_seq`)           |
 | Secrets / API keys         | ✅                                 | Document env vars only                                         |
 | Standalone core HTTP API   | ⏸                                  | [`future-extensions.md`](./future-extensions.md)               |
 | Merge `common` into `core` | ✅                                 | `@agent-dev-lab/core` exports `./db`, `./eslint`, `./tsconfig` |

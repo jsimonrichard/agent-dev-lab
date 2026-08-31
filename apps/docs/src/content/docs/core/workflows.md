@@ -43,6 +43,8 @@ await ctx.step("search", async ({ ctx: child }) => {
 
 Calling `searchPapers.run` **without** `step` is valid when you do not need an extra span.
 
+To expose an agent as a workflow that takes a **string** user message, use `adl.createWorkflowFromAgent(agent)` (optional `{ id }`; default `${agent.id}-as-workflow`). That is the workflow-shaped counterpart of `adl agent run`.
+
 ## Isolated runs
 
 By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), shares that `workflowRunId`, and records inner steps on the parent's event stream — they show up in that run's inspector tree.
@@ -264,6 +266,9 @@ export const literatureReview = adl.createWorkflow({
 | `step_finished` | Terminal success with `output`                  |
 | `step_skipped`  | Reused cached `output`                          |
 | `step_failed`   | Error payload                                   |
+| `custom`        | Author event from `ctx.emit(name, payload?)`    |
+
+`ctx.emit(name, payload?)` always persists as `type: "custom"`. You do not pass a type, and you cannot emit reserved runtime types (`workflow_*`, `step_*`, `agent_*`). Every `RunEvent` has a per-run **`runSeq`** (SQLite column `run_seq`), distinct from the process-wide **`logSeq`** on the in-memory event log.
 
 OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 

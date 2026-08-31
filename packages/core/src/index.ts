@@ -17,8 +17,9 @@ import { readFileSync } from "node:fs";
  * Agent turns forward OpenTelemetry via AI SDK `experimental_telemetry` (disable
  * with `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
- * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `memoryScope`, MessageStore,
- * WorkflowStore, WorkflowContext.step, `adl.createTemplate`.
+ * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `adl.createWorkflowFromAgent`,
+ * `adl.createToolFromAgent` / `adl.createToolFromWorkflow`, `memoryScope`, MessageStore,
+ * WorkflowStore, WorkflowContext.step / `emit(name, payload?)`, `adl.createTemplate`.
  */
 export {
   createAgent,

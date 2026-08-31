@@ -35,7 +35,8 @@ export default {
   templates: [findPapersPrompt, outlinePrompt],
 
   tools: {
-    /* registry-only — runtime merge uses createAdlRuntime({ tools }) */
+    /* registry-only — runtime merge uses createAdlRuntime({ tools }).
+       Future UI: list and run a tool manually (no agent turn). */
   },
 } satisfies AdlProjectConfig;
 ```
@@ -64,11 +65,11 @@ Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-sty
 
 ## Hot reload (dev)
 
-During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches the ADL project tree and re-imports `adl.config.*` when registry source changes (`.ts`, `.js`, prompt `.md`, etc.). Use `LoadedAdlProject.reload()` or `watchAdlProject()` from `@agent-dev-lab/core` in custom tooling.
+During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches the ADL project tree and re-imports `adl.config.*` when registry source changes (`.ts`, `.js`, prompt `.md`, etc.). Vite HMR reloads **the UI**, not the user's config module — CLI and the dashboard server still transpile `adl.config.ts` with **jiti**. Use `LoadedAdlProject.reload()` or `watchAdlProject()` from `@agent-dev-lab/core` in custom tooling.
 
 **Production / serve:** `adl dashboard --serve` and published installs run the Nitro build with `ADL_INSPECTOR_SERVE=1`. The file watcher is disabled; registry and catalog metadata are fixed until the process restarts.
 
-**CLI execution (`adl workflow run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
+**CLI execution (`adl workflow run`, `adl agent run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
 
 **What updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of `src/adl.ts`. In dev, file-backed prompt templates may also re-read from disk on each `render()` while the project watcher is active (`ADL_PROJECT_WATCH=1`).
 

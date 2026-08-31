@@ -51,6 +51,7 @@ cp .env.example .env   # optional key for ask
 adl workflow list
 adl agent list
 adl workflow run demo-counter --input '{"steps":3}'   # expect sum 6
+adl agent run assistant --input "ping"       # needs a key for a real model reply
 adl dashboard                                # or bun run dev
 ```
 

@@ -3,7 +3,7 @@ title: Overview
 description: High-level orientation for the Agent Dev Lab docs site.
 ---
 
-**Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), an inspection UI (`@agent-dev-lab/web`), a CLI (`adl`), and shared infrastructure.
+**Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), an inspection UI (`@agent-dev-lab/web`), and a CLI (`adl`). SQLite helpers, ESLint, and tsconfig live as exports on core (`./db`, `./eslint`, `./tsconfig/node.json`).
 
 ## What you get
 
@@ -18,18 +18,19 @@ description: High-level orientation for the Agent Dev Lab docs site.
 
 - [Project setup](/guides/project-setup/) — layout, `#adl` alias, env, common pitfalls
 - [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
-- [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context
-- [Agents](/core/agents/) — `adl.createAgent`, memory, structured output, conversation titles
-- [Workflows](/core/workflows/) — `adl.createWorkflow`, steps, keys, nesting, isolated runs
-- [Project config](/core/project/) — registry, `loadAdlProject`
+- [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
+- [Agents](/core/agents/) — `adl.createAgent`, `endWhen`, memory, `adl agent run`
+- [Workflows](/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
+- [Project config](/core/project/) — registry, jiti load, `loadAdlProject`
 
 ### API reference (TypeDoc)
 
 Generated from `packages/core` — includes JSDoc for focused APIs that are not duplicated as Starlight pages:
 
-- [Package overview](/api/readme/) — AI SDK compatibility summary
-- [MessageStore](/api/interfaces/messagestore/), [WorkflowStore](/api/interfaces/workflowstore/), [RunEvent](/api/type-aliases/runevent/)
+- [Package overview](/api/readme/) — AI SDK compatibility summary (`ModelMessage`, OpenTelemetry)
+- [MessageStore](/api/interfaces/messagestore/), [WorkflowStore](/api/interfaces/workflowstore/), [RunEvent](/api/type-aliases/runevent/) (`runSeq`)
 - [Template](/api/interfaces/template/), [createTemplate](/api/functions/createtemplate/)
+- [createWorkflowFromAgent](/api/functions/createworkflowfromagent/), [createToolFromAgent](/api/functions/createtoolfromagent/)
 - [WorkflowObserver](/api/interfaces/workflowobserver/), [AgentObserver](/api/interfaces/agentobserver/)
 
 Use the **Core API** sidebar for the full export list.

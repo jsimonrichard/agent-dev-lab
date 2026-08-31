@@ -180,7 +180,7 @@ adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard
 ```
 
-- **`adl init`** — scaffold `adl.config.ts`, SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`
+- **`adl init`** — copies `apps/cli/scaffold` from disk (skips/rewrites `package.json`, `.gitignore`, `.env`), including a real README and tsconfig. Ships SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. From this checkout, `--local` pins `@agent-dev-lab/*` with `file:` (hidden in published help).
 - **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
 - **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
@@ -228,7 +228,8 @@ Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.
 
 - **`adl init` scaffolds a new project** — not the monorepo playground. After init, `bun run dev` is `adl dashboard`.
 - **`ADL_MODEL`** is the shared model env name (scaffold default `gpt-4o-mini`). Copy `.env.example` → `.env`.
-- **Published `adl dashboard` has no hot reload** — `@agent-dev-lab/web` ships Nitro `.output` only. Restart after registry edits. Vite HMR is monorepo `bun run dev:web`.
+- **Published `adl dashboard` has no hot reload** — `@agent-dev-lab/web` ships Nitro `.output` only. Restart after registry edits. Vite HMR reloads the **UI**; `adl.config.ts` is still loaded with jiti.
+- **`adl.config.tools` is not runtime merge** — put shared tools on `createAdlRuntime({ tools })`. The config field is registry-only (future: run a tool from the inspector).
 - **`better-sqlite3` may need a native compile** on first install under Node (build tools / Python). Bun uses `bun:sqlite` instead when the runtime is Bun.
 - **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
 - **System prompt pin:** the first episode wins; a different agent on the same scope warns and keeps the pin unless `systemPromptConflict: "use-current"`.

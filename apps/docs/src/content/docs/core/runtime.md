@@ -81,13 +81,14 @@ Observer lists are **not** pinned across [`watchAdlProject`](/core/project/) rel
 
 Project code should use **`adl.createAgent`**, **`adl.createWorkflow`**, and **`adl.createTemplate`**. The package also exports `createAgent(runtime, …)`, `createWorkflow(runtime, …)`, and `createTemplate(runtime, …)` for unit tests and libraries that need an explicit runtime handle without a project `adl` module. Same behavior — prefer the bound methods in application code.
 
-## AsyncLocalStorage: workflow context only
+## AsyncLocalStorage
 
 ALS is **not** used for runtime services (stores, observers) — those are passed explicitly.
 
-ALS **is** used for **workflow context propagation**: when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available so agents attach to the correct `workflowRunId` / `stepId` without manual wiring.
+ALS **is** used for:
 
-Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that takes priority over ALS.
+- **Workflow context:** when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available so agents attach to the correct `workflowRunId` / `stepId` without manual wiring. Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that takes priority over ALS.
+- **Conversation title re-entrancy:** while `titleWorkflow` runs, a flag prevents a nested `agent.run` from starting another auto-title. That is not a UI-only switch.
 
 ### Workflow context host
 
@@ -134,6 +135,10 @@ await ctx.step("search", async ({ ctx: child }) => {
 When stores are omitted, `createAdlRuntime` uses in-memory `message` and `workflow` stores (fine for tests). For durable runs, pass `sqliteMessageStore()` / `sqliteWorkflowStore()` (default file `.data/agent-dev-lab.sqlite`, overridable with `ADL_SQLITE_PATH`).
 
 `defaults.model` and `tools` on `createAdlRuntime` apply to every agent that omits those fields (agent values win). Set these on the runtime — not on `adl.config` — because agents are created before the config object finishes loading.
+
+`adl.config.tools` is **registry-only** (documentation / future inspection UI: list tools and trigger a manual run). It does not merge into agents at load time.
+
+SQLite event rows store per-run order as **`run_seq`** (the same value as `RunEvent.runSeq`). Process-wide tails use **`logSeq`** on the in-memory event log.
 
 ## Testing
 

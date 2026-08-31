@@ -4,19 +4,19 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 
 ## What it demonstrates
 
-| Concept                             | Where                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Agents (`adl.createAgent`)          | `src/agents/` — outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic |
-| Structured output (Zod schema)      | `outliner` (outline), `editor` (review)                                                            |
-| Instruction + request templates     | `src/prompts/` — file-based (`outliner.md`) and inline templates                                   |
-| Tools (`tool` + tool loop)          | `src/tools/knowledge.ts` + `answer-question` workflow                                              |
-| Multi-agent workflow                | `src/workflows/write-article.ts` (outline → draft → review → revise)                               |
-| Optional scope, `messages`, handoff | `src/workflows/shared-scope.ts` (drafter → reviser on one `memoryScope`)                           |
-| Parallel agent step                 | `src/workflows/literature-review.ts` (researcher + critic)                                         |
-| Workflow tool loop in TypeScript    | `src/workflows/answer-question.ts`                                                                 |
-| Steps, `memoryScope`, custom events | LLM workflows                                                                                      |
-| SQLite persistence                  | `src/adl.ts` — `.data/agent-dev-lab.sqlite`                                                        |
-| No-LLM workflow (baseline)          | `src/workflows/demo-counter.ts`                                                                    |
+| Concept                                          | Where                                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Agents (`adl.createAgent`)                       | `src/agents/` — outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic |
+| Structured output (Zod schema)                   | `outliner` (outline), `editor` (review)                                                            |
+| Instruction + request templates                  | `src/prompts/` — file-based (`outliner.md`) and inline templates                                   |
+| Tools (`tool` + tool loop)                       | `src/tools/knowledge.ts` + `answer-question` workflow                                              |
+| Multi-agent workflow                             | `src/workflows/write-article.ts` (outline → draft → review → revise)                               |
+| Optional scope, `messages`, handoff              | `src/workflows/shared-scope.ts` (drafter → reviser on one `memoryScope`)                           |
+| Parallel agent step                              | `src/workflows/literature-review.ts` (researcher + critic)                                         |
+| Workflow tool loop in TypeScript                 | `src/workflows/answer-question.ts`                                                                 |
+| Steps, `memoryScope`, `ctx.emit(name, payload?)` | LLM workflows                                                                                      |
+| SQLite persistence                               | `src/adl.ts` — `.data/agent-dev-lab.sqlite`                                                        |
+| No-LLM workflow (baseline)                       | `src/workflows/demo-counter.ts`                                                                    |
 
 ### Registry
 
@@ -51,6 +51,7 @@ cp .env.example .env
 # no key needed — runs the no-LLM demo-counter workflow and prints the registry
 bun run start
 adl workflow run demo-counter --input '{"steps":3}'
+adl agent run research-assistant --input "What is Agent Dev Lab?"
 
 # Inspection UI for this project (from apps/playground)
 bun run dashboard
