@@ -13,7 +13,8 @@ import { readFileSync } from "node:fs";
  * `hasToolCall`, `StopCondition`, `ModelMessage` (preferred; `CoreMessage` is
  * the deprecated AI SDK alias), `LanguageModel`. Single internal `streamText`
  * path for `agent.run` and `agent.stream`; commits `response.messages` to
- * MessageStore. `agent.run` passes AI SDK `stopWhen` through (default
+ * MessageStore. `agent.run` passes AI SDK
+ * [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control) through (default
  * `stepCountIs(20)`). Tool call/result events still fire. Agent turns forward
  * OpenTelemetry via AI SDK `experimental_telemetry` (disable with
  * `createAdlRuntime({ telemetry: { isEnabled: false } })`).

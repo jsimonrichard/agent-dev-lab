@@ -1,5 +1,5 @@
 ---
-title: Project config
+title: Project Config
 description: adl.config.ts shape, loadAdlProject, and execution entrypoints.
 ---
 
@@ -61,7 +61,7 @@ project.listAgentIds();
 
 Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`. The inspection UI uses the same `loadAdlProject()` path as the CLI — never a hard-coded `src/adl.ts` import.
 
-Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project setup](/guides/project-setup/#environment-variables).
+Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project Setup](/guides/project-setup/#environment-variables).
 
 ## Reloading a project
 
@@ -140,4 +140,4 @@ adl dashboard
 | A/B two workflows                | List both; choose at CLI or `getWorkflow(id).run(...)` |
 | Several projects in one repo     | Multiple roots; `loadAdlProject({ root })` each        |
 
-See [Project setup](/guides/project-setup/), [Inspection UI](/guides/inspection-ui/), and [Runtime](/core/runtime/).
+See [Project Setup](/guides/project-setup/), [Inspection UI](/guides/inspection-ui/), and [Runtime](/core/runtime/).

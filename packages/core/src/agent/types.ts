@@ -66,8 +66,8 @@ export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> =
    */
   outputSchema?: z.ZodType<TOutput>;
   /**
-   * AI SDK `stopWhen` for this agent's `run` / `stream`.
-   * Overridable per call via {@link AgentRunInput.stopWhen}.
+   * AI SDK [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control) for this agent's
+   * `run` / `stream`. Overridable per call via {@link AgentRunInput.stopWhen}.
    * Defaults to {@link DEFAULT_AGENT_STOP_WHEN} (`stepCountIs(20)`).
    * Pass `stepCountIs(1)` when a workflow should own each model step.
    */

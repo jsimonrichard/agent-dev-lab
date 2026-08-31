@@ -5,26 +5,41 @@ template: splash
 hero:
   tagline: Flexible TypeScript tooling for developing, debugging, and visualizing AI agents and workflows
   actions:
-    - text: Get started
+    - text: Get Started
       link: /guides/project-setup/
       icon: right-arrow
-    - text: Core API (TypeDoc)
+    - text: Core API Reference
       link: /api/readme/
       icon: document
 ---
 
+import { Image } from "astro:assets";
 import { Card, CardGrid } from "@astrojs/starlight/components";
+import dashboardScreenshot from "../../assets/dashboard.png";
+
+<p align="center" style="margin-top: 1rem;">
+  <Image
+    src={dashboardScreenshot}
+    alt="A workflow run's waterfall of steps in the ADL inspection UI, with a step's output selected in the inspector panel"
+    style="max-width: 100%; height: auto; border-radius: 0.5rem;"
+  />
+</p>
+
+<p align="center"><sub>The inspection UI (`adl dashboard`): a workflow run's waterfall, step-by-step.</sub></p>
 
 ## Packages
 
 <CardGrid stagger>
-  <Card title="Headless core" icon="rocket">
+  <Card title="Headless Core" icon="rocket">
     `@agent-dev-lab/core` — A framework for developing AI agents and workflows built on top of
-    Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>. SQLite helpers, logging, and shared
-    ESLint/tsconfig live on the same package (`./db`, `./eslint`, `./tsconfig/node.json`).
+    Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>.
   </Card>
   <Card title="Web Inspection UI" icon="laptop">
     `@agent-dev-lab/web` — An optional UI built on TanStack Start that triggers runs and consumes
     telemetry using the `@agent-dev-lab/core` API.
+  </Card>
+  <Card title="CLI" icon="npm">
+    `@agent-dev-lab/cli` — The `adl` command: scaffold a project with `adl init`, run agents and
+    workflows from the terminal, and launch the inspection UI with `adl dashboard`.
   </Card>
 </CardGrid>

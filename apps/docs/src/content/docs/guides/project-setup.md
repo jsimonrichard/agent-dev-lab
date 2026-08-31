@@ -1,105 +1,36 @@
 ---
-title: Project setup
-description: Recommended layout for an ADL project and how tooling discovers the runtime.
+title: Project Setup
+description: Start a new ADL project with adl init, the recommended way to get going.
 ---
 
-An ADL **project** is a directory with `adl.config.*` at the project root. That file is the **only required discovery surface** for the CLI, inspection UI, and `loadAdlProject()`.
+An ADL **project** is any directory with `adl.config.*` at its root — that's the one thing the CLI, inspection UI, and `loadAdlProject()` all need to find it. The recommended way to create one is `adl init`, which scaffolds everything below for you.
 
-Everything else — folder layout for agents and workflows, prompt paths — is a **recommendation**, not a framework requirement. The runtime instance itself is also not required at a fixed path for tooling (only `config.adl` matters), but **`src/adl.ts`** is the recommended place to construct and export it.
+Adding ADL to an *existing* project instead, or want to know exactly what's required versus just conventional? See [Manual Setup](/guides/manual-setup/).
 
-## What is required
+## Quick start
 
-| Requirement                         | Notes                                                                 |
-| ----------------------------------- | --------------------------------------------------------------------- |
-| `adl.config.*` at project root      | One of `ADL_CONFIG_FILENAMES` (`.ts`, `.mts`, `.js`, `.mjs`, `.json`) |
-| `name: string` on the config        | Shown in CLI and inspection UI                                        |
-| `adl` on the config (for execution) | `createAdlRuntime()` instance — how tooling gets the runtime          |
-
-## How tooling accesses the runtime
-
-The inspection UI, CLI, and `loadAdlProject()` **never import a project runtime file directly** (e.g. they do not reach into `src/adl.ts` by path). They:
-
-1. Find the project root (`adl.config.*` or `ADL_PROJECT_ROOT`)
-2. Call `loadAdlProject()`
-3. Read the runtime from **`project.config.adl`** or **`project.getAdl()`**
-
-```ts
-import { loadAdlProject } from "@agent-dev-lab/core";
-
-const project = await loadAdlProject();
-const adl = project.getAdl(); // same as project.config.adl
-const workflow = project.getWorkflow("literature-review");
+```bash
+adl init my-research
+cd my-research
+bun install
+cp .env.example .env   # then set OPENAI_API_KEY
 ```
 
-Your `adl.config.ts` should **reference** the runtime (and optionally re-export it):
-
-```ts
-import type { AdlProjectConfig } from "@agent-dev-lab/core";
-import { adl } from "#adl";
-
-import { researcher } from "./agents/researcher";
-import { literatureReview } from "./workflows/literature-review";
-
-export { adl }; // optional named re-export for in-project imports
-
-export default {
-  name: "my-research",
-  adl,
-  agents: [researcher],
-  workflows: [literatureReview],
-} satisfies AdlProjectConfig;
+```bash
+adl workflow list
+adl agent list
+adl agent run assistant --input "What is Agent Dev Lab?"
+adl workflow run demo-counter --input '{"steps":3}'
+adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
+adl dashboard
 ```
 
-`export { adl }` from `adl.config.ts` is optional. What matters for tooling is the **`adl` field on the default export**.
+- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.
+- **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
+- **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
+- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Restart after registry or `.env*` edits.
 
-## `#adl` import alias (recommended)
-
-Registry modules import the runtime often. Set a **TypeScript path alias** and a matching
-`package.json` `"imports"` entry so every file can use the same stable import — no
-`../../../src/adl` as your tree grows.
-
-In `tsconfig.json` at the project root (Bun and most bundlers honor `paths`):
-
-```json
-{
-  "compilerOptions": {
-    "paths": {
-      "#adl": ["./src/adl.ts"]
-    }
-  }
-}
-```
-
-In `package.json` (required for Node / Bun runtime resolution of `#adl`):
-
-```json
-{
-  "imports": {
-    "#adl": "./src/adl.ts"
-  }
-}
-```
-
-Then use it everywhere you define agents, workflows, or templates:
-
-```ts
-// src/agents/researcher.ts
-import { openai } from "@ai-sdk/openai";
-
-import { adl } from "#adl";
-
-export const researcher = adl.createAgent({
-  id: "researcher",
-  model: openai("gpt-4o"),
-  systemPrompt: "You are a research assistant.",
-});
-```
-
-The `#adl` prefix is the recommended convention (short, unlikely to clash with npm scopes). You may choose another alias name; keep one alias per project.
-
-## Recommended layout
-
-This structure matches `adl init` (agents and workflows under `src/`):
+## What `adl init` gives you
 
 ```
 my-research/
@@ -118,72 +49,12 @@ my-research/
 ```
 
 | Piece                | Role                                                                          |
-| -------------------- | ----------------------------------------------------------------------------- |
+| --------------------- | ----------------------------------------------------------------------------- |
 | **`adl.config.ts`**  | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling   |
 | **`src/adl.ts`**     | `createAdlRuntime({ stores, observers })` — keeps config free of store wiring |
-| **Registry modules** | `import { adl } from "#adl"` — not from `adl.config`                          |
+| **`#adl` alias**     | Registry modules `import { adl } from "#adl"` instead of a relative path      |
 
-Registry modules should import `adl` via **`#adl`** (or your alias), **not** from `adl.config.ts`, to avoid import cycles (`adl.config` imports agents; agents must not import `adl.config`).
-
-```ts
-// src/adl.ts
-import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
-import { openai } from "@ai-sdk/openai";
-
-export const adl = createAdlRuntime({
-  defaults: { model: openai(process.env.ADL_MODEL ?? "gpt-4o-mini") },
-  stores: {
-    message: sqliteMessageStore(),
-    workflow: sqliteWorkflowStore(),
-  },
-});
-```
-
-Use `inMemoryMessageStore` / `inMemoryWorkflowStore` (or `createTestRuntime()`) in unit tests.
-
-```ts
-// agents/researcher.ts
-import { adl } from "#adl";
-
-export const researcher = adl.createAgent({
-  id: "researcher",
-  systemPrompt: "You are a research assistant.",
-});
-```
-
-**Avoid** heavy store construction inline in `adl.config.ts` when registry modules also import from config — that pattern tends to create cycles. Keep runtime wiring in **`src/adl.ts`** and reference it from config.
-
-## Loading a project
-
-```ts
-import { loadAdlProject } from "@agent-dev-lab/core";
-
-const project = await loadAdlProject();
-const workflow = project.getWorkflow("literature-review");
-if (!workflow) throw new Error("Unknown workflow");
-
-const handle = workflow.run({ topic: "CRISPR delivery" });
-const output = await handle.result;
-```
-
-`loadAdlProject` indexes agents/workflows by `id` and templates by `name`. Duplicate ids throw at load time.
-
-## CLI
-
-```bash
-adl init my-research
-adl workflow list
-adl agent list
-adl agent run assistant --input "What is Agent Dev Lab?"
-adl workflow run demo-counter --input '{"steps":3}'
-adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
-adl dashboard
-```
-
-- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.
-- **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
-- **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
-- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Restart after registry or `.env*` edits.
+That's the recommended layout, not a requirement — see [Manual Setup](/guides/manual-setup/) for the minimum ADL actually needs and how the pieces wire together, useful if you're restructuring or adding ADL to an existing project.
 
 ### Environment variables
 
@@ -194,11 +65,11 @@ Direct `#adl` imports (for example `bun run start`) should call `loadAdlEnv()` b
 Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) (highest first). Values already set in the process environment are never overwritten:
 
 | File                | When it loads                          |
-| ------------------- | -------------------------------------- |
+| ------------------- | --------------------------------------- |
 | `.env.[mode].local` | Always, for that mode                  |
 | `.env.local`        | All modes except `test`                |
 | `.env.[mode]`       | `development`, `production`, or `test` |
-| `.env`              | Always                                 |
+| `.env`              | Always                                  |
 
 `mode` is `NODE_ENV` when it is `development` / `production` / `test`, otherwise `development` (so `adl workflow run` still loads `.env.local`). Variable expansion (`$VAR`, `${VAR}`) is supported.
 
@@ -209,15 +80,15 @@ OPENAI_API_KEY=sk-...
 ADL_MODEL=gpt-4o-mini
 ```
 
-| Variable           | Purpose                                                   |
-| ------------------ | --------------------------------------------------------- |
-| `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)          |
-| `ADL_MODEL`        | Model id (default `gpt-4o-mini`)                          |
-| `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root |
-| `ADL_PROJECT_ROOT` | Override project discovery                                |
-| `DEBUG=adl`        | Print CLI stack traces                                    |
+| Variable           | Purpose                                                    |
+| ------------------- | ----------------------------------------------------------- |
+| `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)           |
+| `ADL_MODEL`        | Model id (default `gpt-4o-mini`)                           |
+| `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root  |
+| `ADL_PROJECT_ROOT` | Override project discovery                                 |
+| `DEBUG=adl`        | Print CLI stack traces                                     |
 
-See [Project config](/core/project/) and [Runtime](/core/runtime/) for API detail.
+See [Project Config](/core/project/) and [Runtime](/core/runtime/) for API detail.
 
 ## Templates (Handlebars)
 

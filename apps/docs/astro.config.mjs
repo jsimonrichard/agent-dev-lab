@@ -9,6 +9,10 @@ export default defineConfig({
     starlight({
       title: "Agent Dev Lab",
       description: "Documentation for Agent Dev Lab.",
+      logo: {
+        src: "./src/assets/logo.svg",
+        alt: "Agent Dev Lab",
+      },
       social: [
         {
           icon: "github",
@@ -28,8 +32,10 @@ export default defineConfig({
           label: "Guides",
           items: [
             { label: "Overview", slug: "guides/overview" },
-            { label: "Project setup", slug: "guides/project-setup" },
+            { label: "Project Setup", slug: "guides/project-setup" },
+            { label: "Manual Setup", slug: "guides/manual-setup" },
             { label: "Inspection UI", slug: "guides/inspection-ui" },
+            { label: "Gotchas", slug: "guides/gotchas" },
           ],
         },
         {
