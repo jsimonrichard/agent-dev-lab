@@ -1,0 +1,33 @@
+# @agent-dev-lab/cli
+
+## 0.0.1
+
+### Patch Changes
+
+- 491f8a6: `adl agent run <agent-id> --input "…"` invokes a registered agent with a string user message (optional `--scope` for memoryScope).
+- 491f8a6: Run `adl` on Node 22+ (SQLite via `better-sqlite3`) or Bun (`bun:sqlite`). Scaffold `dev` / `dashboard` scripts use `bun --bun adl dashboard` as the recommended toolchain.
+- 491f8a6: `adl init` copies the scaffold directory as-is (package.json, .gitignore, and `.env` are rewritten or skipped), including a real README and tsconfig. `--local` is a hidden flag for framework development. CLI typechecks include tests and scripts; `scripts/` holds build helpers, not tests.
+- 491f8a6: Ship `adl dashboard` (aliases `adl d`, `adl dash`) for the inspection UI. `--serve` runs the prebuilt Nitro build shipped with `@agent-dev-lab/web`.
+- 491f8a6: Shared SQLite helpers, logging, ESLint, and tsconfig ship as `@agent-dev-lab/core` exports (`./db`, `./logging`, `./eslint`, `./tsconfig/node.json`). There is no separate `@agent-dev-lab/common` package.
+- 491f8a6: Include `@agent-dev-lab/web` in `adl init` projects so the inspection UI is a default dependency alongside the CLI and core.
+- 491f8a6: Add `adl init --local` for framework development: pin generated `@agent-dev-lab/*` deps to this checkout with `file:` + overrides. The flag is hidden in published CLI help.
+- 491f8a6: Stop `adl dashboard --serve` from hanging when the CLI is signaled without a TTY (tests and `kill <pid>`).
+- 491f8a6: Initial public **0.0.1** alpha: SQLite-backed stores, `adl init` / `adl run` / list / `adl dashboard`, durable inspection UI, and sample scaffold workflows.
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+- Updated dependencies [491f8a6]
+  - @agent-dev-lab/core@0.0.1
+  - @agent-dev-lab/web@0.0.1
