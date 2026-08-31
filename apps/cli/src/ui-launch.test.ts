@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "bun:test";
 
-import { resolveUiLaunchMode } from "./ui-launch";
+import { resolveUiLaunchMode, shouldForwardUiChildSignals } from "./ui-launch";
 
 const webRoot = path.resolve(fileURLToPath(new URL("../../web", import.meta.url)));
 
@@ -27,5 +27,17 @@ describe("resolveUiLaunchMode", () => {
         webRoot: "/tmp/not-a-web-package",
       }),
     ).toBe("serve");
+  });
+});
+
+describe("shouldForwardUiChildSignals", () => {
+  it("forwards when stdin is not a TTY so kill(pid) can stop --serve", () => {
+    expect(shouldForwardUiChildSignals({ isTTY: false })).toBe(true);
+    expect(shouldForwardUiChildSignals({})).toBe(true);
+    expect(shouldForwardUiChildSignals(undefined)).toBe(true);
+  });
+
+  it("does not forward in a TTY where the process group already got Ctrl+C", () => {
+    expect(shouldForwardUiChildSignals({ isTTY: true })).toBe(false);
   });
 });

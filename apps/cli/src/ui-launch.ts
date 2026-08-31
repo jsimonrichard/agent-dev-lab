@@ -30,6 +30,17 @@ export function resolveUiLaunchMode(options: {
   return "serve";
 }
 
+/**
+ * A TTY Ctrl+C already reaches the UI child via the process group. When the
+ * CLI is spawned without a TTY (tests, scripts, `kill <pid>`), only the CLI
+ * gets the signal — forward it so `--serve` can shut down.
+ */
+export function shouldForwardUiChildSignals(
+  stdin: { isTTY?: boolean } | null | undefined,
+): boolean {
+  return stdin?.isTTY !== true;
+}
+
 export function spawnInspectionUi(options: {
   mode: UiLaunchMode;
   port: number;

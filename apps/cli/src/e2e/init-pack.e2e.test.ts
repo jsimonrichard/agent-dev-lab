@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { findMonorepoRoot } from "../resolve-packages";
-import { allocatePort, runCommand, waitUntil } from "./harness";
+import { allocatePort, launchDashboardProcess, runCommand } from "./harness";
 import { buildContext } from "../context";
 import init from "../commands/init/impl";
 
@@ -151,36 +151,21 @@ describe("adl init packed e2e", () => {
         "cli.js",
       );
       const port = await allocatePort();
-      const child = Bun.spawn(
-        [process.execPath, packedCli, "dashboard", "--serve", "--port", String(port)],
-        {
-          cwd: projectRoot,
-          env: { ...process.env, PORT: String(port), BROWSER: "none", NO_COLOR: "1" },
-          stdout: "pipe",
-          stderr: "pipe",
-        },
-      );
+      const dashboard = await launchDashboardProcess({
+        cwd: projectRoot,
+        argv: [process.execPath, packedCli, "dashboard", "--serve", "--port", String(port)],
+        port,
+      });
 
       try {
-        await waitUntil(
-          async () => {
-            try {
-              const res = await fetch(`http://127.0.0.1:${port}/api/project`);
-              return res.ok;
-            } catch {
-              return false;
-            }
-          },
-          60_000,
-          () => "packed dashboard did not become ready",
-        );
-        const res = await fetch(`http://127.0.0.1:${port}/api/project`);
+        const res = await fetch(`${dashboard.baseUrl}/api/project`, {
+          signal: AbortSignal.timeout(10_000),
+        });
         expect(res.status).toBe(200);
         const body = (await res.json()) as { config: { workflowIds: string[] } };
         expect(body.config.workflowIds).toContain("demo-counter");
       } finally {
-        child.kill();
-        await child.exited;
+        await dashboard.dispose();
       }
     },
     { timeout: 120_000 },

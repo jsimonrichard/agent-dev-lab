@@ -2,7 +2,11 @@ import path from "node:path";
 
 import type { AdlCliContext } from "../../context";
 import { importProjectCore } from "../../resolve-packages";
-import { resolveUiLaunchMode, spawnInspectionUi } from "../../ui-launch";
+import {
+  resolveUiLaunchMode,
+  shouldForwardUiChildSignals,
+  spawnInspectionUi,
+} from "../../ui-launch";
 
 interface DashboardFlags {
   project?: string;
@@ -32,12 +36,22 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
   });
 
   // Stay alive on Ctrl+C so we can wait for the UI child's graceful exit.
-  // The child is in the same process group and receives SIGINT itself (serve
-  // path) or via the terminal (vite). Without this, the CLI exits first and
-  // the shell races the still-shutting-down server.
-  const ignoreSignal = () => {};
-  this.process.on("SIGINT", ignoreSignal);
-  this.process.on("SIGTERM", ignoreSignal);
+  // In a TTY the child is in the same process group and receives SIGINT
+  // itself. Without a TTY (packed e2e, `kill <pid>`), only this process is
+  // signaled — forward so the Nitro/Vite child can shut down.
+  const onSignal = (signal: NodeJS.Signals): void => {
+    if (shouldForwardUiChildSignals(this.process.stdin)) {
+      child.kill(signal);
+    }
+  };
+  const onSigint = () => {
+    onSignal("SIGINT");
+  };
+  const onSigterm = () => {
+    onSignal("SIGTERM");
+  };
+  this.process.on("SIGINT", onSigint);
+  this.process.on("SIGTERM", onSigterm);
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -61,7 +75,7 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
       });
     });
   } finally {
-    this.process.off("SIGINT", ignoreSignal);
-    this.process.off("SIGTERM", ignoreSignal);
+    this.process.off("SIGINT", onSigint);
+    this.process.off("SIGTERM", onSigterm);
   }
 }

@@ -133,14 +133,99 @@ async function bunInstall(root: string): Promise<void> {
   }
 }
 
-function stopProcessTree(child: ChildProcess): void {
+function stopProcessTree(child: ChildProcess, signal: NodeJS.Signals = "SIGTERM"): void {
   if (child.pid && child.exitCode === null && child.signalCode === null) {
     try {
-      process.kill(-child.pid, "SIGTERM");
+      process.kill(-child.pid, signal);
     } catch {
-      child.kill("SIGTERM");
+      child.kill(signal);
     }
   }
+}
+
+/**
+ * Start `adl dashboard` (dev or `--serve`) with logs on disk and process-group
+ * teardown so a SIGTERM-ignoring parent cannot leave the test hanging.
+ */
+export async function launchDashboardProcess(options: {
+  cwd: string;
+  argv: string[];
+  port: number;
+  env?: NodeJS.ProcessEnv;
+  readyTimeoutMs?: number;
+}): Promise<{
+  port: number;
+  baseUrl: string;
+  logs: () => string;
+  dispose: () => Promise<void>;
+}> {
+  const logPath = path.join(options.cwd, "dashboard.log");
+  const logFd = openSync(logPath, "w");
+  const child = spawn(options.argv[0]!, options.argv.slice(1), {
+    cwd: options.cwd,
+    env: {
+      ...process.env,
+      PORT: String(options.port),
+      BROWSER: "none",
+      NO_COLOR: "1",
+      ADL_FRAMEWORK_DEV: "0",
+      ...options.env,
+    },
+    stdio: ["ignore", logFd, logFd],
+    detached: true,
+  });
+
+  const baseUrl = `http://127.0.0.1:${options.port}`;
+  let disposed = false;
+
+  const dispose = async (): Promise<void> => {
+    if (disposed) {
+      return;
+    }
+    disposed = true;
+    stopProcessTree(child, "SIGTERM");
+    await wait(500);
+    if (child.exitCode === null && child.signalCode === null) {
+      stopProcessTree(child, "SIGKILL");
+    }
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve();
+          return;
+        }
+        child.once("exit", () => resolve());
+      }),
+      wait(2_000),
+    ]);
+  };
+
+  try {
+    await waitUntil(
+      async () => {
+        try {
+          const response = await fetch(`${baseUrl}/api/project`, {
+            signal: AbortSignal.timeout(2_000),
+          });
+          return response.ok;
+        } catch {
+          return false;
+        }
+      },
+      options.readyTimeoutMs ?? 60_000,
+      () => `dashboard never became ready on port ${options.port}\n${readLog(logPath)}`,
+    );
+  } catch (error) {
+    await dispose();
+    throw error;
+  }
+
+  return {
+    port: options.port,
+    baseUrl,
+    logs: () => readLog(logPath),
+    dispose,
+  };
 }
 
 function readLog(logPath: string): string {
