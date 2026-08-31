@@ -58,7 +58,7 @@ By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via
 | Persistence     | Events on the parent run     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
 | Inspector tree  | Inner steps under the parent | Own tree, not folded into the caller                         |
 
-Isolated does **not** mean “skip the database.” The run is persisted. Whether it appears in the inspection UI is the project registry: only workflows in `adl.config` `workflows` are listed as startable targets and run history. Leave a helper out of that array to keep its runs stored but hidden.
+Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not included in the project config's workflow array.
 
 ```ts
 // Inside a parent workflow (or an agent episode that happens to be in one):
