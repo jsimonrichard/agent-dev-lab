@@ -7,8 +7,8 @@ The `adl` CLI for [Agent Dev Lab](https://agent-dev-lab.com) — scaffold a proj
 ## Usage
 
 ```bash
-bunx @agent-dev-lab/cli init my-research
-# or: npx @agent-dev-lab/cli init my-research
+bunx @agent-dev-lab/cli@latest init my-research
+# or: npx @agent-dev-lab/cli@latest init my-research
 cd my-research
 bun install
 # or: npm install

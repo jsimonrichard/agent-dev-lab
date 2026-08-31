@@ -123,7 +123,7 @@ Authors receive `WorkflowContext` inside `adl.createWorkflow({ run: async (input
 ## CLI
 
 ```bash
-bunx @agent-dev-lab/cli init my-research
+bunx @agent-dev-lab/cli@latest init my-research
 cd my-research && bun install
 bunx adl workflow run demo-counter --input '{"steps":3}'
 bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'

@@ -99,18 +99,44 @@ export function localFileSpecs(localRoot: string): Record<string, string> {
   return specs;
 }
 
+interface CliPackageInfo {
+  version: string;
+  dependencies?: Record<string, string>;
+}
+
+/**
+ * core/web don't necessarily ship the same version as cli (only packages with
+ * their own changeset get bumped). The published cli manifest's own
+ * `dependencies` already pin the core/web versions it was built and tested
+ * against, so read those instead of assuming they match cli's version.
+ * Source checkouts still carry `workspace:*` there (only rewritten to a real
+ * version at publish time), so fall back to cli's version in that case.
+ */
+export function resolveInternalDepVersion(
+  name: "cli" | "core" | "web",
+  cliPkg: CliPackageInfo,
+): string {
+  if (name === "cli") {
+    return `^${cliPkg.version}`;
+  }
+  const spec = cliPkg.dependencies?.[`@agent-dev-lab/${name}`];
+  if (spec && !spec.startsWith("workspace:")) {
+    return spec;
+  }
+  return `^${cliPkg.version}`;
+}
+
 export function buildInitPackageJson(
   projectName: string,
   scaffoldPkg: ScaffoldPackageJson,
   options?: { localRoot?: string },
 ): string {
-  const cliPkg = JSON.parse(readFileSync(path.join(cliPackageRoot(), "package.json"), "utf8")) as {
-    version: string;
-  };
-  const version = `^${cliPkg.version}`;
+  const cliPkg = JSON.parse(
+    readFileSync(path.join(cliPackageRoot(), "package.json"), "utf8"),
+  ) as CliPackageInfo;
   const localSpecs = options?.localRoot ? localFileSpecs(options.localRoot) : undefined;
   const adlDep = (name: "cli" | "core" | "web"): string =>
-    localSpecs?.[`@agent-dev-lab/${name}`] ?? version;
+    localSpecs?.[`@agent-dev-lab/${name}`] ?? resolveInternalDepVersion(name, cliPkg);
 
   const pkg = {
     name: projectName,

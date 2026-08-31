@@ -10,8 +10,8 @@ Adding ADL to an _existing_ project instead, or want to know exactly what's requ
 ## Quick start
 
 ```bash
-bunx @agent-dev-lab/cli init my-research
-# or: npx @agent-dev-lab/cli init my-research
+bunx @agent-dev-lab/cli@latest init my-research
+# or: npx @agent-dev-lab/cli@latest init my-research
 cd my-research
 bun install
 cp .env.example .env   # then set OPENAI_API_KEY

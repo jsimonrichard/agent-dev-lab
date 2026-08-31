@@ -24,8 +24,8 @@ Agent Dev Lab (ADL) is a TypeScript-first framework for experimenting with agent
 Works with **npm** and **Node 22+**, or **Bun** — no Bun requirement to use ADL in your own project.
 
 ```bash
-bunx @agent-dev-lab/cli init my-research
-# or: npx @agent-dev-lab/cli init my-research
+bunx @agent-dev-lab/cli@latest init my-research
+# or: npx @agent-dev-lab/cli@latest init my-research
 cd my-research
 bun install
 # or: npm install

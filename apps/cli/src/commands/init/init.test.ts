@@ -22,6 +22,7 @@ import {
   assertLocalInitAllowed,
   buildInitGitignore,
   buildInitPackageJson,
+  resolveInternalDepVersion,
   rewriteScaffoldConfigName,
 } from "./scaffold";
 
@@ -202,6 +203,25 @@ describe("init scaffold helpers", () => {
     expect(pkg.dependencies["@agent-dev-lab/web"]).toBe(`file:${path.join(localRoot, "apps/web")}`);
     expect(pkg.overrides["@agent-dev-lab/core"]).toBe(coreSpec);
     expect(pkg.overrides["@agent-dev-lab/web"]).toBe(`file:${path.join(localRoot, "apps/web")}`);
+  });
+
+  it("pins core/web to cli's own dependency versions when they've diverged from cli's version", () => {
+    const cliPkg = {
+      version: "0.0.4",
+      dependencies: { "@agent-dev-lab/core": "0.0.3", "@agent-dev-lab/web": "0.0.3" },
+    };
+    expect(resolveInternalDepVersion("cli", cliPkg)).toBe("^0.0.4");
+    expect(resolveInternalDepVersion("core", cliPkg)).toBe("0.0.3");
+    expect(resolveInternalDepVersion("web", cliPkg)).toBe("0.0.3");
+  });
+
+  it("falls back to cli's version for core/web when cli's manifest still says workspace:*", () => {
+    const cliPkg = {
+      version: "0.0.4",
+      dependencies: { "@agent-dev-lab/core": "workspace:*", "@agent-dev-lab/web": "workspace:*" },
+    };
+    expect(resolveInternalDepVersion("core", cliPkg)).toBe("^0.0.4");
+    expect(resolveInternalDepVersion("web", cliPkg)).toBe("^0.0.4");
   });
 
   it("rejects --local outside the source checkout", () => {
