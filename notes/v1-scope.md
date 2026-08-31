@@ -218,23 +218,23 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 
 ## Gaps already decided (not RC)
 
-| Topic                      | Status                             | Notes                                                         |
-| -------------------------- | ---------------------------------- | ------------------------------------------------------------- |
-| Model / provider setup     | ✅                                 | `createAdlRuntime({ defaults: { model } })` + env docs        |
-| Workflow input validation  | ✅                                 | Zod on `createWorkflow`; parsed at `run()`                    |
-| Shared `tools` in config   | ✅                                 | Runtime `tools` merge; `adl.config.tools` is registry-only    |
-| Error types                | ✅                                 | `AdlError` + CLI messages (`DEBUG=adl` for stacks)            |
-| Testing helpers            | ✅                                 | `createTestRuntime()`                                         |
-| OTEL default observer      | ✅ spans + AI SDK telemetry option | App installs exporter                                         |
-| Event schema versioning    | ✅                                 | `eventSchemaVersion: 1`                                       |
-| Secrets / API keys         | ✅                                 | Document env vars only                                        |
-| Standalone core HTTP API   | ⏸                                  | [`future-extensions.md`](./future-extensions.md)              |
-| Merge `common` into `core` | ⏸                                  | Shared tsconfig/eslint/sqlite; not 0.0.1                      |
-| Manual tool-run UI         | ⏸                                  | [`inspection-ui.md`](./inspection-ui.md) — `adl.config.tools` |
-| Human approval             | ⏸                                  | [`future-extensions.md`](./future-extensions.md)              |
-| Memory pipeline            | ⏸                                  | [`memory-pipeline.md`](./memory-pipeline.md)                  |
-| Checkpoints                | ⏸                                  | [`resumability.md`](./resumability.md)                        |
-| Workflow catalog grouping  | ⏸                                  | [`workflow-catalog.md`](./workflow-catalog.md)                |
+| Topic                      | Status                             | Notes                                                          |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------- |
+| Model / provider setup     | ✅                                 | `createAdlRuntime({ defaults: { model } })` + env docs         |
+| Workflow input validation  | ✅                                 | Zod on `createWorkflow`; parsed at `run()`                     |
+| Shared `tools` in config   | ✅                                 | Runtime `tools` merge; `adl.config.tools` is registry-only     |
+| Error types                | ✅                                 | `AdlError` + CLI messages (`DEBUG=adl` for stacks)             |
+| Testing helpers            | ✅                                 | `createTestRuntime()`                                          |
+| OTEL default observer      | ✅ spans + AI SDK telemetry option | App installs exporter                                          |
+| Event schema versioning    | ✅                                 | `eventSchemaVersion: 1`                                        |
+| Secrets / API keys         | ✅                                 | Document env vars only                                         |
+| Standalone core HTTP API   | ⏸                                  | [`future-extensions.md`](./future-extensions.md)               |
+| Merge `common` into `core` | ✅                                 | `@agent-dev-lab/core` exports `./db`, `./eslint`, `./tsconfig` |
+| Manual tool-run UI         | ⏸                                  | [`inspection-ui.md`](./inspection-ui.md) — `adl.config.tools`  |
+| Human approval             | ⏸                                  | [`future-extensions.md`](./future-extensions.md)               |
+| Memory pipeline            | ⏸                                  | [`memory-pipeline.md`](./memory-pipeline.md)                   |
+| Checkpoints                | ⏸                                  | [`resumability.md`](./resumability.md)                         |
+| Workflow catalog grouping  | ⏸                                  | [`workflow-catalog.md`](./workflow-catalog.md)                 |
 
 ---
 

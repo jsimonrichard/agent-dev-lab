@@ -1,5 +1,5 @@
 {
-  "extends": "@agent-dev-lab/common/tsconfig/node.json",
+  "extends": "@agent-dev-lab/core/tsconfig/node.json",
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",

@@ -174,7 +174,6 @@ describe("init scaffold helpers", () => {
     expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe("^0.0.0");
     expect(pkg.dependencies["@agent-dev-lab/core"]).toBe("^0.0.0");
     expect(pkg.dependencies["@agent-dev-lab/web"]).toBe("^0.0.0");
-    expect(pkg.dependencies["@agent-dev-lab/common"]).toBeUndefined();
     expect(pkg.overrides).toBeUndefined();
   });
 
@@ -188,13 +187,8 @@ describe("init scaffold helpers", () => {
     expect(pkg.dependencies["@agent-dev-lab/core"]).toBe(coreSpec);
     expect(pkg.dependencies["@agent-dev-lab/cli"]).toBe(`file:${path.join(localRoot, "apps/cli")}`);
     expect(pkg.dependencies["@agent-dev-lab/web"]).toBe(`file:${path.join(localRoot, "apps/web")}`);
-    expect(pkg.dependencies["@agent-dev-lab/common"]).toBe(
-      `file:${path.join(localRoot, "packages/common")}`,
-    );
     expect(pkg.overrides["@agent-dev-lab/core"]).toBe(coreSpec);
-    expect(pkg.overrides["@agent-dev-lab/common"]).toBe(
-      `file:${path.join(localRoot, "packages/common")}`,
-    );
+    expect(pkg.overrides["@agent-dev-lab/web"]).toBe(`file:${path.join(localRoot, "apps/web")}`);
   });
 
   it("rejects --local outside the source checkout", () => {

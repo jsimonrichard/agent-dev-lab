@@ -91,4 +91,4 @@ See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentatio
 - [x] Activate OTel context at workflow / step / agent boundaries (`withActiveSpan` in the runner)
 - [x] Forward context into AI SDK `experimental_telemetry` on agent episodes
 - [ ] Document env / config for enabling tracing in playground
-- [ ] Example `OtelWorkflowObserver` in app or `@agent-dev-lab/common` (optional)
+- [ ] Example `OtelWorkflowObserver` in app or `@agent-dev-lab/core` (optional)

@@ -43,14 +43,13 @@ Use the **Core API** sidebar for the full export list.
 
 ## Monorepo packages
 
-| Package                 | Role                                               |
-| ----------------------- | -------------------------------------------------- |
-| `@agent-dev-lab/core`   | Headless runtime                                   |
-| `@agent-dev-lab/web`    | Inspection UI (port 3000)                          |
-| `@agent-dev-lab/cli`    | `adl` CLI                                          |
-| `@agent-dev-lab/docs`   | This site (port 4321)                              |
-| `@agent-dev-lab/common` | Internal shared infra (published for core/cli/web) |
-| `apps/playground`       | Framework-dev sample project                       |
+| Package               | Role                                                     |
+| --------------------- | -------------------------------------------------------- |
+| `@agent-dev-lab/core` | Headless runtime (also `./db`, `./eslint`, `./tsconfig`) |
+| `@agent-dev-lab/web`  | Inspection UI (port 3000)                                |
+| `@agent-dev-lab/cli`  | `adl` CLI                                                |
+| `@agent-dev-lab/docs` | This site (port 4321)                                    |
+| `apps/playground`     | Framework-dev sample project                             |
 
 ## Development
 

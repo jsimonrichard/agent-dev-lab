@@ -68,7 +68,6 @@ export const INIT_LOCAL_PACKAGES = [
   { name: "@agent-dev-lab/cli", rel: "apps/cli" },
   { name: "@agent-dev-lab/core", rel: "packages/core" },
   { name: "@agent-dev-lab/web", rel: "apps/web" },
-  { name: "@agent-dev-lab/common", rel: "packages/common" },
 ] as const;
 
 export function assertLocalInitAllowed(isSourceCheckout: boolean): void {
@@ -123,7 +122,6 @@ export function buildInitPackageJson(
       "@agent-dev-lab/cli": adlDep("cli"),
       "@agent-dev-lab/core": adlDep("core"),
       "@agent-dev-lab/web": adlDep("web"),
-      ...(localSpecs ? { "@agent-dev-lab/common": localSpecs["@agent-dev-lab/common"] } : {}),
       "@ai-sdk/openai": requireDep(scaffoldPkg.dependencies, "@ai-sdk/openai", "package.json"),
       zod: requireDep(scaffoldPkg.dependencies, "zod", "package.json"),
     },

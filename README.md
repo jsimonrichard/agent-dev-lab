@@ -2,7 +2,7 @@
 
 Flexible TypeScript tooling for developing, debugging, and visualizing AI agents and workflows.
 
-Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agentic workflows. It pairs a headless core library built on top of [Vercel's AI SDK](https://ai-sdk.dev/) with an optional inspection UI, a CLI, and shared infrastructure — so you can author agents and workflows as plain TypeScript, run them from scripts, tests, or a server, and inspect the resulting telemetry.
+Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agentic workflows. It pairs a headless core library built on top of [Vercel's AI SDK](https://ai-sdk.dev/) with an optional inspection UI and a CLI — so you can author agents and workflows as plain TypeScript, run them from scripts, tests, or a server, and inspect the resulting telemetry.
 
 ## Principles
 
@@ -15,14 +15,13 @@ Agent Dev Lab (ADL) is a TypeScript-first workspace for experimenting with agent
 
 Bun + Turborepo monorepo.
 
-| Package                     | Path              | Role                                                                                        |
-| --------------------------- | ----------------- | ------------------------------------------------------------------------------------------- |
-| `@agent-dev-lab/core`       | `packages/core`   | Headless runtime — agents, workflows, templates, stores                                     |
-| `@agent-dev-lab/common`     | `packages/common` | Internal shared infra (published so core/cli/web can depend on it): SQLite, logging, ESLint |
-| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                                         |
-| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                                         |
-| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight guides + TypeDoc API reference — port 4321                                  |
-| `@agent-dev-lab/playground` | `apps/playground` | Sample ADL project (`adl.config.ts`) for framework dev                                      |
+| Package                     | Path              | Role                                                                                                     |
+| --------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `@agent-dev-lab/core`       | `packages/core`   | Headless runtime — agents, workflows, templates, stores; also `./db`, `./eslint`, `./tsconfig/node.json` |
+| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                                                      |
+| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                                                      |
+| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight guides + TypeDoc API reference — port 4321                                               |
+| `@agent-dev-lab/playground` | `apps/playground` | Sample ADL project (`adl.config.ts`) for framework dev                                                   |
 
 ## Getting started
 

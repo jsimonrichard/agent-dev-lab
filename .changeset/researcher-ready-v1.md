@@ -1,6 +1,5 @@
 ---
 "@agent-dev-lab/core": patch
-"@agent-dev-lab/common": patch
 "@agent-dev-lab/cli": patch
 "@agent-dev-lab/web": patch
 ---

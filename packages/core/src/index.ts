@@ -200,7 +200,7 @@ export {
   type LoadedAdlProject,
 } from "./project";
 
-export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "@agent-dev-lab/common";
+export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "./db";
 
 export { generateText, stepCountIs, streamText, tool } from "ai";
 export type {

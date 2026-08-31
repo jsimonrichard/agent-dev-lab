@@ -6,14 +6,13 @@
 
 Bun + Turborepo monorepo for an agentic workflow research framework.
 
-| Package                     | Path              | Role                                                                             |
-| --------------------------- | ----------------- | -------------------------------------------------------------------------------- |
-| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                              |
-| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                              |
-| `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev                         |
-| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321                                     |
-| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK)                                            |
-| `@agent-dev-lab/common`     | `packages/common` | Internal shared infra (published for core/cli/web): Drizzle+SQLite, Pino, ESLint |
+| Package                     | Path              | Role                                                                              |
+| --------------------------- | ----------------- | --------------------------------------------------------------------------------- |
+| `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                               |
+| `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                               |
+| `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev                          |
+| `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321                                      |
+| `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK); SQLite/ESLint/tsconfig via package exports |
 
 ### Commands
 

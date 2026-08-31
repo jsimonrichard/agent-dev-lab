@@ -1,12 +1,16 @@
+/**
+ * SQLite helpers published as `@agent-dev-lab/core/db`.
+ * Used by message/workflow stores; also the package export for schema and open helpers.
+ */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-import { ensureAdlSchema } from "./ensure-schema.js";
-import * as schema from "./schema.js";
-import type { AdlSqliteDatabase } from "./sqlite-types.js";
+import { ensureAdlSchema } from "./ensure-schema";
+import * as schema from "./schema";
+import type { AdlSqliteDatabase } from "./sqlite-types";
 
-export type { AdlSqliteDatabase, AdlSqliteStatement } from "./sqlite-types.js";
+export type { AdlSqliteDatabase, AdlSqliteStatement } from "./sqlite-types";
 
 export const DEFAULT_SQLITE_RELATIVE_PATH = ".data/agent-dev-lab.sqlite";
 
@@ -14,12 +18,12 @@ export const DEFAULT_SQLITE_RELATIVE_PATH = ".data/agent-dev-lab.sqlite";
  * Native SQLite / Drizzle adapters are dependencies of this package. When this
  * module is bundled into another app's SSR output (e.g. inspection UI `.output`),
  * `import.meta.url` points at the chunk and cannot resolve those deps — anchor
- * `require` at the installed `@agent-dev-lab/common` entry instead.
+ * `require` at the installed `@agent-dev-lab/core` entry instead.
  */
 function createPackageRequire(): NodeRequire {
   const fromThisFile = createRequire(import.meta.url);
   try {
-    return createRequire(fromThisFile.resolve("@agent-dev-lab/common"));
+    return createRequire(fromThisFile.resolve("@agent-dev-lab/core"));
   } catch {
     return fromThisFile;
   }
@@ -117,6 +121,6 @@ export function createDb(sqlitePath?: string) {
 
 export type Db = ReturnType<typeof createDb>;
 
-export type { MessageRow, WorkflowRunRow } from "./schema.js";
+export type { MessageRow, WorkflowRunRow } from "./schema";
 export { schema };
-export { ensureAdlSchema } from "./ensure-schema.js";
+export { ensureAdlSchema } from "./ensure-schema";

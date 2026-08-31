@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
 
-import { ensureAdlSchema } from "@agent-dev-lab/common";
+import { ensureAdlSchema } from "../db";
 
 import { sqliteWorkflowStore } from "./sqlite-workflow-store";
 import { EVENT_SCHEMA_VERSION } from "./events";

@@ -140,10 +140,9 @@ Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a u
 
 `@agent-dev-lab/core` is a **library** in 0.0.1. CLI and the inspection UI are the hosts that load a project and call `workflow.run` / `agent.run`.
 
-A later release can add a **process host export** (same package, e.g. `@agent-dev-lab/core/server`) that serves agents and workflows over HTTP/SSE — not a second runtime package. Absorbing `@agent-dev-lab/common` into that surface is the same track: common still owns shared tsconfig, ESLint, and SQLite helpers used by web/cli/core. Folding it into core before 0.0.1 would couple build tooling to the runtime.
+A later release can add a **process host export** (same package, e.g. `@agent-dev-lab/core/server`) that serves agents and workflows over HTTP/SSE — not a second runtime package.
 
 - [ ] Defer standalone API server
-- [ ] Defer merging `common` into `core` (keep shared tsconfig / eslint / sqlite)
 
 ## v1
 

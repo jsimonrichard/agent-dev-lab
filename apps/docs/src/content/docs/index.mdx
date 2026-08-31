@@ -20,12 +20,8 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 <CardGrid stagger>
   <Card title="Headless core" icon="rocket">
     `@agent-dev-lab/core` — A framework for developing AI agents and workflows built on top of
-    Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>.
-  </Card>
-  <Card title="Shared infrastructure" icon="setting">
-    `@agent-dev-lab/common` — SQLite path helpers, Pino logging, and shared ESLint/tsconfig used by
-    the monorepo. Published for the framework; most end-user projects only depend on `core`, `cli`,
-    and `web`.
+    Vercel's <a href="https://ai-sdk.dev/">AI SDK</a>. SQLite helpers, logging, and shared
+    ESLint/tsconfig live on the same package (`./db`, `./eslint`, `./tsconfig/node.json`).
   </Card>
   <Card title="Web Inspection UI" icon="laptop">
     `apps/web` — An optional UI built on TanStack Start that triggers runs and consumes telemetry

@@ -1,4 +1,4 @@
-import { openAdlSqlite, resolveAdlSqlitePath } from "@agent-dev-lab/common";
+import { openAdlSqlite, resolveAdlSqlitePath } from "../db";
 import type { ModelMessage } from "ai";
 
 import type { MessageStore } from "./types";

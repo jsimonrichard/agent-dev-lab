@@ -1,4 +1,4 @@
-import type { AdlSqliteDatabase } from "./sqlite-types.js";
+import type { AdlSqliteDatabase } from "./sqlite-types";
 
 const TABLES = [
   `CREATE TABLE IF NOT EXISTS adl_messages (

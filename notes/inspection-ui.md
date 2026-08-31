@@ -75,7 +75,7 @@ Encode persisted **`RunEvent`** JSON only. Do **not** adopt TanStack AI [StreamC
 - **`?afterSeq=`** on GET for polling fallback and gap fill
 - Stream ends when **`workflow_finished` / `workflow_failed` / `workflow_cancelled`** is persisted—not only `data: [DONE]`
 
-Optional small helper in `@agent-dev-lab/common` or `apps/web`: `encodeRunEventSse(event)` / `createRunEventSseStream(events)`—no dependency on `@tanstack/ai`.
+Optional small helper in `@agent-dev-lab/core` or `apps/web`: `encodeRunEventSse(event)` / `createRunEventSseStream(events)`—no dependency on `@tanstack/ai`.
 
 ---
 

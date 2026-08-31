@@ -11,7 +11,9 @@
   "types": "./src/index.ts",
   "files": [
     "dist",
-    "src"
+    "src",
+    "eslint.config.js",
+    "tsconfig.node.json"
   ],
   "exports": {
     ".": {
@@ -31,25 +33,45 @@
       "bun": "./src/result.ts",
       "import": "./src/result.ts",
       "default": "./dist/result.js"
-    }
+    },
+    "./db": {
+      "types": "./src/db/index.ts",
+      "bun": "./src/db/index.ts",
+      "development": "./src/db/index.ts",
+      "default": "./dist/db/index.js"
+    },
+    "./logging": {
+      "types": "./src/logging/index.ts",
+      "bun": "./src/logging/index.ts",
+      "development": "./src/logging/index.ts",
+      "default": "./dist/logging/index.js"
+    },
+    "./eslint": "./eslint.config.js",
+    "./tsconfig/node.json": "./tsconfig.node.json"
   },
   "scripts": {
     "build": "tsdown",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test"
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@agent-dev-lab/common": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
+    "@types/better-sqlite3": "^9.6.0",
     "ai": "^5.0.86",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.44.7",
     "handlebars": "^4.7.8",
     "jiti": "^2.7.0",
+    "pino": "^10.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bun": "^1.3.13",
     "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.31.6",
     "tsdown": "^0.22.3",
     "typescript": "^6.0.2",
     "unrun": "^0.3.1"

@@ -1,5 +1,5 @@
 {
-  "extends": "@agent-dev-lab/common/tsconfig/node.json",
+  "extends": "./tsconfig.node.json",
   "compilerOptions": {
     "lib": ["ES2022", "ES2024.Promise"],
     "declaration": true,

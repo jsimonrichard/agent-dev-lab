@@ -25,7 +25,6 @@ export function isAdlCliSourceCheckout(): boolean {
     existsSync(path.join(cliRoot, "src/bin/cli.ts")) &&
     existsSync(path.join(cliRoot, "scaffold/adl.config.ts")) &&
     existsSync(path.join(repoRoot, "packages/core/package.json")) &&
-    existsSync(path.join(repoRoot, "packages/common/package.json")) &&
     existsSync(path.join(repoRoot, "apps/web/package.json"))
   );
 }

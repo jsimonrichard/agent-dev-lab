@@ -12,14 +12,13 @@ import init from "../commands/init/impl";
 const SETUP_TIMEOUT_MS = 300_000;
 
 const PACKAGES = [
-  { name: "@agent-dev-lab/common", dir: "packages/common" },
   { name: "@agent-dev-lab/core", dir: "packages/core" },
   { name: "@agent-dev-lab/web", dir: "apps/web" },
   { name: "@agent-dev-lab/cli", dir: "apps/cli" },
 ] as const;
 
 /**
- * Published-path smoke: build + npm pack the four packages, `adl init` without
+ * Published-path smoke: build + npm pack the three packages, `adl init` without
  * `--local`, install from tarballs, typecheck, and run demo-counter.
  */
 describe("adl init packed e2e", () => {
