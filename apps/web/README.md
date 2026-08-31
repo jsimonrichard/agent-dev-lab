@@ -1,6 +1,6 @@
 # `@agent-dev-lab/web`
 
-TanStack Start inspection UI for Agent Dev Lab. End users run it through `adl dashboard` (or `adl dashboard --serve` for the Nitro build). Framework development points at `apps/playground` via `bun run dev:web`.
+TanStack Start inspection UI for [Agent Dev Lab](https://agent-dev-lab.com). End users don't run this package directly — `adl init` adds it as a project dependency, and `adl dashboard` (from [`@agent-dev-lab/cli`](https://www.npmjs.com/package/@agent-dev-lab/cli)) starts it against the nearest `adl.config.*`. `adl dashboard --serve` runs the prebuilt Nitro output shipped in this package instead of Vite dev. Framework development on this repo points the dev server at `apps/playground` via `bun run dev:web`.
 
 ## Commands
 

@@ -1,6 +1,20 @@
 # @agent-dev-lab/cli
 
-Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/). Runs on **Node 22+** (SQLite via `better-sqlite3`) or **Bun** (SQLite via `bun:sqlite`). Bun remains the recommended install/dev toolchain for the monorepo and scaffolds.
+The `adl` CLI for [Agent Dev Lab](https://agent-dev-lab.com) — scaffold a project, run agents and workflows from the terminal, and launch the inspection UI. Type-safe CLI built with [Stricli](https://bloomberg.github.io/stricli/). Runs on **Node 22+** (SQLite via `better-sqlite3`) or **Bun** (SQLite via `bun:sqlite`). Bun remains the recommended install/dev toolchain for the monorepo and scaffolds.
+
+## Usage
+
+```bash
+bunx @agent-dev-lab/cli init my-research
+cd my-research
+bun install
+cp .env.example .env   # then set OPENAI_API_KEY
+adl workflow run demo-counter --input '{"steps":3}'
+adl agent run assistant --input "What is Agent Dev Lab?"
+adl dashboard          # inspection UI
+```
+
+`adl init` scaffolds a project depending on `@agent-dev-lab/core` (and `@agent-dev-lab/web` for `adl dashboard`) — this package is not meant to be used standalone without those. After install, `npx adl`, `bunx adl`, or `node_modules/.bin/adl` all work (the `"bin"` entry is `adl`, not this package's own name).
 
 ## Commands
 
