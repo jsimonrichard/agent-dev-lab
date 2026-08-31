@@ -1,8 +1,8 @@
 # Brand assets
 
-| File | Use |
-| --- | --- |
-| `logo.svg` | Icon-only mark. Favicon, sidebar brand tile, small badges. |
+| File              | Use                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `logo.svg`        | Icon-only mark. Favicon, sidebar brand tile, small badges.                                              |
 | `logo-lockup.svg` | Icon + wordmark ("Agent Dev Lab"), horizontal. README hero, anywhere the name needs to read on its own. |
 
 ## Mark

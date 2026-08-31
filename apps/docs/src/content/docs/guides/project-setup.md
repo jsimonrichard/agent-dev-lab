@@ -5,7 +5,7 @@ description: Start a new ADL project with adl init, the recommended way to get g
 
 An ADL **project** is any directory with `adl.config.*` at its root — that's the one thing the CLI, inspection UI, and `loadAdlProject()` all need to find it. The recommended way to create one is `adl init`, which scaffolds everything below for you.
 
-Adding ADL to an *existing* project instead, or want to know exactly what's required versus just conventional? See [Manual Setup](/guides/manual-setup/).
+Adding ADL to an _existing_ project instead, or want to know exactly what's required versus just conventional? See [Manual Setup](/guides/manual-setup/).
 
 ## Quick start
 
@@ -48,11 +48,11 @@ my-research/
       ask.ts
 ```
 
-| Piece                | Role                                                                          |
-| --------------------- | ----------------------------------------------------------------------------- |
-| **`adl.config.ts`**  | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling   |
-| **`src/adl.ts`**     | `createAdlRuntime({ stores, observers })` — keeps config free of store wiring |
-| **`#adl` alias**     | Registry modules `import { adl } from "#adl"` instead of a relative path      |
+| Piece               | Role                                                                          |
+| ------------------- | ----------------------------------------------------------------------------- |
+| **`adl.config.ts`** | Registry (`agents[]`, `workflows[]`, …) and **`adl`** reference for tooling   |
+| **`src/adl.ts`**    | `createAdlRuntime({ stores, observers })` — keeps config free of store wiring |
+| **`#adl` alias**    | Registry modules `import { adl } from "#adl"` instead of a relative path      |
 
 That's the recommended layout, not a requirement — see [Manual Setup](/guides/manual-setup/) for the minimum ADL actually needs and how the pieces wire together, useful if you're restructuring or adding ADL to an existing project.
 
@@ -65,11 +65,11 @@ Direct `#adl` imports (for example `bun run start`) should call `loadAdlEnv()` b
 Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) (highest first). Values already set in the process environment are never overwritten:
 
 | File                | When it loads                          |
-| ------------------- | --------------------------------------- |
+| ------------------- | -------------------------------------- |
 | `.env.[mode].local` | Always, for that mode                  |
 | `.env.local`        | All modes except `test`                |
 | `.env.[mode]`       | `development`, `production`, or `test` |
-| `.env`              | Always                                  |
+| `.env`              | Always                                 |
 
 `mode` is `NODE_ENV` when it is `development` / `production` / `test`, otherwise `development` (so `adl workflow run` still loads `.env.local`). Variable expansion (`$VAR`, `${VAR}`) is supported.
 
@@ -80,12 +80,12 @@ OPENAI_API_KEY=sk-...
 ADL_MODEL=gpt-4o-mini
 ```
 
-| Variable           | Purpose                                                    |
-| ------------------- | ----------------------------------------------------------- |
-| `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)           |
-| `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root  |
-| `ADL_PROJECT_ROOT` | Override project discovery                                 |
-| `DEBUG=adl`        | Print CLI stack traces                                     |
+| Variable           | Purpose                                                   |
+| ------------------ | --------------------------------------------------------- |
+| `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)          |
+| `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root |
+| `ADL_PROJECT_ROOT` | Override project discovery                                |
+| `DEBUG=adl`        | Print CLI stack traces                                    |
 
 `ADL_MODEL` isn't one of these — the framework doesn't read it. It's used in the scaffold's own `src/model.ts` to set ADL's default model.
 

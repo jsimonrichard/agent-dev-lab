@@ -8,7 +8,7 @@ Most projects should start with [`adl init`](/guides/project-setup/) — it scaf
 ## What is required
 
 | Requirement                         | Notes                                                                 |
-| ------------------------------------ | ---------------------------------------------------------------------- |
+| ----------------------------------- | --------------------------------------------------------------------- |
 | `adl.config.*` at project root      | One of `ADL_CONFIG_FILENAMES` (`.ts`, `.mts`, `.js`, `.mjs`, `.json`) |
 | `name: string` on the config        | Shown in CLI and inspection UI                                        |
 | `adl` on the config (for execution) | `createAdlRuntime()` instance — how tooling gets the runtime          |
