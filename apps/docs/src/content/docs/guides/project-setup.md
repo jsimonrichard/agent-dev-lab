@@ -180,14 +180,14 @@ adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 adl dashboard
 ```
 
-- **`adl init`** — copies `apps/cli/scaffold` from disk (skips/rewrites `package.json`, `.gitignore`, `.env`), including a real README and tsconfig. Ships SQLite-backed `src/adl.ts`, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. From this checkout, `--local` pins `@agent-dev-lab/*` with `file:` (hidden in published help).
+- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.
 - **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
-- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Published installs serve the Nitro build; the monorepo uses Vite.
+- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Restart after registry or `.env*` edits.
 
 ### Environment variables
 
-`loadAdlProject()` (and the inspection UI / CLI, which all go through it) loads `.env*` files from the **ADL project root** — the directory that contains `adl.config.*`, not the process cwd. That is why `bun run dev:web` picks up `apps/playground/.env` even though Vite starts in `apps/web`.
+`loadAdlProject()` (and the inspection UI / CLI, which all go through it) loads `.env*` files from the **ADL project root** — the directory that contains `adl.config.*`, not the process cwd.
 
 Direct `#adl` imports (for example `bun run start`) should call `loadAdlEnv()` before reading `process.env` at module load — the scaffold does this in `src/model.ts`. `createAdlRuntime({ loadEnv })` also loads env by default (`false` to opt out).
 
@@ -224,11 +224,11 @@ See [Project config](/core/project/) and [Runtime](/core/runtime/) for API detai
 `adl.createTemplate` renders markdown with **[Handlebars](https://handlebarsjs.com/)** after Zod validates the input.
 Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.url` so relative paths resolve.
 
-## Common pitfalls (users)
+## Common pitfalls
 
-- **`adl init` scaffolds a new project** — not the monorepo playground. After init, `bun run dev` is `adl dashboard`.
+- **`adl init` scaffolds a standalone project.** After init, `bun run dev` is `adl dashboard`.
 - **`ADL_MODEL`** is the shared model env name (scaffold default `gpt-4o-mini`). Copy `.env.example` → `.env`.
-- **Published `adl dashboard` has no hot reload** — `@agent-dev-lab/web` ships Nitro `.output` only. Restart after registry edits. Vite HMR reloads the **UI**; `adl.config.ts` is still loaded with jiti.
+- **`adl dashboard` has no hot reload** — restart after registry or `.env*` edits. Changing store implementation or `ADL_SQLITE_PATH` also needs a restart.
 - **`adl.config.tools` is not runtime merge** — put shared tools on `createAdlRuntime({ tools })`. The config field is registry-only (future: run a tool from the inspector).
 - **`better-sqlite3` may need a native compile** on first install under Node (build tools / Python). Bun uses `bun:sqlite` instead when the runtime is Bun.
 - **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
@@ -236,8 +236,3 @@ Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.
 - **`createToolFromAgent` / `createToolFromWorkflow`** work standalone; `meta.ctx` is set only when invoked from a workflow. `createWorkflowFromAgent` wraps an agent as a string-input workflow.
 - Only ids listed in `adl.config` `agents` / `workflows` appear in the CLI/UI. Leave `titleWorkflow` helpers out of those arrays.
 - After install, `npx adl` / `bunx adl` / `node_modules/.bin/adl` work (`@agent-dev-lab/cli` `"bin": { "adl": ... }`). Do not look for a separate npm package named only `adl`.
-
-## Contributors
-
-- **Playground ≠ scaffold.** Framework UI work uses `bun run dev:web` (`ADL_FRAMEWORK_DEV=1`) against `apps/playground`.
-- Hot reload does not apply `.env*` or store-implementation changes — restart even in Vite.

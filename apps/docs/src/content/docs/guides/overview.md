@@ -10,7 +10,7 @@ description: High-level orientation for the Agent Dev Lab docs site.
 - **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `ModelMessage`)
 - **Persisted run events** for waterfalls, SSE tails, and replay (`WorkflowStore` / SQLite)
 - **`adl init` / `adl workflow run` / `adl agent run` / `adl dashboard`** for scaffolding, CLI execution, and inspection
-- **Hot reload in monorepo / Vite** — published installs use the Nitro serve build (restart after registry edits)
+- **Published `adl dashboard` is a Nitro serve** — restart after registry or `.env*` edits
 
 ## Documentation map
 
@@ -21,11 +21,11 @@ description: High-level orientation for the Agent Dev Lab docs site.
 - [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
 - [Agents](/core/agents/) — `adl.createAgent`, `endWhen`, memory, `adl agent run`
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
-- [Project config](/core/project/) — registry, jiti load, `loadAdlProject`
+- [Project config](/core/project/) — registry, `loadAdlProject`
 
 ### API reference (TypeDoc)
 
-Generated from `packages/core` — includes JSDoc for focused APIs that are not duplicated as Starlight pages:
+Generated from `@agent-dev-lab/core` JSDoc — includes focused APIs that are not duplicated as Starlight pages:
 
 - [Package overview](/api/readme/) — AI SDK compatibility summary (`ModelMessage`, OpenTelemetry)
 - [MessageStore](/api/interfaces/messagestore/), [WorkflowStore](/api/interfaces/workflowstore/), [RunEvent](/api/type-aliases/runevent/) (`runSeq`)
@@ -42,22 +42,10 @@ Use the **Core API** sidebar for the full export list.
 - **AI SDK native** — `ModelMessage`, `streamText`, `tool()` without parallel abstractions.
 - **Colocated prompts** — markdown beside code; templates via Handlebars + Zod (`createTemplate`).
 
-## Monorepo packages
+## Packages
 
 | Package               | Role                                                     |
 | --------------------- | -------------------------------------------------------- |
 | `@agent-dev-lab/core` | Headless runtime (also `./db`, `./eslint`, `./tsconfig`) |
-| `@agent-dev-lab/web`  | Inspection UI (port 3000)                                |
+| `@agent-dev-lab/web`  | Inspection UI                                            |
 | `@agent-dev-lab/cli`  | `adl` CLI                                                |
-| `@agent-dev-lab/docs` | This site (port 4321)                                    |
-| `apps/playground`     | Framework-dev sample project                             |
-
-## Development
-
-From the repo root:
-
-```bash
-bun install
-bun run dev:docs   # this site on :4321
-bun run dev:web    # inspection UI on :3000 (playground)
-```

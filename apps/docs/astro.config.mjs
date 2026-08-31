@@ -8,7 +8,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Agent Dev Lab",
-      description: "Documentation for the Agent Dev Lab monorepo.",
+      description: "Documentation for Agent Dev Lab.",
       social: [
         {
           icon: "github",

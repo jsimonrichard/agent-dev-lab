@@ -88,7 +88,7 @@ ALS is **not** used for runtime services (stores, observers) — those are passe
 ALS **is** used for:
 
 - **Workflow context:** when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available so agents attach to the correct `workflowRunId` / `stepId` without manual wiring. Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that takes priority over ALS.
-- **Conversation title re-entrancy:** while `titleWorkflow` runs, a flag prevents a nested `agent.run` from starting another auto-title. That is not a UI-only switch.
+- **Conversation title re-entrancy:** while `titleWorkflow` runs, a flag prevents a nested `agent.run` from starting another auto-title.
 
 ### Workflow context host
 
@@ -152,4 +152,4 @@ Pass `defaults.model` (or a mock `LanguageModel`) when the test constructs agent
 
 ## Tracing
 
-`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so **OpenTelemetry** model and tool spans nest under the agent span — this is not Vercel product analytics. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. The option type is `AdlOpenTelemetrySettings`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API. See `notes/tracing.md`.
+`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so **OpenTelemetry** model and tool spans nest under the agent span — this is not Vercel product analytics. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. The option type is `AdlOpenTelemetrySettings`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API.

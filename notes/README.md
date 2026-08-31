@@ -4,11 +4,13 @@ This directory is for **agent-oriented** tracking: RC remaining work, deferred d
 
 ## Documentation split
 
-| Layer                 | Location                                  | Contents                                          |
-| --------------------- | ----------------------------------------- | ------------------------------------------------- |
-| **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/` | Layout, runtime, agents, workflows, inspection UI |
-| **API reference**     | `apps/docs` TypeDoc `/api/`               | JSDoc on `packages/core` exports                  |
-| **Gaps / deferred**   | `notes/` (this folder)                    | RC remaining work, resumability, UI architecture  |
+| Layer                 | Location                                  | Contents                                           |
+| --------------------- | ----------------------------------------- | -------------------------------------------------- |
+| **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/` | User-facing layout, runtime, agents, workflows, UI |
+| **API reference**     | `apps/docs` TypeDoc `/api/`               | JSDoc on `packages/core` exports                   |
+| **Gaps / deferred**   | `notes/` (this folder)                    | RC remaining work, resumability, UI architecture   |
+
+`apps/docs` is the published site. Keep repo-only material here (and in `AGENTS.md`): playground / `dev:web`, `--local`, `notes/` paths, jiti vs Vite, framework-dev modes, Changesets/release CI. JSDoc that TypeDoc publishes must not point at `notes/` or `apps/`.
 
 Run locally: `bun run dev:docs` (port 4321).
 

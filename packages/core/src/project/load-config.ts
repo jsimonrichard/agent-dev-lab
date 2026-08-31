@@ -54,7 +54,7 @@ function clearJitiModuleCache(jiti: ReturnType<typeof createJiti>): void {
   }
 }
 
-/** Clear jiti's in-memory module cache for a project (used before hot reload). */
+/** Clear the in-memory config module cache for a project (call before reload). */
 export function invalidateAdlConfigCache(projectRoot: string): void {
   const resolved = path.resolve(projectRoot);
   const cache = jitiCache();

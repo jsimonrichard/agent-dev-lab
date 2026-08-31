@@ -42,8 +42,6 @@ export type AdlRuntimeDefaults = {
  * so model and tool spans nest under the ADL agent episode span. This is **not**
  * Vercel analytics — it uses `@opentelemetry/api`. Defaults to enabled
  * (`isEnabled` is not `false`). Pass `{ isEnabled: false }` to disable.
- *
- * @see notes/tracing.md
  */
 export type AdlOpenTelemetrySettings = {
   isEnabled?: boolean;

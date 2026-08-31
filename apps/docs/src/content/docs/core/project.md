@@ -7,7 +7,7 @@ The project config module is the **discovery surface** for CLI, inspection UI, a
 
 ## Design decisions
 
-- **Registry arrays** at load time — agents, workflows, and templates are indexed when `loadAdlProject()` runs (or on hot reload in dev).
+- **Registry arrays** at load time — agents, workflows, and templates are indexed when `loadAdlProject()` runs (and again on `reload()`).
 - **Arrays** of definitions; each carries its own **`id`** (agents/workflows) or **`name`** (templates from filename).
 - **Runtime via config** — tooling reads `config.adl` from the loaded config; it does not import a project runtime file by convention path.
 - **JSON config** (`adl.config.json`) suits `name` only — registries and `adl` need TS/JS for imports.
@@ -63,29 +63,27 @@ Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`)
 
 Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project setup](/guides/project-setup/#environment-variables).
 
-## Hot reload (dev)
+## Reloading a project
 
-During `adl dashboard` (Vite) and `bun run dev:web`, the inspection UI watches the ADL project tree and re-imports `adl.config.*` when registry source changes (`.ts`, `.js`, prompt `.md`, etc.). Vite HMR reloads **the UI**, not the user's config module — CLI and the dashboard server still transpile `adl.config.ts` with **jiti**. Use `LoadedAdlProject.reload()` or `watchAdlProject()` from `@agent-dev-lab/core` in custom tooling.
+`loadAdlProject()` evaluates `adl.config.*` once. `adl dashboard` does the same on process start — **there is no file watcher**. Restart the dashboard after you change registry modules, prompt files, or `.env*`.
 
-**Production / serve:** `adl dashboard --serve` and published installs run the Nitro build with `ADL_INSPECTOR_SERVE=1`. The file watcher is disabled; registry and catalog metadata are fixed until the process restarts.
+**CLI execution** (`adl workflow run`, `adl agent run`, list, etc.) loads the project once and exits.
 
-**CLI execution (`adl workflow run`, `adl agent run`, list, etc.):** each invocation loads the project once via `loadAdlProject()` and exits. There is no watcher, no SSE, and no `reload()` — hot reload does not affect standalone CLI runs.
+For custom tooling, `LoadedAdlProject.reload()` re-imports the config, and `watchAdlProject()` notifies you when source files change.
 
-**What updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of `src/adl.ts`. In dev, file-backed prompt templates may also re-read from disk on each `render()` while the project watcher is active (`ADL_PROJECT_WATCH=1`).
+**What a reload updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of the runtime module (typically `src/adl.ts`). File-backed prompt templates may also re-read from disk on each `render()` while a watcher is active.
 
-**Prompt caching:** production serve, `adl workflow run`, and other one-shot CLI invocations load each prompt `.md` once when the template is created. Dev hot reload still picks up `.md` edits via registry reload or render-time re-read.
+**Prompt caching:** one-shot CLI invocations and `adl dashboard` load each prompt `.md` once when the template is created. A `reload()` or watcher-driven re-import picks up `.md` edits.
 
 **What stays pinned:** the same `MessageStore` and `WorkflowStore` **object identities** on the runtime so transcripts, run history, and SQLite connections survive. Changing store _implementation_ or sqlite path in `src/adl.ts` does not take effect until the process restarts. Per-agent `memory.store` / `createAgent(..., { stores })` overrides are new objects on each re-import and are **not** pinned — those conversations reset on reload. Per-conversation system prompts are pinned on first episode (see [Agents](/core/agents/)).
 
 **In-flight runs:** workflows and agent episodes that already started keep the definitions they were created with; new runs use the reloaded registry.
 
-**Failed reload:** syntax errors or duplicate ids leave the previous registry in place; the UI reports `lastReloadError`.
+**Failed reload:** syntax errors or duplicate ids leave the previous registry in place; `lastReloadError` reports the failure.
 
-**Ignored paths:** watchers are not attached to `node_modules`, `.git`, `.data` (including SQLite WAL files), `dist`, `.output`, or `.turbo`. Events from those trees are also ignored if they somehow fire.
+**Ignored paths:** watchers are not attached to `node_modules`, `.git`, `.data` (including SQLite WAL files), `dist`, `.output`, or `.turbo`.
 
-**Not hot-reloaded:** `.env*` files (`loadAdlProjectEnv` does not overwrite existing `process.env` values). Restart the dev server after changing secrets, `ADL_SQLITE_PATH`, or the store implementation in `src/adl.ts`.
-
-The UI subscribes to `GET /api/project/events` (SSE) and refreshes sidebars and agent/workflow catalog metadata automatically.
+**Not reloaded:** `.env*` files (`loadAdlProjectEnv` does not overwrite existing `process.env` values). Restart after changing secrets, `ADL_SQLITE_PATH`, or the store implementation in `src/adl.ts`.
 
 ## Execution
 
@@ -140,6 +138,6 @@ adl dashboard
 | -------------------------------- | ------------------------------------------------------ |
 | Different models per environment | `defaults` or env in `adl.config.ts`                   |
 | A/B two workflows                | List both; choose at CLI or `getWorkflow(id).run(...)` |
-| Monorepo multiple projects       | Multiple roots; `loadAdlProject({ root })` each        |
+| Several projects in one repo     | Multiple roots; `loadAdlProject({ root })` each        |
 
 See [Project setup](/guides/project-setup/), [Inspection UI](/guides/inspection-ui/), and [Runtime](/core/runtime/).

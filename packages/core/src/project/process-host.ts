@@ -67,7 +67,7 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   return host.project;
 }
 
-/** Replace watch-side UI callbacks (observer). SSE uses {@link subscribeAdlProjectHostReload}. */
+/** Replace watch-side callbacks. Subscribers use {@link subscribeAdlProjectHostReload}. */
 export function setAdlProjectWatchListeners(listeners: AdlProjectWatchHandlers): void {
   getHost().listeners = listeners;
 }
@@ -125,11 +125,7 @@ function emitAdlProjectHostReload(event: AdlProjectHostReloadEvent): void {
   }
 }
 
-/**
- * Reload the process-wide project and notify SSE subscribers.
- * Used by the Vite dev plugin (and tests) when the bundler's watcher sees
- * registry edits — more reliable than a second `fs.watch` tree beside Vite.
- */
+/** Reload the process-wide project and notify subscribers. */
 export async function requestAdlProjectReload(triggerPath?: string): Promise<{
   generation: number;
   lastReloadError: string | null;
@@ -185,10 +181,7 @@ export function clearInspectorAgentObserverAttached(): void {
   getHost().inspectorAgentObserverAttached = false;
 }
 
-/**
- * Process-wide inspection event log. Lives here (not `apps/web` `globalThis`) so
- * Vite SSR isolates share one ring buffer.
- */
+/** Process-wide inspection event log (one ring buffer per process). */
 export function getInspectorEventLog(): InMemoryEventLog {
   const host = getHost();
   if (!host.inspectorEventLog) {

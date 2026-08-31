@@ -1,6 +1,6 @@
 ---
 title: Agent Dev Lab
-description: Docs and generated API reference for the Agent Dev Lab monorepo.
+description: Docs and generated API reference for Agent Dev Lab.
 template: splash
 hero:
   tagline: Flexible TypeScript tooling for developing, debugging, and visualizing AI agents and workflows
@@ -15,7 +15,7 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
-## Workspace
+## Packages
 
 <CardGrid stagger>
   <Card title="Headless core" icon="rocket">
@@ -24,7 +24,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
     ESLint/tsconfig live on the same package (`./db`, `./eslint`, `./tsconfig/node.json`).
   </Card>
   <Card title="Web Inspection UI" icon="laptop">
-    `apps/web` — An optional UI built on TanStack Start that triggers runs and consumes telemetry
-    using the `@agent-dev-lab/core` API.
+    `@agent-dev-lab/web` — An optional UI built on TanStack Start that triggers runs and consumes
+    telemetry using the `@agent-dev-lab/core` API.
   </Card>
 </CardGrid>

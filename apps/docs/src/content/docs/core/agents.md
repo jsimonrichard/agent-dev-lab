@@ -95,7 +95,7 @@ export const researcher = adl.createAgent({
 
 Keep the title workflow out of the `adl.config` `workflows` array if you do not want those runs listed in the inspection UI. Keep any inner title-namer agent out of the `agents` array unless you want those helper conversations listed. The runtime starts the title workflow with [`{ isolated: true }`](/core/workflows/#isolated-runs) so it is a separate persisted run and is not nested inside another workflow's tree.
 
-Title generation uses an AsyncLocalStorage flag so a `titleWorkflow` that itself calls `agent.run` does not recurse into another auto-title. That ALS is a re-entrancy guard, not a UI-only switch.
+Title generation uses a re-entrancy guard so a `titleWorkflow` that itself calls `agent.run` does not start another auto-title.
 
 ### System prompt
 
@@ -168,8 +168,6 @@ type AgentRunInput = {
 ```
 
 Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active context — omit `workflow` unless you are linking a standalone call.
-
-The playground `shared-scope` workflow (`drafter` then `reviser`) is a runnable example of the combinations below.
 
 ### Turn input
 

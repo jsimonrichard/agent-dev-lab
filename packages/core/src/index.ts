@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
  *
  * Headless ADL core — agents, workflows, templates, runtime wiring.
  *
- * Cross-cutting guides (project layout, workflow steps, ALS) are in **apps/docs** Starlight.
+ * Cross-cutting guides (project layout, workflow steps, context propagation)
+ * live on the documentation site.
  * Focused API docs live here as JSDoc on exports.
  *
  * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
