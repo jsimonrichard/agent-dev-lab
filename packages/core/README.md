@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/jsimonrichard/agent-dev-lab/main/assets/brand/logo.svg" alt="" width="40" height="40" align="left" />
+
 # `@agent-dev-lab/core`
 
 Headless runtime for [Agent Dev Lab](https://agent-dev-lab.com) (ADL) — author agents and workflows as plain TypeScript on top of [Vercel's AI SDK](https://ai-sdk.dev/), with persisted run history for the optional [`@agent-dev-lab/web`](https://www.npmjs.com/package/@agent-dev-lab/web) inspection UI.
@@ -109,16 +111,16 @@ const workflow = project.getWorkflow("literature-review");
 const output = await workflow!.run({ topic: "CRISPR delivery" }).result;
 ```
 
-`bunx @agent-dev-lab/cli init my-research` scaffolds this layout for you. See [Project setup](https://agent-dev-lab.com/guides/project-setup/) for the recommended `src/` structure and the `#adl` import alias.
+`bunx @agent-dev-lab/cli init my-research` scaffolds this layout for you. See [Project Setup](https://agent-dev-lab.com/guides/project-setup/) for the recommended `src/` structure and the `#adl` import alias.
 
 ## Documentation
 
 - [Overview](https://agent-dev-lab.com/guides/overview/)
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
-- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, `stopWhen`, memory, structured output
+- [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), memory, structured output
 - [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, `ctx.step`, retry/resumability
-- [Project config](https://agent-dev-lab.com/core/project/) — registry shape, `loadAdlProject`
-- [API reference](https://agent-dev-lab.com/api/readme/) — generated from this package's JSDoc
+- [Project Config](https://agent-dev-lab.com/core/project/) — registry shape, `loadAdlProject`
+- [API Reference](https://agent-dev-lab.com/api/readme/) — generated from this package's JSDoc
 
 ## License
 

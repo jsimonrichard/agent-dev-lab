@@ -5,6 +5,8 @@ description: Run the inspector, start workflows, watch waterfalls, and chat with
 
 The inspection UI (`@agent-dev-lab/web`) is how you **start, watch, and replay** runs for an ADL project. It does not execute workflows itself: it calls `loadAdlProject()`, then `workflow.run` / `agent.run`, and tails persisted [`RunEvent`](/api/type-aliases/runevent/)s.
 
+![A workflow run's waterfall of steps, with a step's output selected in the inspector panel](../../../assets/dashboard.png)
+
 ## Open the inspector
 
 From a project with `adl.config.*`:
@@ -15,7 +17,7 @@ adl dashboard --serve
 adl dashboard --project ../other-research
 ```
 
-The header shows the project **name**. There is **no hot reload** — restart `adl dashboard` after changing registry modules or `.env*` files. `--serve` runs the Nitro build shipped in `@agent-dev-lab/web`. `--project` points at another directory that contains `adl.config.*`.
+The header shows the project **name**. Plain `adl dashboard` watches the project and hot-reloads agent/workflow/template edits; `--serve` runs the Nitro build shipped in `@agent-dev-lab/web` and does not watch — restart it after any change. Either way, `.env*` edits need a restart. `--project` points at another directory that contains `adl.config.*`.
 
 Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list`, etc.) are separate processes: they load the project once and exit.
 
@@ -36,7 +38,7 @@ Helpers that you **do not** put in `workflows: []` still persist if they `run()`
 
 Registered `agents` can be opened as **conversations** (standalone `memoryScope`s), not only as nodes inside a workflow.
 
-- New chat → `agent.run()` (AI SDK `stopWhen`, default `stepCountIs(20)`); first successful turn may set a title via `titleWorkflow`. Tool call/result events still fire while the model works.
+- New chat → `agent.run()` (AI SDK [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), default `stepCountIs(20)`); first successful turn may set a title via `titleWorkflow`. Tool call/result events still fire while the model works.
 - **Fork** from a workflow agent episode copies that transcript into a new conversation you can continue.
 - Shared scopes show history **up to** the selected episode; later turns are muted so you can see what the model had at that call.
 - The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `stopWhen` (`default` / `custom`), and title workflow id.

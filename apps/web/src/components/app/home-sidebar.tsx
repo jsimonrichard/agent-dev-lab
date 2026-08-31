@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { GitBranch, LayoutDashboard, MessageSquare, ScrollText } from "lucide-react";
+import { GitBranch, MessageSquare, ScrollText } from "lucide-react";
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ContextSidebar } from "@/components/app/context-sidebar";
@@ -30,8 +30,8 @@ export function HomeSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link to="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <LayoutDashboard className="size-4" />
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-white p-1 shadow-sm ring-1 ring-sidebar-border/40">
+                  <img src="/favicon.svg" alt="" className="size-full" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{project.name}</span>
