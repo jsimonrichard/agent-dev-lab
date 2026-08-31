@@ -65,7 +65,7 @@ Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-sty
 
 ## Reloading a project
 
-`loadAdlProject()` evaluates `adl.config.*` once. `adl dashboard` does the same on process start — **there is no file watcher**. Restart the dashboard after you change registry modules, prompt files, or `.env*`.
+`loadAdlProject()` evaluates `adl.config.*` once, with no reload of its own. `adl dashboard` layers a file watcher on top in dev mode (a Vite plugin calls `reload()` on registry/template changes) — the rest of this section describes that behavior. `adl dashboard --serve`, and published installs which default to `--serve`, run **without** a watcher: restart after any change. `.env*` edits need a restart either way — see "Not reloaded" below.
 
 **CLI execution** (`adl workflow run`, `adl agent run`, list, etc.) loads the project once and exits.
 

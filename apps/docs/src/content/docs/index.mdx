@@ -17,16 +17,6 @@ import { Image } from "astro:assets";
 import { Card, CardGrid } from "@astrojs/starlight/components";
 import dashboardScreenshot from "../../assets/dashboard.png";
 
-<p align="center" style="margin-top: 1rem;">
-  <Image
-    src={dashboardScreenshot}
-    alt="A workflow run's waterfall of steps in the ADL inspection UI, with a step's output selected in the inspector panel"
-    style="max-width: 100%; height: auto; border-radius: 0.5rem;"
-  />
-</p>
-
-<p align="center"><sub>The inspection UI (`adl dashboard`): a workflow run's waterfall, step-by-step.</sub></p>
-
 ## Packages
 
 <CardGrid stagger>
@@ -43,3 +33,13 @@ import dashboardScreenshot from "../../assets/dashboard.png";
     workflows from the terminal, and launch the inspection UI with `adl dashboard`.
   </Card>
 </CardGrid>
+
+<p align="center" style="margin-top: 2rem;">
+  <Image
+    src={dashboardScreenshot}
+    alt="A workflow run's waterfall of steps in the ADL inspection UI, with a step's output selected in the inspector panel"
+    style="max-width: 100%; height: auto; border-radius: 0.5rem;"
+  />
+</p>
+
+<p align="center"><sub>The inspection UI (`adl dashboard`): a workflow run's waterfall, step-by-step.</sub></p>

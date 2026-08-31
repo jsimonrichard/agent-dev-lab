@@ -106,7 +106,7 @@ import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agen
 import { openai } from "@ai-sdk/openai";
 
 export const adl = createAdlRuntime({
-  defaults: { model: openai(process.env.ADL_MODEL ?? "gpt-4o-mini") },
+  defaults: { model: openai("gpt-4o-mini") },
   stores: {
     message: sqliteMessageStore(),
     workflow: sqliteWorkflowStore(),

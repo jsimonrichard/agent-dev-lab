@@ -28,7 +28,7 @@ adl dashboard
 - **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.
 - **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
-- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Restart after registry or `.env*` edits.
+- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Registry edits (agents, workflows, templates) hot-reload; restart after `.env*` edits, or when running `--serve`, which doesn't watch at all.
 
 ## What `adl init` gives you
 
@@ -83,10 +83,11 @@ ADL_MODEL=gpt-4o-mini
 | Variable           | Purpose                                                    |
 | ------------------- | ----------------------------------------------------------- |
 | `OPENAI_API_KEY`   | Provider key for `@ai-sdk/openai` (sample agent)           |
-| `ADL_MODEL`        | Model id (default `gpt-4o-mini`)                           |
 | `ADL_SQLITE_PATH`  | SQLite file; relative paths resolve from the project root  |
 | `ADL_PROJECT_ROOT` | Override project discovery                                 |
 | `DEBUG=adl`        | Print CLI stack traces                                     |
+
+`ADL_MODEL` isn't one of these — the framework doesn't read it. It's used in the scaffold's own `src/model.ts` to set ADL's default model.
 
 See [Project Config](/core/project/) and [Runtime](/core/runtime/) for API detail.
 
@@ -95,15 +96,6 @@ See [Project Config](/core/project/) and [Runtime](/core/runtime/) for API detai
 `adl.createTemplate` renders markdown with **[Handlebars](https://handlebarsjs.com/)** after Zod validates the input.
 Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.url` so relative paths resolve.
 
-## Common pitfalls
+## Next steps
 
-- **`adl init` scaffolds a standalone project.** After init, `bun run dev` is `adl dashboard`.
-- **`ADL_MODEL`** is the shared model env name (scaffold default `gpt-4o-mini`). Copy `.env.example` → `.env`.
-- **`adl dashboard` has no hot reload** — restart after registry or `.env*` edits. Changing store implementation or `ADL_SQLITE_PATH` also needs a restart.
-- **`adl.config.tools` is not runtime merge** — put shared tools on `createAdlRuntime({ tools })`. The config field is registry-only (future: run a tool from the inspector).
-- **`better-sqlite3` may need a native compile** on first install under Node (build tools / Python). Bun uses `bun:sqlite` instead when the runtime is Bun.
-- **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
-- **System prompt pin:** the first episode wins; a different agent on the same scope warns and keeps the pin unless `systemPromptConflict: "use-current"`.
-- **`createToolFromAgent` / `createToolFromWorkflow`** work standalone; `meta.ctx` is set only when invoked from a workflow. `createWorkflowFromAgent` wraps an agent as a string-input workflow.
-- Only ids listed in `adl.config` `agents` / `workflows` appear in the CLI/UI. Leave `titleWorkflow` helpers out of those arrays.
-- After install, `npx adl` / `bunx adl` / `node_modules/.bin/adl` work (`@agent-dev-lab/cli` `"bin": { "adl": ... }`). Do not look for a separate npm package named only `adl`.
+See [Gotchas](/guides/gotchas/) for sharp edges worth knowing about before they surprise you.

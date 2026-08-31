@@ -9,7 +9,7 @@ Construct the runtime in **`src/adl.ts`** (recommended) and set `adl` on `adl.co
 
 ## createAdlRuntime
 
-Drizzle/tRPC-style factory — primary app entrypoint. By default it loads `.env*` from `process.cwd()` (pass `loadEnv: false` to skip, or `loadEnv: { root }` for an explicit project root). If modules read `process.env` at import time (for example `ADL_MODEL` in `src/model.ts`), call `loadAdlEnv({ root })` before that read — ESM evaluates imports before `createAdlRuntime` runs.
+Drizzle/tRPC-style factory — primary app entrypoint. By default it loads `.env*` from `process.cwd()` (pass `loadEnv: false` to skip, or `loadEnv: { root }` for an explicit project root). If a module reads `process.env` at import time (for example to pick a default model id), call `loadAdlEnv({ root })` before that read — ESM evaluates imports before `createAdlRuntime` runs.
 
 ```ts
 import { createAdlRuntime, sqliteMessageStore, sqliteWorkflowStore } from "@agent-dev-lab/core";
