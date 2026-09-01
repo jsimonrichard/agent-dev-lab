@@ -1,0 +1,135 @@
+# Near-term roadmap (post-0.1.0)
+
+**Status:** Draft, for prioritization. 0.1.0 shipped the headless runtime + inspection UI ([`v1-scope.md`](./v1-scope.md)); this file tracks the next wave of **practical usability** gaps — the things a real user hits immediately after the RC — and merges them with everything already deferred elsewhere in `notes/`.
+
+**Legend:** ✅ done · 🚧 partial · 🔲 not started / new ask
+
+Last written: **2026-09-01**.
+
+---
+
+## 1. Model switching (runtime, settings, and conversation UI)
+
+**Today:** model is baked in once, either on `AgentDefinition.model` or as a runtime fallback via `createAdlRuntime({ defaults: { model } })`, resolved a single time inside `AgentImpl` (`packages/core/src/agent/agent-impl.ts:204`). There is no per-run override field on `AgentRunInput`, no core `ADL_MODEL` env var (only an app-level convention — `apps/playground/src/model.ts` reads `ADL_OPENAI_MODEL`), and the web UI's "Model" section (`apps/web/src/components/app/agent-settings-panel.tsx:56-69`) is a **read-only** projection of `Agent.modelInfo` — there is no mutation path anywhere in the UI today (confirmed: no settings store, no write server function).
+
+**New work needed (this is genuinely new surface area, not a wiring exercise on an existing mechanism):**
+
+| Item | Notes |
+| --- | --- |
+| 🔲 Per-call model override | Add `model?: LanguageModel` to `AgentRunInput` / `agent.run(...)` options, threaded through the same resolution point as `agent-impl.ts:204`. |
+| 🔲 Mutable "current model" per agent instance | Something like `agent.setModel(model)` or a runtime-level `adl.setDefaultModel(model)` so a swap persists across turns without re-creating the agent. Needs a design decision: is the override per-`Agent` instance (in-process, lost on restart) or persisted (e.g. alongside the inspector session store)? |
+| 🔲 Model catalog / registry | The UI picker needs a list of *available* models to offer, not just the current one. Likely a new `adl.config.ts` concept — e.g. `models: [{ id, label, provider, factory }]` — separate from the `defaults.model` used by `createAdlRuntime`. |
+| 🔲 Provider-key validation surfaced in UI | Picker should be able to flag "no API key configured" for a given provider before the user picks it and gets a runtime error mid-conversation. |
+| 🔲 Web: interactive Model section | `agent-settings-panel.tsx`'s existing `SettingsSection icon={Cpu}` is the natural insertion point — turn the static `SettingRow` into a `<select>`/combobox wired to a new server function (there's no mutation path today; everything in `apps/web` is read/SSE only per [`inspection-ui.md`](./inspection-ui.md)'s control-vs-data-plane split). |
+| 🔲 Web: in-conversation swap control | Either inline in `chat-composer.tsx` (per-turn) or in the settings sidebar (persists across turns) — needs a UX decision, not just a code change. |
+
+**Open questions to resolve before implementation:** does a swap apply to the next turn only, or does it change the agent's default going forward? Does it live per-conversation (session-scoped) or per-agent-definition (global, affecting all conversations with that agent)? Both are defensible; the answer changes where state lives.
+
+---
+
+## 2. Standard tool library: file editing, bash, web search — sandboxed
+
+**Today:** `packages/core/src/tools/` contains only two **adapters** (`createToolFromAgent`, `createToolFromWorkflow`) — no built-in tools, no sandboxing primitive of any kind. The only prior art is `apps/playground/src/tools/knowledge.ts`'s hand-rolled arithmetic evaluator, which deliberately avoids `eval`/`Function` — a one-off, not a framework. This is greenfield work.
+
+| Item | Notes |
+| --- | --- |
+| 🔲 File-editing tools | Read/write/edit, jailed to a configured project root. Needs a decision on diff-based edit (like this harness's own `Edit` tool) vs. whole-file overwrite. |
+| 🔲 Bash tool | Needs an actual sandboxing strategy — this repo has **no existing isolation primitive** to build on (subprocess + cwd jail + timeout + resource limits, vs. a container/VM boundary). This is the highest-risk item in the whole roadmap and deserves its own design doc before writing code. |
+| 🔲 Web search tool | Check provider-native tools first (see §3) before building a custom implementation — several providers (e.g. OpenAI, Anthropic) already expose hosted web search as an AI SDK provider tool. |
+| 🔲 Permission/approval gate | Sandboxed file + bash tools without an approval mechanism are either always-allow or always-deny. **This should pull forward the approval dispatcher already sketched in [`future-extensions.md`](./future-extensions.md)** (`AdlProjectConfig.approvals.dispatcher`, AI SDK `needApproval` forwarding) rather than treating it as unrelated deferred work — the two features are naturally co-requisites. |
+
+**Decided: ship as a new `@agent-dev-lab/tools` package** (`packages/tools`, alongside `packages/core` in the existing monorepo layout), not folded into `packages/core` and not playground examples. Most of the built-in file/bash/web-search tools should live there so a project can depend on them independently of the runtime — `packages/core/src/tools/` stays limited to the adapter primitives (`createToolFromAgent`/`createToolFromWorkflow`) that the rest of the runtime needs directly. `@agent-dev-lab/tools` would depend on `@agent-dev-lab/core` (for the `Tool`/context types), not the other way around. This also gives the approval/sandboxing config (§2's permission gate) a natural single place to live rather than spreading it across core.
+
+---
+
+## 3. Skip tools already provided by the Vercel AI SDK
+
+Before building anything in §2, audit what `ai` / `@ai-sdk/*` already ships as provider-native tools (e.g. OpenAI's hosted `web_search`, code interpreter / computer-use tools where a provider supports them) and explicitly document which ADL built-ins are redundant with them. `packages/core` already re-exports AI SDK primitives directly (`generateText`, `streamText`, `tool`, `stepCountIs`, …) — this audit should produce a short allowlist/table in `packages/core`'s tools docs so contributors don't reinvent a provider tool that's one import away.
+
+---
+
+## 4. Zod 4 migration
+
+**Risk: low.** Confirmed via grep across `packages/core` and app code:
+
+- Zod is pinned at `^3.25.76` in exactly two files (`packages/core/package.json`, `apps/playground/package.json`); `bun.lock` resolves one shared `zod@3.25.76`.
+- `ai@5.0.188` / `@ai-sdk/openai@2.0.109` **already declare** `"peerDependencies": { "zod": "^3.25.76 || ^4.1.8" }` — the AI SDK version already in use supports Zod 4 today, no AI SDK bump required.
+- No v3-only risk patterns found anywhere in first-party code: no `z.record()` single-arg calls, no `.email()`, no `zod-to-json-schema` dependency, no custom error-map usage.
+- The one thing worth a targeted regression pass: `.default(...)` on workflow **input** schemas (`packages/core/src/workflow/`, several playground/scaffold workflows) — Zod 4 changed some `.default()` output-type inference edge cases.
+
+**Plan:** bump `zod` to `^4.1.8` in both package.json files, run `bun run typecheck` + `bun run test` across the monorepo, and specifically exercise `createWorkflow`'s input-parsing path. Do this **early** — it's cheap, isolated, and best done before §2 adds a pile of new tool input schemas against v3 semantics.
+
+---
+
+## 5. Run organization & scalability (datasets, tagging, git-hash tracking)
+
+**Today:** runs are a genuinely flat, unindexed list — confirmed at every layer:
+
+- Schema: `adl_workflow_runs` (`packages/core/src/db/schema.ts`) has `workflowRunId`, `workflowId`, `status`, `startedAt`/`finishedAt`, `inputJson`/`outputJson`, `title` — no tags, no arbitrary metadata, no version/commit column.
+- Store API: `WorkflowStore.listRuns(filter?: { workflowId?: string; limit?: number })` (`packages/core/src/observability/workflow-store.ts:56`) — the only filter is which workflow and how many; `sqlite-workflow-store.ts:220-231` just runs `SELECT * FROM adl_workflow_runs [WHERE workflow_id = ?] ORDER BY started_at ASC`.
+- UI: `workflow-runs-sidebar.tsx` loads the full run set via `useAppLoaderData()` and filters client-side by `run.workflowId === selectedWorkflowId` — no pagination, search, date grouping, or tag filter exists.
+
+This is a **different** flat-list problem than [`workflow-catalog.md`](./workflow-catalog.md), which is about organizing workflow/agent *definitions*. This one is about organizing *run instances* — and it will bite sooner, since run count grows unboundedly with usage while definition count grows only as fast as authors add code. The two problems likely want a similar mechanism (tags), so they should be designed together rather than twice.
+
+**Three concrete asks, roughly in dependency order:**
+
+| Item | Notes |
+| --- | --- |
+| 🔲 Run tagging / arbitrary metadata | Add a tags/metadata column (or a side table) to `adl_workflow_runs`, extend `listRuns` to filter by tag, extend the UI sidebar with tag filters/search. This is the foundational piece everything else below builds on. |
+| 🔲 Git-hash (or similar) version tagging | Capture something like the project's git SHA (or a user-supplied version string, for non-git or dirty-tree cases) automatically at run start, stored as run metadata. Lets a user answer "did this behavior change between commit A and commit B?" — currently impossible; nothing in the codebase captures any notion of project version against a run. |
+| 🔲 Datasets of inputs (batch run + compare) | A way to define a named set of inputs for a workflow (or agent) and run all of them — either in one batch invocation or via the CLI — with results grouped for side-by-side viewing. Overlaps in spirit with `adl run <id> --input '{...}'` (`v1-scope.md`), but that's single-input only today. |
+
+**Scope question to resolve before designing this:** "datasets... for running **and evaluating**" brushes up against `future-extensions.md`'s explicit non-goal ("Built-in evals / scorers — no ADL primitive planned"). Worth deciding up front whether this stays **organizational only** (run N inputs, tag the batch, view outputs side-by-side in the UI — no automatic scoring) or whether it's actually asking to reopen that non-goal. My read of the request is the former — organization/comparison tooling, not a scoring framework — but flagging it since it changes scope meaningfully.
+
+**Prior art worth studying — Weights & Biases:** the parallel the user drew is a good one; W&B's `Run` object already solves a near-identical problem for a similar (ML/research) audience:
+
+- **Tags + groups** on runs (facet + cluster arbitrary run sets) — direct analog to the tagging item above.
+- **Automatic git commit SHA + dirty-diff capture** at run start, plus a captured "config" dict per run — direct analog to the git-hash item; W&B's config-capture pattern (snapshot whatever hyperparameters/inputs were used) is also a reasonable model for capturing workflow input at run start (already done here via `inputJson`) plus environment/version metadata (not done).
+- **Sweeps** (batch-run a parameter grid, view a results table) — direct analog to the "datasets of inputs" item; W&B sweeps stay organizational (they don't auto-score by default — the user defines what "better" means), which supports treating this as organization/comparison rather than automated evals.
+
+No other tool referenced in this conversation or found in the repo covers this — this is a clean net-new area, same as §1-§4.
+
+---
+
+## 6. Other near-term gaps already tracked in `notes/` (merged for prioritization)
+
+Nothing above (§1-5) is currently mentioned anywhere else in `notes/` — all are net-new asks. Everything below is pre-existing deferred work, included so it can be re-prioritized against the new items rather than silently staying at the bottom:
+
+| Item | Where tracked | Notes |
+| --- | --- | --- |
+| Human approval (`ctx.requestApproval`, approval dispatcher) | [`future-extensions.md`](./future-extensions.md) | **Should move up** — direct dependency of §2's sandboxed tools. |
+| Extension registry (pre/post model + persist hooks) | [`future-extensions.md`](./future-extensions.md) | Sketch only; would also be the eventual home for tool-call interception. |
+| Memory pipeline (truncation/summarization before model call) | [`memory-pipeline.md`](./memory-pipeline.md) | Open design questions unresolved (pre/post system bootstrap, whole-list vs. append-log). |
+| Checkpoints / `WorkflowResumer` / episode `cacheable` | [`resumability.md`](./resumability.md) | `AgentRunInput` already has a commented-out `cacheable?` stub. |
+| Workflow/agent catalog grouping (folders/tags/namespaced ids) | [`workflow-catalog.md`](./workflow-catalog.md) | Current routing assumes a single URL segment; would need route changes. |
+| Template playground, `@agent-dev-lab/hooks` package, live token-debug pane | [`v1-scope.md`](./v1-scope.md) | Explicitly deferred (⏸), not RC. |
+| Stress-test example under `examples/` | [`v1-scope.md`](./v1-scope.md) | Not started; combines playground capabilities into one long-running example. |
+| Browser/Playwright inspector tests in CI | [`v1-scope.md`](./v1-scope.md) | Optional later; no browser tests exist today. |
+| Docs bug: `runtime.md:99` says "A SQLite `EventLog` is not implemented yet" | `apps/docs/src/content/docs/core/runtime.md` | Worth a quick check — `EventLog`/`inMemoryEventLog` shipped in 0.1.0; confirm whether a SQLite-backed variant is actually still missing (likely yes — the process-wide log is in-memory-only) and fix the doc wording or file it here properly if it's a real gap. |
+
+---
+
+## 7. Additional near-term suggestions (not previously tracked anywhere)
+
+- **Usage/cost tracking per agent call** — token counts + estimated cost surfaced in the inspector, most useful paired with model switching (lets a user actually compare cost/quality across models instead of guessing) and with §5's dataset batch runs (compare cost across a batch).
+- **Model catalog as a first-class config concept** (see §1) — needed regardless of the UI picker, since there's currently no way to declare "here are the models this project can use" separately from the single default.
+- **Provider-key preflight check** — surfaced in both the CLI (`adl run`) and the UI, so a missing `OPENAI_API_KEY`-style failure shows up before a run starts rather than mid-stream.
+
+---
+
+## Suggested priority
+
+| Priority | Item |
+| --- | --- |
+| **P0** | Zod 4 migration (§4) — cheap, isolated, unblocks writing new schemas cleanly |
+| **P0** | Tool sandboxing design doc + approval dispatcher (§2 bash/file tools + pulling forward `future-extensions.md` approvals) — highest risk, needs a decision before code |
+| **P0** | Run tagging / metadata (§5) — foundational for everything else in §5, and the flat run list is already a daily-usability problem today, not a someday one |
+| **P1** | AI SDK tool audit / skip-list (§3) — cheap, prevents throwaway work in P0's tool build-out |
+| **P1** | Web search tool + file-editing tools (§2, minus bash) — lower-risk than bash, can ship first |
+| **P1** | Bash tool (§2) — after the sandboxing design is settled |
+| **P1** | Model catalog config + per-call override in core (§1) |
+| **P1** | Git-hash / version tagging on runs (§5) — depends on run tagging landing first |
+| **P2** | Conversation-view model picker UI (§1) — depends on the catalog + core override existing first |
+| **P2** | Datasets of inputs / batch run + compare (§5) — depends on run tagging; scope decision (organizational vs. evals) needed first |
+| **P2** | Usage/cost tracking (§7) |
+| **P3** | Memory pipeline, checkpoints/resumability, workflow catalog grouping, template playground, hooks package, token-debug pane, stress-test example, Playwright CI — all already correctly deferred in their respective notes files |

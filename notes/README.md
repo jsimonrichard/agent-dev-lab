@@ -36,6 +36,7 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | ------------------------------------------------ | ------------------------------------------ |
 | [`human-validation.md`](./human-validation.md)   | Pre-publish human checklist (0.0.1 alpha)  |
 | [`v1-scope.md`](./v1-scope.md)                   | RC inventory, remaining work, validation   |
+| [`near-term-roadmap.md`](./near-term-roadmap.md) | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
 | [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, client reducer |
 | [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry             |
 | [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate) |
