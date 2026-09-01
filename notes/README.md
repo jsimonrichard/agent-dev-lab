@@ -32,15 +32,16 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 
 ## Still in notes
 
-| File                                             | Purpose                                    |
-| ------------------------------------------------ | ------------------------------------------ |
-| [`human-validation.md`](./human-validation.md)   | Pre-publish human checklist (0.0.1 alpha)  |
-| [`v1-scope.md`](./v1-scope.md)                   | RC inventory, remaining work, validation   |
+| File                                             | Purpose                                                                                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [`human-validation.md`](./human-validation.md)   | Pre-publish human checklist (0.0.1 alpha)                                                                                    |
+| [`v1-scope.md`](./v1-scope.md)                   | RC inventory, remaining work, validation                                                                                     |
 | [`near-term-roadmap.md`](./near-term-roadmap.md) | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
-| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, client reducer |
-| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry             |
-| [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate) |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                           |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                           |
-| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing      |
-| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan   |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)     | `@agent-dev-lab/tools` design: file/bash/web-search sandboxing, approval dispatcher                                          |
+| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, client reducer                                                                                   |
+| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry                                                                                               |
+| [`resumability.md`](./resumability.md)           | Run retry / step skip (memory is separate)                                                                                   |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred shaping                                                                                                             |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks                                                                                                             |
+| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing                                                                                        |
+| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan                                                                                     |
