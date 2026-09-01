@@ -37,6 +37,8 @@ export type WorkflowStartedEvent = WorkflowRunEventBase & {
   type: "workflow_started";
   workflowId: string;
   input: unknown;
+  /** Set from {@link WorkflowRunStartOptions.tags}. Omitted on events recorded before this field existed. */
+  tags?: string[];
 };
 
 export type WorkflowFinishedEvent = WorkflowRunEventBase & {
@@ -233,6 +235,8 @@ export type WorkflowRunSummary = {
   finishedAt?: string;
   /** Inspector display name; omitted until the user renames the run. */
   title?: string;
+  /** Freeform labels for filtering/organizing runs. Empty until tagged. */
+  tags: string[];
 };
 
 export type StepRecord = {

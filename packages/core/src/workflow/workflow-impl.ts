@@ -119,6 +119,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           workflowRunId,
           workflowId: this.definition.id,
           input: parsedInput,
+          tags: options?.tags,
         });
 
         try {

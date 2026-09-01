@@ -41,6 +41,7 @@ export interface InspectorRunSummary {
   finishedAt?: string;
   inputPreview: string;
   title?: string;
+  tags: string[];
 }
 
 export type RunEventType =

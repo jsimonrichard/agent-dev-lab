@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { GitBranch, Plus } from "lucide-react";
 
@@ -5,6 +6,8 @@ import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { StartWorkflowButton } from "@/components/app/start-workflow-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import type { RunStatus } from "@/lib/view-model/types";
 import {
   parseWorkflowLocation,
@@ -42,9 +45,17 @@ export function WorkflowRunsSidebar() {
   const { project, runs } = useAppLoaderData();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { workflowId: selectedWorkflowId, runId: activeRunId } = parseWorkflowLocation(pathname);
+  const [tagFilter, setTagFilter] = useState("");
   const selectedRuns = selectedWorkflowId
     ? runs.filter((run) => run.workflowId === selectedWorkflowId)
     : [];
+  const hasTaggedRuns = selectedRuns.some((run) => run.tags.length > 0);
+  const normalizedTagFilter = tagFilter.trim().toLowerCase();
+  const filteredRuns = normalizedTagFilter
+    ? selectedRuns.filter((run) =>
+        run.tags.some((tag) => tag.toLowerCase().includes(normalizedTagFilter)),
+      )
+    : selectedRuns;
   const workflowIds = sortByLastUsedThenAlpha(
     project.workflowIds,
     latestTimestampById(
@@ -101,14 +112,28 @@ export function WorkflowRunsSidebar() {
                 <span className="sr-only">New run</span>
               </StartWorkflowButton>
             </SidebarGroupLabel>
+            {hasTaggedRuns ? (
+              <div className="px-2 pb-1.5">
+                <Input
+                  value={tagFilter}
+                  onChange={(event) => setTagFilter(event.target.value)}
+                  placeholder="Filter by tag…"
+                  className="h-7 text-xs"
+                />
+              </div>
+            ) : null}
             <SidebarGroupContent>
               <SidebarMenu className="gap-1.5">
                 {selectedRuns.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground">
                     No runs yet. Start this workflow with the + button.
                   </p>
+                ) : filteredRuns.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-muted-foreground">
+                    No runs match tag "{tagFilter.trim()}".
+                  </p>
                 ) : (
-                  selectedRuns.map((run) => (
+                  filteredRuns.map((run) => (
                     <SidebarMenuItem key={run.runId}>
                       <ItemActionsMenu
                         name={workflowRunLabel(run)}
@@ -157,6 +182,19 @@ export function WorkflowRunsSidebar() {
                               <span className="truncate text-[11px] text-muted-foreground">
                                 {run.status} · {workflowRunSubtitle(run)}
                               </span>
+                              {run.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {run.tags.map((tag) => (
+                                    <Badge
+                                      key={tag}
+                                      variant="secondary"
+                                      className="px-1.5 py-0 text-[10px] font-normal"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                             <RunStatusDot status={run.status} />
                           </Link>

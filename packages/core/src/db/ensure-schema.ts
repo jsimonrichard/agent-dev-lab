@@ -43,6 +43,11 @@ const TABLES = [
     status TEXT NOT NULL,
     PRIMARY KEY (workflow_run_id, step_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS adl_workflow_run_tags (
+    workflow_run_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (workflow_run_id, tag)
+  )`,
   `CREATE TABLE IF NOT EXISTS adl_inspector_sessions (
     memory_scope TEXT PRIMARY KEY NOT NULL,
     agent_id TEXT NOT NULL,
@@ -62,6 +67,8 @@ const INDEXES = [
     ON adl_workflow_events (agent_call_id, run_seq)`,
   `CREATE INDEX IF NOT EXISTS adl_workflow_events_type
     ON adl_workflow_events (type)`,
+  `CREATE INDEX IF NOT EXISTS adl_workflow_run_tags_tag
+    ON adl_workflow_run_tags (tag)`,
 ];
 
 const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = [

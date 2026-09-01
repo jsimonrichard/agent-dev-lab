@@ -44,6 +44,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           status: "running",
           startedAt: event.at,
           title: existing?.title,
+          tags: event.tags ?? existing?.tags ?? [],
         });
         this.runInputs.set(wfId, event.input);
       }
@@ -77,6 +78,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
             status: "running",
             startedAt: event.at,
             title: event.title,
+            tags: [],
           });
         }
       }
@@ -144,10 +146,18 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     return this.runs.get(workflowRunId) ?? null;
   }
 
-  async listRuns(filter?: { workflowId?: string; limit?: number }): Promise<WorkflowRunSummary[]> {
+  async listRuns(filter?: {
+    workflowId?: string;
+    limit?: number;
+    tags?: string[];
+  }): Promise<WorkflowRunSummary[]> {
     let list = [...this.runs.values()];
     if (filter?.workflowId) {
       list = list.filter((r) => r.workflowId === filter.workflowId);
+    }
+    if (filter?.tags?.length) {
+      const tags = filter.tags;
+      list = list.filter((r) => tags.some((tag) => r.tags.includes(tag)));
     }
     if (filter?.limit) {
       list = list.slice(-filter.limit);
@@ -188,6 +198,22 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       status: "running",
       startedAt: new Date().toISOString(),
       title,
+      tags: [],
+    });
+  }
+
+  async setRunTags(workflowRunId: string, tags: string[]): Promise<void> {
+    const run = this.runs.get(workflowRunId);
+    if (run) {
+      this.runs.set(workflowRunId, { ...run, tags });
+      return;
+    }
+    this.runs.set(workflowRunId, {
+      workflowRunId,
+      workflowId: "",
+      status: "running",
+      startedAt: new Date().toISOString(),
+      tags,
     });
   }
 

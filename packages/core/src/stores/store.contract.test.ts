@@ -97,6 +97,39 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(await store.listEvents({ workflowRunId: handle.workflowRunId })).toEqual([]);
     });
 
+    it("records tags at run start and filters listRuns by tag", async () => {
+      const store = await createStore();
+      const runtime = createAdlRuntime({ stores: { workflow: store } });
+      const workflow = runtime.createWorkflow({
+        id: "contract-tags",
+        run: async () => ({ ok: true }),
+      });
+
+      const tagged = workflow.run({}, { tags: ["dataset:qa-v1", "commit:abc123"] });
+      await tagged.result;
+      const untagged = workflow.run({});
+      await untagged.result;
+
+      const taggedRun = await store.getRun(tagged.workflowRunId);
+      expect(taggedRun?.tags).toEqual(expect.arrayContaining(["dataset:qa-v1", "commit:abc123"]));
+      const untaggedRun = await store.getRun(untagged.workflowRunId);
+      expect(untaggedRun?.tags).toEqual([]);
+
+      const byTag = await store.listRuns({ workflowId: "contract-tags", tags: ["dataset:qa-v1"] });
+      expect(byTag.map((r) => r.workflowRunId)).toEqual([tagged.workflowRunId]);
+
+      const byEitherTag = await store.listRuns({
+        workflowId: "contract-tags",
+        tags: ["dataset:qa-v1", "no-such-tag"],
+      });
+      expect(byEitherTag.map((r) => r.workflowRunId)).toEqual([tagged.workflowRunId]);
+
+      await store.setRunTags(tagged.workflowRunId, ["dataset:qa-v2"]);
+      const retagged = await store.getRun(tagged.workflowRunId);
+      expect(retagged?.tags).toEqual(["dataset:qa-v2"]);
+      expect(await store.listRuns({ tags: ["dataset:qa-v1"] })).toEqual([]);
+    });
+
     it("keeps a title set before the run row exists", async () => {
       const store = await createStore();
       const runtime = createAdlRuntime({ stores: { workflow: store } });

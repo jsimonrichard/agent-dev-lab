@@ -152,6 +152,12 @@ export type WorkflowRunStartOptions = {
    * workflow (conversation `titleWorkflow` helpers use this).
    */
   isolated?: boolean;
+  /**
+   * Labels recorded on the run for filtering/organizing later (e.g. `["dataset:qa-v1"]` or
+   * a project's git commit). Set once at start; see {@link WorkflowStore.setRunTags} to
+   * change them after the fact.
+   */
+  tags?: string[];
 };
 
 export interface Workflow<TInput, TOutput, TRawInput = TInput> {

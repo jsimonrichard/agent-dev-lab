@@ -46,6 +46,11 @@ export const stepRecords = sqliteTable("adl_step_records", {
   status: text("status").notNull(),
 });
 
+export const workflowRunTags = sqliteTable("adl_workflow_run_tags", {
+  workflowRunId: text("workflow_run_id").notNull(),
+  tag: text("tag").notNull(),
+});
+
 export const inspectorSessions = sqliteTable("adl_inspector_sessions", {
   memoryScope: text("memory_scope").primaryKey(),
   agentId: text("agent_id").notNull(),

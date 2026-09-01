@@ -53,7 +53,12 @@ export interface WorkflowStore {
   ): Promise<RunEventOfType<T> | null>;
 
   getRun(workflowRunId: string): Promise<WorkflowRunSummary | null>;
-  listRuns(filter?: { workflowId?: string; limit?: number }): Promise<WorkflowRunSummary[]>;
+  /** `tags` matches runs carrying **any** of the given tags (OR semantics). */
+  listRuns(filter?: {
+    workflowId?: string;
+    limit?: number;
+    tags?: string[];
+  }): Promise<WorkflowRunSummary[]>;
   getRunInput(workflowRunId: string): Promise<unknown | null>;
   getRunOutput(workflowRunId: string): Promise<unknown | null>;
   getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null>;
@@ -61,6 +66,8 @@ export interface WorkflowStore {
 
   /** Set a display title without changing {@link WorkflowRunSummary.workflowRunId}. */
   setRunTitle(workflowRunId: string, title: string): Promise<void>;
+  /** Replace a run's {@link WorkflowRunSummary.tags}. */
+  setRunTags(workflowRunId: string, tags: string[]): Promise<void>;
   /** Remove a run and its events / step records. */
   deleteRun(workflowRunId: string): Promise<void>;
 

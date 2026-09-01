@@ -201,6 +201,7 @@ export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]>
       finishedAt: run.finishedAt,
       inputPreview: formatInputPreview(input),
       title: run.title,
+      tags: run.tags,
     });
   }
 
@@ -222,6 +223,7 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
     finishedAt: run.finishedAt,
     inputPreview: formatInputPreview(input),
     title: run.title,
+    tags: run.tags,
   };
 }
 
