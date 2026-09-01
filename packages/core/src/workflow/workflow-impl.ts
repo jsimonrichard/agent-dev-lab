@@ -38,7 +38,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     this.id = definition.id;
   }
 
-  get input(): z.ZodType<TInput, z.ZodTypeDef, TRawInput> | undefined {
+  get input(): z.ZodType<TInput, TRawInput> | undefined {
     return this.definition.input;
   }
 

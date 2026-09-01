@@ -96,7 +96,7 @@ export type StepFn = <T>(
 export type WorkflowDefinition<TInput, TOutput, TRawInput = TInput> = {
   id: string;
   /** Optional Zod schema. Omit when `TInput` is pinned by generics or `run` annotations. */
-  input?: z.ZodType<TInput, z.ZodTypeDef, TRawInput>;
+  input?: z.ZodType<TInput, TRawInput>;
   /** Optional Zod schema. Omit when `TOutput` is pinned by generics or `run`'s return type. */
   output?: z.ZodType<TOutput>;
   /** Author implementation — receives parsed input and `ctx` from the runtime. */
@@ -157,7 +157,7 @@ export type WorkflowRunStartOptions = {
 export interface Workflow<TInput, TOutput, TRawInput = TInput> {
   readonly id: string;
   /** Optional Zod schema used to validate {@link run} / {@link stream} input. */
-  readonly input?: z.ZodType<TInput, z.ZodTypeDef, TRawInput>;
+  readonly input?: z.ZodType<TInput, TRawInput>;
   /**
    * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.

@@ -126,7 +126,7 @@ export interface AdlRuntime {
     options?: CreateWorkflowFromAgentOptions<Context>,
   ): Workflow<string, TOutput, string>;
 
-  createTemplate<TSchema extends z.ZodType>(
+  createTemplate<TSchema extends z.ZodType<object>>(
     config: TemplateConfig<TSchema>,
   ): Template<z.infer<TSchema>>;
 }

@@ -75,7 +75,7 @@ export class AdlRuntimeImpl implements AdlRuntime {
     return createWorkflowFromAgent(this, agent, options);
   }
 
-  createTemplate<TSchema extends z.ZodType>(config: TemplateConfig<TSchema>) {
+  createTemplate<TSchema extends z.ZodType<object>>(config: TemplateConfig<TSchema>) {
     return buildTemplate(this.services.templateEngine, config);
   }
 }

@@ -20,24 +20,26 @@ export interface Template<TInput> {
   render(inputData: TInput): string;
 }
 
-type TemplateConfigBase<TSchema extends z.ZodType> = {
+type TemplateConfigBase<TSchema extends z.ZodType<object>> = {
   inputData: TSchema;
   demo?: z.infer<TSchema>;
   name?: string;
 };
 
-export type TemplateFromPathConfig<TSchema extends z.ZodType> = TemplateConfigBase<TSchema> & {
-  path: string;
-  from?: string;
-  source?: never;
-};
+export type TemplateFromPathConfig<TSchema extends z.ZodType<object>> =
+  TemplateConfigBase<TSchema> & {
+    path: string;
+    from?: string;
+    source?: never;
+  };
 
-export type TemplateFromSourceConfig<TSchema extends z.ZodType> = TemplateConfigBase<TSchema> & {
-  source: string;
-  path?: never;
-  from?: never;
-};
+export type TemplateFromSourceConfig<TSchema extends z.ZodType<object>> =
+  TemplateConfigBase<TSchema> & {
+    source: string;
+    path?: never;
+    from?: never;
+  };
 
-export type TemplateConfig<TSchema extends z.ZodType> =
+export type TemplateConfig<TSchema extends z.ZodType<object>> =
   | TemplateFromPathConfig<TSchema>
   | TemplateFromSourceConfig<TSchema>;

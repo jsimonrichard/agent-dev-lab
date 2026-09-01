@@ -33,7 +33,7 @@ function resolveName(config: { name?: string; path?: string }): string {
  * Build a reusable prompt template (Zod → Handlebars → string).
  * In project code, use {@link AdlRuntime.createTemplate}.
  */
-export function buildTemplate<TSchema extends z.ZodType>(
+export function buildTemplate<TSchema extends z.ZodType<object>>(
   engine: TemplateEngine,
   config: TemplateConfig<TSchema>,
 ): Template<z.infer<TSchema>> {
@@ -73,7 +73,7 @@ export function buildTemplate<TSchema extends z.ZodType>(
 }
 
 /** Functional factory for tests and libraries. In project code, use {@link AdlRuntime.createTemplate}. */
-export function createTemplate<TSchema extends z.ZodType>(
+export function createTemplate<TSchema extends z.ZodType<object>>(
   runtime: AdlRuntime,
   config: TemplateConfig<TSchema>,
 ): Template<z.infer<TSchema>> {

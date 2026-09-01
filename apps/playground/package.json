@@ -14,7 +14,7 @@
     "@agent-dev-lab/cli": "workspace:*",
     "@agent-dev-lab/core": "workspace:*",
     "@ai-sdk/openai": "^2.0.42",
-    "zod": "^3.25.76"
+    "zod": "^4.1.8"
   },
   "devDependencies": {
     "@types/bun": "1.3.13",
