@@ -47,10 +47,10 @@ import { adl } from "#adl";
 
 export const answerQuestion = adl.createWorkflow({
   id: "answer-question",
-  input: z.object({
+  inputSchema: z.object({
     question: z.string().default(${JSON.stringify(`default ${version}`)}),
   }),
-  output: z.object({ result: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
   run: async (input) => ({ result: input.question + ${JSON.stringify(`_${version}`)} }),
 });
 `;

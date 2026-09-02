@@ -54,7 +54,7 @@ describe("createToolFromWorkflow typing", () => {
     const outputSchema = z.object({ answer: z.string() });
     const workflow = adl.createWorkflow({
       id: "qa",
-      output: outputSchema,
+      outputSchema,
       run: async () => ({ answer: "ok" }),
     });
     const wrapped = adl.createToolFromWorkflow(workflow, {

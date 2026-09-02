@@ -100,8 +100,8 @@ import { adl } from "./adl";
 
 export const testWorkflow = adl.createWorkflow({
   id: "test-workflow",
-  input: z.object({ value: z.string() }),
-  output: z.object({ result: z.string() }),
+  inputSchema: z.object({ value: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
   run: async (input) => ({ result: input.value + "_A" }),
 });
 `,
@@ -155,8 +155,8 @@ import { adl } from "./adl";
 
 export const testWorkflow = adl.createWorkflow({
   id: "test-workflow",
-  input: z.object({ value: z.string() }),
-  output: z.object({ result: z.string() }),
+  inputSchema: z.object({ value: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
   run: async (input) => ({ result: input.value + ${JSON.stringify(suffix)} }),
 });
 `,
@@ -175,8 +175,8 @@ const inputSchema = z.object({
 
 export const testWorkflow = adl.createWorkflow({
   id: "test-workflow",
-  input: inputSchema,
-  output: z.object({ answer: z.string() }),
+  inputSchema,
+  outputSchema: z.object({ answer: z.string() }),
   run: async (input) => {
     const { question } = inputSchema.parse(input);
     return { answer: question };
@@ -284,13 +284,13 @@ describe("LoadedAdlProject.reload", () => {
 
       await fixture.writeWorkflowDefault("default A");
       await project.reload();
-      expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
+      expect(project.getWorkflow("test-workflow")!.inputSchema!.parse({})).toEqual({
         question: "default A",
       });
 
       await fixture.writeWorkflowDefault("default B");
       await project.reload();
-      expect(project.getWorkflow("test-workflow")!.input!.parse({})).toEqual({
+      expect(project.getWorkflow("test-workflow")!.inputSchema!.parse({})).toEqual({
         question: "default B",
       });
     },

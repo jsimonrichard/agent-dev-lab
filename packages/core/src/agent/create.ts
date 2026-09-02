@@ -8,14 +8,18 @@ import type { Agent, AgentDefinition } from "./types";
 /**
  * Functional factory for tests and libraries. In project code, use {@link AdlRuntime.createAgent}.
  */
-export function createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
+export function createAgent<
+  ToolProviderContext = undefined,
+  Tools extends ToolSet = ToolSet,
+  TOutput = string,
+>(
   runtime: AdlRuntime,
-  definition: AgentDefinition<Tools, TOutput>,
+  definition: AgentDefinition<ToolProviderContext, Tools, TOutput>,
   overrides?: AdlRuntimeOverrides,
-): Agent<Context, Tools, TOutput> {
+): Agent<ToolProviderContext, Tools, TOutput> {
   const services = resolveDefinitionServices(
     definition,
     resolveRuntimeOverrides(runtime.services, overrides),
   );
-  return new AgentImpl<Context, Tools, TOutput>(definition, services);
+  return new AgentImpl<ToolProviderContext, Tools, TOutput>(definition, services);
 }

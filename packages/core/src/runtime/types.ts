@@ -96,10 +96,10 @@ export type RuntimeServices = {
 export interface AdlRuntime {
   readonly services: RuntimeServices;
 
-  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
-    definition: AgentDefinition<Tools, TOutput>,
+  createAgent<ToolProviderContext = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
+    definition: AgentDefinition<ToolProviderContext, Tools, TOutput>,
     overrides?: AdlRuntimeOverrides,
-  ): Agent<Context, Tools, TOutput>;
+  ): Agent<ToolProviderContext, Tools, TOutput>;
 
   createWorkflow<TInput, TOutput, TRawInput = TInput>(
     definition: WorkflowDefinition<TInput, TOutput, TRawInput>,
@@ -107,13 +107,13 @@ export interface AdlRuntime {
   ): Workflow<TInput, TOutput, TRawInput>;
 
   createToolFromAgent<
-    Context,
+    ToolProviderContext = undefined,
     Tools extends ToolSet = ToolSet,
     TOutput = string,
     TToolInput = DefaultToolInput,
   >(
-    agent: Agent<Context, Tools, TOutput>,
-    options: CreateToolFromAgentOptions<Context, TToolInput>,
+    agent: Agent<ToolProviderContext, Tools, TOutput>,
+    options: CreateToolFromAgentOptions<ToolProviderContext, TToolInput>,
   ): Tool<TToolInput, TOutput>;
 
   createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToolInput = TRawInput>(
@@ -121,9 +121,13 @@ export interface AdlRuntime {
     options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
   ): Tool<TToolInput, TOutput>;
 
-  createWorkflowFromAgent<Context, Tools extends ToolSet = ToolSet, TOutput = string>(
-    agent: Agent<Context, Tools, TOutput>,
-    options?: CreateWorkflowFromAgentOptions<Context>,
+  createWorkflowFromAgent<
+    ToolProviderContext = undefined,
+    Tools extends ToolSet = ToolSet,
+    TOutput = string,
+  >(
+    agent: Agent<ToolProviderContext, Tools, TOutput>,
+    options?: CreateWorkflowFromAgentOptions<ToolProviderContext>,
   ): Workflow<string, TOutput, string>;
 
   createTemplate<TSchema extends z.ZodType<object>>(

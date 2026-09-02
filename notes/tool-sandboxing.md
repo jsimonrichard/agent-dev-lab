@@ -44,27 +44,50 @@ Today, `AgentDefinition.tools` is fixed at agent-definition time and merged with
 
 **What the AI SDK does _not_ give us**: a way to compute an entirely new tool set from arbitrary run-time context (which sandbox is configured, which dataset/experiment this run belongs to, per-tenant tool availability, etc.) before the call starts. `activeTools`/`prepareStep` only _select among_ a statically-assembled `tools` object — assembling that object from context is squarely ADL's job.
 
-**Proposed design:**
+**Design — items 1 and 2 are done, item 3 is still to do:**
 
-1. Add `tools?: ToolSet` to `AgentRunInput`, resolved the same way `outputSchema`/`endWhen` already are (per-call value wins over the agent definition's). Cheap, mechanical, closes the parity gap.
-2. Introduce a `ToolProvider` concept for the "arbitrary inputs → tools" case:
+1. ✅ `AgentRunInput.tools` — added, resolved the same way `outputSchema`/`stopWhen` already are (per-call value wins over the agent definition's).
+2. ✅ `ToolProvider` — added for the "arbitrary inputs → tools" case. Current shape (`packages/core/src/tools/provider.ts`):
 
    ```ts
-   // sketch — not implemented
-   type ToolProviderContext<Context = unknown> = {
+   export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
      agentId: string;
      memoryScope: string;
-     context?: Context;
      workflow?: AgentWorkflowScope;
-   };
-   type ToolProvider<Context = unknown> = (
-     ctx: ToolProviderContext<Context>,
-   ) => ToolSet | Promise<ToolSet>;
+   } & ToolProviderContextField<ToolProviderContext>; // plain optional key — see gotcha below
+
+   // A true interface (not a bare function type), so a provider can be a class instance —
+   // useful for constructor state (a connection pool, a cache) or implementing other
+   // interfaces alongside this one.
+   export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderContext = unknown> {
+     getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): Tools | Promise<Tools>;
+   }
    ```
 
-   `AgentDefinition.tools` and `AgentRunInput.tools` both accept `ToolSet | ToolProvider`; the runtime resolves it once per call, before constructing `streamText`'s `tools`. This is genuinely new — no equivalent construct in the AI SDK — but it's a small, general primitive (a resolver function), not a new framework.
+   `AgentDefinition.tools` and `AgentRunInput.tools` both accept `ToolSet | ToolProvider`; the runtime resolves it once per call (re-exported from `packages/core/src/tools/index.ts` — lives alongside the adapters, not under `agent/`, since it's conceptually a tools concern), merging `{ ...runtimeTools, ...definitionTools, ...inputTools }` before constructing `streamText`'s `tools`.
 
-3. **Tie dangerous tools to a sandbox structurally, not by convention.** This package's own `createBashTool` / `createFileTools` should have **no zero-config unsafe default** — the sandbox/executor is a required constructor argument, not an optional one with a silent bare-subprocess fallback:
+   `ToolProviderContext` (the context each `ToolProvider` receives) is a **plain type, never a schema** — the framework never parses or validates it. `getTools` gets the raw `AgentRunInput.toolProviderContext` value as-is; a provider that wants Zod validation/defaults calls `.parse()` itself, as the first line of its own `getTools`. `createToolProvider` takes a config object (not positional args, so future additions don't force reordering call sites) with `getTools` and an optional `contextSchema`:
+
+   ```ts
+   const sandboxSchema = z.object({ root: z.string().default("/tmp") });
+   const tools = createToolProvider<z.input<typeof sandboxSchema>>({
+     contextSchema: sandboxSchema,
+     getTools: (ctx) => {
+       const { root } = sandboxSchema.parse(ctx.toolProviderContext);
+       return { bash: createBashTool({ root }) };
+     },
+   });
+   ```
+
+   (An earlier iteration put a `contextSchema` field on `AgentDefinition` instead, with the framework parsing on the provider's behalf. Reverted: the agent isn't the thing that needs a particular context shape, a tool provider is — putting the schema on `AgentDefinition` couldn't express "these two combined providers each need a different, independently-validated context.")
+
+   `contextSchema` is optional, pure introspection metadata (e.g. for a settings UI to build a form from) — the framework never reads or parses it — but it's not a free-floating untyped blob either: typed `z.ZodType<unknown, ToolProviderContext>` (output unconstrained since nothing parses it; **input pinned to `ToolProviderContext`**, the exact raw shape `getTools` receives), so a schema describing a different shape than `getTools` actually expects is a compile error, not a silent drift. Verified via isolated repro before committing to this (a mismatched schema is rejected; `Tools` inference and `AgentDefinition.tools`, which is never widened, are both unaffected). `ToolProviderContext` appears fully generic here regardless of whether this position ends up widened: `AgentDefinition.tools` never widens at all, and `Agent.tools` (mirroring it verbatim) widens along with the rest of the agent into `AnyAgent` — see the gotcha below. `agent.tools.contextSchema` is how a caller (e.g. a dashboard) finds it without knowing which concrete agent it's looking at.
+
+   `combineToolProviders({ name1: source1, name2: source2, ... })` merges several named `ToolSet | ToolProvider` sources into one — **keyed, not variadic**, so the combined context is **namespaced**: a caller passes `toolProviderContext: { name1: ..., name2: ... }`, and each source only ever sees its own slice under `ctx.toolProviderContext`, never a sibling's. This makes field-name collisions between independently-authored providers (a sandbox tool from one place, a web-search tool from another, neither aware of the other) structurally impossible — the alternative (flat-merging every source's context into one object via `UnionToIntersection`, the same way `Tools` gets merged) risks two unrelated providers silently colliding on a field name. `Tools` (the actual AI SDK tool names) are still merged flatly across all sources via `UnionToIntersection` over each source's contribution (see the file's own doc comments for the mechanism — the standard TS union-to-intersection idiom via contravariant function-parameter inference, not anything ADL-specific) — only `ToolProviderContext` is namespaced. The combined `contextSchema` mirrors this: `z.object({ name1: source1.contextSchema, ... })` for whichever sources declare one, same keys the runtime routing actually uses, so introspection and behavior never drift.
+
+   **Real gotcha hit while implementing this (registry widening target has since changed — see update below):** making `ToolProviderContext` appear inside a function-parameter position that's part of a heterogeneous, widened registry is contravariant, and TypeScript's bivariant relaxation for interface methods breaks the instant a field's **presence** — not just its value type — is toggled by a conditional depending on that type parameter. Confirmed via isolated repro: `{ x?: T } : { x: T }` (presence differs) breaks widening; a conditional whose value type varies but whose key is _always_ present/optional does not. This was originally found against a registry widening to `Agent<unknown, ToolSet, unknown>`; the `adl.config.ts` `agents: []` registry now instead widens to `AnyAgent` (`Agent<any, any, any>`, exported from `packages/core/src/agent/types.ts`), and `any` in every slot sidesteps this whole class of bug — re-confirmed via the same repro against an `any`-parameterized target: no break, no cast needed. `AgentRunInput.toolProviderContext` still stays a **plain, always-optional field** end to end — enforcement of "this agent requires a context" is left entirely to whatever a `ToolProvider` does inside its own `getTools`, never a TS-level requiredness toggle — but that's no longer load-bearing for widening specifically, just the simpler design. `createToolProvider<Context>(fn)` remains the typed authoring helper bridging a fully-generic authoring-time context to the stored shape.
+
+3. **Tie dangerous tools to a sandbox structurally, not by convention** (not started). This package's own `createBashTool` / `createFileTools` should have **no zero-config unsafe default** — the sandbox/executor is a required constructor argument, not an optional one with a silent bare-subprocess fallback:
 
    ```ts
    // sketch — not implemented

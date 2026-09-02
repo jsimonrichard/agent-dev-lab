@@ -4,6 +4,7 @@ export type AdlErrorCode =
   | "UNKNOWN_WORKFLOW"
   | "UNKNOWN_AGENT"
   | "INVALID_INPUT"
+  | "INVALID_CONTEXT"
   | "MISSING_RUNTIME"
   | "MISSING_MODEL"
   | "INIT_FAILED";

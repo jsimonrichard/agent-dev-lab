@@ -29,11 +29,11 @@ export class AdlRuntimeImpl implements AdlRuntime {
     this.services = resolveRuntimeConfig(config);
   }
 
-  createAgent<Context = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
-    definition: AgentDefinition<Tools, TOutput>,
+  createAgent<ToolProviderContext = undefined, Tools extends ToolSet = ToolSet, TOutput = string>(
+    definition: AgentDefinition<ToolProviderContext, Tools, TOutput>,
     overrides?: AdlRuntimeOverrides,
-  ): Agent<Context, Tools, TOutput> {
-    return new AgentImpl<Context, Tools, TOutput>(
+  ): Agent<ToolProviderContext, Tools, TOutput> {
+    return new AgentImpl<ToolProviderContext, Tools, TOutput>(
       definition,
       resolveDefinitionServices(definition, resolveRuntimeOverrides(this.services, overrides)),
     );
@@ -50,13 +50,13 @@ export class AdlRuntimeImpl implements AdlRuntime {
   }
 
   createToolFromAgent<
-    Context,
+    ToolProviderContext = undefined,
     Tools extends ToolSet = ToolSet,
     TOutput = string,
     TToolInput = DefaultToolInput,
   >(
-    agent: Agent<Context, Tools, TOutput>,
-    options: CreateToolFromAgentOptions<Context, TToolInput>,
+    agent: Agent<ToolProviderContext, Tools, TOutput>,
+    options: CreateToolFromAgentOptions<ToolProviderContext, TToolInput>,
   ): Tool<TToolInput, TOutput> {
     return createToolFromAgent(this, agent, options);
   }
@@ -68,9 +68,13 @@ export class AdlRuntimeImpl implements AdlRuntime {
     return createToolFromWorkflow(this, workflow, options);
   }
 
-  createWorkflowFromAgent<Context, Tools extends ToolSet = ToolSet, TOutput = string>(
-    agent: Agent<Context, Tools, TOutput>,
-    options?: CreateWorkflowFromAgentOptions<Context>,
+  createWorkflowFromAgent<
+    ToolProviderContext = undefined,
+    Tools extends ToolSet = ToolSet,
+    TOutput = string,
+  >(
+    agent: Agent<ToolProviderContext, Tools, TOutput>,
+    options?: CreateWorkflowFromAgentOptions<ToolProviderContext>,
   ): Workflow<string, TOutput, string> {
     return createWorkflowFromAgent(this, agent, options);
   }

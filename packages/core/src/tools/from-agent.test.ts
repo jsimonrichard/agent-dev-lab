@@ -73,7 +73,7 @@ describe("createToolFromWorkflow runtime", () => {
     const adl = createTestRuntime();
     const child = adl.createWorkflow({
       id: "child",
-      output: z.object({ ok: z.boolean() }),
+      outputSchema: z.object({ ok: z.boolean() }),
       run: async () => ({ ok: true }),
     });
     const wrapped = adl.createToolFromWorkflow(child, {

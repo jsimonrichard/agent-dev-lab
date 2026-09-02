@@ -1,5 +1,4 @@
 import { Output, streamText, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
-import type { z } from "zod";
 
 import { AdlError } from "../errors";
 import { linkAbortController, abortError, throwIfAborted } from "../internal/abort";
@@ -11,6 +10,8 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
+import type { ToolProvider } from "../tools/provider";
+import { resolveAgentTools } from "../tools/resolve-agent-tools";
 import {
   formatSystemPromptConflictWarning,
   inspectSystemPrompt,
@@ -40,14 +41,14 @@ type FullStreamPart =
  * Default agent implementation: definition plus resolved runtime services.
  */
 export class AgentImpl<
-  Context = undefined,
+  ToolProviderContext = undefined,
   Tools extends ToolSet = ToolSet,
   TOutput = string,
-> implements Agent<Context, Tools, TOutput> {
+> implements Agent<ToolProviderContext, Tools, TOutput> {
   readonly id: string;
 
   constructor(
-    readonly definition: AgentDefinition<Tools, TOutput>,
+    readonly definition: AgentDefinition<ToolProviderContext, Tools, TOutput>,
     readonly services: RuntimeServices,
   ) {
     if (!definition.id || typeof definition.id !== "string") {
@@ -80,12 +81,16 @@ export class AgentImpl<
     return inspectSystemPromptPath(this.definition.systemPrompt);
   }
 
-  run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput> {
+  get tools(): Tools | ToolProvider<Tools, ToolProviderContext> | undefined {
+    return this.definition.tools;
+  }
+
+  run(input: AgentRunInput<ToolProviderContext>): AgentRunHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
     const memoryScope = resolveMemoryScope(input.memoryScope);
     const finished = this.executeTurn({
-      input: { ...(input as AgentRunInput<unknown>), memoryScope },
+      input: { ...input, memoryScope },
       abortSignal: controller.signal,
       agentCallId,
       memoryScope,
@@ -98,7 +103,7 @@ export class AgentImpl<
     } satisfies AgentRunHandle<Tools, TOutput>;
   }
 
-  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput> {
+  stream(input: AgentStreamInput<ToolProviderContext>): AgentStreamHandle<Tools, TOutput> {
     const controller = linkAbortController(this.services.workflowContextScope.peek()?.signal);
     const agentCallId = createId();
     const memoryScope = resolveMemoryScope(input.memoryScope);
@@ -106,7 +111,7 @@ export class AgentImpl<
     const fullChannel = createAsyncChannel<FullStreamPart>();
 
     const finished = this.executeTurn({
-      input: { ...(input as AgentRunInput<unknown>), memoryScope },
+      input: { ...input, memoryScope },
       abortSignal: controller.signal,
       agentCallId,
       memoryScope,
@@ -134,7 +139,7 @@ export class AgentImpl<
   }
 
   private async executeTurn(options: {
-    input: AgentRunInput<unknown> & { memoryScope: string };
+    input: AgentRunInput<ToolProviderContext> & { memoryScope: string };
     abortSignal: AbortSignal;
     agentCallId: string;
     memoryScope: string;
@@ -235,6 +240,16 @@ export class AgentImpl<
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
           const telemetry = this.services.telemetry;
+
+          const { tools, toolProviderContext } = await resolveAgentTools({
+            agentId: this.definition.id,
+            definitionTools: this.definition.tools,
+            memoryScope,
+            runtimeTools: this.services.tools,
+            inputTools: input.tools,
+            toolProviderContext: input.toolProviderContext,
+            ...(workflowRunId ? { workflow: { workflowRunId, stepId } } : {}),
+          });
           const initialMessages = messages;
           let allNewMessages: ModelMessage[] = [];
           let lastPersisted = storedMessages;
@@ -281,12 +296,12 @@ export class AgentImpl<
             model,
             ...(system ? { system } : {}),
             allowSystemInMessages: false,
-            tools: { ...this.services.tools, ...this.definition.tools },
+            tools,
             messages: messages.filter(
               (message): message is Exclude<ModelMessage, { role: "system" }> =>
                 message.role !== "system",
             ),
-            experimental_context: input.context,
+            experimental_context: toolProviderContext,
             abortSignal,
             stopWhen,
             experimental_telemetry: {
@@ -309,12 +324,12 @@ export class AgentImpl<
             ...(outputSchema
               ? {
                   experimental_output: Output.object({
-                    schema: outputSchema as z.ZodType,
+                    schema: outputSchema,
                   }),
                 }
               : {}),
             onStepFinish: async (step) => {
-              await persistResponseMessages(step.response.messages as ModelMessage[]);
+              await persistResponseMessages(step.response.messages);
             },
             onChunk: ({ chunk }) => {
               if (chunk.type === "text-delta" && "text" in chunk) {
@@ -361,7 +376,7 @@ export class AgentImpl<
             : undefined;
 
           if (fullChannel) {
-            for await (const part of streamResult.fullStream as AsyncIterable<FullStreamPart>) {
+            for await (const part of streamResult.fullStream) {
               fullChannel.push(part);
             }
           } else {
@@ -397,12 +412,12 @@ export class AgentImpl<
 
           return {
             text: lastText,
-            output: lastOutput as TOutput,
+            output: lastOutput,
             messages,
             newMessages: allNewMessages,
             turns,
             memoryScope,
-            sdk: lastSdk as StreamTextResult<Tools, TOutput>,
+            sdk: lastSdk,
           };
         } catch (error) {
           await runRecorder.emit({

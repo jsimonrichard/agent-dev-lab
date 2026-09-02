@@ -1,4 +1,4 @@
-import type { AdlProjectConfig, Agent, ToolSet } from "@agent-dev-lab/core";
+import type { AdlProjectConfig, AnyAgent } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
 
@@ -12,15 +12,18 @@ import { literatureReview } from "./src/workflows/literature-review";
 import { sharedScope } from "./src/workflows/shared-scope";
 import { writeArticle } from "./src/workflows/write-article";
 
-// Agents with a concrete `tools` shape are invariant in `Tools`, so widen to the
-// registry's `Agent<unknown, ToolSet, unknown>` element type for the config array.
-const agents: Agent<unknown, ToolSet, unknown>[] = [
+// `AdlProjectConfig.agents` wants `AnyAgent[]` (`Agent<any, any, any>[]`). Each agent below is
+// concretely typed (its own `ToolProviderContext`/`Tools`/`TOutput`), but `any` in every slot
+// means the assignment just works — no cast needed, unlike the old `Agent<unknown, ToolSet,
+// unknown>[]` registry shape, where `Tools`/`ToolProviderContext` sit in positions variant
+// enough that a concrete agent never structurally satisfied it on its own.
+const agents: AnyAgent[] = [
   outliner,
   writer,
   editor,
   drafter,
   reviser,
-  researchAssistant as unknown as Agent<unknown, ToolSet, unknown>,
+  researchAssistant,
   researcher,
   critic,
 ];

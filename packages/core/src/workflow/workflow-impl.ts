@@ -38,8 +38,8 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     this.id = definition.id;
   }
 
-  get input(): z.ZodType<TInput, TRawInput> | undefined {
-    return this.definition.input;
+  get inputSchema(): z.ZodType<TInput, TRawInput> | undefined {
+    return this.definition.inputSchema;
   }
 
   run(input: TRawInput, options?: WorkflowRunStartOptions): WorkflowRunHandle<TOutput> {
@@ -79,9 +79,9 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
 
     let parsedInput = input as unknown as TInput;
-    if (this.definition.input) {
+    if (this.definition.inputSchema) {
       try {
-        parsedInput = this.definition.input.parse(input);
+        parsedInput = this.definition.inputSchema.parse(input);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         throw new AdlError("INVALID_INPUT", `Invalid input for workflow "${this.id}": ${detail}`, {
@@ -127,8 +127,8 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           const output = await effectiveServices.workflowContextScope.run(rootCtx, () =>
             raceAbort(controller.signal, this.definition.run(parsedInput, rootCtx)),
           );
-          const parsedOutput = this.definition.output
-            ? this.definition.output.parse(output)
+          const parsedOutput = this.definition.outputSchema
+            ? this.definition.outputSchema.parse(output)
             : output;
 
           if (controller.signal.aborted) {

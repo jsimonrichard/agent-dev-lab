@@ -19,8 +19,8 @@ const answerQuestionInput = z.object({
 
 export const answerQuestion = adl.createWorkflow({
   id: "answer-question",
-  input: answerQuestionInput,
-  output: z.object({
+  inputSchema: answerQuestionInput,
+  outputSchema: z.object({
     answer: z.string(),
     turns: z.number(),
     toolCalls: z.number(),

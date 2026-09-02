@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type { MessageStore } from "../stores/types";
 import type { Result } from "../result";
 import type { Template } from "../template/types";
+import type { ToolProvider } from "../tools/provider";
 import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
@@ -53,12 +54,28 @@ export type ConversationTitleOutput = {
   title: string;
 };
 
-export type AgentDefinition<Tools extends ToolSet = ToolSet, TOutput = string> = {
+export type AgentDefinition<
+  ToolProviderContext = unknown,
+  Tools extends ToolSet = ToolSet,
+  TOutput = string,
+> = {
   id: string;
   systemPrompt: AgentSystemPrompt;
   /** Required unless {@link AdlRuntimeConfig.defaults.model} is set. */
   model?: LanguageModel;
-  tools?: Tools;
+  /**
+   * A fixed tool set, or a provider resolved once per call — typed directly against
+   * `ExtendedToolProviderContext<ToolProviderContext>` since a definition (unlike the
+   * per-call {@link AgentRunInput.tools} override) is never widened into a heterogeneous
+   * {@link AnyAgent}`[]` registry, so it's safe to keep `ToolProviderContext`
+   * fully generic here. Overridable per call via {@link AgentRunInput.tools}.
+   *
+   * The framework never parses or validates `toolProviderContext` — a `ToolProvider` that
+   * wants Zod validation/defaults calls `.parse()` itself inside `getTools` (see
+   * `createToolProvider`'s doc comment for the recipe). Combine several providers, each with
+   * their own context needs, via `combineToolProviders`.
+   */
+  tools?: Tools | ToolProvider<Tools, ToolProviderContext>;
   /**
    * Default Zod schema for structured output on every episode.
    * When set, {@link AgentRunResult.output} is inferred from the schema; when omitted,
@@ -108,14 +125,13 @@ export type AgentWorkflowScope = {
  */
 export type SystemPromptConflictStrategy = "keep-pinned" | "use-current";
 
-export type AgentRunInput<Context = unknown> = {
+export type AgentRunInput<ToolProviderContext = unknown> = {
   /**
    * Conversation key in {@link MessageStore}. Omit to allocate a random scope
    * for this call — later episodes will not share history unless the caller
    * reuses the resolved scope from the handle / result.
    */
   memoryScope?: string;
-  context?: Context;
   user?: string;
   /**
    * Turn messages appended after `user` (if set) and any transcript already
@@ -138,11 +154,29 @@ export type AgentRunInput<Context = unknown> = {
    * with the pin on this scope.
    */
   suppressSystemPromptConflictWarning?: boolean;
+  /** Per-call override of the agent's `tools`. Wins over `AgentDefinition.tools`. */
+  tools?: ToolSet | ToolProvider<ToolSet>;
   /**
    * When running inside a workflow, pass the current {@link WorkflowContext} ids
    * so agent events attach to the correct step. Omit for standalone episodes.
    */
   workflow?: AgentWorkflowScope;
+  /**
+   * Stays a plain, always-optional field rather than conditionally required (optional key
+   * when `ToolProviderContext` allows `undefined`, required key otherwise) — verified via a
+   * minimal repro: that presence-toggle pattern breaks the bivariant `run`/`stream` parameter
+   * check `Agent<Context, ...>` needs to widen into a heterogeneous registry, once the target
+   * is a concrete type like the old `Agent<unknown, ToolSet, unknown>[]` (TypeScript falls back
+   * to strict contravariant checking as soon as a key's *presence* — not just its value type —
+   * depends on the type parameter, and that direction always fails for `undefined` vs
+   * `unknown`). Registries now widen to {@link AnyAgent} instead, whose `any` params sidestep
+   * this class of bug entirely — confirmed by re-running the same repro against `AnyAgent`, no
+   * break — but the field stays plain regardless, since there's no upside to the conditional
+   * form once nothing requires it. The framework never validates this value — a `ToolProvider`
+   * that wants Zod validation/defaults parses it itself inside `getTools`. See
+   * `notes/tool-sandboxing.md`.
+   */
+  toolProviderContext?: ToolProviderContext;
   // cacheable?: boolean; // deferred — episode cache (see notes/resumability.md)
 };
 
@@ -170,7 +204,7 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
   sdk: StreamTextResult<Tools, TOutput>;
 };
 
-export type AgentStreamInput<Context = unknown> = AgentRunInput<Context>;
+export type AgentStreamInput<ToolProviderContext = unknown> = AgentRunInput<ToolProviderContext>;
 
 export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   textStream: StreamTextResult<Tools, TOutput>["textStream"];
@@ -203,10 +237,15 @@ export type AgentStreamHandle<
  * Bound agent. `TOutput` is inferred from {@link AgentDefinition.outputSchema} and
  * defaults to `string` when the schema is omitted.
  *
- * Heterogeneous registries (e.g. `adl.config` `agents`) should widen to
- * `Agent<unknown, ToolSet, unknown>`.
+ * Heterogeneous registries (e.g. `adl.config` `agents`) should widen to {@link AnyAgent}
+ * (`Agent<any, any, any>`) — `any` in every slot absorbs the variance mismatches a concretely-typed
+ * `Agent<Context, Tools, Output>` would otherwise hit, so no cast is needed to put one in the array.
  */
-export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out TOutput = string> {
+export interface Agent<
+  ToolProviderContext = undefined,
+  Tools extends ToolSet = ToolSet,
+  out TOutput = string,
+> {
   readonly id: string;
   /**
    * Message-store backend this agent persists transcripts to.
@@ -243,6 +282,18 @@ export interface Agent<Context = undefined, Tools extends ToolSet = ToolSet, out
    * otherwise `null`.
    */
   readonly systemPromptPath: string | null;
-  run(input: AgentRunInput<Context>): AgentRunHandle<Tools, TOutput>;
-  stream(input: AgentStreamInput<Context>): AgentStreamHandle<Tools, TOutput>;
+  /**
+   * `definition.tools`, verbatim — stays fully parameterized over this agent's own
+   * `Tools`/`ToolProviderContext` rather than erased, since widening a concretely-typed `Agent`
+   * into {@link AnyAgent} (`any` in every slot) needs no cooperation from this field's type to
+   * work. Inspect for `typeof agent.tools?.getTools === "function"`, then read `.contextSchema`
+   * off it (e.g. to build a settings UI form) without needing to know which concrete agent
+   * you're looking at.
+   */
+  readonly tools?: Tools | ToolProvider<Tools, ToolProviderContext>;
+  run(input: AgentRunInput<ToolProviderContext>): AgentRunHandle<Tools, TOutput>;
+  stream(input: AgentStreamInput<ToolProviderContext>): AgentStreamHandle<Tools, TOutput>;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyAgent = Agent<any, any, any>;

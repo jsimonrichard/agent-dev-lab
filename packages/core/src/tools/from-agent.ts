@@ -8,7 +8,7 @@ import type { WorkflowContext } from "../workflow/types";
 /** Loose object the model may fill when {@link CreateToolFromAgentOptions.inputSchema} is omitted. */
 export type DefaultToolInput = Record<string, unknown>;
 
-export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> = {
+export type CreateToolFromAgentOptions<ToolProviderContext, TToolInput = DefaultToolInput> = {
   name?: string;
   description: string;
   /**
@@ -20,10 +20,10 @@ export type CreateToolFromAgentOptions<Context, TToolInput = DefaultToolInput> =
     toolArgs: TToolInput,
     meta: { ctx?: WorkflowContext },
   ) => Pick<
-    AgentRunInput<Context>,
+    AgentRunInput<ToolProviderContext>,
     | "memoryScope"
     | "user"
-    | "context"
+    | "toolProviderContext"
     | "messages"
     | "stopWhen"
     | "workflow"
@@ -41,14 +41,14 @@ const defaultInputSchema: z.ZodType<DefaultToolInput> = z.object({}).catchall(z.
  * workflow body or step. Standalone calls allocate their own agent episode.
  */
 export function createToolFromAgent<
-  Context,
+  ToolProviderContext = undefined,
   Tools extends ToolSet = ToolSet,
   TOutput = string,
   TToolInput = DefaultToolInput,
 >(
   runtime: AdlRuntime,
-  agent: Agent<Context, Tools, TOutput>,
-  options: CreateToolFromAgentOptions<Context, TToolInput>,
+  agent: Agent<ToolProviderContext, Tools, TOutput>,
+  options: CreateToolFromAgentOptions<ToolProviderContext, TToolInput>,
 ): Tool<TToolInput, TOutput> {
   // AI SDK `NeverOptional<OUTPUT, …>` does not resolve while OUTPUT is generic.
   return tool<TToolInput, TOutput>({

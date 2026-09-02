@@ -2,9 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { ToolSet } from "ai";
-
-import type { Agent } from "../agent/types";
+import type { AnyAgent } from "../agent/types";
 import { AdlError } from "../errors";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
@@ -79,7 +77,7 @@ export interface LoadedAdlProject {
   getAdl(): NonNullable<AdlProjectConfig["adl"]>;
 
   getWorkflow(id: string): Workflow<unknown, unknown> | undefined;
-  getAgent(id: string): Agent<unknown, ToolSet, unknown> | undefined;
+  getAgent(id: string): AnyAgent | undefined;
   listWorkflowIds(): string[];
   listAgentIds(): string[];
   getTemplate(name: string): Template<unknown> | undefined;
@@ -88,7 +86,7 @@ export interface LoadedAdlProject {
 
 type ProjectIndexes = {
   workflowById: Map<string, Workflow<unknown, unknown>>;
-  agentById: Map<string, Agent<unknown, ToolSet, unknown>>;
+  agentById: Map<string, AnyAgent>;
   templateByName: Map<string, Template<unknown>>;
 };
 

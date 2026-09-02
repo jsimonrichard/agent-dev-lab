@@ -5,7 +5,7 @@ import { adl } from "../adl";
 /** Step-only demo workflow for the inspection UI (no LLM). */
 export const demoCounter = adl.createWorkflow({
   id: "demo-counter",
-  input: z.object({
+  inputSchema: z.object({
     steps: z.number().int().min(1).max(8).default(3).describe("Accumulate steps (1–8)."),
   }),
   run: async (input, ctx) => {

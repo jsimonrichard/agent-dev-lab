@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
 
-import type { Agent } from "../agent/types";
+import type { AnyAgent } from "../agent/types";
 import type { AdlRuntime } from "../runtime/types";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
@@ -23,7 +23,7 @@ export interface AdlProjectConfig {
    */
   adl?: AdlRuntime;
 
-  agents?: Agent<unknown, ToolSet, unknown>[];
+  agents?: AnyAgent[];
   workflows?: Workflow<unknown, unknown>[];
   /** Registry key is `template.name` (filename basename). */
   templates?: Template<unknown>[];

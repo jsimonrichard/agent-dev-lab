@@ -146,7 +146,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
   const project = await getLoadedAdlProject();
   const workflowIds = project.listWorkflowIds();
   const workflows = workflowIds.map((id) => {
-    const input = project.getWorkflow(id)?.input;
+    const input = project.getWorkflow(id)?.inputSchema;
     return {
       id,
       inputFields: describeWorkflowInput(input),
@@ -250,8 +250,8 @@ export async function startWorkflowRun(
   }
 
   let parsedInput = input;
-  if (workflow.input) {
-    const parsed = workflow.input.safeParse(input);
+  if (workflow.inputSchema) {
+    const parsed = workflow.inputSchema.safeParse(input);
     if (!parsed.success) {
       throw new AdlError(
         "INVALID_INPUT",

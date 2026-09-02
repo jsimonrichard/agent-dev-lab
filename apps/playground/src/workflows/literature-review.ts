@@ -8,10 +8,10 @@ import { researcher } from "../agents/researcher";
 /** LLM-backed sample workflow. Requires `OPENAI_API_KEY`. Uses OpenAI `web_search`. */
 export const literatureReview = adl.createWorkflow({
   id: "literature-review",
-  input: z.object({
+  inputSchema: z.object({
     topic: z.string().min(1).describe("Research topic to review."),
   }),
-  output: z.object({
+  outputSchema: z.object({
     topic: z.string(),
     briefing: z.string(),
     critique: z.string(),

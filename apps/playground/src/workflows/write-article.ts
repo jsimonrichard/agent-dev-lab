@@ -31,8 +31,8 @@ const writeArticleInput = z.object({
 
 export const writeArticle = adl.createWorkflow({
   id: "write-article",
-  input: writeArticleInput,
-  output: z.object({
+  inputSchema: writeArticleInput,
+  outputSchema: z.object({
     title: z.string(),
     article: z.string(),
     review: reviewSchema,

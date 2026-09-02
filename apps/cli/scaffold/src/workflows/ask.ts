@@ -11,8 +11,8 @@ const askInput = z.object({
 /** One-shot LLM workflow so a new project can `adl workflow run ask` after setting an API key. */
 export const ask = adl.createWorkflow({
   id: "ask",
-  input: askInput,
-  output: z.object({
+  inputSchema: askInput,
+  outputSchema: z.object({
     answer: z.string(),
   }),
   async run(input, ctx) {

@@ -19,6 +19,7 @@ export type {
 } from "./resolve-system-prompt";
 export type {
   Agent,
+  AnyAgent,
   AgentDefinition,
   AgentStopWhen,
   AgentStopWhenLabel,

@@ -24,8 +24,8 @@ const turnSchema = z.object({
  */
 export const sharedScope = adl.createWorkflow({
   id: "shared-scope",
-  input: sharedScopeInput,
-  output: z.object({
+  inputSchema: sharedScopeInput,
+  outputSchema: z.object({
     memoryScope: z.string(),
     messagesOnly: turnSchema,
     appended: turnSchema,

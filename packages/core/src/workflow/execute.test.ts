@@ -121,19 +121,19 @@ describe("workflow.run", () => {
     const input = z.object({ topic: z.string().min(1) });
     const workflow = createWorkflow(runtime, {
       id: "typed-input",
-      input,
+      inputSchema: input,
       run: async (value) => value,
     });
 
-    expect(workflow.input).toBe(input);
-    expect(workflow.input?.parse({ topic: "CRISPR" })).toEqual({ topic: "CRISPR" });
+    expect(workflow.inputSchema).toBe(input);
+    expect(workflow.inputSchema?.parse({ topic: "CRISPR" })).toEqual({ topic: "CRISPR" });
   });
 
   it("applies Zod defaults and bounds before the run body", async () => {
     const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
     const workflow = createWorkflow(runtime, {
       id: "defaulted-steps",
-      input: z.object({
+      inputSchema: z.object({
         steps: z.number().int().min(1).max(8).default(3),
       }),
       run: async (input) => input.steps,
@@ -306,7 +306,7 @@ describe("workflow.run", () => {
     const runtime = createAdlRuntime({ stores: { workflow: inMemoryWorkflowStore() } });
     const workflow = createWorkflow(runtime, {
       id: "bad-output",
-      output: z.object({ n: z.number() }),
+      outputSchema: z.object({ n: z.number() }),
       run: async () => ({ n: "nope" as unknown as number }),
     });
 

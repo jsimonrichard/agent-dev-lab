@@ -1,9 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { tool } from "ai";
 import { z } from "zod";
 
+import { AdlError, isAdlError } from "../errors";
 import { createTestRuntime } from "../runtime/create-test";
+import { createToolProvider } from "../tools/provider";
+import type { ExtendedToolProviderContext } from "../tools/provider";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
 
 function flattenText(message: ModelMessage): string {
@@ -644,5 +648,275 @@ describe("AgentImpl outputSchema", () => {
     const result = await agent.run({ memoryScope: "notes", user: "score this" }).result;
     expect(result.output).toEqual({ title: "Hello", score: 3 });
     expect(result.text).toContain("Hello");
+  });
+});
+
+const toolUsage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+
+function toolCallStream(toolName: string, input: string) {
+  return {
+    stream: convertArrayToReadableStream([
+      { type: "stream-start" as const, warnings: [] },
+      { type: "tool-input-start" as const, id: "call-1", toolName },
+      { type: "tool-input-delta" as const, id: "call-1", delta: input },
+      { type: "tool-input-end" as const, id: "call-1" },
+      { type: "tool-call" as const, toolCallId: "call-1", toolName, input },
+      { type: "finish" as const, finishReason: "tool-calls" as const, usage: toolUsage },
+    ]),
+  };
+}
+
+function finalTextStream(text: string) {
+  return {
+    stream: convertArrayToReadableStream([
+      { type: "stream-start" as const, warnings: [] },
+      { type: "text-start" as const, id: "text-1" },
+      { type: "text-delta" as const, id: "text-1", delta: text },
+      { type: "text-end" as const, id: "text-1" },
+      { type: "finish" as const, finishReason: "stop" as const, usage: toolUsage },
+    ]),
+  };
+}
+
+describe("AgentImpl tools", () => {
+  it("resolves a ToolProvider on AgentDefinition.tools and executes its tool", async () => {
+    let call = 0;
+    let receivedCtx: ExtendedToolProviderContext | undefined;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("lookup", JSON.stringify({ topic: "adl" }));
+            }
+            return finalTextStream("ADL is a workflow framework.");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "provider-tools",
+      systemPrompt: "Use tools when helpful.",
+      // Object literal implementing ToolProvider directly (not via createToolProvider),
+      // to exercise the interface contract itself.
+      tools: {
+        getTools(ctx: ExtendedToolProviderContext) {
+          receivedCtx = ctx;
+          return {
+            lookup: tool({
+              description: "Look up a topic",
+              inputSchema: z.object({ topic: z.string() }),
+              execute: async ({ topic }) => ({ topic, fact: "a workflow framework" }),
+            }),
+          };
+        },
+      },
+    });
+
+    const result = await agent.run({ memoryScope: "provider-notes", user: "What is ADL?" }).result;
+
+    expect(result.text).toContain("workflow framework");
+    expect(receivedCtx?.agentId).toBe("provider-tools");
+    expect(receivedCtx?.memoryScope).toBe("provider-notes");
+  });
+
+  it("per-call tools override wins over AgentDefinition.tools for the same key", async () => {
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("lookup", JSON.stringify({ topic: "adl" }));
+            }
+            return finalTextStream("done");
+          },
+        }),
+      },
+    });
+    const seen: string[] = [];
+    const agent = adl.createAgent({
+      id: "override-tools",
+      systemPrompt: "Use tools when helpful.",
+      tools: {
+        lookup: tool({
+          description: "definition version",
+          inputSchema: z.object({ topic: z.string() }),
+          execute: async () => {
+            seen.push("definition");
+            return "definition result";
+          },
+        }),
+      },
+    });
+
+    await agent.run({
+      memoryScope: "override-notes",
+      user: "What is ADL?",
+      tools: {
+        lookup: tool({
+          description: "override version",
+          inputSchema: z.object({ topic: z.string() }),
+          execute: async () => {
+            seen.push("override");
+            return "override result";
+          },
+        }),
+      },
+    }).result;
+
+    expect(seen).toEqual(["override"]);
+  });
+
+  it("createToolProvider gives a typed ctx.toolProviderContext end to end via agent.run", async () => {
+    type SandboxContext = { root: string };
+    let call = 0;
+    let seenRoot: string | undefined;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("whoami", "{}");
+            }
+            return finalTextStream("done");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "typed-provider-tools",
+      systemPrompt: "Use tools when helpful.",
+      tools: createToolProvider<SandboxContext>({
+        getTools: (ctx) => {
+          seenRoot = ctx.toolProviderContext?.root;
+          return {
+            whoami: tool({
+              description: "report the sandbox root",
+              inputSchema: z.object({}),
+              execute: async () => ctx.toolProviderContext?.root ?? "unknown",
+            }),
+          };
+        },
+      }),
+    });
+
+    await agent.run({
+      memoryScope: "typed-provider-notes",
+      user: "where are we?",
+      toolProviderContext: { root: "/tmp/sandbox" },
+    }).result;
+
+    expect(seenRoot).toBe("/tmp/sandbox");
+  });
+});
+
+describe("ToolProvider-owned context validation", () => {
+  it("applies a Zod default when the provider parses its own toolProviderContext", async () => {
+    let call = 0;
+    let seenRoot: string | undefined;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("whoami", "{}");
+            }
+            return finalTextStream("done");
+          },
+        }),
+      },
+    });
+    const contextSchema = z.object({ root: z.string().default("/default/sandbox") });
+    const agent = adl.createAgent({
+      id: "context-defaults",
+      systemPrompt: "Use tools when helpful.",
+      tools: createToolProvider<z.input<typeof contextSchema>>({
+        getTools: (ctx) => {
+          const parsed = contextSchema.parse(ctx.toolProviderContext);
+          seenRoot = parsed.root;
+          return {
+            whoami: tool({
+              description: "report the sandbox root",
+              inputSchema: z.object({}),
+              execute: async () => parsed.root,
+            }),
+          };
+        },
+        contextSchema,
+      }),
+    });
+
+    // `root` omitted from the raw object — the schema's default should fill it in.
+    await agent.run({
+      memoryScope: "context-defaults-notes",
+      user: "where are we?",
+      toolProviderContext: {},
+    }).result;
+
+    expect(seenRoot).toBe("/default/sandbox");
+  });
+
+  it("propagates AdlError INVALID_CONTEXT when a provider throws its own on invalid input", async () => {
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => finalTextStream("unreachable"),
+        }),
+      },
+    });
+    const contextSchema = z.object({ root: z.string() });
+    const agent = adl.createAgent({
+      id: "context-invalid",
+      systemPrompt: "Use tools when helpful.",
+      tools: createToolProvider<z.input<typeof contextSchema>>({
+        getTools: (ctx) => {
+          try {
+            contextSchema.parse(ctx.toolProviderContext);
+          } catch (error) {
+            throw new AdlError("INVALID_CONTEXT", "Invalid toolProviderContext", { cause: error });
+          }
+          return {};
+        },
+        contextSchema,
+      }),
+    });
+
+    let caught: unknown;
+    try {
+      await agent.run({
+        memoryScope: "context-invalid-notes",
+        user: "where are we?",
+        // @ts-expect-error -- deliberately wrong shape to exercise the parse failure
+        toolProviderContext: { root: 42 },
+      }).result;
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isAdlError(caught)).toBe(true);
+    expect(caught && isAdlError(caught) && caught.code).toBe("INVALID_CONTEXT");
+  });
+
+  it("exposes definition.tools via agent.tools for UI introspection of contextSchema", () => {
+    const adl = createTestRuntime({
+      defaults: { model: new MockLanguageModelV2({ doStream: async () => finalTextStream("ok") }) },
+    });
+    const contextSchema = z.object({ root: z.string() });
+    const agent = adl.createAgent({
+      id: "context-introspection",
+      systemPrompt: "Use tools when helpful.",
+      tools: createToolProvider<z.input<typeof contextSchema>>({
+        getTools: () => ({}),
+        contextSchema,
+      }),
+    });
+
+    expect(typeof agent.tools?.getTools).toBe("function");
+    expect(agent.tools?.contextSchema).toBe(contextSchema);
   });
 });

@@ -70,8 +70,8 @@ import { adl } from "./adl";
 
 export const testWorkflow = adl.createWorkflow({
   id: "test-workflow",
-  input: z.object({ value: z.string() }),
-  output: z.object({ result: z.string() }),
+  inputSchema: z.object({ value: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
   run: async (input) => ({ result: input.value }),
 });
 `,

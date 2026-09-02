@@ -45,6 +45,7 @@ export { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from ".
 export type { Err, Ok, Result } from "./result";
 export type {
   Agent,
+  AnyAgent,
   AgentDefinition,
   AgentStopWhen,
   AgentStopWhenLabel,
@@ -166,11 +167,20 @@ export type {
   AgentTitleSetEvent,
 } from "./observability";
 
-export { createToolFromAgent, createToolFromWorkflow } from "./tools";
+export {
+  combineToolProviders,
+  createToolFromAgent,
+  createToolFromWorkflow,
+  createToolProvider,
+  resolveToolSource,
+} from "./tools";
 export type {
   CreateToolFromAgentOptions,
   CreateToolFromWorkflowOptions,
   DefaultToolInput,
+  ExtendedToolProviderContext,
+  ToolProvider,
+  ToolProviderContextField,
 } from "./tools";
 
 export { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./template/load";
