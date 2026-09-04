@@ -1,6 +1,5 @@
 import {
   AdlError,
-  inspectAgentStopWhen,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type AgentRunHandle,
@@ -13,7 +12,11 @@ import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { getAdlRuntime, getMessageStore, getWorkflowStore } from "#/lib/adl-runtime.server";
-import { inspectAgentOutputSchema, inspectAgentTools } from "#/lib/agent/agent-tools";
+import {
+  inspectAgentOutputSchema,
+  inspectAgentStopWhen,
+  inspectAgentTools,
+} from "#/lib/agent/agent-tools";
 import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
@@ -161,7 +164,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
-      stopWhen: inspectAgentStopWhen(agent?.stopWhen),
+      stopWhen: inspectAgentStopWhen(agent),
       outputSchema: inspectAgentOutputSchema(agent),
       systemPrompt: agent?.systemPrompt ?? ok(""),
       systemPromptPath: agent?.systemPromptPath ?? null,
