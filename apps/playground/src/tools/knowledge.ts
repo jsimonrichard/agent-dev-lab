@@ -35,8 +35,7 @@ function lookup(topic: string): string {
 
 /** Look up a fact about the ADL framework from the in-memory knowledge base. */
 export const lookupFact = tool({
-  description:
-    "Look up a fact about the Agent Dev Lab (ADL) framework. Use for questions about agents, workflows, the AI SDK, or memoryScope.",
+  description: "Look up a fact about the Agent Dev Lab (ADL) framework.",
   inputSchema: z.object({
     topic: z.string().describe("The topic to look up, e.g. 'workflow' or 'memoryScope'."),
   }),
@@ -45,8 +44,7 @@ export const lookupFact = tool({
 
 /** Safely evaluate a basic arithmetic expression (+, -, *, /, parentheses). */
 export const calculate = tool({
-  description:
-    "Evaluate a basic arithmetic expression with + - * / and parentheses. Use for any math in the question.",
+  description: "Evaluate a basic arithmetic expression with + - * / and parentheses.",
   inputSchema: z.object({
     expression: z.string().describe("An arithmetic expression, e.g. '128 * 12 + 7'."),
   }),
