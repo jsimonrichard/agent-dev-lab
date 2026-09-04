@@ -45,10 +45,12 @@ All standard commands are in root `package.json`:
 - CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
 - Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
+- Bun is the monorepo dev/tooling runtime (install, `bun run dev`, most tests), but **Node is the reference runtime going forward** for process/spawn-level code, where Bun and Node have been found to disagree (e.g. `spawn`/`spawnSync` PATH resolution — see `notes/tool-sandboxing.md`). New code in that category should get `node:test`-based coverage runnable under both, not just `bun test`.
 
 ### Tests vs other files
 
 - **`*.test.ts` / `*.e2e.test.ts`** — Bun tests (`bun test`).
+- **`packages/tools/src/bash/{process-channel,native-executor,asrt-executor}.test.ts`** — `node:test`-based, not `bun:test`; run under both `bun test` and `node --test` (`bun run test:node`). See `notes/tool-sandboxing.md`'s testing section.
 - **`apps/cli/scripts/`** — build helpers, not tests (`verify-web-output.ts`, `package-scaffold.ts`). See `apps/cli/scripts/README.md`.
 - **`packages/core/src/stores/store.contract.test.ts`** — shared store contract suite (test infra).
 - **`packages/core/src/template/fixtures/`** — prompt fixtures used by template tests.
