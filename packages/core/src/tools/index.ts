@@ -7,5 +7,6 @@ export type {
   ExtendedToolProviderContext,
   ToolProvider,
   ToolProviderContextField,
+  ToolProviderToolSummary,
 } from "./provider";
 export { resolveAgentTools } from "./resolve-agent-tools";

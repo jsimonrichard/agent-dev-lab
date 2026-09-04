@@ -61,6 +61,12 @@ export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
  * Accepted wherever a plain {@link ToolSet} is (`AgentDefinition.tools`, `AgentRunInput.tools`);
  * resolved once per `agent.run` / `agent.stream` call, merged before `streamText`.
  */
+/** Minimal tool identity for introspection — see {@link ToolProvider.listTools}. */
+export interface ToolProviderToolSummary {
+  name: string;
+  description?: string;
+}
+
 export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderContext = unknown> {
   /**
    * Optional — pure introspection metadata, e.g. for a settings UI to build a form from. Never
@@ -82,6 +88,20 @@ export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderConte
    * {@link ExtendedToolProviderContext}'s doc comment.
    */
   contextSchema?: z.ZodType<unknown, ToolProviderContext>;
+  /**
+   * Optional — static tool names (and descriptions) for a settings UI to list, for a provider
+   * whose tool set doesn't actually vary by call context. Deliberately *not* passed an
+   * {@link ExtendedToolProviderContext}: an inspector calling this has no real `agentId` /
+   * `memoryScope` / `toolProviderContext` to offer, only a fabricated one, so this exists
+   * precisely to avoid needing one. Never read or called by the framework itself — `getTools`
+   * is still the only thing `agent.run` / `agent.stream` resolve against.
+   *
+   * Skip this when enumerating tool names genuinely requires a resolved context (e.g. the set of
+   * tools itself, not just their behavior, differs per `toolProviderContext`); an inspector should
+   * treat a missing `listTools` as "can't introspect this provider" rather than guessing by
+   * calling `getTools` with a made-up context.
+   */
+  listTools?(): ToolProviderToolSummary[];
   getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): Tools | Promise<Tools>;
 }
 
@@ -134,8 +154,13 @@ export function createToolProvider<
 >(config: {
   getTools: (ctx: ExtendedToolProviderContext<ToolProviderContext>) => Tools | Promise<Tools>;
   contextSchema?: z.ZodType<unknown, ToolProviderContext>;
+  listTools?(): ToolProviderToolSummary[];
 }): ToolProvider<Tools, ToolProviderContext> {
-  return { getTools: config.getTools, contextSchema: config.contextSchema };
+  return {
+    getTools: config.getTools,
+    contextSchema: config.contextSchema,
+    listTools: config.listTools,
+  };
 }
 
 /**
@@ -223,6 +248,32 @@ type MergedContext<Sources extends Record<string, unknown>> = {
  * over an earlier one with the same name. `Tools` (the actual AI SDK tool names) are still
  * merged flatly across all sources — only `ToolProviderContext` is namespaced.
  */
+/**
+ * Introspection summaries contributed by one {@link combineToolProviders} source — a plain
+ * {@link ToolSet}'s own keys (with each tool's `description`, when it has a string one), or a
+ * nested {@link ToolProvider}'s {@link ToolProvider.listTools}, when it declares one.
+ */
+function toolSourceSummaries(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see ToolSourceTools above
+  source: ToolSet | ToolProvider<ToolSet, any> | undefined,
+): ToolProviderToolSummary[] {
+  if (!source) {
+    return [];
+  }
+  if (typeof source.getTools === "function") {
+    // Cast: see `resolveToolSource`'s comment below — `typeof x.getTools === "function"` isn't a
+    // construct TS recognizes for narrowing this union, so `source` is still the full union here.
+    return (source as ToolProvider<ToolSet>).listTools?.() ?? [];
+  }
+  return Object.entries(source).map(([name, entry]) => ({
+    name,
+    description:
+      typeof (entry as { description?: unknown } | undefined)?.description === "string"
+        ? (entry as { description: string }).description
+        : undefined,
+  }));
+}
+
 export function combineToolProviders<
   const Sources extends Record<
     string,
@@ -241,6 +292,15 @@ export function combineToolProviders<
 
   return {
     contextSchema,
+    listTools() {
+      const byName = new Map<string, ToolProviderToolSummary>();
+      for (const source of Object.values(sources)) {
+        for (const summary of toolSourceSummaries(source)) {
+          byName.set(summary.name, summary);
+        }
+      }
+      return [...byName.values()];
+    },
     async getTools(ctx) {
       const raw = ctx.toolProviderContext;
       const resolved = await Promise.all(
