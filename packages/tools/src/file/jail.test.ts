@@ -1,0 +1,148 @@
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { isAdlError } from "@agent-dev-lab/core";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+
+import { createFileJail } from "./jail";
+
+let root: string;
+let outsideDir: string;
+
+beforeEach(async () => {
+  root = await mkdtemp(path.join(tmpdir(), "adl-file-jail-root-"));
+  outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-jail-outside-"));
+});
+
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+  await rm(outsideDir, { recursive: true, force: true });
+});
+
+/** Asserts `promise` rejects with an `AdlError("INVALID_INPUT", …)`, ADL's convention for a
+ * rejected-tool-input error (see `packages/core/src/agent/agent-impl.test.ts`). */
+async function expectInvalidInput(promise: Promise<unknown>): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    expect(isAdlError(error)).toBe(true);
+    expect(isAdlError(error) && error.code).toBe("INVALID_INPUT");
+    return;
+  }
+  throw new Error("Expected the promise to reject, but it resolved.");
+}
+
+describe("createFileJail", () => {
+  describe("resolveExisting", () => {
+    it("resolves a plain relative path inside the root", async () => {
+      await writeFile(path.join(root, "a.txt"), "hi", "utf8");
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveExisting("a.txt");
+      expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
+    });
+
+    it("resolves a nested relative path", async () => {
+      await mkdir(path.join(root, "sub"), { recursive: true });
+      await writeFile(path.join(root, "sub", "b.txt"), "hi", "utf8");
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveExisting("sub/b.txt");
+      expect(resolved).toBe(await realpath(path.join(root, "sub", "b.txt")));
+    });
+
+    it("rejects a path that doesn't exist", async () => {
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveExisting("missing.txt"));
+    });
+
+    it("rejects an absolute path", async () => {
+      const jail = createFileJail(root);
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      await expectInvalidInput(jail.resolveExisting(outsideFile));
+    });
+
+    it("rejects a `..` traversal that escapes the root", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      const jail = createFileJail(root);
+      const relativeEscape = path.join("..", path.basename(outsideDir), "secret.txt");
+      await expectInvalidInput(jail.resolveExisting(relativeEscape));
+    });
+
+    it("rejects a symlink inside the root that points outside it", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      await symlink(outsideFile, path.join(root, "link.txt"));
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveExisting("link.txt"));
+    });
+
+    it("rejects a path reached through a symlinked *ancestor* directory, not just the immediate parent", async () => {
+      // realpath() must resolve every path component, not only the leaf's own parent — this
+      // exercises that: `link` is two levels above the requested file, with a real
+      // subdirectory (`deep`) in between.
+      await mkdir(path.join(outsideDir, "deep"), { recursive: true });
+      const outsideFile = path.join(outsideDir, "deep", "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      await symlink(outsideDir, path.join(root, "link"));
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveExisting("link/deep/secret.txt"));
+    });
+
+    it("resolves a `..` that stays inside the root", async () => {
+      await mkdir(path.join(root, "sub"), { recursive: true });
+      await writeFile(path.join(root, "a.txt"), "hi", "utf8");
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveExisting("sub/../a.txt");
+      expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
+    });
+  });
+
+  describe("resolveForWrite", () => {
+    it("resolves a new file's path when the parent directory exists", async () => {
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveForWrite("new.txt");
+      expect(resolved).toBe(path.join(await realpath(root), "new.txt"));
+    });
+
+    it("resolves a new file in a nested existing directory", async () => {
+      await mkdir(path.join(root, "sub"), { recursive: true });
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveForWrite("sub/new.txt");
+      expect(resolved).toBe(path.join(await realpath(path.join(root, "sub")), "new.txt"));
+    });
+
+    it("rejects when the parent directory doesn't exist", async () => {
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveForWrite("missing-dir/new.txt"));
+    });
+
+    it("rejects an absolute path", async () => {
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveForWrite(path.join(outsideDir, "new.txt")));
+    });
+
+    it("rejects a `..` traversal that escapes the root", async () => {
+      const jail = createFileJail(root);
+      const relativeEscape = path.join("..", path.basename(outsideDir), "new.txt");
+      await expectInvalidInput(jail.resolveForWrite(relativeEscape));
+    });
+
+    it("rejects a symlinked parent directory that points outside the root", async () => {
+      await symlink(outsideDir, path.join(root, "linked-dir"));
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveForWrite("linked-dir/new.txt"));
+    });
+
+    it("rejects a new file whose parent is reached through a symlinked *ancestor*, not just the immediate parent", async () => {
+      // Mirrors the resolveExisting case above, but for a not-yet-existing file: `link` is
+      // two levels above the new file, with a real subdirectory (`deep`) — which does
+      // exist — in between.
+      await mkdir(path.join(outsideDir, "deep"), { recursive: true });
+      await symlink(outsideDir, path.join(root, "link"));
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveForWrite("link/deep/new.txt"));
+    });
+  });
+});

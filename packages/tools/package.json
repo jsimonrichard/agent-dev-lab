@@ -1,0 +1,38 @@
+{
+  "name": "@agent-dev-lab/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test",
+    "test:node": "node --test src/bash/process-channel.test.ts src/bash/native-executor.test.ts src/bash/asrt-executor.test.ts"
+  },
+  "dependencies": {
+    "@agent-dev-lab/core": "workspace:*",
+    "@anthropic-ai/sandbox-runtime": "0.0.75",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.13",
+    "@types/node": "^22.10.2",
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.2"
+  },
+  "description": "Sandboxed file/bash/web-search tools + approval gate for @agent-dev-lab/core (see notes/tool-sandboxing.md — not yet published)",
+  "engines": {
+    "node": ">=22"
+  }
+}

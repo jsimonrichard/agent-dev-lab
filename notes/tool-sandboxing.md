@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** Design doc — no code yet. This is the "needs a decision before code" item flagged as P0 in [`near-term-roadmap.md`](./near-term-roadmap.md#2-standard-tool-library-file-editing-bash-web-search--sandboxed). Read that section first for why this exists and what's already confirmed about the current codebase (no sandboxing primitive, no built-in tools, only the `createToolFromAgent`/`createToolFromWorkflow` adapters in `packages/core/src/tools/`).
+**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`) and two bash `BashExecutor`s implemented (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`. Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. This is the "needs a decision before code" item flagged as P0 in [`near-term-roadmap.md`](./near-term-roadmap.md#2-standard-tool-library-file-editing-bash-web-search--sandboxed). Read that section first for why this exists and what's already confirmed about the current codebase (only the `createToolFromAgent`/`createToolFromWorkflow` adapters plus `ToolProvider` live in `packages/core/src/tools/` — built-in tools live in `packages/tools`).
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -35,7 +35,7 @@ This framing matters because it changes what "good enough" sandboxing means for 
 
 ## Tool state per call, and a `ToolProvider` construct
 
-Today, `AgentDefinition.tools` is fixed at agent-definition time and merged with `AdlRuntimeConfig.tools` — there is **no per-call override**. Contrast with `AgentRunInput`, which already lets `endWhen`, `maxTurns`, and `outputSchema` vary per call (`packages/core/src/agent/types.ts:115-132`). `tools` is conspicuously missing from that list, and this package makes the gap concrete: a bash tool's sandbox (which root directory, which executor tier) is exactly the kind of thing that legitimately varies per run, not just per agent definition.
+**Historical motivation (now resolved by items 1–2 below):** `AgentDefinition.tools` used to be fixed at agent-definition time and merged with `AdlRuntimeConfig.tools`, with **no per-call override** — in contrast to `AgentRunInput`, which already let `stopWhen` and `outputSchema` vary per call (`packages/core/src/agent/types.ts`). `tools` was conspicuously missing from that list, and this package's original motivation made the gap concrete: a bash tool's sandbox (which root directory, which executor tier) is exactly the kind of thing that legitimately varies per run, not just per agent definition. `AgentRunInput.tools` and `ToolProvider` (below) closed this gap.
 
 **What the AI SDK already gives us** (checked directly against the `ai@5.0.188` type defs, since this determines what's a wrapper vs. what ADL has to build itself):
 
@@ -60,6 +60,8 @@ Today, `AgentDefinition.tools` is fixed at agent-definition time and merged with
    // useful for constructor state (a connection pool, a cache) or implementing other
    // interfaces alongside this one.
    export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderContext = unknown> {
+     // Optional introspection metadata, never read by the framework itself — see below.
+     contextSchema?: z.ZodType<unknown, ToolProviderContext>;
      getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): Tools | Promise<Tools>;
    }
    ```
@@ -103,31 +105,89 @@ This section changes the shape of the `@agent-dev-lab/tools` API surface describ
 
 ## File-editing tools
 
-- `readFile(path)`, `writeFile(path, content)`, `editFile(path, { find, replace })` (or a small diff-based edit primitive — leaning toward diff-based over whole-file overwrite so large files don't get fully re-sent through the model context on every edit, mirroring why this harness's own edit tool works that way).
-- **Jail:** every path resolves against a configured root (`project.tools.fileRoot` or similar) via `path.resolve` + `fs.realpath`, and the result must stay under the resolved root — reject (don't silently clamp) any path that escapes via `..` or a symlink pointing outside. Symlink resolution has to happen _after_ resolving the full path, not just check the string, or a symlink planted mid-tree defeats the check.
-- **Non-goals:** no execute bit changes, no arbitrary metadata (chmod/chown) tools. Read/write byte or size caps (e.g. refuse a write over some configurable limit) to avoid a runaway generation filling disk.
-- Lower risk than the bash tool below — reasonable to ship first.
+**Implemented** — `createFileTools({ root, maxReadBytes?, maxWriteBytes? })` in `packages/tools/src/file/tools.ts`, built on `createFileJail` (`packages/tools/src/file/jail.ts`):
+
+- `readFile({ path })`, `writeFile({ path, content })`, `editFile({ path, find, replace })` — went with plain find/replace rather than a diff format, requiring `find` to appear exactly once in the file (mirroring why this harness's own edit tool works that way) so an ambiguous edit is rejected rather than guessed at.
+- **Jail:** every path resolves against `root` (`path.resolve` + `fs.realpath`) and must stay under the resolved root after symlink resolution — an absolute `requestedPath`, a `..` traversal, or a symlink planted inside the jail pointing outside it are all rejected (`AdlError("INVALID_INPUT", …)`), not silently clamped. Symlink resolution happens on the resolved candidate, not string-checked, so a symlink can't defeat the check. `root` itself is resolved (and symlink-checked) lazily on first tool call, not at `createFileTools` time, and cached after that. See `jail.test.ts` for the traversal/symlink/absolute-path cases this defends against.
+- **Byte caps:** `maxReadBytes`/`maxWriteBytes` (default 1,000,000 each) refuse an oversized read or write rather than silently truncating.
+- **Non-goals (unchanged):** no execute bit changes, no arbitrary metadata (chmod/chown) tools.
+- **Known gap:** `writeFile`/`editFile` require the parent directory to already exist — this first increment doesn't create intermediate directories, since doing so safely (without a symlink defeating the jail partway through a multi-level `mkdir -p`) needs a level-by-level check not implemented yet.
 
 ---
 
 ## Bash tool — the hard part
 
-There is currently **no isolation primitive anywhere in this codebase** to build on. Three real tiers, and the right answer is almost certainly "support all three, pluggable" — this mirrors how [Mastra structures its `Sandbox` abstraction](https://mastra.ai/docs/sandbox/overview#localsandbox), which is worth taking as prior art directly since it's solving the same problem for a similar (agent tool-calling) audience:
+There is currently **no isolation primitive anywhere in this codebase** to build on. Three real tiers — this mirrors how [Mastra structures its `Sandbox` abstraction](https://mastra.ai/docs/sandbox/overview#localsandbox), which is worth taking as prior art since it's solving the same problem for a similar (agent tool-calling) audience — but unlike Mastra's own `nativeSandbox`, **there is no automatic fallback between them here.** If the configured executor's prerequisites aren't met, the tool refuses to run with a clear, specific error naming what's missing and how to install it — never a silent downgrade to a weaker tier. (Decided after evaluating two real library options below — see that section for why.)
 
-### Tier 1 — bare subprocess (fallback, zero-dependency)
+### Tier 1 — bare subprocess (available, never selected automatically)
 
 `Bun.spawn` / `child_process` with: `cwd` pinned to the configured root, a minimal `env` (allowlist, not the full parent `process.env` — this alone prevents a huge class of accidental secret leakage since ADL already loads `.env` files with API keys into `process.env`), a wall-clock timeout that kills the process group, and output size caps (truncate stdout/stderr past some limit so a runaway command can't exhaust memory piping output back to the model).
 
-**What this does not do:** stop the command from reading/writing anywhere the invoking OS user can reach, opening network connections, or spawning further processes. It is a guardrail against _accidental_ damage and against trivially reading the parent's full environment — not a security boundary against a determined adversary. Mastra's own docs say almost exactly this about `LocalSandbox`'s default mode: _"runs commands on the application host by default and isn't isolated or secure."_ This has to be documented up front, not discovered later. Use this tier only when tier 2 isn't available (e.g. an unsupported OS).
+**What this does not do:** stop the command from reading/writing anywhere the invoking OS user can reach, opening network connections, or spawning further processes. It is a guardrail against _accidental_ damage and against trivially reading the parent's full environment — not a security boundary against a determined adversary. Mastra's own docs say almost exactly this about `LocalSandbox`'s default mode: _"runs commands on the application host by default and isn't isolated or secure."_ This has to be documented up front, not discovered later. A project can explicitly opt into this tier (e.g. a CI container with no sandboxing primitives available), but the package never picks it silently on a tier-2 executor's behalf.
 
-### Tier 2 — native OS sandbox (recommended default)
+### Tier 2 — native OS sandbox (the default)
 
-This is the piece worth adopting directly from Mastra's `LocalSandbox`, and it changes the shape of this section from the original two-option framing: **native, dependency-free OS sandboxing primitives**, not a binary "subprocess vs. Docker" choice.
+Two executors implement this tier, both conforming to the same `BashExecutor` interface below. **ASRT is the preferred default; the direct-primitive executor is an explicit, non-default alternative** for projects that don't want ASRT's network-proxy layer or npm dependency.
 
-- **Linux:** [Bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) — the same unprivileged user-namespace sandboxing Flatpak uses. Wraps the command with a restricted mount namespace (bind-mount only the configured root read/write, everything else read-only or hidden) and can drop network access entirely.
-- **macOS:** Seatbelt (`sandbox-exec`) — the same mechanism macOS itself uses to confine App Store apps. Takes a profile restricting filesystem paths and network.
+#### `@anthropic-ai/sandbox-runtime` (ASRT) — preferred, implemented
 
-Both are **already present on the OS** (no daemon, no image pulls, no extra install) — which is exactly what keeps this compatible with `AGENTS.md`'s "no Docker, no external services required" posture while still providing a real kernel-enforced boundary instead of tier 1's honor system. This should be the **default** on Linux/macOS when the relevant binary is detected on `PATH`, falling back to tier 1 with a loud warning when it isn't (Windows, or a minimal container image without `bwrap`).
+**Implemented** in `packages/tools/src/bash/asrt-executor.ts` (`createAsrtBashExecutor`) and
+`packages/tools/src/bash/tools.ts` (`createBashTool`) — see those files' doc comments and
+`packages/tools/src/bash/asrt-executor.test.ts` (real integration tests against actual
+`bwrap`/`socat`/`rg`, no mocking, including a subprocess-isolated missing-dependencies check).
+Uses `SandboxManager.wrapWithSandboxArgv()` (not `wrapWithSandbox()`'s string form) so the
+result is spawned directly (`spawn(argv[0], argv.slice(1), { env })`) with no extra shell
+layer. Two things learned only by implementing this, beyond what evaluation below found:
+
+- `SandboxManager` is a **single process-wide singleton** — module-scoped state in ASRT's own
+  implementation (not a class), so there's no way to run two independently-configured sandboxes
+  in one process, and its `initialize()` is itself idempotent: once it has succeeded once,
+  every later call — including one with a _different_ `{ allowWrite, denyRead, denyWrite,
+allowedDomains, deniedDomains }` from a second `createAsrtBashExecutor` — just awaits the same
+  already-resolved initialization and silently keeps the first config. `createAsrtBashExecutor`
+  doesn't fight this; whichever instance's `run()` executes first wins the process-wide config,
+  and every other instance transparently shares it. `maxOutputBytes` (this package's own
+  truncation cap, not part of ASRT's config) is the one thing that can safely differ between
+  instances sharing the same underlying sandbox. Construct one instance per distinct config
+  actually needed, and prefer one shared instance per process when configs would otherwise
+  match, since a "second" config never really takes effect.
+- `SandboxManager.checkDependencies()` returns a structured `{ errors, warnings }` _before_
+  `initialize()` is ever called — no need to catch-and-parse `initialize()`'s own thrown
+  error; `createAsrtBashExecutor` calls it proactively and appends per-platform install hints
+  (`apt`/`dnf`/`pacman`/`brew`) to whichever of `bwrap`/`socat`/`ripgrep` it names as missing.
+
+**Streams progress, not just a final result.** `BashExecutor.run()` is an `AsyncGenerator` —
+zero or more `{ done: false, stdout, stderr, truncated }` snapshots (cumulative, not a delta)
+per `stdout`/`stderr` chunk while the command runs, then one final `{ done: true, ...,
+exitCode }`. This matches the AI SDK's own tool-streaming contract exactly (`execute` can
+return an `AsyncIterable<OUTPUT>` — every yielded value becomes a `preliminary` tool-result,
+the last becomes the real one; see `packages/core`'s `AgentToolResultEvent` doc comment and its
+`preliminary` field, added specifically to support this), so `createBashTool`'s `execute` just
+returns `options.executor.run(...)` directly with no wrapping. The push (child-process events)
+→ pull (`for await`) bridge is `@agent-dev-lab/core`'s `createAsyncChannel` — previously a
+private detail of `agent.stream()`, promoted to a public export for exactly this kind of use.
+
+[Evaluated directly, not just read about](https://github.com/anthropic-experimental/sandbox-runtime) — 5,139 GitHub stars, actively developed (pushed same-day as this evaluation), Apache-2.0, and it's the actual sandboxing mechanism behind Claude Code in production. Uses `sandbox-exec` on macOS, Bubblewrap on Linux, and an alpha Windows path (dedicated `srt-sandbox` local user + WFP egress fence, needs a one-time elevated setup step — **not in scope for this package's initial Windows support, which is "unsupported" full stop, matching the file tools' current stance**). Covers both filesystem (deny-then-allow reads, allow-only writes, glob patterns on macOS, literal paths only on Linux) _and_ network isolation (domain allow/deny lists, optional TLS termination for request-level filtering) — network egress filtering was a non-goal earlier in this doc; ASRT gives it to us essentially for free, so it's worth reconsidering that non-goal once this ships, though not required.
+
+**Verified by hand in this repo's own dev environment** (Linux x86_64, `bwrap`/`socat`/`rg` already present, no Ubuntu-24.04-style userns restriction): the library API (`SandboxManager.initialize(config)` → `wrapWithSandbox(command)` → `spawn(wrapped, { shell: true })` → `SandboxManager.reset()`) correctly ran a sandboxed command, blocked an unallowlisted domain (`curl` got `CONNECT tunnel failed, response 403` through the proxy, default-deny confirmed), and enforced filesystem writes (wrote to an `allowWrite` path, got `Read-only file system` outside it). With `bwrap`/`socat`/`rg` all hidden from `PATH`, `SandboxManager.initialize()` threw synchronously with `Sandbox dependencies not available: ripgrep (rg) not found, bubblewrap (bwrap) not installed, socat not installed` — ASRT already aggregates and names every missing prerequisite in one message; our `BashExecutor` just needs to catch that and append install commands (below), not reimplement the detection.
+
+**Use the library API (`SandboxManager`), not the `srt` CLI binary** — confirmed a real gotcha in the CLI: passing a wrapped command's own short flags as separate argv elements (e.g. `srt curl -sS ...`) gets misparsed as `srt`'s _own_ `-s`/`--settings` flag by its `commander`-based parser (`-sS` read as `-s S`, "Could not load settings from S"). The CLI's own `-c "<command string>"` flag avoids this, but going through `SandboxManager.wrapWithSandbox()` directly sidesteps the whole class of argv-parsing ambiguity, which matters since our tool's command string comes from the model, not a human typing a single well-formed shell invocation.
+
+**Real cost, decided to accept:** on Linux this needs three external OS packages — `bubblewrap`, `socat`, `ripgrep` (`apt-get`/`dnf`/`pacman install bubblewrap socat ripgrep`) — and on Ubuntu 24.04+ specifically, `kernel.apparmor_restrict_unprivileged_userns` (which strips capabilities from unprivileged user namespaces by default on those releases) has to be relaxed for Bubblewrap's own sandboxing to have the capabilities it needs. macOS only needs `ripgrep`. **`AGENTS.md`'s "no Docker, no external services required" is a `packages/core` constraint** — `@agent-dev-lab/tools` is a separate, optionally-installed package, and these are host OS packages, not services; framed the same way `optionalDependencies` are in npm's own sense — present, you get a real kernel-enforced sandbox; absent, the bash tool refuses to run with the aggregated error above (enriched with the apt/dnf/pacman/brew install lines) rather than silently running unsandboxed. Marked "Beta Research Preview" upstream (APIs/config format may evolve) — worth pinning an exact version rather than a caret range given that.
+
+#### Direct `bwrap` / `sandbox-exec` invocation — alternative, non-preferred
+
+The original plan for this section, kept available for projects that want the simpler direct-OS-primitive path without ASRT's network-proxy layer or npm dependency (mirrors Mastra's `LocalSandbox` and, more distantly, [`agent-jail`](https://github.com/Michaelliv/agent-jail) — evaluated and passed over for the _default_ role: 11 GitHub stars, last pushed months ago, single maintainer, no Windows path at all via its own `package.json` `os` field restriction — too unproven to be the primary security boundary here, though its zero-external-package install story, via npm `optionalDependencies` shipping one prebuilt binary per platform, is a good pattern worth remembering if this space matures):
+
+- **Linux — implemented** (`packages/tools/src/bash/native-executor.ts`, `createNativeBashExecutor`): [Bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`) directly — `--ro-bind / /` (the whole host, read-only, so ordinary commands just work) plus `--bind` per `allowWrite` path (read-write) and a hide per `denyRead` path, `--unshare-all` with `--share-net` added back only if `allowNetwork` (all-or-nothing, no per-domain allowlist). Verified directly against real `bwrap` in this repo's dev environment — see `native-executor.test.ts` — not assumed from the flag names. Two things only found by testing, not by reading `bwrap --help`:
+  - **Bind-mount order determines what wins at an overlapping path** (later args override earlier ones) — `allowWrite` must come after the base `--ro-bind / /`, and `denyRead` must come after `allowWrite`, so an explicit deny beats a broader allow rather than the other way around.
+  - **Hiding a `denyRead` _file_ needs a different flag than hiding a directory.** `--tmpfs <path>` (right for a directory) turns an existing _file_ path into an empty _directory_ instead — confusing for anything that checks the path's type (`stat`, a symlink check, ...). Detect the existing type first: `--tmpfs` for a directory or a path that doesn't exist yet, `--ro-bind <an-empty-regular-file> <path>` for an existing file. `/dev/null` doesn't work as that empty-file source — bound outside `/dev` it read as `Permission denied` rather than empty, since `--dev /dev`'s fresh dev mount doesn't carry device-node semantics to a bind target elsewhere; a real empty regular file (created once, lazily, and reused) works cleanly.
+  - (Also worth knowing, not itself a gotcha: killing the outer `bwrap` process with `SIGKILL` cleanly tears down the whole sandboxed process tree — `--die-with-parent` plus `--unshare-all`'s implied PID namespace means no orphaned grandchildren survive, verified with a `sleep` + kill + `pgrep` check.)
+  - **Env defaults to a minimal safe subset** (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TERM`, `TMPDIR`), not the full `process.env` — mirrors this doc's original tier-1 concern about leaking secrets ADL's own `.env` loading puts there; override via `NativeBashExecutorOptions.env` if a project needs more.
+  - **Checking `bwrap`'s presence can't use `spawn`/`spawnSync`'s own PATH resolution** — confirmed a real Bun/Node discrepancy: under Bun, `spawnSync("bwrap", ..., { env: { PATH: "" } })` still resolved a real `bwrap` from the _ambient_ process PATH despite the empty override (Node's `spawnSync` correctly fails to resolve in the same test). `checkBwrapAvailable` walks `process.env.PATH` manually instead, which is deterministic across both runtimes.
+- **macOS — not implemented.** Seatbelt (`sandbox-exec`) would need a hand-written SBPL profile, and this development environment has no Mac to build or verify one against — shipping an unverified low-level sandboxing profile is worse than not shipping one at all. `createNativeBashExecutor` throws a clear "not implemented yet" error on `darwin` rather than silently doing nothing; use `createAsrtBashExecutor` there instead until someone with Mac access builds and verifies this.
+
+No built-in network egress filtering here (unlike ASRT) — a project wanting that on this executor layers its own `BashExecutor` wrapper or accepts all-or-nothing network access.
 
 ### Tier 3 — container/VM boundary (opt-in)
 
@@ -135,30 +195,178 @@ Docker, gVisor, Firecracker, E2B, or similar remote/container backends (Mastra a
 
 ### Design: pluggable executor, not a hardcoded implementation
 
+**Implemented** — `packages/tools/src/bash/executor.ts`. Streams, rather than the
+single-`Promise` shape originally sketched here — see the ASRT section above for why:
+
 ```ts
-// sketch — not implemented
 interface BashExecutor {
   run(
     command: string,
-    opts: { cwd: string; timeoutMs: number; signal?: AbortSignal },
-  ): Promise<{
-    stdout: string;
-    stderr: string;
-    exitCode: number;
-    truncated: boolean;
-  }>;
+    opts: BashExecutorRunOptions,
+  ): AsyncGenerator<BashExecutorUpdate, void, void>;
 }
+// BashExecutorUpdate = BashExecutorProgress ({ done: false, stdout, stderr, truncated })
+//                    | BashExecutorResult   ({ done: true, stdout, stderr, exitCode, truncated })
 ```
 
-Ship a default `localBashExecutor` in `@agent-dev-lab/tools` that auto-selects tier 2 when `bwrap`/`sandbox-exec` is available and falls back to tier 1 otherwise (mirroring Mastra's `nativeSandbox` option, but on by default rather than opt-in, since it costs nothing extra to use when present). A project can supply its own `BashExecutor` (Docker-backed, E2B-backed, whatever) through the same config surface the tool factory takes for tier 3. This is the same shape as the `ApprovalDispatcher` pattern below — the package provides a safe, dependency-free default and an escape hatch for projects that need more.
+`createAsrtBashExecutor` and `createNativeBashExecutor` (Linux only — see above) are both
+implemented; a bare-subprocess tier-1 executor is still design-only, not yet built. The spawn +
+stream-into-a-channel + truncate + timeout-kill logic turned out to be identical between the
+two real executors regardless of how each builds its `argv`/`env` — factored out once into
+`packages/tools/src/bash/process-channel.ts`'s `runArgvIntoChannel`, which both call. A
+non-streaming executor (the still-unbuilt tier-1 one) can just yield the final result alone and
+satisfy the same interface, since that's the degenerate one-yield case — though in practice,
+reusing `runArgvIntoChannel` makes streaming the same amount of work as not streaming, once you
+have `argv`/`env`. `createBashTool({ executor, cwd,
+timeoutMs? })` in `packages/tools/src/bash/tools.ts` is the model-facing tool: it takes a
+`BashExecutor` explicitly — never picks one on its own, no unsandboxed default — and its
+`execute` returns `options.executor.run(...)` directly, no wrapping generator needed, since the
+executor's return type already matches the AI SDK's tool-streaming contract. A non-zero exit
+code is data on the final result, not a thrown error (a failing command is meaningful
+information for the model; `execute` only throws for infrastructure failures like a missing
+sandbox prerequisite). A project would pick an executor explicitly through the same config
+surface tier 3 uses, the same shape as the `ApprovalDispatcher` pattern below. No executor
+silently substitutes for another.
 
 **Also worth borrowing from Mastra's tool API shape** (not just the executor): rather than one synchronous run-to-completion tool, Mastra exposes `execute_command` / `get_process_output` (with `tail` and `wait: true`) / `kill_process` as separate tools, so a model can start a long-running command, poll or tail its output, and kill it — useful for dev servers or long builds. Worth doing eventually, but it's materially more complex (needs a process registry keyed by call/session) than the synchronous version above — treat it as a fast-follow once the synchronous tool ships, not part of this first increment.
+
+### Tool providers, environment introspection, and an AI-based safety check
+
+**Implemented** — `createBashToolProvider` (`src/bash/provider.ts`), `createFileToolProvider`
+(`src/file/provider.ts`), `createWorkspaceToolProvider` (`src/workspace/`). `createFileTools`/
+`createBashTool`/`createAsrtBashExecutor`/`createNativeBashExecutor` all still exist unchanged —
+these are `ToolProvider` wrappers on top of them, for projects that want `cwd`/`root`/
+`timeoutMs`/byte caps set per `agent.run()` call instead of fixed when the agent is built.
+
+- **Per-call config via `ToolProviderContext`, not a runtime flag.** Each provider's context
+  (`{ cwd?, timeoutMs? }` for bash; `{ root?, maxReadBytes?, maxWriteBytes? }` for file; the
+  union of both, sharing one `cwd`, for workspace) overrides the matching constructor option,
+  independently per field. **This is a trust boundary, not a restriction**:
+  `toolProviderContext` is set by the workflow/host calling `agent.run()` — never by the model
+  directly (a model can only reach it if a workflow author deliberately routes model output
+  into it, which is that author's own choice, not something this layer can or should prevent).
+  So a context-provided `root`/`cwd` is free to point anywhere the caller trusts — the file
+  jail (pure userland path-checking, per `jail.ts`'s own doc comment) fully re-scopes to it,
+  no artificial "must be under some default" limit. Bash is asymmetric for a real, inherent
+  reason, not a restriction this layer imposes: the `BashExecutor`'s own OS-level permissions
+  (`allowWrite`/`denyRead`/network) are fixed at executor-construction time — confirmed
+  `SandboxManager.initialize()` is idempotent, so a later call with a different config is
+  silently ignored (see `asrt-executor.ts`'s doc comment) — so pointing `cwd` outside the
+  executor's `allowWrite` still fails at the OS level regardless of what context says.
+- **`createWorkspaceToolProvider` composes the atomic providers rather than reimplementing
+  jail/bash construction**, translating its one shared `cwd` into each one's own field name.
+  Deliberately not `combineToolProviders` (`packages/core`): that namespaces context per
+  source, which would let the file root and bash cwd drift apart on the exact thing meant to
+  be shared. This is the structural answer to "differentiate command-only sandboxes from
+  workspace tools that have everything for working on a codebase in a folder" —
+  `createBashToolProvider` alone for the former, `createWorkspaceToolProvider` for the latter
+  (the Mastra-style combined surface) — not a runtime flag on one implementation.
+- **A real TypeScript gotcha found building this**: `Tools` in `ToolProvider<Tools extends
+ToolSet>` requires an implicit index signature, and only a plain `type X = { ... }`
+  object-literal type alias gets one — an `interface`, even only _indirectly_ involved (via
+  `interface X extends Y` or `type X = Y & {...}` where `Y` is an interface), loses it, and
+  fails with "Index signature for type 'string' is missing." Verified directly with a minimal
+  repro before touching the real code. `BashProviderTools`/`FileProviderTools`/`WorkspaceTools`
+  are therefore plain object-literal aliases referencing the existing `BashTools`/`FileTools`
+  interfaces' fields via indexed access (e.g. `bash: BashTools["bash"]`) rather than
+  `extends`/`&` — keeps one definition of each tool's shape without tripping the constraint.
+- **`resolveDefaultSandboxRoot(projectRoot?)`** (`src/paths.ts`) mirrors `@agent-dev-lab/core`'s
+  `resolveAdlSqlitePath` exactly: pure path resolution (no FS side effects — `mkdirSync` stays
+  the caller's job, same split as that function's own `mkdirSync` happening at DB-open time,
+  not in the resolver), `ADL_SANDBOX_ROOT` env override (absolute as-is), else
+  `.data/sandbox` relative to `projectRoot` (or `process.cwd()`). Matches the SQLite store's
+  own `.data/` convention.
+- **Describe-env tools, named for their actual scope** — `describeBashEnv`
+  (`createBashToolProvider`), `describeFileEnv` (`createFileToolProvider`), and
+  `describeWorkspaceEnv` (`createWorkspaceToolProvider`, merging both) so the model can
+  proactively learn its own constraints (cwd, writable/denied paths, network access, byte caps)
+  instead of discovering them only by hitting a denial — and can then tell the user precisely
+  what permission it would need. **Deliberately not called `describeEnvironment`**: each one
+  only covers what `@agent-dev-lab/tools`' own bash/file sandbox manages, not the agent's whole
+  environment — a project may attach other tools with their own network access (a web-search
+  tool, say) that these know nothing about. A generic name would imply a completeness the tool
+  can't back up; each description string says so explicitly too. Backed by a new **required**
+  `BashExecutor.describe(): BashExecutorDescription` method — both `createAsrtBashExecutor` and
+  `createNativeBashExecutor` already hold their resolved config in closure, so `describe()` just
+  returns it, no new computation. (One honest caveat: `describe()` reports the instance's _own_
+  configured options, which is the config actually enforced _unless_ a different
+  `createAsrtBashExecutor` already initialized the process-wide `SandboxManager` first — already
+  called out above as an anti-pattern to avoid, not worth extra complexity here to detect.)
+- **Agent-based bash safety check, via a `Workflow`** — `createBashToolProvider`'s optional
+  `safetyCheck` option is itself a `Workflow<{ command, cwd }, { safe, reason }>`
+  (`BashSafetyCheckWorkflow`), layered on top of the OS-level sandbox specifically because a
+  filesystem/network jail can't catch non-filesystem dangerous intent (fork bombs, resource
+  exhaustion, destructive-but-permitted operations). A `Workflow`, not a bare `Agent` — plain
+  async TypeScript, so the check can call one agent, chain a cheap heuristic pre-filter before
+  an LLM judge, retry, or combine several checks, not just one chat-style turn. Concretely
+  typed (not the `Workflow<unknown, unknown>` widening a heterogeneous registry like
+  `AdlProjectConfig.workflows` needs) since this is one fixed shape — the compiler checks a
+  passed-in workflow's input/output for real. No manual schema re-validation at the call
+  site: `workflow.run(...).result` is already guaranteed by the runtime to match
+  `outputSchema` before it resolves (a mismatch rejects instead), so only a rejected `.result`
+  needs handling — **fails closed**: any rejection (a thrown error inside the workflow, or an
+  output-schema mismatch) is treated as unsafe, matching this package's "never silently
+  degrade" posture. An unsafe verdict yields one final `{ exitCode: 1, stderr: "Blocked by
+safety check: <reason>", ... }` instead of running the command — a denial is data for the
+  model, not an uncatchable tool-call error, same as any other non-zero exit code. Explicitly
+  scoped narrower than the `ApprovalDispatcher` sketch below: that's primarily a _human_-approval
+  API (a separate, later piece of work); this is automated, bash-only, and doesn't touch that
+  interface at all.
+
+### Testing: Node as the reference runtime for process/sandbox code
+
+The rest of ADL runs its tests under `bun test`, but the bash executors are exactly the kind of
+code where Bun and Node have been found to disagree (see the `spawn` PATH-resolution gotcha
+above) — so `packages/tools/src/bash/{process-channel,native-executor,asrt-executor}.test.ts`
+are written against `node:test` + `node:assert/strict` instead, runnable under **both**
+`bun test` (still part of the normal per-package suite) and `node --test` via the dedicated
+`test:node` turbo task (`bun run test:node` from repo root). This reflects a repo-wide decision
+to prioritize Node as the reference runtime going forward rather than treating Bun and Node as
+equally-supported targets indefinitely — Bun stays the dev/monorepo tool (install, `bun run
+dev`, most of the test suite), but process-level code gets verified against Node directly
+instead of trusting that Bun's behavior matches it.
+
+Two things only surfaced by actually running this under `node --test` (which — unlike
+`bun test` — waits for a natural process exit instead of force-ending the run):
+
+- **`SandboxManager` (ASRT) never lets a process exit on its own without an explicit
+  `SandboxManager.reset()` call.** ASRT's own docs describe `reset()` as optional, "happens
+  automatically on process exit" — that did not hold up: a plain Node script that finishes all
+  its own work and calls nothing else hangs indefinitely, most likely because `SandboxManager`'s
+  proxy bridge processes/sockets are never unref'd. `bun test` masked this completely — it
+  force-ends the whole process at suite completion regardless of open handles, so no hang was
+  ever visible under it, but every one of `SandboxManager`'s child processes leaked silently
+  instead (confirmed: dozens of orphaned `socat` bridges accumulated across a session's worth of
+  `bun test` runs). `asrt-executor.test.ts` now calls `SandboxManager.reset()` in its `after()`
+  hook to fix this for the test process itself. **This is not just a test artifact** — any real
+  host application (a long-running CLI command, a server process) that constructs a
+  `createAsrtBashExecutor` needs to call `SandboxManager.reset()` on its own shutdown path too,
+  or it will neither exit cleanly nor release these processes. `asrt-executor.ts`'s doc comment
+  now says so explicitly; there's no framework-level shutdown hook for this yet (open question —
+  see near-term roadmap).
+- **Node's ESM resolver is stricter than Bun's**: relative imports need explicit `.ts`
+  extensions (`allowImportingTsExtensions` added to `packages/tools/tsconfig.json`), and
+  `@agent-dev-lab/core` must already be built (`dist/`, via the `default` export condition) for
+  `node --test` to resolve it at all — Node can't fall back to `core`'s source the way Bun's
+  `bun`/`development` export conditions let it. `turbo.json`'s `test:node` task declares
+  `dependsOn: ["^build"]` for this reason.
 
 ---
 
 ## Web search tool
 
-Before building anything custom here, finish the audit called for in `near-term-roadmap.md` §3: several providers already expose hosted web search as an AI SDK provider tool (e.g. OpenAI's `web_search`), and those run server-side on the provider's infrastructure — no sandboxing concern on ADL's side at all, since ADL never executes the fetch itself. **Prefer provider-native search whenever the configured model supports it**, and only fall back to a custom implementation (project-supplied fetch + an allow/deny domain list + response size caps) for providers/models without one. The custom fallback's "sandboxing" is really just: no arbitrary redirects to internal/private IP ranges (SSRF guard), and treating fetched content as untrusted text, never executed.
+**Audit done** — see `packages/tools/README.md`'s "Provider-native tools" table for the full
+allowlist (checked against actual installed types, not assumed): OpenAI's `openai.tools.webSearch()`
+runs entirely server-side (search + page fetch both happen on OpenAI's infra) and is already
+usable with this repo's default `openai(modelId)` factory — no sandboxing concern on ADL's side
+at all, since ADL never executes the fetch itself. **Prefer provider-native search whenever the
+configured model supports it**, and only fall back to a custom implementation (project-supplied
+fetch + an allow/deny domain list + response size caps) for providers/models without one. The
+custom fallback's "sandboxing" is really just: no arbitrary redirects to internal/private IP
+ranges (SSRF guard), and treating fetched content as untrusted text, never executed. That same
+table also confirms `fileSearch` (OpenAI-hosted vector-store retrieval) is **not** a substitute
+for either this or the planned `fetchUrl` tool, despite the name looking like a match, and that
+`localShell` is **not** a substitute for `createBashTool` (schema-only, still client-executed).
 
 ---
 

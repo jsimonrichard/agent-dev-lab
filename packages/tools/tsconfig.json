@@ -1,0 +1,13 @@
+{
+  "extends": "@agent-dev-lab/core/tsconfig/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "src",
+    "types": ["node", "bun"],
+    // Needed for the process/sandbox files' relative imports to carry an explicit `.ts`
+    // extension — required for `node --test` (plain Node ESM resolution, unlike Bun's, does
+    // not guess extensions) to run them under real Node; see `package.json`'s `test:node`.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts"]
+}

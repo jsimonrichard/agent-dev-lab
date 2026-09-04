@@ -122,6 +122,42 @@ Keeps core runtime free of vector DB dependencies; playground can ship an exampl
 
 ---
 
+## Stateful code-execution tool (future)
+
+Not the same thing as the `bash` tool's own long-running-command fast-follow (Mastra-style
+`execute_command`/`get_process_output`/`kill_process` over a process registry, sketched in
+[`tool-sandboxing.md`](./tool-sandboxing.md)'s Bash tool section) — this is a **persistent
+interpreter/kernel** (e.g. a Python/Jupyter kernel) that a research-oriented agent can send
+successive snippets to, keeping variables/imports alive across calls within one run, rather than
+each `bash` invocation being a fresh, stateless process. Motivated by the "not only coding"
+half of `@agent-dev-lab/tools`'s intended audience — quick data analysis, numeric checks,
+plotting — where re-establishing state every call is real friction a one-shot `bash` tool
+doesn't have for shell commands.
+
+**Why this is deferred here rather than added to `tool-sandboxing.md` as a fourth tool family:**
+unlike file/bash/web-search/grep/fetchUrl, a kernel has a **lifecycle that outlives a single tool
+call** — it needs to be started once per run (or per conversation) and torn down deterministically
+when that run ends, which is exactly the kind of run-scoped resource management
+`packages/tools`' per-call `ToolProvider` pattern doesn't currently address (today's providers are
+stateless factories called fresh each time; nothing in `@agent-dev-lab/core` currently gives a
+provider a "run started" / "run ended" hook to hang kernel start/stop off of). Building this
+properly is a **core API addition** — some notion of run-scoped resource lifecycle, not just a new
+sandboxed tool — so it belongs in this file alongside the other core-surface extensions rather
+than being scoped as more `packages/tools` work. Concretely still open:
+
+- Where the kernel process itself is sandboxed (reuse `BashExecutor`'s tiers, or a dedicated
+  primitive — a long-lived process is a different isolation problem than a one-shot command).
+- What "run ended" means precisely for cleanup purposes — ties into the same open shutdown-hook
+  gap `tool-sandboxing.md` flags for `SandboxManager.reset()` (no framework-level shutdown hook
+  exists today for *any* per-run resource, not just this one).
+- One kernel per run vs. per conversation vs. pooled/shared — affects both isolation and cost.
+
+**v1 for this item:** design notes only, same as everything else in this file — no
+implementation planned until the run-scoped-resource question above has an answer that isn't
+specific to this one tool.
+
+---
+
 ## Relationship to Mastra-style processors
 
 Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a unified story until extension ordering, failure modes, and interaction with **structured output** are clear. See comparison in prior design discussion — prefer one extension model over many partial APIs.
@@ -149,4 +185,4 @@ A later release can add a **process host export** (same package, e.g. `@agent-de
 - [x] Document only (this file + cross-links)
 - [x] Ship **structured output** on agents without extensions ([agents guide](../apps/docs/src/content/docs/core/agents.md))
 - [x] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
-- [ ] Defer `ctx.requestApproval`, extension registry, RAG package
+- [ ] Defer `ctx.requestApproval`, extension registry, RAG package, stateful code-execution tool
