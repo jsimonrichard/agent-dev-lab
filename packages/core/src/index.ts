@@ -104,6 +104,9 @@ export type {
 export { AdlError, isAdlError } from "./errors";
 export type { AdlErrorCode } from "./errors";
 
+export { createAsyncChannel } from "./async-channel";
+export type { AsyncChannel } from "./async-channel";
+
 export { createTemplate, TemplateEngine } from "./template";
 export { WorkflowContextScope } from "./workflow/workflow-context-scope";
 export type {
@@ -181,6 +184,7 @@ export type {
   ExtendedToolProviderContext,
   ToolProvider,
   ToolProviderContextField,
+  ToolProviderToolSummary,
 } from "./tools";
 
 export { loadPromptFile, resolvePromptPath, shouldRereadPromptFileOnRender } from "./template/load";

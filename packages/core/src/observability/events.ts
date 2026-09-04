@@ -144,12 +144,23 @@ export type AgentToolCallEvent = AgentEventBase & {
   toolName: string;
 };
 
+/**
+ * Fires once per value a tool's `execute` yields when it returns an `AsyncIterable`, plus one
+ * more — the AI SDK's own `executeTool` yields *every* value from the loop (including the
+ * last) as a `preliminary` result, then separately re-emits that same last value again as the
+ * final, non-preliminary one. So N yields produce N+1 of these events for one `toolCallId`,
+ * not N, and the last two events carry the same `result` (one `preliminary: true`, one not).
+ * `preliminary` is omitted (`undefined`, same as `false`) on the final event and on tools that
+ * never streamed at all (a plain `Promise`-returning `execute` fires exactly one of these). A
+ * consumer that only wants the finished result should filter `!event.preliminary`.
+ */
 export type AgentToolResultEvent = AgentEventBase & {
   type: "agent_tool_result";
   agentId: string;
   toolCallId: string;
   toolName: string;
   result: unknown;
+  preliminary?: boolean;
 };
 
 export type AgentTextDeltaEvent = AgentEventBase & {

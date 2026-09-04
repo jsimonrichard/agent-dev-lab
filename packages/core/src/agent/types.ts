@@ -185,7 +185,11 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
  *
  * **`text` / `output`:** the final model response. Intermediate tool-call requests
  * are in `messages` / `newMessages` and as `agent_tool_call` / `agent_tool_result`
- * events — not in `text`.
+ * events — not in `text`. A tool whose `execute` returns an `AsyncIterable` (streaming
+ * progress, e.g. a long-running shell command) emits an `agent_tool_result` per yielded
+ * value plus one more (see that event's own doc comment), each `preliminary: true` except
+ * the last — none of the preliminary ones reach `messages` / `newMessages` or the model
+ * itself, only the final one does.
  *
  * **`output`:** typed payload from {@link AgentDefinition.outputSchema}
  * (or a per-call override). When no schema is set, this is the same string as `text`.

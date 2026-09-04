@@ -5,6 +5,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { AdlError, isAdlError } from "../errors";
+import type { AgentToolResultEvent } from "../observability/events";
 import { createTestRuntime } from "../runtime/create-test";
 import { createToolProvider } from "../tools/provider";
 import type { ExtendedToolProviderContext } from "../tools/provider";
@@ -811,6 +812,67 @@ describe("AgentImpl tools", () => {
     }).result;
 
     expect(seenRoot).toBe("/tmp/sandbox");
+  });
+});
+
+describe("AgentImpl streaming tool results", () => {
+  it("emits one agent_tool_result per yielded value, preliminary except the last", async () => {
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("longRunning", "{}");
+            }
+            return finalTextStream("done");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "streaming-tool",
+      systemPrompt: "Use tools when helpful.",
+      tools: {
+        longRunning: tool({
+          description: "a tool that streams progress before finishing",
+          inputSchema: z.object({}),
+          execute: async function* () {
+            yield "partial 1";
+            yield "partial 2";
+            yield "final result";
+          },
+        }),
+      },
+    });
+
+    const handle = agent.run({ memoryScope: "streaming-notes", user: "run it" });
+    await handle.result;
+
+    const events = await adl.services.stores.workflow?.listEvents({
+      agentCallId: handle.agentCallId,
+    });
+    const toolResultEvents =
+      events?.filter(
+        (event): event is AgentToolResultEvent => event.type === "agent_tool_result",
+      ) ?? [];
+
+    // The AI SDK's own `executeTool` yields every value from the loop as `preliminary`
+    // (including the last one), then re-emits that same last value once more as `final` —
+    // so N yields produce N+1 events, not N.
+    expect(toolResultEvents.map((event) => event.result)).toEqual([
+      "partial 1",
+      "partial 2",
+      "final result",
+      "final result",
+    ]);
+    expect(toolResultEvents.map((event) => event.preliminary)).toEqual([
+      true,
+      true,
+      true,
+      undefined,
+    ]);
   });
 });
 

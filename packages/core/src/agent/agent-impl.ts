@@ -1,5 +1,6 @@
 import { Output, streamText, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
 
+import { createAsyncChannel, type AsyncChannel } from "../async-channel";
 import { AdlError } from "../errors";
 import { linkAbortController, abortError, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
@@ -364,6 +365,7 @@ export class AgentImpl<
                   toolCallId: chunk.toolCallId,
                   toolName: chunk.toolName,
                   result: chunk.output,
+                  preliminary: chunk.preliminary,
                 });
               }
             },
@@ -468,81 +470,6 @@ export class AgentImpl<
       // Title generation is best-effort and must not fail the conversation turn.
     }
   }
-}
-
-type AsyncChannel<T> = {
-  push(value: T): void;
-  close(): void;
-  fail(error: unknown): void;
-  [Symbol.asyncIterator](): AsyncGenerator<T, void, unknown>;
-};
-
-function createAsyncChannel<T>(): AsyncChannel<T> {
-  const buffer: T[] = [];
-  const waiters: Array<{
-    resolve: (result: IteratorResult<T>) => void;
-    reject: (error: unknown) => void;
-  }> = [];
-  let closed = false;
-  let failure: unknown;
-
-  const settleWaiters = () => {
-    while (waiters.length > 0 && (buffer.length > 0 || closed)) {
-      const waiter = waiters.shift();
-      if (!waiter) {
-        break;
-      }
-      if (failure !== undefined) {
-        waiter.reject(failure);
-        continue;
-      }
-      if (buffer.length > 0) {
-        waiter.resolve({ value: buffer.shift() as T, done: false });
-        continue;
-      }
-      waiter.resolve({ value: undefined as T, done: true });
-    }
-  };
-
-  return {
-    push(value: T) {
-      if (closed) {
-        return;
-      }
-      buffer.push(value);
-      settleWaiters();
-    },
-    close() {
-      closed = true;
-      settleWaiters();
-    },
-    fail(error: unknown) {
-      failure = error;
-      closed = true;
-      settleWaiters();
-    },
-    async *[Symbol.asyncIterator]() {
-      while (true) {
-        if (buffer.length > 0) {
-          yield buffer.shift() as T;
-          continue;
-        }
-        if (failure !== undefined) {
-          throw failure;
-        }
-        if (closed) {
-          return;
-        }
-        const result = await new Promise<IteratorResult<T>>((resolve, reject) => {
-          waiters.push({ resolve, reject });
-        });
-        if (result.done) {
-          return;
-        }
-        yield result.value;
-      }
-    },
-  };
 }
 
 /** AI SDK exposes structured stream output only via partialOutputStream on streamText. */
