@@ -4,3 +4,5 @@ export { editor, reviewSchema, type Review } from "./editor";
 export { researchAssistant } from "./research-assistant";
 export { drafter } from "./drafter";
 export { reviser } from "./reviser";
+export { sandboxAgent } from "./sandbox-agent";
+export { sandboxAgentNative } from "./sandbox-agent-native";

@@ -149,7 +149,7 @@ than being scoped as more `packages/tools` work. Concretely still open:
   primitive — a long-lived process is a different isolation problem than a one-shot command).
 - What "run ended" means precisely for cleanup purposes — ties into the same open shutdown-hook
   gap `tool-sandboxing.md` flags for `SandboxManager.reset()` (no framework-level shutdown hook
-  exists today for *any* per-run resource, not just this one).
+  exists today for _any_ per-run resource, not just this one).
 - One kernel per run vs. per conversation vs. pooled/shared — affects both isolation and cost.
 
 **v1 for this item:** design notes only, same as everything else in this file — no

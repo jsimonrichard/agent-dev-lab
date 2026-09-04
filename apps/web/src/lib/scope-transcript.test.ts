@@ -193,7 +193,10 @@ describe("partitionScopeTranscript", () => {
       committed(4, "ep-1", 6),
     ];
     expect(
-      partitionScopeTranscript(messages, inOrderEvents, { episodeId: "ep-1", memoryScope: "notes" }),
+      partitionScopeTranscript(messages, inOrderEvents, {
+        episodeId: "ep-1",
+        memoryScope: "notes",
+      }),
     ).toEqual({ prior: [], current: messages, later: [] });
 
     const outOfOrderEvents = [

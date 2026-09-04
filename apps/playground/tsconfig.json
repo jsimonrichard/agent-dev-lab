@@ -5,7 +5,11 @@
       "#adl": ["./src/adl.ts"]
     },
     "noEmit": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    // @agent-dev-lab/tools' source (resolved here via its "bun"/"development" export
+    // condition) has explicit `.ts` extensions on its relative imports — see that package's
+    // own tsconfig.json for why.
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts"]
 }

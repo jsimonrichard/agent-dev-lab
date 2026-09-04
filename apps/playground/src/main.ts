@@ -82,6 +82,12 @@ try {
   const output = await handle.result;
   console.log("\n[playground] Output:\n");
   console.log(JSON.stringify(output, null, 2));
+  // Explicit exit rather than letting the process drain naturally: the sandbox-demo
+  // workflow's ASRT executor (@anthropic-ai/sandbox-runtime) registers a SandboxManager
+  // that never lets the process exit on its own — see notes/tool-sandboxing.md's testing
+  // section. `process.exit()` fires ASRT's own `SIGTERM`/`exit` cleanup hook, same as it
+  // would for any real host application shutting down.
+  process.exit(0);
 } catch (error) {
   console.error("\n[playground] Workflow run failed:");
   console.error(error instanceof Error ? error.message : error);

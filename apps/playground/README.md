@@ -4,26 +4,27 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 
 ## What it demonstrates
 
-| Concept                                          | Where                                                                                              |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Agents (`adl.createAgent`)                       | `src/agents/` — outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic |
-| Structured output (Zod schema)                   | `outliner` (outline), `editor` (review)                                                            |
-| Instruction + request templates                  | `src/prompts/` — file-based (`outliner.md`) and inline templates                                   |
-| Tools (`tool` + tool loop)                       | `src/tools/knowledge.ts` + `answer-question` workflow                                              |
-| Multi-agent workflow                             | `src/workflows/write-article.ts` (outline → draft → review → revise)                               |
-| Optional scope, `messages`, handoff              | `src/workflows/shared-scope.ts` (drafter → reviser on one `memoryScope`)                           |
-| Parallel agent step                              | `src/workflows/literature-review.ts` (researcher + critic)                                         |
-| Workflow tool loop in TypeScript                 | `src/workflows/answer-question.ts`                                                                 |
-| Steps, `memoryScope`, `ctx.emit(name, payload?)` | LLM workflows                                                                                      |
-| SQLite persistence                               | `src/adl.ts` — `.data/agent-dev-lab.sqlite`                                                        |
-| No-LLM workflow (baseline)                       | `src/workflows/demo-counter.ts`                                                                    |
+| Concept                                            | Where                                                                                                                                                                   |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agents (`adl.createAgent`)                         | `src/agents/` — outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic, sandbox-agent, sandbox-agent-native                                 |
+| Structured output (Zod schema)                     | `outliner` (outline), `editor` (review)                                                                                                                                 |
+| Instruction + request templates                    | `src/prompts/` — file-based (`outliner.md`) and inline templates                                                                                                        |
+| Tools (`tool` + tool loop)                         | `src/tools/knowledge.ts` + `answer-question` workflow                                                                                                                   |
+| Sandboxed workspace tools (`@agent-dev-lab/tools`) | `src/tools/sandbox.ts` + `sandbox-demo` workflow (ASRT and native `bwrap` executors, per-run `cwd` via `toolProviderContext`, an AI-based `bash-safety-check` workflow) |
+| Multi-agent workflow                               | `src/workflows/write-article.ts` (outline → draft → review → revise)                                                                                                    |
+| Optional scope, `messages`, handoff                | `src/workflows/shared-scope.ts` (drafter → reviser on one `memoryScope`)                                                                                                |
+| Parallel agent step                                | `src/workflows/literature-review.ts` (researcher + critic)                                                                                                              |
+| Workflow tool loop in TypeScript                   | `src/workflows/answer-question.ts`                                                                                                                                      |
+| Steps, `memoryScope`, `ctx.emit(name, payload?)`   | LLM workflows                                                                                                                                                           |
+| SQLite persistence                                 | `src/adl.ts` — `.data/agent-dev-lab.sqlite`                                                                                                                             |
+| No-LLM workflow (baseline)                         | `src/workflows/demo-counter.ts`                                                                                                                                         |
 
 ### Registry
 
 `adl.config.ts` registers everything so the inspection UI and CLI can discover it:
 
-- **agents:** `outliner`, `writer`, `editor`, `drafter`, `reviser`, `research-assistant`, `researcher`, `critic`
-- **workflows:** `demo-counter`, `write-article`, `answer-question`, `literature-review`, `shared-scope`
+- **agents:** `outliner`, `writer`, `editor`, `drafter`, `reviser`, `research-assistant`, `researcher`, `critic`, `sandbox-agent`, `sandbox-agent-native`
+- **workflows:** `demo-counter`, `write-article`, `answer-question`, `literature-review`, `shared-scope`, `sandbox-demo`
 - **templates:** `outliner`, `article-brief`, `draft-request`, `revise-request`
 
 ## Model & API key
@@ -60,6 +61,14 @@ bun run dashboard
 bun run start answer-question
 bun run start write-article
 bun run start literature-review
+
+# @agent-dev-lab/tools sandboxed workspace tools (needs bwrap on PATH; the "asrt" backend
+# additionally needs socat + ripgrep — see notes/tool-sandboxing.md). "asrt" also runs every
+# command through the bash-safety-check workflow first (an AI-based check on top of the
+# OS sandbox); "subdir" demonstrates a per-run cwd via toolProviderContext.
+adl workflow run sandbox-demo --input '{"backend":"asrt"}'
+adl workflow run sandbox-demo --input '{"backend":"asrt","subdir":"run-1"}'
+adl workflow run sandbox-demo --input '{"backend":"native"}'
 ```
 
 From the repo root, `bun run dev:web` points the framework inspection UI at this directory via
@@ -74,10 +83,10 @@ src/
   adl.ts               # createAdlRuntime() with SQLite stores
   model.ts             # shared OpenAI model from env
   main.ts              # CLI demo runner with a live event trace
-  agents/              # outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic
+  agents/              # outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic, sandbox-agent(-native)
   prompts/             # instruction + request templates (incl. outliner.md)
-  tools/               # knowledge-base lookup + safe calculator
-  workflows/           # demo-counter, write-article, answer-question, literature-review, shared-scope
+  tools/               # knowledge-base lookup + safe calculator; sandbox.ts (@agent-dev-lab/tools)
+  workflows/           # demo-counter, write-article, answer-question, literature-review, shared-scope, sandbox-demo
 .adl/                  # local project state (gitignored)
 .data/                 # SQLite store (gitignored)
 ```

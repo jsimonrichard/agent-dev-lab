@@ -2,13 +2,23 @@ import type { AdlProjectConfig, AnyAgent } from "@agent-dev-lab/core";
 
 import { adl } from "#adl";
 
-import { drafter, editor, outliner, researchAssistant, reviser, writer } from "./src/agents";
+import {
+  drafter,
+  editor,
+  outliner,
+  researchAssistant,
+  reviser,
+  sandboxAgent,
+  sandboxAgentNative,
+  writer,
+} from "./src/agents";
 import { critic } from "./src/agents/critic";
 import { researcher } from "./src/agents/researcher";
 import { promptTemplates } from "./src/prompts";
 import { answerQuestion } from "./src/workflows/answer-question";
 import { demoCounter } from "./src/workflows/demo-counter";
 import { literatureReview } from "./src/workflows/literature-review";
+import { sandboxDemo } from "./src/workflows/sandbox-demo";
 import { sharedScope } from "./src/workflows/shared-scope";
 import { writeArticle } from "./src/workflows/write-article";
 
@@ -26,6 +36,8 @@ const agents: AnyAgent[] = [
   researchAssistant,
   researcher,
   critic,
+  sandboxAgent,
+  sandboxAgentNative,
 ];
 
 /**
@@ -38,6 +50,13 @@ export default {
   name: "playground",
   adl,
   agents,
-  workflows: [demoCounter, writeArticle, answerQuestion, literatureReview, sharedScope],
+  workflows: [
+    demoCounter,
+    writeArticle,
+    answerQuestion,
+    literatureReview,
+    sharedScope,
+    sandboxDemo,
+  ],
   templates: promptTemplates,
 } satisfies AdlProjectConfig;
