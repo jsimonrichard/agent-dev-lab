@@ -54,12 +54,16 @@ function partitionByCommitTotals(
     return null;
   }
 
-  const totalByEpisode = new Map(
-    commits.map((commit) => [
-      commit.episodeId,
-      Math.max(0, (commit.total as number) - commitTotalOffset),
-    ]),
-  );
+  // A single episode commits once per tool round, so it can appear here more than once —
+  // keep the highest total seen rather than whichever commit happens to iterate last.
+  const totalByEpisode = new Map<string, number>();
+  for (const commit of commits) {
+    const total = Math.max(0, (commit.total as number) - commitTotalOffset);
+    const existing = totalByEpisode.get(commit.episodeId);
+    if (existing === undefined || total > existing) {
+      totalByEpisode.set(commit.episodeId, total);
+    }
+  }
 
   let priorEnd = 0;
   for (let i = 0; i < index; i++) {

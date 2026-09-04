@@ -174,6 +174,42 @@ describe("partitionScopeTranscript", () => {
     });
   });
 
+  it("keeps every tool round of one episode in current, even if its commits arrive out of order", () => {
+    // A tool-using agent commits once per round within the same episode (e.g. sandbox-agent:
+    // one commit after writeFile, another after bash). All of it belongs to "current" for
+    // that episode, however the per-round commit events happen to be ordered.
+    const messages = [
+      msg("u1", "user", "task"),
+      msg("a1", "assistant", "call writeFile"),
+      msg("t1", "tool", "writeFile result"),
+      msg("a2", "assistant", "call bash"),
+      msg("t2", "tool", "bash result"),
+      msg("a3", "assistant", "done"),
+    ];
+    const inOrderEvents = [
+      started(1, "ep-1"),
+      committed(2, "ep-1", 3),
+      committed(3, "ep-1", 5),
+      committed(4, "ep-1", 6),
+    ];
+    expect(
+      partitionScopeTranscript(messages, inOrderEvents, { episodeId: "ep-1", memoryScope: "notes" }),
+    ).toEqual({ prior: [], current: messages, later: [] });
+
+    const outOfOrderEvents = [
+      started(1, "ep-1"),
+      committed(2, "ep-1", 3),
+      committed(4, "ep-1", 6),
+      committed(3, "ep-1", 5),
+    ];
+    expect(
+      partitionScopeTranscript(messages, outOfOrderEvents, {
+        episodeId: "ep-1",
+        memoryScope: "notes",
+      }),
+    ).toEqual({ prior: [], current: messages, later: [] });
+  });
+
   it("falls back to user-turn splitting when commit totals are missing", () => {
     const events: RunEvent[] = [
       started(1, "ep-1"),
