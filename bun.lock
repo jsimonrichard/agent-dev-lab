@@ -21,7 +21,7 @@
     },
     "apps/cli": {
       "name": "@agent-dev-lab/cli",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "bin": {
         "adl": "./dist/cli.js",
       },
@@ -68,7 +68,7 @@
     },
     "apps/web": {
       "name": "@agent-dev-lab/web",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@agent-dev-lab/core": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
@@ -111,7 +111,7 @@
     },
     "packages/core": {
       "name": "@agent-dev-lab/core",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@types/better-sqlite3": "^9.6.0",

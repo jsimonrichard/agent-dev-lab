@@ -1,5 +1,12 @@
 # @agent-dev-lab/core
 
+## 0.0.4
+
+### Patch Changes
+
+- 76c6bde: Add run tagging: `workflow.run(input, { tags })` records labels on the run, `WorkflowStore.listRuns({ tags })` filters by them (any-of match), and `WorkflowStore.setRunTags` replaces a run's tags after the fact. The inspection UI sidebar shows tag badges and a tag filter box once a workflow has any tagged runs. First step toward organizing the flat run list (see `notes/near-term-roadmap.md` §5) — git-hash tagging and input datasets are follow-ups that build on this.
+- 8d85d21: Bump the `zod` dependency to `^4.1.8` (the `ai` / `@ai-sdk/openai` versions already in use support either 3 or 4 as a peer). Projects still on Zod 3 for their own workflow/agent/template schemas will need to upgrade to Zod 4 alongside this release.
+
 ## 0.0.3
 
 ### Patch Changes
