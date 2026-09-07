@@ -11,9 +11,9 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.13"
 
@@ -29,9 +29,9 @@ jobs:
     name: Typecheck, Test & Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.13"
 
@@ -65,6 +65,14 @@ jobs:
 
       - name: Test
         run: bun run test
+
+      # packages/tools' process/spawn-heavy bash executors treat Node, not Bun, as
+      # their reference runtime (see AGENTS.md and notes/tool-sandboxing.md): they're
+      # written against node:test so they run under both, and `bun test` above only
+      # covers the Bun half. This is the half that catches Bun/Node divergence in
+      # spawn and process-exit behavior, so run it too.
+      - name: Test (Node reference runtime)
+        run: bun run test:node
 
       - name: Build
         run: bun run build
