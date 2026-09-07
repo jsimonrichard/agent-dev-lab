@@ -165,6 +165,9 @@ run_checks() {
   step "typecheck"    bun run typecheck    || return 1
   [ "$MODE" = "full" ] || return 0
   step "test"         bun run test         || return 1
+  # Node is the reference runtime for packages/tools' process/spawn-level code, so
+  # CI runs this too; keep the gate in step or the gate can pass where CI fails.
+  step "test:node"    bun run test:node    || return 1
   step "build"        bun run build        || return 1
 }
 

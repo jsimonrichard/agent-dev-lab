@@ -66,5 +66,13 @@ jobs:
       - name: Test
         run: bun run test
 
+      # packages/tools' process/spawn-heavy bash executors treat Node, not Bun, as
+      # their reference runtime (see AGENTS.md and notes/tool-sandboxing.md): they're
+      # written against node:test so they run under both, and `bun test` above only
+      # covers the Bun half. This is the half that catches Bun/Node divergence in
+      # spawn and process-exit behavior, so run it too.
+      - name: Test (Node reference runtime)
+        run: bun run test:node
+
       - name: Build
         run: bun run build
