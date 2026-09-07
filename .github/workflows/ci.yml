@@ -37,6 +37,29 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # @agent-dev-lab/tools' bash executors are tested against real OS sandboxing
+      # primitives, not mocks (see notes/tool-sandboxing.md): createNativeBashExecutor
+      # needs `bwrap`, and createAsrtBashExecutor additionally needs `socat` and
+      # `ripgrep`. Neither executor falls back to running unsandboxed when these are
+      # missing — the tests fail outright — so CI has to provide them.
+      - name: Install sandbox dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap socat ripgrep
+
+      # Ubuntu 24.04+ (which ubuntu-latest now is) strips capabilities from
+      # unprivileged user namespaces by default, which is exactly what bubblewrap
+      # relies on. Relax it for the runner, guarded so this stays a no-op on images
+      # that don't have the knob at all.
+      - name: Allow unprivileged user namespaces (bubblewrap)
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Verify bubblewrap can actually create a sandbox
+        run: bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --unshare-all -- /bin/true
+
       - name: Typecheck
         run: bun run typecheck
 
