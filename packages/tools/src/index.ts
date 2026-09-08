@@ -54,3 +54,25 @@ export type {
   WorkspaceToolProviderOptions,
 } from "./workspace";
 export { DEFAULT_SANDBOX_RELATIVE_PATH, resolveDefaultSandboxRoot } from "./paths";
+export {
+  assertAllowedUrl,
+  createFetchUrlTool,
+  createWebToolProvider,
+  DEFAULT_FETCH_TIMEOUT_MS,
+  DEFAULT_MAX_REDIRECTS,
+  DEFAULT_MAX_RESPONSE_BYTES,
+  describeWebAccess,
+  isPublicAddress,
+} from "./web";
+export type {
+  AddressPolicy,
+  DescribeWebEnvTool,
+  FetchUrlResult,
+  FetchUrlToolOptions,
+  HostnameResolver,
+  WebAccessInfo,
+  WebProviderTools,
+  WebTools,
+  WebToolProviderContext,
+  WebToolProviderOptions,
+} from "./web";

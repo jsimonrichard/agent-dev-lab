@@ -24,7 +24,7 @@ rows marked "skip" — a project adds `tools: { ...openai.tools.webSearch() }` d
 | Bash (`createBashTool`, done)                | `openai.tools.localShell()` (`local_shell`)           | **No** — confirmed by reading the compiled source (`createProviderDefinedToolFactoryWithOutputSchema(...)`, no `execute`): it only standardizes the tool-call _schema_. The calling application still runs the command and streams back output, same as `createBashTool` today. Also restricted to `gpt-5-codex`/`codex-mini-latest` per its own doc comment. | **Not a skip.** Adopting this schema would narrow model support without removing any sandboxing work this package owns. `createBashTool`/`BashExecutor` stays as-is.                                                                                                                                                                                                                   |
 | Grep/glob search (planned)                   | none                                                  | n/a                                                                                                                                                                                                                                                                                                                                                           | **Not a skip.** No provider can search this project's own filesystem. Build as planned.                                                                                                                                                                                                                                                                                                |
 | File editing (`createFileTools`, done)       | `openai.tools.fileSearch()` (`file_search`)           | Yes, but over an OpenAI-hosted vector store of files uploaded ahead of time.                                                                                                                                                                                                                                                                                  | **Not a skip — easy to mistake for one.** `fileSearch` is retrieval over pre-uploaded, OpenAI-indexed documents, not read/write/edit access to the project's own files on disk. Flagging explicitly since the name alone looks like a match.                                                                                                                                           |
-| `fetchUrl` (planned)                         | none                                                  | n/a                                                                                                                                                                                                                                                                                                                                                           | **Not a skip.** `fileSearch` is not a substitute (see above); there is no "fetch this one arbitrary URL" provider tool. Build as planned.                                                                                                                                                                                                                                              |
+| `fetchUrl` (`createFetchUrlTool`, done)      | none                                                  | n/a                                                                                                                                                                                                                                                                                                                                                           | **Not a skip.** `fileSearch` is not a substitute (see above); there is no "fetch this one arbitrary URL" provider tool. Built in `src/web/`.                                                                                                                                                                                                                                           |
 | Todo/plan-tracking (planned, not yet placed) | none                                                  | n/a                                                                                                                                                                                                                                                                                                                                                           | **Not a skip.** Pure in-memory per-run state; no provider concept covers it.                                                                                                                                                                                                                                                                                                           |
 | _(not on any roadmap — noting it's free)_    | `openai.tools.codeInterpreter()` (`code_interpreter`) | Yes — runs Python in an OpenAI-managed sandboxed container.                                                                                                                                                                                                                                                                                                   | If a "run Python for data analysis" tool is ever requested, skip building a sandbox for it — this is fully hosted, zero sandboxing surface for ADL.                                                                                                                                                                                                                                    |
 | _(not on any roadmap — noting it's free)_    | `openai.tools.imageGeneration()` (`image_generation`) | Yes.                                                                                                                                                                                                                                                                                                                                                          | No ADL work needed at all — a project adds it directly to a `tools:` object if it wants it.                                                                                                                                                                                                                                                                                            |
@@ -38,6 +38,10 @@ exists here), so don't treat it as confirmed until someone checks it the same wa
 built.
 
 ## Platform support
+
+`fetchUrl` (`src/web/`) is platform-independent — it uses only WHATWG `fetch`/`URL`/`AbortSignal`
+and `node:dns`, with no native dependency and no per-OS backend — so it is not broken out per
+platform below. It is exercised under both Bun and Node (see [Testing](#testing)).
 
 | Platform | File tools (`createFileTools`)                                                                                                                                                                                                                  | Bash tool (`createBashTool`)                                                                                                                                                                                                                                                  |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -69,6 +73,52 @@ built.
   executors share the same spawn/stream/truncate/timeout-kill logic
   (`process-channel.ts`'s `runArgvIntoChannel`) — only how each builds its `argv`/`env` differs.
 
+- `src/web/` — `createFetchUrlTool({ allowedHosts?, timeoutMs?, maxResponseBytes?, maxRedirects? })`:
+  a `fetchUrl` tool that retrieves **one** URL and returns its body as readable text/markdown.
+  The sibling of web search, not a replacement — search _finds_ pages, this _reads_ one. Web
+  search itself is deliberately not built here (see the provider-native table above).
+
+  Almost all of this module is the threat model rather than the fetch:
+  - **SSRF guard (`address-policy.ts`)** — an **allowlist**: a URL is fetched only when its
+    scheme is `http`/`https` and every address its hostname resolves to is classified
+    globally-routable `unicast` by [`ipaddr.js`](https://github.com/whitequark/ipaddr.js). So
+    loopback, private, link-local (the cloud metadata services at `169.254.169.254` / `fe80::`),
+    unique-local, CGNAT, multicast, broadcast, reserved, IPv4-mapped and 6to4/Teredo/NAT64
+    addresses are all refused, and so is anything that fails to parse — a range nobody thought of
+    is denied by default rather than allowed by omission. A hostname answering with one public
+    and one private address is refused outright, since the connection, not this code, picks which
+    one it uses.
+  - **Re-checked after every redirect** — `fetch` is called with `redirect: "manual"` and the hops
+    are followed by hand, so the guard runs against each `Location` _before_ it is requested. A
+    public host that 302s to `169.254.169.254` is the case this exists for.
+  - **`allowedHosts`** — exact `hostname:port` origins exempt from the address check, **empty by
+    default**. This is the only way to reach a non-public address (a company-internal docs
+    service), and it is matched per hop, so an exempt origin cannot redirect sideways into
+    another service on the same machine. There is deliberately no option that turns the guard
+    off.
+  - **Untrusted content** — the response is never executed, evaluated or resolved; `<script>`,
+    `<style>`, `<noscript>`, `<iframe>`, `<object>`, `<embed>`, `<template>` and `<svg>` are
+    dropped with their contents before conversion, and the tool description tells the model the
+    content is third-party data to quote, never instructions to follow. Same posture
+    `createBashTool` takes toward command output.
+  - **Byte cap and timeout** — the body is read a chunk at a time and the stream is cancelled the
+    moment `maxResponseBytes` is reached, so an oversized _or endless_ response is never buffered
+    past the cap; one `AbortSignal` bounds DNS, every hop and the body read together, composed
+    with the agent run's own signal. Defaults mirror the other modules': 1 MB and 30s.
+  - **Text only** — HTML becomes markdown, other text types are decoded as-is, and binary or
+    unlabelled content is **refused by name** rather than decoded into garbage. A non-2xx status,
+    by contrast, is returned as data, the same way `createBashTool` reports a non-zero exit code.
+
+  See `address-policy.ts`'s doc comment for the guard's own limitation (DNS rebinding — a
+  userland check, not a transport-enforced one, for the same reason `createFileJail` documents a
+  symlink TOCTOU) and `extract.ts`'s for why `turndown` was chosen over the alternatives, plus
+  what it does _not_ do (it converts markup; it does not strip nav/footer boilerplate).
+
+  **Dependencies added:** `turndown` (+ its one dependency `@mixmark-io/domino`) and `ipaddr.js`
+  — three runtime packages, no native builds. Called out because this package is meant to be
+  independently installable; the seven-package `@mozilla/readability` + `linkedom` option was
+  rejected on that basis.
+
   **Production lifecycle note:** a process using `createAsrtBashExecutor` must call
   `SandboxManager.reset()` (from `@anthropic-ai/sandbox-runtime`) on its own shutdown path, or
   it will neither exit cleanly nor release ASRT's child processes — see `asrt-executor.ts`'s doc
@@ -85,6 +135,10 @@ above has a `ToolProvider` wrapper — see `packages/core`'s `ToolProvider`/`cre
   (a `Workflow<{ command, cwd }, { safe, reason }>`) on top of the OS-level sandbox, for
   non-filesystem dangerous intent (fork bombs, resource exhaustion, ...) a jail can't catch.
 - `createFileToolProvider({ root?, maxReadBytes?, maxWriteBytes? })` — the file-only primitive.
+- `createWebToolProvider({ allowedHosts?, timeoutMs?, maxResponseBytes?, maxRedirects? })` — the
+  `fetchUrl` primitive. Deliberately **not** folded into `createWorkspaceToolProvider`: that one is
+  the "file tools and bash sharing one `cwd`" surface, and `fetchUrl` has no `cwd` and touches no
+  filesystem, so it is a peer — combine them with `combineToolProviders` when an agent needs both.
 - `createWorkspaceToolProvider({ executor, cwd?, timeoutMs?, maxReadBytes?, maxWriteBytes?,
 safetyCheck? })` — the Mastra-style combined surface, file tools + `bash` sharing one `cwd`.
   Use this (not a manual merge of the two providers above) when an agent needs "everything for
@@ -93,8 +147,8 @@ safetyCheck? })` — the Mastra-style combined surface, file tools + `bash` shar
 Every provider also adds a describe-env tool reporting its actual, resolved configuration
 (cwd/root, byte caps, the bash executor's writable/denied paths and network access) — so the
 model can learn its own constraints before hitting a denial, and tell the user precisely what
-permission it would need: `describeBashEnv`, `describeFileEnv`, or `describeWorkspaceEnv`
-(merging both) depending on the provider — named for their actual scope rather than a generic
+permission it would need: `describeBashEnv`, `describeFileEnv`, `describeWebEnv`, or
+`describeWorkspaceEnv` (merging the file and bash ones) depending on the provider — named for their actual scope rather than a generic
 `describeEnvironment`, since none of them know about other tools an agent might have with their
 own network access. `toolProviderContext` values are trusted (set by the workflow/host, never
 the model directly) — see `notes/tool-sandboxing.md`'s design notes for what that does and
@@ -107,7 +161,18 @@ directory (`mkdirSync`) is still the caller's job.
 
 ## Testing
 
-`bash/{process-channel,native-executor,asrt-executor}.test.ts` are `node:test`-based (not
-`bun:test`) and run under both `bun test` (the normal per-package suite) and `node --test` via
-`bun run test:node` from the repo root — this package's process/spawn-heavy code is exactly
-where Bun and Node have been found to disagree (see `notes/tool-sandboxing.md`).
+`bash/{process-channel,native-executor,asrt-executor}.test.ts` and
+`web/{address-policy,fetch-url}.test.ts` are `node:test`-based (not `bun:test`) and run under both
+`bun test` (the normal per-package suite) and `node --test` via `bun run test:node` from the repo
+root — this package's process/spawn-heavy code is exactly where Bun and Node have been found to
+disagree (see `notes/tool-sandboxing.md`), and `src/web/` is in the same category: it rests on
+`fetch` with `redirect: "manual"`, streaming body reads and `AbortSignal` composition, all of which
+the two runtimes implement separately.
+
+`src/web/`'s tests never touch the network. The SSRF policy is unit-tested with an injected
+hostname resolver, and the end-to-end tests run against a `node:http` fixture server on an
+ephemeral loopback port, whose origin is exempted via `allowedHosts`. Because that exemption is
+matched per redirect hop, a fixture response redirecting to `169.254.169.254` still lands on a
+non-exempt hop and is refused — so the post-redirect guard is covered end to end without a real
+host, and the purely-public case (public host → private redirect target, nothing exempted) is
+covered as a unit alongside it.

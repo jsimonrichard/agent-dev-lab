@@ -18,16 +18,19 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "bun test",
-    "test:node": "node --test src/bash/process-channel.test.ts src/bash/native-executor.test.ts src/bash/asrt-executor.test.ts"
+    "test:node": "node --test src/bash/process-channel.test.ts src/bash/native-executor.test.ts src/bash/asrt-executor.test.ts src/web/address-policy.test.ts src/web/fetch-url.test.ts"
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",
     "@anthropic-ai/sandbox-runtime": "0.0.75",
+    "ipaddr.js": "^2.5.0",
+    "turndown": "^7.2.4",
     "zod": "^4.1.8"
   },
   "devDependencies": {
     "@types/bun": "1.3.13",
     "@types/node": "^22.10.2",
+    "@types/turndown": "^5.0.6",
     "tsdown": "^0.22.3",
     "typescript": "^6.0.2"
   },
