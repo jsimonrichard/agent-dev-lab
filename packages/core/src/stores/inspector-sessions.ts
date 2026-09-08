@@ -1,4 +1,7 @@
-import { openAdlSqlite, resolveAdlSqlitePath } from "../db";
+import { desc, eq, isNotNull, isNull } from "drizzle-orm";
+
+import { createDb, resolveAdlSqlitePath } from "../db";
+import { inspectorSessions } from "../db/schema";
 
 import type { SqliteStoreOptions } from "./sqlite";
 
@@ -21,80 +24,68 @@ export type InspectorSessionRecord = {
   deletedAt?: string;
 };
 
-type SessionRow = {
-  memory_scope: string;
-  agent_id: string;
-  agent_call_id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-  fork_json: string | null;
-  deleted_at: string | null;
-};
+type SessionRow = typeof inspectorSessions.$inferSelect;
 
 function rowToRecord(row: SessionRow): InspectorSessionRecord {
   return {
-    memoryScope: row.memory_scope,
-    agentId: row.agent_id,
-    agentCallId: row.agent_call_id,
+    memoryScope: row.memoryScope,
+    agentId: row.agentId,
+    agentCallId: row.agentCallId,
     title: row.title,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    fork: row.fork_json ? (JSON.parse(row.fork_json) as InspectorSessionFork) : undefined,
-    deletedAt: row.deleted_at ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    fork: row.forkJson ? (JSON.parse(row.forkJson) as InspectorSessionFork) : undefined,
+    deletedAt: row.deletedAt ?? undefined,
   };
 }
 
 /** Persists inspection-UI chat sessions alongside workflow/message stores. */
 export function sqliteInspectorSessionStore(options: SqliteStoreOptions = {}) {
-  const sqlite = openAdlSqlite(options.path ?? resolveAdlSqlitePath());
+  const db = createDb(options.path ?? resolveAdlSqlitePath());
 
   return {
     upsert(record: InspectorSessionRecord): void {
-      sqlite
-        .prepare(
-          `INSERT OR REPLACE INTO adl_inspector_sessions
-            (memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          record.memoryScope,
-          record.agentId,
-          record.agentCallId,
-          record.title,
-          record.createdAt,
-          record.updatedAt,
-          record.fork ? JSON.stringify(record.fork) : null,
-          record.deletedAt ?? null,
-        );
+      const values = {
+        memoryScope: record.memoryScope,
+        agentId: record.agentId,
+        agentCallId: record.agentCallId,
+        title: record.title,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        forkJson: record.fork ? JSON.stringify(record.fork) : null,
+        deletedAt: record.deletedAt ?? null,
+      };
+      db.insert(inspectorSessions)
+        .values(values)
+        .onConflictDoUpdate({ target: inspectorSessions.memoryScope, set: values })
+        .run();
     },
 
     list(): InspectorSessionRecord[] {
-      const rows = sqlite
-        .prepare(
-          `SELECT memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at
-           FROM adl_inspector_sessions
-           WHERE deleted_at IS NULL
-           ORDER BY updated_at DESC`,
-        )
-        .all() as SessionRow[];
+      const rows = db
+        .select()
+        .from(inspectorSessions)
+        .where(isNull(inspectorSessions.deletedAt))
+        .orderBy(desc(inspectorSessions.updatedAt))
+        .all();
       return rows.map(rowToRecord);
     },
 
     listDeletedScopes(): string[] {
-      const rows = sqlite
-        .prepare(`SELECT memory_scope FROM adl_inspector_sessions WHERE deleted_at IS NOT NULL`)
-        .all() as { memory_scope: string }[];
-      return rows.map((row) => row.memory_scope);
+      const rows = db
+        .select({ memoryScope: inspectorSessions.memoryScope })
+        .from(inspectorSessions)
+        .where(isNotNull(inspectorSessions.deletedAt))
+        .all();
+      return rows.map((row) => row.memoryScope);
     },
 
     get(memoryScope: string): InspectorSessionRecord | undefined {
-      const row = sqlite
-        .prepare(
-          `SELECT memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at
-           FROM adl_inspector_sessions WHERE memory_scope = ?`,
-        )
-        .get(memoryScope) as SessionRow | undefined;
+      const row = db
+        .select()
+        .from(inspectorSessions)
+        .where(eq(inspectorSessions.memoryScope, memoryScope))
+        .get();
       return row ? rowToRecord(row) : undefined;
     },
   };

@@ -1,5 +1,9 @@
-import { openAdlSqlite, resolveAdlSqlitePath } from "../db";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+
+import { createDb, resolveAdlSqlitePath } from "../db";
 import { applyProjections, stepSlotKey } from "../db/projections";
+import { runEvents, stepOutputs, stepRecords, workflowRuns, workflowRunTags } from "../db/schema";
+import type { AdlDb } from "../db";
 
 import type {
   RunEvent,
@@ -16,46 +20,20 @@ import type {
 } from "./workflow-store";
 import type { SqliteStoreOptions } from "../stores/sqlite";
 
-type EventRow = {
-  payload_json: string;
-};
-
-type RunRow = {
-  workflow_run_id: string;
-  workflow_id: string;
-  status: WorkflowRunSummary["status"];
-  started_at: string;
-  finished_at: string | null;
-  title: string | null;
-};
-
-type TagRow = {
-  workflow_run_id: string;
-  tag: string;
-};
-
-/** `(?, ?, ...)` placeholder list for a dynamic-length `IN (...)` clause. */
-function placeholders(count: number): string {
-  return `(${Array(count).fill("?").join(", ")})`;
-}
-
-function fetchTagsByRunId(
-  sqlite: ReturnType<typeof openAdlSqlite>,
-  workflowRunIds: string[],
-): Map<string, string[]> {
+function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, string[]> {
   const tagsByRun = new Map<string, string[]>();
   if (workflowRunIds.length === 0) {
     return tagsByRun;
   }
-  const rows = sqlite
-    .prepare(
-      `SELECT workflow_run_id, tag FROM adl_workflow_run_tags WHERE workflow_run_id IN ${placeholders(workflowRunIds.length)}`,
-    )
-    .all(...workflowRunIds) as TagRow[];
+  const rows = db
+    .select({ workflowRunId: workflowRunTags.workflowRunId, tag: workflowRunTags.tag })
+    .from(workflowRunTags)
+    .where(inArray(workflowRunTags.workflowRunId, workflowRunIds))
+    .all();
   for (const row of rows) {
-    const list = tagsByRun.get(row.workflow_run_id) ?? [];
+    const list = tagsByRun.get(row.workflowRunId) ?? [];
     list.push(row.tag);
-    tagsByRun.set(row.workflow_run_id, list);
+    tagsByRun.set(row.workflowRunId, list);
   }
   return tagsByRun;
 }
@@ -83,27 +61,23 @@ function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEve
  * models, and lives in `db/projections` because the schema migration's backfill
  * replays retained events through that same function.
  */
-function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEvent): void {
+function materializeEvent(db: AdlDb, event: RunEvent): void {
   const workflowRunId = "workflowRunId" in event ? (event.workflowRunId ?? null) : null;
   const agentCallId = "agentCallId" in event ? event.agentCallId : null;
 
-  sqlite
-    .prepare(
-      `INSERT INTO adl_run_events
-        (workflow_run_id, agent_call_id, run_seq, type, at, event_schema_version, payload_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
+  db.insert(runEvents)
+    .values({
       workflowRunId,
       agentCallId,
-      event.runSeq,
-      event.type,
-      event.at,
-      event.eventSchemaVersion,
-      JSON.stringify(event),
-    );
+      runSeq: event.runSeq,
+      type: event.type,
+      at: event.at,
+      eventSchemaVersion: event.eventSchemaVersion,
+      payloadJson: JSON.stringify(event),
+    })
+    .run();
 
-  applyProjections(sqlite, event);
+  applyProjections(db, event);
 }
 
 /**
@@ -112,28 +86,29 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
  * File is created automatically (default `.data/agent-dev-lab.sqlite`).
  */
 export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowStore {
-  const sqlite = openAdlSqlite(options.path ?? resolveAdlSqlitePath());
+  const db = createDb(options.path ?? resolveAdlSqlitePath());
 
   return {
     async recordEvent(event) {
-      materializeEvent(sqlite, event);
+      materializeEvent(db, event);
     },
 
     async listEvents(scope, filter) {
-      const rows = (
+      const rows =
         "workflowRunId" in scope
-          ? sqlite
-              .prepare(
-                "SELECT payload_json FROM adl_run_events WHERE workflow_run_id = ? ORDER BY run_seq ASC",
-              )
-              .all(scope.workflowRunId)
-          : sqlite
-              .prepare(
-                "SELECT payload_json FROM adl_run_events WHERE agent_call_id = ? ORDER BY run_seq ASC",
-              )
-              .all(scope.agentCallId)
-      ) as EventRow[];
-      const events = rows.map((row) => JSON.parse(row.payload_json) as RunEvent);
+          ? db
+              .select({ payloadJson: runEvents.payloadJson })
+              .from(runEvents)
+              .where(eq(runEvents.workflowRunId, scope.workflowRunId))
+              .orderBy(asc(runEvents.runSeq))
+              .all()
+          : db
+              .select({ payloadJson: runEvents.payloadJson })
+              .from(runEvents)
+              .where(eq(runEvents.agentCallId, scope.agentCallId))
+              .orderBy(asc(runEvents.runSeq))
+              .all();
+      const events = rows.map((row) => JSON.parse(row.payloadJson) as RunEvent);
       return applyEventFilter(events, filter);
     },
 
@@ -147,43 +122,60 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async getRun(workflowRunId) {
-      const row = sqlite
-        .prepare(
-          `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title
-           FROM adl_workflow_runs WHERE workflow_run_id = ?`,
-        )
-        .get(workflowRunId) as RunRow | undefined;
+      const row = db
+        .select({
+          workflowRunId: workflowRuns.workflowRunId,
+          workflowId: workflowRuns.workflowId,
+          status: workflowRuns.status,
+          startedAt: workflowRuns.startedAt,
+          finishedAt: workflowRuns.finishedAt,
+          title: workflowRuns.title,
+        })
+        .from(workflowRuns)
+        .where(eq(workflowRuns.workflowRunId, workflowRunId))
+        .get();
       if (!row) {
         return null;
       }
-      const tags = fetchTagsByRunId(sqlite, [row.workflow_run_id]).get(row.workflow_run_id) ?? [];
+      const tags = fetchTagsByRunId(db, [row.workflowRunId]).get(row.workflowRunId) ?? [];
       return toSummary(row, tags);
     },
 
     async listRuns(filter) {
-      const conditions: string[] = [];
-      const params: string[] = [];
-      if (filter?.workflowId) {
-        conditions.push("workflow_id = ?");
-        params.push(filter.workflowId);
-      }
+      let tagMatchedRunIds: string[] | undefined;
       if (filter?.tags?.length) {
-        conditions.push(
-          `workflow_run_id IN (SELECT DISTINCT workflow_run_id FROM adl_workflow_run_tags WHERE tag IN ${placeholders(filter.tags.length)})`,
-        );
-        params.push(...filter.tags);
+        tagMatchedRunIds = db
+          .selectDistinct({ workflowRunId: workflowRunTags.workflowRunId })
+          .from(workflowRunTags)
+          .where(inArray(workflowRunTags.tag, filter.tags))
+          .all()
+          .map((row) => row.workflowRunId);
       }
-      const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-      const rows = sqlite
-        .prepare(
-          `SELECT workflow_run_id, workflow_id, status, started_at, finished_at, title FROM adl_workflow_runs ${where} ORDER BY started_at ASC`,
-        )
-        .all(...params) as RunRow[];
+
+      const conditions = [
+        filter?.workflowId ? eq(workflowRuns.workflowId, filter.workflowId) : undefined,
+        // inArray([]) compiles to a `false` predicate, matching "no run has any of these tags".
+        tagMatchedRunIds ? inArray(workflowRuns.workflowRunId, tagMatchedRunIds) : undefined,
+      ].filter((condition) => condition !== undefined);
+
+      const rows = db
+        .select({
+          workflowRunId: workflowRuns.workflowRunId,
+          workflowId: workflowRuns.workflowId,
+          status: workflowRuns.status,
+          startedAt: workflowRuns.startedAt,
+          finishedAt: workflowRuns.finishedAt,
+          title: workflowRuns.title,
+        })
+        .from(workflowRuns)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(asc(workflowRuns.startedAt))
+        .all();
       const tagsByRun = fetchTagsByRunId(
-        sqlite,
-        rows.map((row) => row.workflow_run_id),
+        db,
+        rows.map((row) => row.workflowRunId),
       );
-      const list = rows.map((row) => toSummary(row, tagsByRun.get(row.workflow_run_id) ?? []));
+      const list = rows.map((row) => toSummary(row, tagsByRun.get(row.workflowRunId) ?? []));
       if (filter?.limit) {
         return list.slice(-filter.limit);
       }
@@ -191,111 +183,105 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async getRunInput(workflowRunId) {
-      const row = sqlite
-        .prepare("SELECT input_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
-        .get(workflowRunId) as { input_json: string | null } | undefined;
-      if (!row?.input_json) {
+      const row = db
+        .select({ inputJson: workflowRuns.inputJson })
+        .from(workflowRuns)
+        .where(eq(workflowRuns.workflowRunId, workflowRunId))
+        .get();
+      if (!row?.inputJson) {
         return null;
       }
-      return JSON.parse(row.input_json) as unknown;
+      return JSON.parse(row.inputJson) as unknown;
     },
 
     async getRunOutput(workflowRunId) {
-      const row = sqlite
-        .prepare("SELECT output_json FROM adl_workflow_runs WHERE workflow_run_id = ?")
-        .get(workflowRunId) as { output_json: string | null } | undefined;
-      if (!row?.output_json) {
+      const row = db
+        .select({ outputJson: workflowRuns.outputJson })
+        .from(workflowRuns)
+        .where(eq(workflowRuns.workflowRunId, workflowRunId))
+        .get();
+      if (!row?.outputJson) {
         return null;
       }
-      return JSON.parse(row.output_json) as unknown;
+      return JSON.parse(row.outputJson) as unknown;
     },
 
     async getStepOutput(workflowRunId, slot) {
-      const row = sqlite
-        .prepare(
-          "SELECT output_json FROM adl_step_outputs WHERE workflow_run_id = ? AND slot_key = ?",
+      const row = db
+        .select({ outputJson: stepOutputs.outputJson })
+        .from(stepOutputs)
+        .where(
+          and(
+            eq(stepOutputs.workflowRunId, workflowRunId),
+            eq(stepOutputs.slotKey, stepSlotKey(slot)),
+          ),
         )
-        .get(workflowRunId, stepSlotKey(slot)) as { output_json: string } | undefined;
+        .get();
       if (!row) {
         return null;
       }
-      return JSON.parse(row.output_json) as unknown;
+      return JSON.parse(row.outputJson) as unknown;
     },
 
     async getStepById(workflowRunId, stepId) {
-      const row = sqlite
-        .prepare(
-          `SELECT step_id, name, key, path_json, parent_step_id, output_json, status
-           FROM adl_step_records WHERE workflow_run_id = ? AND step_id = ?`,
-        )
-        .get(workflowRunId, stepId) as
-        | {
-            step_id: string;
-            name: string;
-            key: string | null;
-            path_json: string;
-            parent_step_id: string | null;
-            output_json: string | null;
-            status: StepRecord["status"];
-          }
-        | undefined;
+      const row = db
+        .select()
+        .from(stepRecords)
+        .where(and(eq(stepRecords.workflowRunId, workflowRunId), eq(stepRecords.stepId, stepId)))
+        .get();
       if (!row) {
         return null;
       }
-      return {
-        stepId: row.step_id,
+      const record: StepRecord = {
+        stepId: row.stepId,
         name: row.name,
         key: row.key ?? undefined,
-        path: JSON.parse(row.path_json) as string[],
-        parentStepId: row.parent_step_id,
-        output: row.output_json ? (JSON.parse(row.output_json) as unknown) : undefined,
+        path: JSON.parse(row.pathJson) as string[],
+        parentStepId: row.parentStepId,
+        output: row.outputJson ? (JSON.parse(row.outputJson) as unknown) : undefined,
         status: row.status,
       };
+      return record;
     },
 
     async setRunTitle(workflowRunId, title) {
-      sqlite
-        .prepare(
-          `INSERT INTO adl_workflow_runs (workflow_run_id, workflow_id, status, started_at, title)
-           VALUES (?, '', 'running', ?, ?)
-           ON CONFLICT(workflow_run_id) DO UPDATE SET title = excluded.title`,
-        )
-        .run(workflowRunId, new Date().toISOString(), title);
+      db.insert(workflowRuns)
+        .values({
+          workflowRunId,
+          workflowId: "",
+          status: "running",
+          startedAt: new Date().toISOString(),
+          title,
+        })
+        .onConflictDoUpdate({ target: workflowRuns.workflowRunId, set: { title } })
+        .run();
     },
 
     async setRunTags(workflowRunId, tags) {
-      sqlite
-        .prepare(`DELETE FROM adl_workflow_run_tags WHERE workflow_run_id = ?`)
-        .run(workflowRunId);
+      db.delete(workflowRunTags).where(eq(workflowRunTags.workflowRunId, workflowRunId)).run();
       for (const tag of tags) {
-        sqlite
-          .prepare(
-            `INSERT OR IGNORE INTO adl_workflow_run_tags (workflow_run_id, tag) VALUES (?, ?)`,
-          )
-          .run(workflowRunId, tag);
+        db.insert(workflowRunTags).values({ workflowRunId, tag }).onConflictDoNothing().run();
       }
     },
 
     async deleteRun(workflowRunId) {
-      sqlite.prepare(`DELETE FROM adl_run_events WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite.prepare(`DELETE FROM adl_step_outputs WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite.prepare(`DELETE FROM adl_step_records WHERE workflow_run_id = ?`).run(workflowRunId);
-      sqlite
-        .prepare(`DELETE FROM adl_workflow_run_tags WHERE workflow_run_id = ?`)
-        .run(workflowRunId);
-      sqlite.prepare(`DELETE FROM adl_workflow_runs WHERE workflow_run_id = ?`).run(workflowRunId);
+      db.delete(runEvents).where(eq(runEvents.workflowRunId, workflowRunId)).run();
+      db.delete(stepOutputs).where(eq(stepOutputs.workflowRunId, workflowRunId)).run();
+      db.delete(stepRecords).where(eq(stepRecords.workflowRunId, workflowRunId)).run();
+      db.delete(workflowRunTags).where(eq(workflowRunTags.workflowRunId, workflowRunId)).run();
+      db.delete(workflowRuns).where(eq(workflowRuns.workflowRunId, workflowRunId)).run();
     },
 
     async listAgentEpisodes(filter) {
-      const rows = sqlite
-        .prepare(
-          `SELECT payload_json FROM adl_run_events
-           WHERE type = 'agent_started' ORDER BY at DESC`,
-        )
-        .all() as EventRow[];
+      const rows = db
+        .select({ payloadJson: runEvents.payloadJson })
+        .from(runEvents)
+        .where(eq(runEvents.type, "agent_started"))
+        .orderBy(desc(runEvents.at))
+        .all();
       const episodes: AgentEpisodeSummary[] = [];
       for (const row of rows) {
-        const event = JSON.parse(row.payload_json) as RunEvent;
+        const event = JSON.parse(row.payloadJson) as RunEvent;
         if (event.type !== "agent_started") {
           continue;
         }
@@ -319,13 +305,23 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
   };
 }
 
-function toSummary(row: RunRow, tags: string[]): WorkflowRunSummary {
+function toSummary(
+  row: {
+    workflowRunId: string;
+    workflowId: string;
+    status: WorkflowRunSummary["status"];
+    startedAt: string;
+    finishedAt: string | null;
+    title: string | null;
+  },
+  tags: string[],
+): WorkflowRunSummary {
   return {
-    workflowRunId: row.workflow_run_id,
-    workflowId: row.workflow_id,
+    workflowRunId: row.workflowRunId,
+    workflowId: row.workflowId,
     status: row.status,
-    startedAt: row.started_at,
-    finishedAt: row.finished_at ?? undefined,
+    startedAt: row.startedAt,
+    finishedAt: row.finishedAt ?? undefined,
     title: row.title ?? undefined,
     tags,
   };

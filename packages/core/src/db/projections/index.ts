@@ -7,16 +7,17 @@
  * {@link applyProjections}, so a rebuilt table cannot drift from a
  * live-written one.
  */
-import type { RunEvent } from "../../observability/events";
-import type { AdlSqliteDatabase } from "../sqlite-types";
+import type { AdlDb } from "../index";
 
 import { projectStepRecord } from "./step-records";
 import { projectWorkflowRun } from "./workflow-runs";
 
+import type { RunEvent } from "../../observability/events";
+
 export { stepSlotKey } from "./step-records";
 
 /** Applies every projection for one event. Caller appends the event row first. */
-export function applyProjections(sqlite: AdlSqliteDatabase, event: RunEvent): void {
-  projectWorkflowRun(sqlite, event);
-  projectStepRecord(sqlite, event);
+export function applyProjections(db: AdlDb, event: RunEvent): void {
+  projectWorkflowRun(db, event);
+  projectStepRecord(db, event);
 }

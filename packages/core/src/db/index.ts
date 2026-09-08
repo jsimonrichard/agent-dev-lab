@@ -6,6 +6,8 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
+
 import { ensureAdlSchema } from "./ensure-schema";
 import * as schema from "./schema";
 import type { AdlSqliteDatabase } from "./sqlite-types";
@@ -31,11 +33,20 @@ function createPackageRequire(): NodeRequire {
 
 const require = createPackageRequire();
 
+/**
+ * Drizzle client over {@link schema}.
+ *
+ * The bun-sqlite and better-sqlite3 adapters construct different concrete
+ * classes, which is why this was previously opaque (`unknown`) at the package
+ * boundary and every store hand-wrote SQL instead. `BaseSQLiteDatabase` is the
+ * driver-agnostic base both extend, so typed queries work without the boundary
+ * knowing which runtime opened the file.
+ */
+export type AdlDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
+
 type CachedDb = {
   sqlite: AdlSqliteDatabase;
-  // Drizzle client shape differs slightly between bun-sqlite and better-sqlite3 adapters.
-  // Callers use schema-typed queries; keep this opaque at the package boundary.
-  db: unknown;
+  db: AdlDb;
 };
 
 const dbCache = new Map<string, CachedDb>();

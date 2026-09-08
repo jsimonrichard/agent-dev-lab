@@ -1,5 +1,8 @@
-import { openAdlSqlite, resolveAdlSqlitePath } from "../db";
+import { desc, eq } from "drizzle-orm";
 import type { ModelMessage } from "ai";
+
+import { createDb, resolveAdlSqlitePath } from "../db";
+import { messages } from "../db/schema";
 
 import type { MessageStore } from "./types";
 
@@ -14,34 +17,41 @@ export type SqliteStoreOptions = {
  * `.data/agent-dev-lab.sqlite`).
  */
 export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageStore {
-  const sqlite = openAdlSqlite(options.path ?? resolveAdlSqlitePath());
+  const db = createDb(options.path ?? resolveAdlSqlitePath());
 
   return {
     kind: "sqlite",
     async load(memoryScope) {
-      const row = sqlite
-        .prepare("SELECT messages_json FROM adl_messages WHERE memory_scope = ?")
-        .get(memoryScope) as { messages_json: string } | undefined;
+      const row = db
+        .select({ messagesJson: messages.messagesJson })
+        .from(messages)
+        .where(eq(messages.memoryScope, memoryScope))
+        .get();
       if (!row) {
         return [];
       }
-      return JSON.parse(row.messages_json) as ModelMessage[];
+      return JSON.parse(row.messagesJson) as ModelMessage[];
     },
-    async save(memoryScope, messages) {
-      sqlite
-        .prepare(
-          "INSERT OR REPLACE INTO adl_messages (memory_scope, messages_json, updated_at) VALUES (?, ?, ?)",
-        )
-        .run(memoryScope, JSON.stringify(messages), new Date().toISOString());
+    async save(memoryScope, transcript) {
+      const updatedAt = new Date().toISOString();
+      db.insert(messages)
+        .values({ memoryScope, messagesJson: JSON.stringify(transcript), updatedAt })
+        .onConflictDoUpdate({
+          target: messages.memoryScope,
+          set: { messagesJson: JSON.stringify(transcript), updatedAt },
+        })
+        .run();
     },
     async delete(memoryScope) {
-      sqlite.prepare("DELETE FROM adl_messages WHERE memory_scope = ?").run(memoryScope);
+      db.delete(messages).where(eq(messages.memoryScope, memoryScope)).run();
     },
     async listScopes() {
-      const rows = sqlite
-        .prepare("SELECT memory_scope FROM adl_messages ORDER BY updated_at DESC")
-        .all() as { memory_scope: string }[];
-      return rows.map((row) => row.memory_scope);
+      const rows = db
+        .select({ memoryScope: messages.memoryScope })
+        .from(messages)
+        .orderBy(desc(messages.updatedAt))
+        .all();
+      return rows.map((row) => row.memoryScope);
     },
   };
 }

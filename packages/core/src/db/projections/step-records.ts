@@ -1,5 +1,7 @@
+import type { AdlDb } from "../index";
+import { stepOutputs, stepRecords } from "../schema";
+
 import type { RunEvent, StepSlot } from "../../observability/events";
-import type { AdlSqliteDatabase } from "../sqlite-types";
 
 /**
  * Addressing rule for a step slot, and the encoding of the `slot_key` column.
@@ -14,49 +16,72 @@ export function stepSlotKey(slot: StepSlot): string {
  * Projects step terminal events into `adl_step_outputs` and `adl_step_records`.
  * Read model only — see {@link projectWorkflowRun}.
  */
-export function projectStepRecord(sqlite: AdlSqliteDatabase, event: RunEvent): void {
+export function projectStepRecord(db: AdlDb, event: RunEvent): void {
   if (event.type === "step_finished") {
     const slot = stepSlotKey({
       parentStepId: event.parentStepId,
       name: event.name,
       key: event.key,
     });
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_outputs (workflow_run_id, slot_key, output_json) VALUES (?, ?, ?)`,
-      )
-      .run(event.workflowRunId, slot, JSON.stringify(event.output));
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_records
-          (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'ok')`,
-      )
-      .run(
-        event.workflowRunId,
-        event.stepId,
-        event.name,
-        event.key ?? null,
-        JSON.stringify(event.path),
-        event.parentStepId,
-        JSON.stringify(event.output),
-      );
+    const outputJson = JSON.stringify(event.output);
+    db.insert(stepOutputs)
+      .values({ workflowRunId: event.workflowRunId, slotKey: slot, outputJson })
+      .onConflictDoUpdate({
+        target: [stepOutputs.workflowRunId, stepOutputs.slotKey],
+        set: { outputJson },
+      })
+      .run();
+
+    const pathJson = JSON.stringify(event.path);
+    db.insert(stepRecords)
+      .values({
+        workflowRunId: event.workflowRunId,
+        stepId: event.stepId,
+        name: event.name,
+        key: event.key ?? null,
+        pathJson,
+        parentStepId: event.parentStepId,
+        outputJson,
+        status: "ok",
+      })
+      .onConflictDoUpdate({
+        target: [stepRecords.workflowRunId, stepRecords.stepId],
+        set: {
+          name: event.name,
+          key: event.key ?? null,
+          pathJson,
+          parentStepId: event.parentStepId,
+          outputJson,
+          status: "ok",
+        },
+      })
+      .run();
   }
 
   if (event.type === "step_failed") {
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_records
-          (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, 'error')`,
-      )
-      .run(
-        event.workflowRunId,
-        event.stepId,
-        event.name,
-        event.key ?? null,
-        JSON.stringify(event.path),
-        event.parentStepId,
-      );
+    const pathJson = JSON.stringify(event.path);
+    db.insert(stepRecords)
+      .values({
+        workflowRunId: event.workflowRunId,
+        stepId: event.stepId,
+        name: event.name,
+        key: event.key ?? null,
+        pathJson,
+        parentStepId: event.parentStepId,
+        outputJson: null,
+        status: "error",
+      })
+      .onConflictDoUpdate({
+        target: [stepRecords.workflowRunId, stepRecords.stepId],
+        set: {
+          name: event.name,
+          key: event.key ?? null,
+          pathJson,
+          parentStepId: event.parentStepId,
+          outputJson: null,
+          status: "error",
+        },
+      })
+      .run();
   }
 }
