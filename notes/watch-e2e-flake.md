@@ -1,13 +1,14 @@
 # `watch.e2e.test.ts` — why it goes red, and what is actually broken
 
-**Status:** diagnosed, **not fixed**. Written 2026-09-08 for Lane D (§5 of
+**Status:** diagnosed; the `ADL_VITE_PROJECT_WATCH` trap is removed, the rest is reported.
+Written 2026-09-08, corrected 2026-09-10, for Lane D (§5 of
 [`parallel-work-plan.md`](./parallel-work-plan.md)). Every claim below is from a run on this
 machine or from the CI logs of run `34157533330`; where something is inferred rather than
 observed it says so.
 
 Lane D owns `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts` and `.github/`. The
-defects below live in `apps/web/src/lib/` and `packages/core/src/project/`, so this file
-reports them rather than changing them.
+`ADL_VITE_PROJECT_WATCH` removal in `apps/web/src/lib/` was made at the maintainer's request;
+everything else below is reported rather than changed.
 
 ---
 
@@ -28,28 +29,75 @@ commit passed in 6.4 s.
 
 ---
 
-## 1. There are two watch paths. Only one of them works.
+## 1. Bun 1.3.13's `fs.watch` loses atomic saves, and that is what the Vite path rides on
 
 `apps/web` has two independent ways to notice a project edit:
 
-| Path                                                               | Owner                                                                | Enabled when                                                     |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `adlProjectReloadPlugin` → Vite's chokidar → Nitro `dispatchFetch` | `apps/web/src/lib/adl-project-reload-plugin.ts`                      | always, in `vite dev`                                            |
-| `watchAdlProject` → `reload-gate` → `project.reload()`             | `packages/core/src/project/watch.ts` via `ensureAdlProjectFileWatch` | `shouldWatchProject()` — i.e. **not** `ADL_VITE_PROJECT_WATCH=1` |
+| Path                                                                 | Owner                                                                | Enabled when           |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------- |
+| `adlProjectReloadPlugin` -> Vite's chokidar -> Nitro `dispatchFetch` | `apps/web/src/lib/adl-project-reload-plugin.ts`                      | always, in `vite dev`  |
+| `watchAdlProject` -> `reload-gate` -> `project.reload()`             | `packages/core/src/project/watch.ts` via `ensureAdlProjectFileWatch` | `shouldWatchProject()` |
 
-`process-host.ts:15` documents the intended split: "File watch (`watchAdlProject` /
-`reload-gate`) is a fallback when the Vite plugin does not see a change." Measured, the split
-is inverted:
+**(a) Vite watches the project root correctly, including an external one.**
+`devServer.watcher.add(root)` works: instrumenting the watcher and dumping `getWatched()`
+shows all three fixture directories subscribed within a second, and the watcher is never
+closed.
 
-**(a) The Vite plugin's watcher never fires for a project root outside the Vite root.**
-Instrumenting `devServer.watcher` with listeners for `add`, `change`, `unlink`, `addDir`,
-`unlinkDir`, `error`, `ready` and `raw`: after `devServer.watcher.add(root)` the only events
-ever delivered for the fixture tree were `raw` events for one direct child of the root. No
-normalized `add`/`change` for any file, at any depth, ever — including the `.tmp` create and
-the rename. `ready` never fired either. So `schedule()` is never called and the plugin never
-dispatches `/api/project/reload`.
+```
+[dbg +1003ms] t+1000: closed=false watchedRootsTotal=46
+              underProjectRoot=["/tmp/adl-repro-…","/tmp/adl-repro-…/src","/tmp/adl-repro-…/src/workflows"]
+```
 
-**(b) `ADL_VITE_PROJECT_WATCH` never reaches the code that reads it.** The plugin sets it in
+`resolveChokidarOptions` ignores only `.git`, `node_modules`, `test-results`, the cache dir
+and the out dir — nothing about being outside `config.root`. **An earlier revision of this note
+claimed the Vite watcher never fires for an external root. That was wrong**; the instrumentation
+behind it wrote its log file _inside_ the watched tree, which fed the watcher its own output.
+
+**(b) The Vite path works for an in-place write and misses an atomic temp+rename.** Same
+fixture, same dashboard, only the write style differs:
+
+```
+in-place  RAW  ["change","answer-question.ts",{watchedPath:".../src/workflows"}]
+          RAW  ["change","answer-question.ts",{watchedPath:".../src/workflows/answer-question.ts"}]
+          ALL  ["change","/tmp/…/src/workflows/answer-question.ts",{…}]   -> [adl] reloading project… -> [adl] reloaded
+
+atomic    RAW  ["rename","answer-question.ts.<pid>.tmp",{watchedPath:".../src/workflows"}]
+          (nothing else, ever)
+```
+
+Chokidar gets exactly one underlying event — the temp file being created — and nothing for the
+rename. Its directory handler answers that event with a `readdir` diff, which by then shows the
+temp gone and `answer-question.ts` unchanged, so no normalized event is emitted. The per-file
+watcher on `answer-question.ts` cannot help either: the rename replaced the inode.
+
+**(c) The cause is Bun 1.3.13's `fs.watch`, and it is fixed in Bun 1.4.** One atomic
+temp+rename save over an existing file, watching the directory and the file directly:
+
+| Runtime        | `fs.watch(dir)`                                          | `fs.watch(file)` |
+| -------------- | -------------------------------------------------------- | ---------------- |
+| Node 25        | 4 events, incl. `rename:answer-question.ts`              | 3 events         |
+| **Bun 1.3.13** | **1 event** — `rename:answer-question.ts.<pid>.tmp` only | **0 events**     |
+| Bun 1.4.0      | 4 events, incl. `rename:answer-question.ts`              | 3 events         |
+
+This is the `spawn`/`spawnSync` class of Bun/Node divergence `AGENTS.md` already warns about,
+in `fs.watch`. Under `bun --bun vite` on 1.3.13, chokidar is handed a single event it cannot
+act on; under Node or Bun 1.4.0 it gets the full stream and the plugin reloads normally
+(verified end to end — `[adl] reloading project…` appears for an atomic edit on 1.4.0).
+
+**(d) `watchAdlProject` survives 1.3.13 by design, not by luck.** It acts on the event name
+rather than re-reading the directory, and `shouldReloadAdlProjectPath` deliberately counts
+`*.ts.<pid>.tmp` as the source file (`watch-path.ts:29`). The one event Bun does deliver is
+therefore a trigger, and `reload-gate`'s 150 ms debounce means the rename has landed before the
+reload runs. Its log line names the temp file:
+
+```
+[adl-debug] fs.watch reload -> gen 1 path=…/src/workflows/answer-question.ts.<pid>.tmp
+```
+
+So on 1.3.13 core's watcher is the only thing reloading an atomic save, and the e2e test — which
+saves atomically on purpose — passes only because of it.
+
+**(e) `ADL_VITE_PROJECT_WATCH` never reached the code that reads it.** The plugin set it in
 `configureServer`, which runs in the Vite config isolate. Printing the environment from
 `shouldWatchProject()` inside the Nitro worker:
 
@@ -57,55 +105,37 @@ dispatches `/api/project/reload`.
 ADL_VITE_PROJECT_WATCH=undefined  ADL_PROJECT_WATCH="1"  ADL_INSPECTOR_SERVE=undefined
 ```
 
-`ADL_PROJECT_WATCH` is `"1"` only because `adl-project.server.ts:46-48` sets it itself at module
-scope. The worker has a separate environment; the plugin's flag does not cross into it.
-
-**So today every dashboard reload is driven by core's `fs.watch`, and the Vite plugin is dead
-weight.** Confirmed directly — the reload that makes the test pass logs its trigger as the
-temp file, from `watchAdlProject`:
-
-```
-[adl-debug] fs.watch reload -> gen 1 path=…/src/workflows/answer-question.ts.<pid>.tmp
-```
-
-(The debounce in `reload-gate` is what makes triggering on the `.tmp` create correct: by the
-time the 150 ms timer fires, the rename has landed.)
-
-**(c) Forcing the other branch reproduces CI's failure signature exactly.** Starting the same
-dashboard with `ADL_VITE_PROJECT_WATCH=1` in its environment — so `shouldWatchProject()`
-returns false and ownership goes to the plugin — gives, deterministically:
+`ADL_PROJECT_WATCH` is `"1"` only because `adl-project.server.ts` sets it itself at module
+scope. So the branch meant to hand watching to the Vite plugin was never taken, which is the
+only reason atomic saves reloaded at all on 1.3.13. Forcing `ADL_VITE_PROJECT_WATCH=1` into the
+dashboard's environment disables core's watcher and reproduces CI's signature exactly:
 
 ```
 generation: 0, lastReloadError: null      # and no `[adl] reloading project…` in the log
 ```
 
-That is the CI failure, character for character. The branch that hands watching to the Vite
-plugin does not reload at all; it is not a fallback, it is a dead end.
+That flag has since been removed; `ADL_INSPECTOR_SERVE` (set only by `adl dashboard --serve`,
+which runs the built Nitro output under Node with no Vite at all) is now the single off switch.
 
-### What this does not prove
+### What this still does not explain
 
-It does not prove CI took that branch. On this machine the worker never sees the flag, and
-there is no reason to think a GitHub runner differs. Two other ways to reach the same
-signature were considered:
+CI's failure is intermittent, and everything above is deterministic. `generation: 0` with
+`lastReloadError: null` says `reload()` was never called, and on 1.3.13 that means core's
+watcher did not fire for the temp-file create. Bun's `fs.watch` delivered that one event in
+**400/400** rounds here, idle and with a 24-core box saturated, so a plain dropped event is
+unlikely. Not excluded: a watch that failed to _install_, which the code makes invisible —
 
-- **A dropped `fs.watch` event.** Measured against Bun 1.3.13's `fs.watch` directly, in the
-  same shape `watchAdlProject` uses (non-recursive, per-directory, atomic temp+rename save):
-  **0 misses in 400 rounds**, 200 idle and 200 with every core of a 24-core box saturated. So a
-  plain dropped inotify event is not a likely explanation.
-- **A watch that failed to install.** This one is not excluded, and the code makes it
-  invisible:
-  - `watch.ts:63-73` catches a throw from `fs.watch` and routes it to `onError`.
-  - `process-host.ts:91-92` sets `host.watchedRoot` **before** calling `watchAdlProject`, and
-    the returned dispose function is truthy whether or not any directory was actually
-    subscribed. The `host.watchedRoot === project.root && host.watchDispose` guard then makes
-    the failure permanent: no later `/api/project` request retries the install.
-  - Nothing surfaces it. `lastReloadError` is only ever set by a failed _reload_, so
-    `/api/project` reports `lastReloadError: null` for a watcher that never armed.
+- `watch.ts:63-73` catches a throw from `fs.watch` and routes it to `onError`.
+- `process-host.ts:91-92` sets `host.watchedRoot` **before** calling `watchAdlProject`, and the
+  returned dispose function is truthy whether or not any directory was subscribed. The
+  `host.watchedRoot === project.root && host.watchDispose` guard then makes the failure
+  permanent: no later `/api/project` request retries the install.
+- Nothing surfaces it. `lastReloadError` is only ever set by a failed _reload_, so
+  `/api/project` reports `lastReloadError: null` for a watcher that never armed.
 
-  An `ENOSPC` from `fs.inotify.max_user_watches` on a runner would therefore produce exactly
-  `generation: 0, lastReloadError: null` and an empty log. This is a silent fallback in the
-  sense of house rule 1: a watcher that failed to install is indistinguishable from a project
-  nobody edited.
+An `ENOSPC` from `fs.inotify.max_user_watches` on a runner would produce exactly that. This is a
+silent fallback in the sense of house rule 1: a watcher that failed to install is
+indistinguishable from a project nobody edited.
 
 ---
 
@@ -153,21 +183,29 @@ Two things are worth separating:
 
 ## 3. What would fix this
 
-In rough order of value, none of it done here:
-
-1. **One watch owner, not two.** Either delete the `ADL_VITE_PROJECT_WATCH` hand-off and let
-   `watchAdlProject` own project watching outright (house rule 3 — one path, delete the
-   special case), or make the plugin's chokidar actually watch an external root and keep the
-   core watcher as genuine redundancy. What must not stay is the present arrangement, where a
-   flag nobody delivers is the only thing keeping the working path switched on.
-2. **Make a failed watch install loud** (house rule 1). Do not set `host.watchedRoot` unless
-   at least one directory was subscribed; report a watch error on `/api/project` beside
-   `lastReloadError` so a dead watcher is visible instead of looking like an idle project.
-3. **Stop transpiling `packages/core` on reload** — `nativeModules: ["@agent-dev-lab/core"]`
-   on the jiti instance, or resolve the package's `default` export condition.
-4. **Give the e2e test something to assert about the watcher**, so its failure message says
-   "the watcher never armed" rather than `generation: 0`. Until then, a red run on this test
-   needs the `vite dev` log to be interpretable at all.
+1. **Upgrade Bun to 1.4** — the single highest-value item, and it closes two of this lane's
+   four: it restores the full `fs.watch` event stream for atomic saves (so Vite's watcher
+   becomes reliable, which is how it is remembered behaving), and it fixes the `node:test`
+   cascade in [`bun-node-test-cascade.md`](./bun-node-test-cascade.md). Its own lane —
+   `packageManager`, `@types/bun`, `ci.yml`'s `bun-version` and `AGENTS.md` all pin 1.3.13, and
+   1.4 is a major.
+2. **Decide who owns reload in dev.** With `ADL_VITE_PROJECT_WATCH` gone both watchers are live
+   in `vite dev`. Measured: on 1.3.13 an in-place edit settles at `generation: 1` (the two
+   triggers land close enough that `reload()`'s in-flight promise coalesces them), but on 1.4.0
+   an atomic edit settles at `generation: 2` — two full jiti reloads per save, because Bun 1.4
+   gives each watcher a different event to fire on. Redundancy is what makes the current
+   arrangement robust; the cost lands on the Bun upgrade. Either accept it, or make
+   `watchAdlProject` the sole owner and drop the plugin's `change`/`add` wiring — the plugin's
+   `dispatchFetch` exists to reach the worker isolate, and core's watcher already runs _in_ that
+   isolate, so it does not need the detour.
+3. **Make a failed watch install loud** (house rule 1). Do not set `host.watchedRoot` unless at
+   least one directory was subscribed; report a watch error on `/api/project` beside
+   `lastReloadError` so a dead watcher is visible instead of looking like an idle project. This
+   is the one change that would have made CI's `generation: 0` self-explaining.
+4. **Stop transpiling `packages/core` on reload** — `nativeModules: ["@agent-dev-lab/core"]` on
+   the jiti instance, or resolve the package's `default` export condition.
+5. **Give the e2e test something to assert about the watcher**, so its failure message says
+   "the watcher never armed" rather than `generation: 0`.
 
 ## Reproducing
 
@@ -182,5 +220,6 @@ bun run build --filter=@agent-dev-lab/core
 bun test packages/core/src/project/watch.e2e.test.ts   # passes in ~6s
 ```
 
-To reproduce finding 1(c), add `ADL_VITE_PROJECT_WATCH: "1"` to the `env` in
-`startDashboard()`.
+To reproduce finding 1(b)/(c) directly, watch a directory and a file with `node:fs.watch`,
+write `f.tmp` and rename it over `f`, and count the events under `node`, `bun@1.3.13` and
+`bun@1.4.0` — 4/3, 1/0 and 4/3 respectively.
