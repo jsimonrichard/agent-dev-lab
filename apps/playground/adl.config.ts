@@ -17,6 +17,7 @@ import { researcher } from "./src/agents/researcher";
 import { promptTemplates } from "./src/prompts";
 import { answerQuestion } from "./src/workflows/answer-question";
 import { demoCounter } from "./src/workflows/demo-counter";
+import { fetchUrlDemo } from "./src/workflows/fetch-url-demo";
 import { literatureReview } from "./src/workflows/literature-review";
 import { sandboxDemo } from "./src/workflows/sandbox-demo";
 import { sharedScope } from "./src/workflows/shared-scope";
@@ -57,6 +58,7 @@ export default {
     literatureReview,
     sharedScope,
     sandboxDemo,
+    fetchUrlDemo,
   ],
   templates: promptTemplates,
 } satisfies AdlProjectConfig;
