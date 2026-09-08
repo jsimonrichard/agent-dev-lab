@@ -96,7 +96,6 @@ export function adlProjectReloadPlugin(projectRoot: string): Plugin {
     apply: "serve",
     configureServer(devServer) {
       server = devServer;
-      process.env.ADL_VITE_PROJECT_WATCH = "1";
       process.env.ADL_PROJECT_WATCH = "1";
       devServer.watcher.add(root);
       devServer.watcher.on("change", schedule);

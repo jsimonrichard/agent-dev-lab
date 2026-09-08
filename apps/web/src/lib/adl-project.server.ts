@@ -34,11 +34,16 @@ function resolveAdlProjectRoot(): string {
   return findAdlProjectRootFromCwd(process.cwd());
 }
 
+/**
+ * Watch in every dev mode; only `adl dashboard --serve` opts out, and it has no Vite dev
+ * server to watch with anyway (it runs the built Nitro `.output` under Node).
+ *
+ * There is deliberately no hand-off to the Vite plugin. The two watchers have different blind
+ * spots and both are wanted: Vite's chokidar sees an in-place write but, under Bun 1.3.13's
+ * `fs.watch`, sees nothing at all for a temp+rename save, which is how editors save. See
+ * `notes/watch-e2e-flake.md`.
+ */
 function shouldWatchProject(): boolean {
-  // Vite's adl-project-reload plugin owns watching in framework / dashboard dev.
-  if (process.env.ADL_VITE_PROJECT_WATCH === "1") {
-    return false;
-  }
   return process.env.ADL_INSPECTOR_SERVE !== "1";
 }
 
