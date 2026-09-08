@@ -1,11 +1,11 @@
 import { openAdlSqlite, resolveAdlSqlitePath } from "../db";
+import { applyProjections, stepSlotKey } from "../db/projections";
 
 import type {
   RunEvent,
   RunEventOfType,
   RunEventType,
   StepRecord,
-  StepSlot,
   WorkflowRunSummary,
 } from "./events";
 import type {
@@ -33,11 +33,6 @@ type TagRow = {
   workflow_run_id: string;
   tag: string;
 };
-
-function stepSlotKey(slot: StepSlot): string {
-  const keyPart = slot.key ?? "";
-  return `${slot.parentStepId ?? "root"}:${slot.name}:${keyPart}`;
-}
 
 /** `(?, ?, ...)` placeholder list for a dynamic-length `IN (...)` clause. */
 function placeholders(count: number): string {
@@ -81,6 +76,13 @@ function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEve
   return list;
 }
 
+/**
+ * Appends the event to the log, then updates the entity tables projected off it.
+ *
+ * The append is the durable write; {@link applyProjections} only maintains read
+ * models, and lives in `db/projections` because the schema migration's backfill
+ * replays retained events through that same function.
+ */
 function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEvent): void {
   const workflowRunId = "workflowRunId" in event ? (event.workflowRunId ?? null) : null;
   const agentCallId = "agentCallId" in event ? event.agentCallId : null;
@@ -101,107 +103,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
       JSON.stringify(event),
     );
 
-  if (event.type === "workflow_started") {
-    sqlite
-      .prepare(
-        `INSERT INTO adl_workflow_runs
-          (workflow_run_id, workflow_id, status, started_at, finished_at, input_json, output_json)
-         VALUES (?, ?, 'running', ?, NULL, ?, NULL)
-         ON CONFLICT(workflow_run_id) DO UPDATE SET
-           workflow_id = excluded.workflow_id,
-           status = 'running',
-           started_at = excluded.started_at,
-           finished_at = NULL,
-           input_json = excluded.input_json,
-           output_json = NULL`,
-      )
-      .run(event.workflowRunId, event.workflowId, event.at, JSON.stringify(event.input));
-
-    for (const tag of event.tags ?? []) {
-      sqlite
-        .prepare(`INSERT OR IGNORE INTO adl_workflow_run_tags (workflow_run_id, tag) VALUES (?, ?)`)
-        .run(event.workflowRunId, tag);
-    }
-  }
-
-  if (event.type === "workflow_finished") {
-    sqlite
-      .prepare(
-        `UPDATE adl_workflow_runs SET status = 'ok', finished_at = ?, output_json = ? WHERE workflow_run_id = ?`,
-      )
-      .run(event.at, JSON.stringify(event.output), event.workflowRunId);
-  }
-
-  if (event.type === "workflow_failed") {
-    sqlite
-      .prepare(
-        `UPDATE adl_workflow_runs SET status = 'error', finished_at = ? WHERE workflow_run_id = ?`,
-      )
-      .run(event.at, event.workflowRunId);
-  }
-
-  if (event.type === "workflow_cancelled") {
-    sqlite
-      .prepare(
-        `UPDATE adl_workflow_runs SET status = 'cancelled', finished_at = ? WHERE workflow_run_id = ?`,
-      )
-      .run(event.at, event.workflowRunId);
-  }
-
-  if (event.type === "workflow_title_set") {
-    sqlite
-      .prepare(
-        `INSERT INTO adl_workflow_runs (workflow_run_id, workflow_id, status, started_at, title)
-         VALUES (?, '', 'running', ?, ?)
-         ON CONFLICT(workflow_run_id) DO UPDATE SET title = excluded.title`,
-      )
-      .run(event.workflowRunId, event.at, event.title);
-  }
-
-  if (event.type === "step_finished") {
-    const slot = stepSlotKey({
-      parentStepId: event.parentStepId,
-      name: event.name,
-      key: event.key,
-    });
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_outputs (workflow_run_id, slot_key, output_json) VALUES (?, ?, ?)`,
-      )
-      .run(event.workflowRunId, slot, JSON.stringify(event.output));
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_records
-          (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'ok')`,
-      )
-      .run(
-        event.workflowRunId,
-        event.stepId,
-        event.name,
-        event.key ?? null,
-        JSON.stringify(event.path),
-        event.parentStepId,
-        JSON.stringify(event.output),
-      );
-  }
-
-  if (event.type === "step_failed") {
-    sqlite
-      .prepare(
-        `INSERT OR REPLACE INTO adl_step_records
-          (workflow_run_id, step_id, name, key, path_json, parent_step_id, output_json, status)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, 'error')`,
-      )
-      .run(
-        event.workflowRunId,
-        event.stepId,
-        event.name,
-        event.key ?? null,
-        JSON.stringify(event.path),
-        event.parentStepId,
-      );
-  }
+  applyProjections(sqlite, event);
 }
 
 /**
