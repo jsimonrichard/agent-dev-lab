@@ -42,7 +42,13 @@ All standard commands are in root `package.json`:
 - `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).
 - `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.
-- CI runs lint and format checks via GitHub Actions (`.github/workflows/ci.yml`).
+- CI (`.github/workflows/ci.yml`, on push/PR to `main`) is two parallel jobs, each on
+  `ubuntu-latest` after `bun install --frozen-lockfile`:
+  - **Lint & Format** — `format:check`, then `lint`.
+  - **Typecheck, Test & Build** — installs `bubblewrap`, `socat`, and `ripgrep`, relaxes
+    `kernel.apparmor_restrict_unprivileged_userns` and verifies `bwrap` can create a sandbox
+    (`packages/tools`' executors test against the real primitives and never fall back to
+    running unsandboxed), then `typecheck`, `test`, `test:node`, `build`.
 - Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
 - Bun is the monorepo dev/tooling runtime (install, `bun run dev`, most tests), but **Node is the reference runtime going forward** for process/spawn-level code, where Bun and Node have been found to disagree (e.g. `spawn`/`spawnSync` PATH resolution — see `notes/tool-sandboxing.md`). New code in that category should get `node:test`-based coverage runnable under both, not just `bun test`.
