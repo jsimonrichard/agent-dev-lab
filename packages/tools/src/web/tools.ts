@@ -2,6 +2,7 @@ import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
 import type { AddressPolicy } from "./address-policy.ts";
+import type { UrlPattern } from "./url-pattern.ts";
 import { parseContentType, reduceToText } from "./extract.ts";
 import { fetchGuardedUrl, parseRequestUrl } from "./fetch.ts";
 
@@ -52,12 +53,12 @@ export const FETCH_URL_DESCRIPTION =
 
 export interface FetchUrlToolOptions {
   /**
-   * Origins (`hostname:port`, exact) allowed past the address check — see
-   * {@link AddressPolicy.allowedHosts}. Empty by default; there is no option that turns the
+   * URL patterns (glob strings and/or `RegExp`s) allowed past the address check — see
+   * {@link AddressPolicy.allowedUrls}. Empty by default; there is no option that turns the
    * address check off (house rule 1: a guard is never an optional flag with a safe-looking
    * default).
    */
-  allowedHosts?: readonly string[];
+  allowedUrls?: readonly UrlPattern[];
   /** Hostname resolver override. Defaults to `node:dns`; exists so the policy can be tested. */
   resolver?: AddressPolicy["resolver"];
   /** Wall-clock timeout for the whole fetch, in milliseconds. Default 30,000 (30s). */
@@ -119,7 +120,7 @@ export function createFetchUrlTool(options: FetchUrlToolOptions = {}): WebTools 
   }
 
   const policy: AddressPolicy = {
-    allowedHosts: options.allowedHosts,
+    allowedUrls: options.allowedUrls,
     resolver: options.resolver,
   };
 

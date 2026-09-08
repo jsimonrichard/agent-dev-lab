@@ -63,6 +63,8 @@ export {
   DEFAULT_MAX_RESPONSE_BYTES,
   describeWebAccess,
   isPublicAddress,
+  matchesUrlPattern,
+  urlMatchCandidate,
 } from "./web";
 export type {
   AddressPolicy,
@@ -70,6 +72,7 @@ export type {
   FetchUrlResult,
   FetchUrlToolOptions,
   HostnameResolver,
+  UrlPattern,
   WebAccessInfo,
   WebProviderTools,
   WebTools,

@@ -16,16 +16,21 @@ import {
   type FetchUrlToolOptions,
   type WebTools,
 } from "./tools.ts";
+import type { UrlPattern } from "./url-pattern.ts";
 
 /** The `describeWebEnv` tool's payload — see `createWebToolProvider`. */
 export interface WebAccessInfo {
   /** URL schemes this call's `fetchUrl` will fetch. */
   allowedSchemes: readonly string[];
   /**
-   * `hostname:port` origins exempt from the address check for this call — the only way to reach
-   * a non-public address. Empty when nothing is exempt.
+   * The URL patterns exempt from the address check for this call — the only way to reach a
+   * non-public address. Empty when nothing is exempt. Reported as display strings
+   * (`String(pattern)`: a glob unchanged, a `RegExp` as `/source/flags`) rather than the raw
+   * `UrlPattern` values — this payload is a tool result, which an AI SDK model turn serializes,
+   * and a `RegExp` instance serializes to `{}` under `JSON.stringify` (it has no enumerable own
+   * properties), silently discarding exactly the information this tool exists to report.
    */
-  allowedHosts: readonly string[];
+  allowedUrls: readonly string[];
   /** The wall-clock timeout (ms) this call's `fetchUrl` actually enforces. */
   timeoutMs: number;
   /** The response byte cap this call's `fetchUrl` actually enforces. */
@@ -35,14 +40,14 @@ export interface WebAccessInfo {
 }
 
 export function describeWebAccess(
-  allowedHosts: readonly string[],
+  allowedUrls: readonly UrlPattern[],
   timeoutMs: number,
   maxResponseBytes: number,
   maxRedirects: number,
 ): WebAccessInfo {
   return {
     allowedSchemes: ALLOWED_URL_SCHEMES,
-    allowedHosts,
+    allowedUrls: allowedUrls.map((pattern) => String(pattern)),
     timeoutMs,
     maxResponseBytes,
     maxRedirects,
@@ -50,9 +55,10 @@ export function describeWebAccess(
 }
 
 const describeWebEnvDescription =
-  "Reports what fetchUrl is allowed to retrieve: the permitted URL schemes, any hosts exempt " +
-  "from the private-address block, the response byte cap, the timeout, and the redirect limit. " +
-  "Call before a fetch you're unsure is allowed, or after one fails unexpectedly.";
+  "Reports what fetchUrl is allowed to retrieve: the permitted URL schemes, any URL patterns " +
+  "exempt from the private-address block, the response byte cap, the timeout, and the " +
+  "redirect limit. Call before a fetch you're unsure is allowed, or after one fails " +
+  "unexpectedly.";
 
 const describeWebEnvInputSchema = z.object({});
 type DescribeWebEnvInput = z.infer<typeof describeWebEnvInputSchema>;
@@ -61,8 +67,8 @@ type DescribeWebEnvInput = z.infer<typeof describeWebEnvInputSchema>;
 export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAccessInfo }>;
 
 export interface WebToolProviderOptions {
-  /** Default exempt origins when a call's context doesn't specify them. */
-  allowedHosts?: readonly string[];
+  /** Default exempt URL patterns when a call's context doesn't specify them. */
+  allowedUrls?: readonly UrlPattern[];
   /** Hostname resolver override, fixed at construction time — see `FetchUrlToolOptions`. */
   resolver?: FetchUrlToolOptions["resolver"];
   /** Default timeout (ms) when a call's context doesn't specify one. */
@@ -75,11 +81,13 @@ export interface WebToolProviderOptions {
 
 export interface WebToolProviderContext {
   /**
-   * Overrides `options.allowedHosts` for this call. Settable because
+   * Overrides `options.allowedUrls` for this call. Settable because
    * `toolProviderContext` is host/workflow-supplied and trusted — the model never reaches it
-   * (see `notes/tool-sandboxing.md`'s "trust, not restriction" note).
+   * (see `notes/tool-sandboxing.md`'s "trust, not restriction" note). A `RegExp` entry survives
+   * here because `toolProviderContext` is a plain in-process value, not something serialized
+   * through JSON — unlike `WebAccessInfo.allowedUrls` above, nothing here needs a display form.
    */
-  allowedHosts?: readonly string[];
+  allowedUrls?: readonly UrlPattern[];
   /** Overrides `options.timeoutMs` for this call. */
   timeoutMs?: number;
   /** Overrides `options.maxResponseBytes` for this call. */
@@ -101,7 +109,7 @@ export type WebProviderTools = {
 };
 
 /**
- * `ToolProvider` wrapping `createFetchUrlTool` so the caps, the timeout and the exempt-host
+ * `ToolProvider` wrapping `createFetchUrlTool` so the caps, the timeout and the exempt-URL
  * allowlist can be set per `agent.run()` call via `toolProviderContext` instead of being fixed at
  * construction time. Deliberately **not** folded into `createWorkspaceToolProvider`: that one is
  * the "file tools and bash sharing one `cwd`" surface, and `fetchUrl` has no `cwd` and touches no
@@ -112,9 +120,13 @@ export function createWebToolProvider(
   options: WebToolProviderOptions = {},
 ): ToolProvider<WebProviderTools, WebToolProviderContext | undefined> {
   return {
+    // `allowedUrls` accepts a glob string or a `RegExp` instance per entry — matching
+    // `AddressPolicy.allowedUrls`/`UrlPattern` exactly, not just the string half of it, since a
+    // caller building `toolProviderContext` programmatically should get the same schema-level
+    // guarantee this provider actually enforces at runtime.
     contextSchema: z
       .object({
-        allowedHosts: z.array(z.string()),
+        allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])),
         timeoutMs: z.number(),
         maxResponseBytes: z.number(),
         maxRedirects: z.number(),
@@ -127,7 +139,7 @@ export function createWebToolProvider(
       ];
     },
     getTools(ctx) {
-      const allowedHosts = ctx.toolProviderContext?.allowedHosts ?? options.allowedHosts ?? [];
+      const allowedUrls = ctx.toolProviderContext?.allowedUrls ?? options.allowedUrls ?? [];
       const timeoutMs =
         ctx.toolProviderContext?.timeoutMs ?? options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
       const maxResponseBytes =
@@ -138,7 +150,7 @@ export function createWebToolProvider(
         ctx.toolProviderContext?.maxRedirects ?? options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
 
       const base = createFetchUrlTool({
-        allowedHosts,
+        allowedUrls,
         resolver: options.resolver,
         timeoutMs,
         maxResponseBytes,
@@ -149,7 +161,7 @@ export function createWebToolProvider(
         description: describeWebEnvDescription,
         inputSchema: describeWebEnvInputSchema,
         execute: async () => ({
-          webAccess: describeWebAccess(allowedHosts, timeoutMs, maxResponseBytes, maxRedirects),
+          webAccess: describeWebAccess(allowedUrls, timeoutMs, maxResponseBytes, maxRedirects),
         }),
       });
 

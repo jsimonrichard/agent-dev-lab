@@ -15,13 +15,16 @@ import { createFetchUrlTool, type FetchUrlResult, type FetchUrlToolOptions } fro
  * composition are exactly the "Bun and Node can disagree" category `AGENTS.md` describes.
  *
  * **How the fixture gets past the SSRF guard, and why that still tests it.** The fixture listens
- * on `127.0.0.1`, which the guard blocks — so its own origin goes in `allowedHosts`, the exact
- * `hostname:port` exemption that exists for deliberately-trusted internal hosts. Because that
- * exemption is matched *per redirect hop*, a fixture response that redirects to
+ * on `127.0.0.1`, which the guard blocks — so its own origin goes in `allowedUrls`, as a
+ * `${origin}/**` glob exempting the whole origin (the old, host-only-equivalent shape). Because
+ * that exemption is matched *per redirect hop*, a fixture response that redirects to
  * `169.254.169.254`, or even to loopback on a **different port**, lands on a hop that is not
  * exempt and is refused by the same guard that would refuse it in production. The purely-public
  * case (a public host redirecting to a private one, no exemption anywhere) is covered as a unit
- * in `address-policy.test.ts`; together the two cover the redirect threat from both ends.
+ * in `address-policy.test.ts`. The path/regex-scoped forms of `allowedUrls` — the precision
+ * plain `hostname:port` allowlisting never had — are unit-tested there too; the "path scoping
+ * end to end" block below exercises the same scoping through the full tool, not just the guard
+ * in isolation.
  */
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
@@ -76,7 +79,6 @@ function endlessBody(res: ServerResponse): void {
 interface Fixture {
   server: Server;
   origin: string;
-  hostKey: string;
 }
 
 /** Starts a fixture on an ephemeral loopback port. Every socket is tracked so the stalling
@@ -102,7 +104,6 @@ async function startFixture(routes: (path: string, res: ServerResponse) => void)
   return {
     server,
     origin: `http://127.0.0.1:${address.port}`,
-    hostKey: `127.0.0.1:${address.port}`,
   };
 }
 
@@ -191,6 +192,27 @@ before(async () => {
       case "/loop":
         res.writeHead(302, { location: "/loop" }).end();
         return;
+      case "/scoped/allowed":
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end("inside the scoped directory");
+        return;
+      case "/scoped/other":
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end("a sibling path under the same scope");
+        return;
+      case "/scoped/to-metadata":
+        // Same redirect as top-level `/to-metadata`, just reachable through the scoped path —
+        // for proving a path-scoped exemption doesn't loosen the per-hop redirect re-check.
+        res.writeHead(302, { location: "http://169.254.169.254/latest/meta-data/" }).end();
+        return;
+      case "/unscoped":
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end("outside the scoped directory");
+        return;
+      case "/regex-only":
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end("matched by pattern, not by path prefix");
+        return;
       default:
         res.writeHead(404, { "content-type": "text/plain" }).end("unknown fixture route");
         return;
@@ -206,7 +228,7 @@ after(async () => {
 
 /** Runs `fetchUrl` against the main fixture with its origin exempted. */
 async function fetchPath(path: string, options: FetchUrlToolOptions = {}): Promise<FetchUrlResult> {
-  const { fetchUrl } = createFetchUrlTool({ allowedHosts: [main.hostKey], ...options });
+  const { fetchUrl } = createFetchUrlTool({ allowedUrls: [`${main.origin}/**`], ...options });
   const execute = fetchUrl.execute;
   assert.ok(execute, "fetchUrl tool has no execute");
   return asFetchUrlResult(await execute({ url: `${main.origin}${path}` }, toolCallOptions));
@@ -383,6 +405,65 @@ describe("fetchUrl", () => {
       await assert.rejects(
         fetchPath("/stall-body", { timeoutMs: 300 }),
         /exceeded the 300ms timeout/,
+      );
+    });
+  });
+
+  describe("allowedUrls path/regex scoping, end to end", () => {
+    it("a glob scoped to one directory allows it and everything under it", async () => {
+      const { fetchUrl } = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const execute = fetchUrl.execute;
+      assert.ok(execute);
+
+      const allowed = asFetchUrlResult(
+        await execute({ url: `${main.origin}/scoped/allowed` }, toolCallOptions),
+      );
+      assert.equal(allowed.content, "inside the scoped directory");
+
+      const sibling = asFetchUrlResult(
+        await execute({ url: `${main.origin}/scoped/other` }, toolCallOptions),
+      );
+      assert.equal(sibling.content, "a sibling path under the same scope");
+    });
+
+    it("that same glob does not reach outside its own directory", async () => {
+      const { fetchUrl } = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const execute = fetchUrl.execute;
+      assert.ok(execute);
+      await assert.rejects(
+        async () => execute({ url: `${main.origin}/unscoped` }, toolCallOptions),
+        /not a public address/,
+      );
+    });
+
+    it("a RegExp entry scopes by pattern instead of by path prefix", async () => {
+      const { fetchUrl } = createFetchUrlTool({
+        allowedUrls: [new RegExp(`^${main.origin.replace(/[.]/g, "\\.")}/regex-only$`)],
+      });
+      const execute = fetchUrl.execute;
+      assert.ok(execute);
+
+      const matched = asFetchUrlResult(
+        await execute({ url: `${main.origin}/regex-only` }, toolCallOptions),
+      );
+      assert.equal(matched.content, "matched by pattern, not by path prefix");
+
+      await assert.rejects(
+        async () => execute({ url: `${main.origin}/scoped/allowed` }, toolCallOptions),
+        /not a public address/,
+      );
+    });
+
+    it("a scoped exemption still doesn't survive a redirect to a different origin", async () => {
+      // Same guarantee `SSRF guard across redirects` exercises for the whole-origin case above,
+      // repeated for a path-scoped entry: scoping the exemption more tightly doesn't loosen the
+      // per-hop re-check in any way.
+      const { fetchUrl } = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const execute = fetchUrl.execute;
+      assert.ok(execute);
+      await assert.rejects(
+        async () => execute({ url: `${main.origin}/scoped/to-metadata` }, toolCallOptions),
+        /not a public address/,
       );
     });
   });

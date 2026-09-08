@@ -1,5 +1,7 @@
-export { assertAllowedUrl, isPublicAddress } from "./address-policy.ts";
+export { assertAllowedUrl, isPublicAddress, urlMatchCandidate } from "./address-policy.ts";
 export type { AddressPolicy, HostnameResolver } from "./address-policy.ts";
+export { matchesUrlPattern } from "./url-pattern.ts";
+export type { UrlPattern } from "./url-pattern.ts";
 export { createWebToolProvider, describeWebAccess } from "./provider.ts";
 export type {
   DescribeWebEnvTool,

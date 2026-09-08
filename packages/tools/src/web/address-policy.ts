@@ -3,6 +3,8 @@ import { lookup as dnsLookup } from "node:dns/promises";
 import { AdlError } from "@agent-dev-lab/core";
 import ipaddr from "ipaddr.js";
 
+import { matchesUrlPattern, type UrlPattern } from "./url-pattern.ts";
+
 /**
  * The SSRF guard: decides whether one URL may be fetched at all. Applied to the URL the model
  * asked for **and, identically, to every redirect hop** — see `fetchGuardedUrl`. A public
@@ -68,18 +70,24 @@ const defaultResolver: HostnameResolver = async (hostname) => {
 
 export interface AddressPolicy {
   /**
-   * Exact `hostname:port` origins allowed to bypass the address classification — **empty by
-   * default**, so nothing bypasses it unless a host explicitly says so.
+   * URL patterns (glob strings and/or `RegExp`s — see `url-pattern.ts`) allowed to bypass the
+   * address classification — **empty by default**, so nothing bypasses it unless a host
+   * explicitly says so.
    *
    * This is an allowlist, not a switch that turns the guard off: it is the only way to reach a
    * non-public address (a company-internal docs service, or a test fixture server on
-   * `127.0.0.1`), and it is matched per redirect hop, so an allowlisted origin that redirects
-   * somewhere else gains that destination nothing. Entries are compared as
-   * `url.hostname + ":" + effective port`, with the scheme's default port filled in when the URL
-   * omits it, so `"127.0.0.1:8080"` and `"docs.internal:443"` are both exact matches and neither
-   * is a wildcard.
+   * `127.0.0.1`), and it is matched **per redirect hop** against {@link urlMatchCandidate}, so an
+   * allowlisted origin that redirects somewhere else gains that destination nothing — a pattern
+   * this permissive for the *first* hop (`http://intranet.example:8080/**`) still blocks a
+   * redirect to a different origin entirely.
+   *
+   * Path-scoped by design: `http://intranet.example:8080/**` allows the whole origin (the old,
+   * host-only behavior), but `http://intranet.example:8080/wiki/*` allows only that one
+   * directory — precision plain `hostname:port` allowlisting could never express. A literal
+   * string with no `*`/`**` (e.g. one copied from this guard's own rejection message) matches
+   * only that exact URL.
    */
-  allowedHosts?: readonly string[];
+  allowedUrls?: readonly UrlPattern[];
   /** Hostname resolver, defaulting to `node:dns`' `lookup(..., { all: true })`. */
   resolver?: HostnameResolver;
 }
@@ -92,9 +100,23 @@ function effectivePort(url: URL): string {
   return url.protocol === "https:" ? "443" : "80";
 }
 
-/** `hostname:port`, as `AddressPolicy.allowedHosts` entries are written. */
-export function hostKey(url: URL): string {
-  return `${url.hostname}:${effectivePort(url)}`;
+/**
+ * The string `AddressPolicy.allowedUrls` patterns are matched against: scheme, hostname, the
+ * effective port, and the path — `${protocol}//${hostname}:${port}${pathname}`. Deliberately
+ * excludes the query string, fragment, and any userinfo:
+ *
+ * - Userinfo (`user:pass@host`) is not part of where the request actually goes — `URL` already
+ *   separates it from `hostname`, so it never reaches this string at all.
+ * - The query and fragment don't change the network destination either, and including them
+ *   would turn this allowlist into a general request-shape ACL rather than what it is: a
+ *   statement of which *destinations* an SSRF exemption covers.
+ *
+ * `hostname` is already lowercased and IDN-normalized by `URL` itself, and `..` segments are
+ * already resolved out of `pathname` — so a pattern author writing `docs.internal` or `/a/b`
+ * never has to account for either.
+ */
+export function urlMatchCandidate(url: URL): string {
+  return `${url.protocol}//${url.hostname}:${effectivePort(url)}${url.pathname}`;
 }
 
 /**
@@ -118,8 +140,9 @@ export function isPublicAddress(address: string): boolean {
 }
 
 /**
- * Throws unless `url` may be fetched. Checks, in order: the scheme, then `allowedHosts`, then
- * every address the hostname resolves to.
+ * Throws unless `url` may be fetched. Checks, in order: the scheme (absolute — no
+ * `allowedUrls` pattern can exempt a non-`http(s)` URL), then `allowedUrls`, then every address
+ * the hostname resolves to.
  *
  * Every resolved address must pass, not merely one of them: the connection picks an address from
  * that set and this code does not get to choose which, so a hostname with one public and one
@@ -138,7 +161,8 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
     );
   }
 
-  if (policy.allowedHosts?.includes(hostKey(url))) {
+  const candidate = urlMatchCandidate(url);
+  if (policy.allowedUrls?.some((pattern) => matchesUrlPattern(pattern, candidate))) {
     return;
   }
 
@@ -170,8 +194,9 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
       `Refusing to fetch "${url.href}": host "${url.hostname}" resolves to ` +
         `${blocked.join(", ")}, which is not a public address. Private, loopback, link-local ` +
         `(including cloud metadata services), and other non-globally-routable addresses are ` +
-        `blocked. Add "${hostKey(url)}" to the tool's allowedHosts to permit this host on ` +
-        `purpose.`,
+        `blocked. Add "${url.protocol}//${url.hostname}:${effectivePort(url)}/**" to the ` +
+        `tool's allowedUrls to permit this origin on purpose, or scope it to one path with ` +
+        `something like ".../a-specific-path/*".`,
     );
   }
 }

@@ -73,7 +73,7 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
   executors share the same spawn/stream/truncate/timeout-kill logic
   (`process-channel.ts`'s `runArgvIntoChannel`) — only how each builds its `argv`/`env` differs.
 
-- `src/web/` — `createFetchUrlTool({ allowedHosts?, timeoutMs?, maxResponseBytes?, maxRedirects? })`:
+- `src/web/` — `createFetchUrlTool({ allowedUrls?, timeoutMs?, maxResponseBytes?, maxRedirects? })`:
   a `fetchUrl` tool that retrieves **one** URL and returns its body as readable text/markdown.
   The sibling of web search, not a replacement — search _finds_ pages, this _reads_ one. Web
   search itself is deliberately not built here (see the provider-native table above).
@@ -91,11 +91,23 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
   - **Re-checked after every redirect** — `fetch` is called with `redirect: "manual"` and the hops
     are followed by hand, so the guard runs against each `Location` _before_ it is requested. A
     public host that 302s to `169.254.169.254` is the case this exists for.
-  - **`allowedHosts`** — exact `hostname:port` origins exempt from the address check, **empty by
-    default**. This is the only way to reach a non-public address (a company-internal docs
-    service), and it is matched per hop, so an exempt origin cannot redirect sideways into
-    another service on the same machine. There is deliberately no option that turns the guard
-    off.
+  - **`allowedUrls`** — URL patterns exempt from the address check, **empty by default**. This
+    is the only way to reach a non-public address (a company-internal docs service, or a test
+    fixture), and it is matched per hop against `scheme://host:port/path` (no query, no
+    fragment — see `urlMatchCandidate`'s doc comment), so an exempt origin cannot redirect
+    sideways into another service on the same machine. There is deliberately no option that
+    turns the guard off. Each entry is a glob **string** or a `RegExp`:
+    - A glob is a small, deliberately narrow language, not a general glob engine (`url-pattern.ts`
+      explains why): literal characters match themselves, `*` matches one path segment, `**`
+      matches anything including `/`. `http://intranet.example:8080/**` allows a whole origin
+      (equivalent to the old host-only allowlist); `http://intranet.example:8080/wiki/*` scopes
+      the exemption to one directory — precision plain `hostname:port` allowlisting couldn't
+      express.
+    - A `RegExp` is matched over the **whole** candidate regardless of its own `^`/`$` anchors —
+      an omitted anchor fails closed instead of silently matching as a substring.
+    - `describeWebEnv` reports each entry as a display string (`String(pattern)`), since a raw
+      `RegExp` serializes to `"{}"` under `JSON.stringify` and would otherwise silently lose the
+      pattern once an AI SDK turn serializes the tool result.
   - **Untrusted content** — the response is never executed, evaluated or resolved; `<script>`,
     `<style>`, `<noscript>`, `<iframe>`, `<object>`, `<embed>`, `<template>` and `<svg>` are
     dropped with their contents before conversion, and the tool description tells the model the
@@ -135,7 +147,7 @@ above has a `ToolProvider` wrapper — see `packages/core`'s `ToolProvider`/`cre
   (a `Workflow<{ command, cwd }, { safe, reason }>`) on top of the OS-level sandbox, for
   non-filesystem dangerous intent (fork bombs, resource exhaustion, ...) a jail can't catch.
 - `createFileToolProvider({ root?, maxReadBytes?, maxWriteBytes? })` — the file-only primitive.
-- `createWebToolProvider({ allowedHosts?, timeoutMs?, maxResponseBytes?, maxRedirects? })` — the
+- `createWebToolProvider({ allowedUrls?, timeoutMs?, maxResponseBytes?, maxRedirects? })` — the
   `fetchUrl` primitive. Deliberately **not** folded into `createWorkspaceToolProvider`: that one is
   the "file tools and bash sharing one `cwd`" surface, and `fetchUrl` has no `cwd` and touches no
   filesystem, so it is a peer — combine them with `combineToolProviders` when an agent needs both.
@@ -171,7 +183,7 @@ the two runtimes implement separately.
 
 `src/web/`'s tests never touch the network. The SSRF policy is unit-tested with an injected
 hostname resolver, and the end-to-end tests run against a `node:http` fixture server on an
-ephemeral loopback port, whose origin is exempted via `allowedHosts`. Because that exemption is
+ephemeral loopback port, whose origin is exempted via `allowedUrls` (a `${origin}/**` glob). Because that exemption is
 matched per redirect hop, a fixture response redirecting to `169.254.169.254` still lands on a
 non-exempt hop and is refused — so the post-redirect guard is covered end to end without a real
 host, and the purely-public case (public host → private redirect target, nothing exempted) is
