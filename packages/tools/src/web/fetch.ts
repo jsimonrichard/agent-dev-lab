@@ -3,8 +3,8 @@ import { AdlError } from "@agent-dev-lab/core";
 import { assertAllowedUrl, type AddressPolicy } from "./address-policy.ts";
 
 /**
- * The transport half of `fetchUrl`: follows redirects **by hand** so the SSRF guard runs on every
- * hop, reads the body under a byte cap, and bounds the whole operation with one timeout.
+ * The transport half of `fetchUrl`: follows redirects **by hand** so the address guard runs on
+ * every hop, reads the body under a byte cap, and bounds the whole operation with one timeout.
  *
  * **Why manual redirects.** `fetch(url, { redirect: "follow" })` resolves each hop inside the
  * runtime, where no policy of ours can see it — a public host that 302s to `169.254.169.254`

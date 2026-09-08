@@ -14,14 +14,17 @@ import { createFetchUrlTool, type FetchUrlResult, type FetchUrlToolOptions } fro
  * them: redirect handling (`redirect: "manual"`), streaming body reads and `AbortSignal`
  * composition are exactly the "Bun and Node can disagree" category `AGENTS.md` describes.
  *
- * **How the fixture gets past the SSRF guard, and why that still tests it.** The fixture listens
- * on `127.0.0.1`, which the guard blocks — so its own origin goes in `allowedUrls`, as a
- * `${origin}/**` glob exempting the whole origin (the old, host-only-equivalent shape). Because
- * that exemption is matched *per redirect hop*, a fixture response that redirects to
- * `169.254.169.254`, or even to loopback on a **different port**, lands on a hop that is not
- * exempt and is refused by the same guard that would refuse it in production. The purely-public
- * case (a public host redirecting to a private one, no exemption anywhere) is covered as a unit
- * in `address-policy.test.ts`. The path/regex-scoped forms of `allowedUrls` — the precision
+ * **How the fixture gets past the address guard, and why that still tests it.** The fixture
+ * listens on `127.0.0.1` — a literal loopback address the guard blocks by default (see
+ * `address-policy.ts`'s module doc comment: checked regardless of scheme, since no DNS is
+ * involved) — so its own origin goes in `allowedUrls` as a `${origin}/**` glob exempting the
+ * whole origin. Because that exemption is matched *per redirect hop*, a fixture response that
+ * redirects to `169.254.169.254`, or even to loopback on a **different port**, lands on a hop
+ * that is not exempt and is refused by the same guard that would refuse it in production. The
+ * single-URL cases this exercises only through a full redirect chain here — a literal private
+ * address, and (separately) an `http:` domain resolving privately — are unit-tested directly, no
+ * redirect or fixture needed, in `address-policy.test.ts`, which also proves an `https:` domain
+ * is never checked this way at all. The path/regex-scoped forms of `allowedUrls` — the precision
  * plain `hostname:port` allowlisting never had — are unit-tested there too; the "path scoping
  * end to end" block below exercises the same scoping through the full tool, not just the guard
  * in isolation.
@@ -234,7 +237,7 @@ async function fetchPath(path: string, options: FetchUrlToolOptions = {}): Promi
   return asFetchUrlResult(await execute({ url: `${main.origin}${path}` }, toolCallOptions));
 }
 
-/** Runs `fetchUrl` on a raw URL with no host exempted — production configuration. */
+/** Runs `fetchUrl` on a raw URL with nothing in `allowedUrls` — production configuration. */
 async function fetchRaw(url: string, options: FetchUrlToolOptions = {}): Promise<FetchUrlResult> {
   const { fetchUrl } = createFetchUrlTool(options);
   const execute = fetchUrl.execute;
@@ -305,10 +308,11 @@ describe("fetchUrl", () => {
     });
   });
 
-  describe("SSRF guard across redirects", () => {
+  describe("address guard across redirects", () => {
     it("rejects a redirect into the cloud metadata service", async () => {
-      // Success criterion 2: the first hop is permitted and the *redirect target* is what gets
-      // refused, so this covers the post-redirect check specifically, not the initial one.
+      // The first hop (main.origin) is exempted; the *redirect target* — 169.254.169.254,
+      // written literally in the fixture's `Location` header — is what actually gets refused,
+      // so this covers the post-redirect check specifically, not the initial one.
       await assert.rejects(fetchPath("/to-metadata"), (error: Error) => {
         assert.match(error.message, /169\.254\.169\.254/);
         assert.match(error.message, /not a public address/);
@@ -325,8 +329,9 @@ describe("fetchUrl", () => {
     });
 
     it("rejects a redirect to loopback on a port that is not exempt", async () => {
-      // The exemption is `hostname:port`, so an allowlisted origin cannot redirect sideways into
-      // another service on the same machine.
+      // The exemption (`${origin}/**`) is scoped to one scheme+host+port; a different port is a
+      // different origin the glob doesn't cover, so an allowlisted origin cannot redirect
+      // sideways into another service on the same machine.
       await assert.rejects(fetchPath("/to-other-port"), /not a public address/);
     });
 
@@ -361,7 +366,7 @@ describe("fetchUrl", () => {
       }
     });
 
-    it("rejects a private address with no host exempted", async () => {
+    it("rejects a private address with nothing in allowedUrls", async () => {
       await assert.rejects(fetchRaw(`${main.origin}/page`), /not a public address/);
       await assert.rejects(fetchRaw("http://10.0.0.1/x"), /not a public address/);
       await assert.rejects(fetchRaw("http://169.254.169.254/"), /not a public address/);
@@ -455,9 +460,9 @@ describe("fetchUrl", () => {
     });
 
     it("a scoped exemption still doesn't survive a redirect to a different origin", async () => {
-      // Same guarantee `SSRF guard across redirects` exercises for the whole-origin case above,
-      // repeated for a path-scoped entry: scoping the exemption more tightly doesn't loosen the
-      // per-hop re-check in any way.
+      // Same guarantee `address guard across redirects` exercises for the whole-origin case
+      // above, repeated for a path-scoped entry: scoping the exemption more tightly doesn't
+      // loosen the per-hop re-check in any way.
       const { fetchUrl } = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
       const execute = fetchUrl.execute;
       assert.ok(execute);

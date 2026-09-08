@@ -177,13 +177,17 @@ describe("createWebToolProvider", () => {
     }
     expect(message).not.toMatch(/not a public address/);
 
-    // A path the RegExp doesn't describe is still refused.
+    // A path the RegExp doesn't describe isn't exempted, so 127.0.0.1 — a literal loopback
+    // address — is still refused. Being non-public isn't itself the problem (the case above
+    // proves that); being non-public *and* uncovered by allowedUrls is.
     await expect(
       fetchUrl.execute?.({ url: "http://127.0.0.1:9/other" }, toolCallOptions),
     ).rejects.toThrow(/not a public address/);
   });
 
-  it("rejects a non-public URL when nothing is exempted", async () => {
+  it("rejects a URL whose hostname is a literal non-public IP address, when nothing exempts it", async () => {
+    // Named precisely: there is no such thing as a "non-public URL" — only a literal address
+    // written in one can be classified that way, and only when nothing in allowedUrls covers it.
     const provider = createWebToolProvider();
     const { fetchUrl } = await provider.getTools(ctx());
     await expect(
