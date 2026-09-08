@@ -89,7 +89,7 @@ function materializeEvent(sqlite: ReturnType<typeof openAdlSqlite>, event: RunEv
 
   sqlite
     .prepare(
-      `INSERT INTO adl_workflow_events
+      `INSERT INTO adl_run_events
         (workflow_run_id, agent_call_id, run_seq, type, at, event_schema_version, payload_json)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
@@ -124,12 +124,12 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
         "workflowRunId" in scope
           ? sqlite
               .prepare(
-                "SELECT payload_json FROM adl_workflow_events WHERE workflow_run_id = ? ORDER BY run_seq ASC",
+                "SELECT payload_json FROM adl_run_events WHERE workflow_run_id = ? ORDER BY run_seq ASC",
               )
               .all(scope.workflowRunId)
           : sqlite
               .prepare(
-                "SELECT payload_json FROM adl_workflow_events WHERE agent_call_id = ? ORDER BY run_seq ASC",
+                "SELECT payload_json FROM adl_run_events WHERE agent_call_id = ? ORDER BY run_seq ASC",
               )
               .all(scope.agentCallId)
       ) as EventRow[];
@@ -277,9 +277,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async deleteRun(workflowRunId) {
-      sqlite
-        .prepare(`DELETE FROM adl_workflow_events WHERE workflow_run_id = ?`)
-        .run(workflowRunId);
+      sqlite.prepare(`DELETE FROM adl_run_events WHERE workflow_run_id = ?`).run(workflowRunId);
       sqlite.prepare(`DELETE FROM adl_step_outputs WHERE workflow_run_id = ?`).run(workflowRunId);
       sqlite.prepare(`DELETE FROM adl_step_records WHERE workflow_run_id = ?`).run(workflowRunId);
       sqlite
@@ -291,7 +289,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     async listAgentEpisodes(filter) {
       const rows = sqlite
         .prepare(
-          `SELECT payload_json FROM adl_workflow_events
+          `SELECT payload_json FROM adl_run_events
            WHERE type = 'agent_started' ORDER BY at DESC`,
         )
         .all() as EventRow[];

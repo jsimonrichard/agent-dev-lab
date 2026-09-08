@@ -4,7 +4,7 @@ import type { AdlSqliteDatabase } from "../sqlite-types";
 /**
  * Projects workflow lifecycle events into `adl_workflow_runs` and its tag table.
  *
- * Read model only: `adl_workflow_events` remains the source of truth, so every
+ * Read model only: `adl_run_events` remains the source of truth, so every
  * write here must be reproducible by replaying the log through
  * {@link applyProjections}.
  */

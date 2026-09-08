@@ -17,7 +17,7 @@ export const workflowRuns = sqliteTable("adl_workflow_runs", {
   title: text("title"),
 });
 
-export const workflowEvents = sqliteTable("adl_workflow_events", {
+export const runEvents = sqliteTable("adl_run_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   workflowRunId: text("workflow_run_id"),
   agentCallId: text("agent_call_id"),

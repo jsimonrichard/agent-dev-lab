@@ -1,7 +1,7 @@
 /**
  * Entity-table projections over the append-only event log.
  *
- * Events in `adl_workflow_events` are the single source of truth; every table
+ * Events in `adl_run_events` are the single source of truth; every table
  * these functions write is a read model rebuildable by replay. The store's
  * `recordEvent` and the schema migration's backfill both go through
  * {@link applyProjections}, so a rebuilt table cannot drift from a

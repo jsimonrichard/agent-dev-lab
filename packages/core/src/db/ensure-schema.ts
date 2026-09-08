@@ -16,7 +16,7 @@ const TABLES = [
     output_json TEXT,
     title TEXT
   )`,
-  `CREATE TABLE IF NOT EXISTS adl_workflow_events (
+  `CREATE TABLE IF NOT EXISTS adl_run_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workflow_run_id TEXT,
     agent_call_id TEXT,
@@ -61,12 +61,12 @@ const TABLES = [
 ];
 
 const INDEXES = [
-  `CREATE INDEX IF NOT EXISTS adl_workflow_events_run_seq
-    ON adl_workflow_events (workflow_run_id, run_seq)`,
-  `CREATE INDEX IF NOT EXISTS adl_workflow_events_agent_seq
-    ON adl_workflow_events (agent_call_id, run_seq)`,
-  `CREATE INDEX IF NOT EXISTS adl_workflow_events_type
-    ON adl_workflow_events (type)`,
+  `CREATE INDEX IF NOT EXISTS adl_run_events_run_seq
+    ON adl_run_events (workflow_run_id, run_seq)`,
+  `CREATE INDEX IF NOT EXISTS adl_run_events_agent_seq
+    ON adl_run_events (agent_call_id, run_seq)`,
+  `CREATE INDEX IF NOT EXISTS adl_run_events_type
+    ON adl_run_events (type)`,
   `CREATE INDEX IF NOT EXISTS adl_workflow_run_tags_tag
     ON adl_workflow_run_tags (tag)`,
 ];
@@ -76,9 +76,30 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
   { table: "adl_inspector_sessions", column: "deleted_at", sqlType: "TEXT" },
 ];
 
+/**
+ * The log holds every {@link RunEvent} — agent episodes and standalone
+ * conversations included — so `adl_workflow_events` named one of its writers
+ * rather than its contents.
+ */
+const TABLE_RENAMES: { from: string; to: string }[] = [
+  { from: "adl_workflow_events", to: "adl_run_events" },
+];
+
+/**
+ * SQLite keeps an index's own name when its table is renamed, so the
+ * pre-rename names survive attached to `adl_run_events` and the
+ * `CREATE INDEX IF NOT EXISTS` list above would add a second index over the
+ * same columns. Drop the old names before creating the new ones.
+ */
+const STALE_INDEXES = [
+  "adl_workflow_events_run_seq",
+  "adl_workflow_events_agent_seq",
+  "adl_workflow_events_type",
+];
+
 /** Pre-0.0.1 local DBs used `seq`; the published schema is `run_seq`. */
 const COLUMN_RENAMES: { table: string; from: string; to: string }[] = [
-  { table: "adl_workflow_events", from: "seq", to: "run_seq" },
+  { table: "adl_run_events", from: "seq", to: "run_seq" },
 ];
 
 type PragmaColumn = { name: string };
@@ -111,10 +132,52 @@ function renameColumnIfPresent(
   }
 }
 
-/** Creates ADL tables if they do not exist. Safe to call on every open. */
+function tableExists(sqlite: AdlSqliteDatabase, table: string): boolean {
+  // A miss is `null` under bun:sqlite and `undefined` under better-sqlite3, and
+  // this package runs on both — so test truthiness, never against one of them.
+  const row = sqlite
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .get(table) as { name: string } | null | undefined;
+  return Boolean(row);
+}
+
+/**
+ * Renames a table, or does nothing when the rename has already happened.
+ *
+ * Throws when both names exist: that means a half-applied migration or a
+ * hand-made table, and picking either one silently would orphan the rows in
+ * the other.
+ */
+function renameTableIfPresent(sqlite: AdlSqliteDatabase, from: string, to: string): void {
+  const fromExists = tableExists(sqlite, from);
+  const toExists = tableExists(sqlite, to);
+  if (fromExists && toExists) {
+    throw new Error(
+      `ADL schema migration cannot rename ${from} to ${to}: both tables exist. ` +
+        `Merge or drop one by hand — continuing would leave the rows in ${from} unreachable.`,
+    );
+  }
+  if (fromExists) {
+    sqlite.exec(`ALTER TABLE ${from} RENAME TO ${to}`);
+  }
+}
+
+/**
+ * Creates ADL tables if they do not exist, and migrates older local databases.
+ * Safe to call on every open.
+ *
+ * Step order is load-bearing: table renames run **before** `CREATE TABLE IF NOT
+ * EXISTS`, because a create under the new name would otherwise make an empty
+ * table beside the one holding the rows, and the rename would then have nowhere
+ * to go. Stale indexes are dropped before the index list is created, since a
+ * renamed table keeps its original index names.
+ */
 export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
   sqlite.exec("BEGIN");
   try {
+    for (const rename of TABLE_RENAMES) {
+      renameTableIfPresent(sqlite, rename.from, rename.to);
+    }
     for (const sql of TABLES) {
       sqlite.exec(sql);
     }
@@ -123,6 +186,9 @@ export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
     }
     for (const rename of COLUMN_RENAMES) {
       renameColumnIfPresent(sqlite, rename.table, rename.from, rename.to);
+    }
+    for (const name of STALE_INDEXES) {
+      sqlite.exec(`DROP INDEX IF EXISTS ${name}`);
     }
     for (const sql of INDEXES) {
       sqlite.exec(sql);
