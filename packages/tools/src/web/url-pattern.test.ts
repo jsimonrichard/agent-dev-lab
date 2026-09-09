@@ -3,14 +3,9 @@ import { describe, it } from "node:test";
 
 import { matchesUrlPattern } from "./url-pattern.ts";
 
-/**
- * `node:test`, matching the rest of `src/web/`. Tests `matchesUrlPattern` directly against plain
- * candidate strings — no `URL` objects, no IP addresses, no `assertAllowedUrl` involved at all.
- * Pattern matching is its own concern, independent of what the candidate string happens to name:
- * whether an address is public or private has nothing to do with whether a glob or `RegExp`
- * matches it, so `address-policy.test.ts` keeps only enough pattern-matching coverage to prove
- * `assertAllowedUrl` actually *wires* `allowedUrls` in — the exhaustive edge cases live here.
- */
+/** `node:test`, matching the rest of `src/web/`. Tests `matchesUrlPattern` directly against
+ * plain strings — no `URL` objects, no addresses, no `assertAllowedUrl` (see `README.md`'s
+ * "Testing" section for why this is split from `address-policy.test.ts`). */
 
 describe("matchesUrlPattern — glob strings", () => {
   it("matches literal text exactly, nothing more and nothing less", () => {

@@ -16,4 +16,4 @@ export {
   DEFAULT_MAX_REDIRECTS,
   DEFAULT_MAX_RESPONSE_BYTES,
 } from "./tools.ts";
-export type { FetchUrlResult, FetchUrlToolOptions, WebTools } from "./tools.ts";
+export type { FetchUrlResult, FetchUrlTool, FetchUrlToolOptions } from "./tools.ts";

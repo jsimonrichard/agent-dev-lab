@@ -70,12 +70,12 @@ export type {
   AddressPolicy,
   DescribeWebEnvTool,
   FetchUrlResult,
+  FetchUrlTool,
   FetchUrlToolOptions,
   HostnameResolver,
   UrlPattern,
   WebAccessInfo,
   WebProviderTools,
-  WebTools,
   WebToolProviderContext,
   WebToolProviderOptions,
 } from "./web";

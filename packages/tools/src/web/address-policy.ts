@@ -6,88 +6,38 @@ import ipaddr from "ipaddr.js";
 import { matchesUrlPattern, type UrlPattern } from "./url-pattern.ts";
 
 /**
- * The address guard: decides whether one URL may be fetched at all. Applied to the URL the model
- * asked for **and, identically, to every redirect hop** — see `fetchGuardedUrl`. A redirect
- * landing on `169.254.169.254` or `127.0.0.1` — whether written literally, or reached by
- * resolving a plain `http:` hostname — is the case this exists for, and it is not a special case
- * here: it is the same function called again in a loop.
- *
- * **Two checks, deliberately different in scope, because the threat each defends against is
- * different:**
- *
- * 1. **A literal IP address in the hostname** — no DNS involved at all — is checked
- *    **regardless of scheme**: `http://127.0.0.1/x` and `https://127.0.0.1/x` are both refused.
- *    There is no DNS-rebinding question here (nothing was resolved), so this is unconditionally
- *    sound and unconditionally applied.
- * 2. **A domain name's resolved address** is checked **only for `http:`**, not `https:`. This is
- *    a real, considered asymmetry, not an oversight:
- *    - For `https:`, TLS's own hostname verification is already a meaningful backstop against a
- *      domain rebinding into a private address: the rebound connection still has to present a
- *      certificate that validates for the attacker's own hostname, and an internal service that
- *      happens to be reachable essentially never has one (it serves no TLS at all, or an
- *      internally-issued cert outside the default trust chain for an unrelated reason).
- *      Resolving and classifying the domain ourselves would add little beyond what TLS already
- *      does, while still carrying the false-positive cost of blocking a legitimate internal
- *      HTTPS domain with no way to distinguish it from an attack.
- *    - For `http:`, there is no TLS in the picture at all, so nothing else defends against this
- *      — and this is exactly how the highest-value real target class is served: cloud metadata
- *      services (`169.254.169.254`) are plain HTTP, unauthenticated. So the resolve-and-classify
- *      step earns its keep specifically here, restored for this one case.
- *
- * **Known limitation — DNS rebinding (TOCTOU), for the `http:` domain-name check.** This resolves
- * the hostname, checks the answers, and then hands the *hostname* to `fetch`, which resolves it
- * a second time; a resolver that returns a public address to us and a private one to `fetch`
- * would defeat the check. Closing that hole fully means pinning the connection to the address we
- * validated, which needs a runtime-specific dispatcher (undici's `connect.lookup`) that Bun's
- * `fetch` does not implement — a stated gap, not a silently-assumed-away one, and one this
- * package's own research found is treated the same way in comparable tools: the documented
- * mitigation industry write-ups give for this ("refuse to follow redirects whose target resolves
- * to a private network") is exactly the resolve-and-classify-per-hop check below, not full
- * connection pinning. Same class of gap as `createFileJail`'s own symlink TOCTOU note
- * (`src/file/jail.ts`): a userland check, not a kernel- or transport-enforced boundary. See
- * `packages/tools/README.md`'s "Address guard" section for the CVE, library, and write-up
- * citations behind this design — not restated here (house rule 2: derive, don't restate).
- *
- * **Allowlist, not denylist**, for both checks: an address is permitted only when `ipaddr.js`
- * classifies it as globally-routable `unicast`; every other classification — `loopback`,
- * `linkLocal` (cloud metadata, `169.254.169.254` / `fe80::`), `private`, `uniqueLocal`,
- * `carrierGradeNat`, `multicast`, `broadcast`, `unspecified`, `reserved`, and the IPv4-in-IPv6
- * tunnel forms `6to4`/`teredo`/`rfc6052` — is refused, as is anything that fails to parse. So a
- * range nobody thought of is denied by default rather than allowed by omission (house rule 1).
- * `ipaddr.js` rather than hand-rolled CIDR math because Node has no CIDR API (house rule 2); zero
- * dependencies, ships its own types. IPv4-mapped IPv6 (`::ffff:127.0.0.1`) is unwrapped to its
- * IPv4 form and re-classified, so it cannot smuggle a loopback address past either check.
+ * The address guard: decides whether a URL may be fetched, on the initial URL and again on every
+ * redirect hop (see `fetchGuardedUrl`). Two checks, both applied regardless of scheme — a literal
+ * IP in the hostname, and a domain name's resolved address — both an allowlist against
+ * `ipaddr.js`'s `range()` classification. For an `http:` domain name, the validated address is
+ * also returned so `fetch.ts` can pin the connection to it — see `README.md`'s "Address guard"
+ * section for the full threat model, why pinning is `http:`-only, the DNS-rebinding limitation it
+ * closes for `http:` but not `https:`, and citations; this file states behavior, not why.
  */
 
-/** Only these two schemes are ever fetched. `file:`, `data:`, `blob:`, `gopher:`, `ftp:` and
- * anything else are refused — a URL scheme is an unbounded capability surface, so this is an
- * allowlist for the same reason the address checks are. */
+/** Only these two schemes are ever fetched — a URL scheme is an unbounded capability surface. */
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 
-/** The allowed schemes, for `describeWebEnv` to report — derived from the set the guard actually
- * enforces rather than restated alongside it (house rule 2). */
+/** The allowed schemes, for `describeWebEnv` to report — derived from the set actually enforced
+ * rather than restated alongside it. */
 export const ALLOWED_URL_SCHEMES: readonly string[] = [...ALLOWED_PROTOCOLS].map((protocol) =>
   protocol.replace(":", ""),
 );
 
-/**
- * The single `ipaddr.js` classification we accept. Deliberately one value: see this module's
- * doc comment on why the check is an allowlist.
- */
+/** The single `ipaddr.js` classification the address checks accept. */
 const ALLOWED_RANGE = "unicast";
 
 /**
- * Resolves a hostname to every address it might connect to. Matches the shape of
- * `node:dns/promises`' `lookup(host, { all: true })` so the real implementation is the default
- * and tests can substitute a resolver without weakening the policy under test. Only ever called
- * for a domain name being fetched over plain `http:` — see the module doc comment for why.
+ * Resolves a hostname to every address it might connect to. Matches
+ * `node:dns/promises`'s `lookup(host, { all: true })` so the real implementation is the default
+ * and tests can substitute one. Called for any domain name that reaches the address check,
+ * regardless of scheme — pinning the first answer is `http:`-only, but the check itself is not.
  */
 export type HostnameResolver = (hostname: string) => Promise<readonly string[]>;
 
 const defaultResolver: HostnameResolver = async (hostname) => {
-  // `verbatim: true` keeps the resolver's own ordering rather than reordering IPv4 first; the
-  // order is irrelevant here because every returned address has to pass, but asking for the
-  // unmodified answer keeps "what we checked" equal to "what was returned".
+  // `verbatim: true`: every answer has to pass regardless of order, but this keeps "what we
+  // checked" equal to "what was returned" rather than reordering it first.
   const answers = await dnsLookup(hostname, { all: true, verbatim: true });
   return answers.map((answer) => answer.address);
 };
@@ -95,52 +45,25 @@ const defaultResolver: HostnameResolver = async (hostname) => {
 export interface AddressPolicy {
   /**
    * URL patterns (glob strings and/or `RegExp`s — see `url-pattern.ts`) allowed to bypass both
-   * address checks — **empty by default**, so nothing bypasses them unless a host explicitly
-   * says so.
-   *
-   * This is a URL-scoped allowlist: it is the ordinary way to reach a literal non-public address
-   * on purpose (a test fixture on `127.0.0.1`, say) or an `http:` domain that resolves privately
-   * on purpose (a company-internal service with no TLS), and it is matched **per redirect hop**
-   * against {@link urlMatchCandidate}, so an allowlisted origin that redirects somewhere else
-   * gains that destination nothing — a pattern this permissive for the *first* hop
-   * (`http://intranet.example:8080/**`) still blocks a redirect to a different origin entirely.
-   * (`allowPrivateNetwork` below is the blanket, non-URL-scoped escape hatch — see its own doc
-   * comment for why that's a different tool for a different job, not a rival mechanism.)
-   *
-   * Path-scoped by design: `http://intranet.example:8080/**` allows the whole origin, but
-   * `http://intranet.example:8080/wiki/*` allows only that one directory — precision plain
-   * `hostname:port` allowlisting could never express. A literal string with no `*`/`**` (e.g.
-   * one copied from this guard's own rejection message) matches only that exact URL.
+   * address checks. Empty by default. Matched **per redirect hop** against
+   * {@link urlMatchCandidate} — see `README.md` for the pattern language and the path-scoping
+   * this enables that plain `hostname:port` allowlisting couldn't.
    */
   allowedUrls?: readonly UrlPattern[];
   /**
-   * Disables both address checks entirely — **default `false`** (protection on). Every URL that
-   * clears the scheme allowlist is fetched regardless of what its hostname is or resolves to,
-   * private/loopback/link-local/metadata-service addresses included.
-   *
-   * **Not a second enforcement path** (house rule 3: one path) — it is implemented as an
-   * unconditional match, checked in the exact same place `allowedUrls` is, so there is one
-   * decision point for "is the address exempt," not two independently-maintained ones. In fact
-   * `allowedUrls: ["**"]` already has this exact effect today (`**` matches any candidate
-   * string); this option exists as a clearer, more discoverable name for that same intent —
-   * matching the name a comparable agent framework (OpenClaw) already uses for it — not as new
-   * capability.
-   *
-   * Reported by `describeWebEnv` as its own field (not folded into the `allowedUrls` list, which
-   * would misattribute a host-set boolean as something the caller wrote as a pattern) — see
-   * `WebAccessInfo.allowPrivateNetwork`.
-   *
-   * Still a host/workflow-only knob, never model-reachable, the same trust boundary
-   * `allowedUrls` and `resolver` already sit behind (see `notes/tool-sandboxing.md`'s "trust,
-   * not restriction" note) — this is not exposed on `fetchUrl`'s own input schema.
+   * Disables both address checks entirely. Default `false`. Checked at the same decision point as
+   * `allowedUrls` (not a second enforcement path) — see `README.md`'s "allowPrivateNetwork"
+   * section. Host/workflow-only, like `allowedUrls`; never exposed on `fetchUrl`'s input schema.
    */
   allowPrivateNetwork?: boolean;
   /** Hostname resolver, defaulting to `node:dns`' `lookup(..., { all: true })`. */
   resolver?: HostnameResolver;
 }
 
-/** The port a request to `url` would actually connect to, with the scheme's default filled in. */
-function effectivePort(url: URL): string {
+/** The port a request to `url` would actually connect to, with the scheme's default filled in.
+ * Exported for `fetch.ts` to reuse when dialing a pinned address — the same "what port does this
+ * URL mean" question, not a second answer to it. */
+export function effectivePort(url: URL): string {
   if (url.port !== "") {
     return url.port;
   }
@@ -148,27 +71,18 @@ function effectivePort(url: URL): string {
 }
 
 /**
- * The string `AddressPolicy.allowedUrls` patterns are matched against: scheme, hostname, the
- * effective port, and the path — `${protocol}//${hostname}:${port}${pathname}`. Deliberately
- * excludes the query string, fragment, and any userinfo:
- *
- * - Userinfo (`user:pass@host`) is not part of where the request actually goes — `URL` already
- *   separates it from `hostname`, so it never reaches this string at all.
- * - The query and fragment don't change the network destination either, and including them
- *   would turn this allowlist into a general request-shape ACL rather than what it is: a
- *   statement of which *destinations* an SSRF exemption covers.
- *
- * `hostname` is already lowercased and IDN-normalized by `URL` itself, and `..` segments are
- * already resolved out of `pathname` — so a pattern author writing `docs.internal` or `/a/b`
- * never has to account for either.
+ * The string `AddressPolicy.allowedUrls` patterns are matched against:
+ * `${protocol}//${hostname}:${port}${pathname}`. Excludes userinfo (never reaches `hostname`),
+ * query, and fragment (don't change the network destination) — see `README.md` for why. `hostname`
+ * is already lowercased/IDN-normalized and `pathname` already has `..` resolved out, by `URL`
+ * itself.
  */
 export function urlMatchCandidate(url: URL): string {
   return `${url.protocol}//${url.hostname}:${effectivePort(url)}${url.pathname}`;
 }
 
 /**
- * True when `address` is a globally-routable unicast address. Anything unparseable is `false` —
- * an address we cannot classify is not an address we fetch.
+ * True when `address` is a globally-routable unicast address. Anything unparseable is `false`.
  */
 export function isPublicAddress(address: string): boolean {
   let parsed;
@@ -177,9 +91,8 @@ export function isPublicAddress(address: string): boolean {
   } catch {
     return false;
   }
-  // An IPv4-mapped IPv6 address is just an IPv4 address in disguise; classify the real thing.
-  // `in` narrows the `IPv4 | IPv6` union — only `IPv6` declares this method — so no cast is
-  // needed to reach it (house rule 2: a type guard before a cast).
+  // An IPv4-mapped IPv6 address is an IPv4 address in disguise; classify the real thing. `in`
+  // narrows the `IPv4 | IPv6` union (only `IPv6` declares this method), so no cast is needed.
   if ("isIPv4MappedAddress" in parsed && parsed.isIPv4MappedAddress()) {
     return parsed.toIPv4Address().range() === ALLOWED_RANGE;
   }
@@ -187,10 +100,8 @@ export function isPublicAddress(address: string): boolean {
 }
 
 /**
- * The literal IP address a URL's hostname names, or `undefined` when the hostname is a domain
- * name rather than an address literal. `URL` brackets an IPv6 hostname (`"[::1]"`); `ipaddr.js`
- * doesn't accept the brackets, so they're stripped before classification. A domain name simply
- * fails `ipaddr.isValid` and returns `undefined`.
+ * The literal IP address a URL's hostname names, or `undefined` for a domain name. `URL` brackets
+ * an IPv6 hostname (`"[::1]"`); `ipaddr.js` doesn't accept the brackets, so they're stripped first.
  */
 function literalIpAddress(hostname: string): string | undefined {
   const unbracketed =
@@ -211,18 +122,28 @@ function rejectNonPublic(url: URL, offendingAddresses: readonly string[]): never
 }
 
 /**
- * Throws unless `url` may be fetched. Checks, in order: the scheme (absolute — nothing below can
- * exempt a non-`http(s)` URL, not `allowedUrls` and not `allowPrivateNetwork`), then whether the
- * address checks are exempted at all (`allowPrivateNetwork`, or a matching `allowedUrls` entry),
- * then the address itself — a literal IP in the hostname regardless of scheme, or (only for
- * `http:`) every address a domain name resolves to. See the module doc comment for why the
- * domain-resolution check is scheme-conditional.
- *
- * When a domain resolves (the `http:` case), every resolved address must pass, not merely one of
- * them: the connection picks an address from that set and this code does not get to choose
- * which, so a hostname with one public and one private answer is refused rather than gambled on.
+ * `assertAllowedUrl`'s result on success. `pinnedAddress` names the exact address `fetch.ts` must
+ * connect the socket to, instead of letting `fetch`'s own independent resolution decide — set
+ * only when this call actually resolved a domain name for `http:` (unset for a literal IP or a
+ * bypassed check, where nothing was resolved to pin, and for `https:`, where pinning without also
+ * spoofing the TLS handshake's SNI would be meaningless — see `README.md`'s "IP pinning" section).
  */
-export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Promise<void> {
+export interface AddressCheckResult {
+  pinnedAddress?: string;
+}
+
+/**
+ * Throws unless `url` may be fetched. Order: scheme (absolute — nothing below exempts a
+ * non-`http(s)` URL) → `allowPrivateNetwork`/`allowedUrls` → the address itself (a literal IP, or
+ * every address a domain name resolves to — both regardless of scheme).
+ *
+ * When a domain resolves, every answer must pass, not merely one: the connection picks an address
+ * from that set and this code doesn't choose which, so a mixed public/private answer is refused.
+ */
+export async function assertAllowedUrl(
+  url: URL,
+  policy: AddressPolicy = {},
+): Promise<AddressCheckResult> {
   if (!ALLOWED_PROTOCOLS.has(url.protocol)) {
     throw new AdlError(
       "INVALID_INPUT",
@@ -236,7 +157,7 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
     policy.allowPrivateNetwork ||
     policy.allowedUrls?.some((pattern) => matchesUrlPattern(pattern, candidate))
   ) {
-    return;
+    return {};
   }
 
   const literal = literalIpAddress(url.hostname);
@@ -244,16 +165,13 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
     if (!isPublicAddress(literal)) {
       rejectNonPublic(url, [literal]);
     }
-    return;
+    return {};
   }
 
-  // From here, `url.hostname` is a domain name, not an address literal.
-  if (url.protocol !== "http:") {
-    // https: TLS's own hostname verification is the backstop (see module doc comment) —
-    // resolving and classifying the domain ourselves isn't attempted.
-    return;
-  }
-
+  // `url.hostname` is a domain name from here, resolved and classified the same way regardless
+  // of scheme — see `README.md` for why this runs for `https:` too, and for the DNS-rebinding
+  // TOCTOU this check alone does not close (only pinning the connection, below, closes it, and
+  // only for `http:`).
   const resolver = policy.resolver ?? defaultResolver;
   let addresses: readonly string[];
   try {
@@ -279,4 +197,8 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
   if (blocked.length > 0) {
     rejectNonPublic(url, blocked);
   }
+
+  // `addresses[0]` is safe unchecked: the length check above already guarantees an element.
+  // https: doesn't pin — see `AddressCheckResult`'s doc comment for why.
+  return url.protocol === "http:" ? { pinnedAddress: addresses[0]! } : {};
 }

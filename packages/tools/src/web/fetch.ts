@@ -1,27 +1,17 @@
+import { request as httpRequest, type IncomingMessage } from "node:http";
+import { Readable } from "node:stream";
+
 import { AdlError } from "@agent-dev-lab/core";
 
-import { assertAllowedUrl, type AddressPolicy } from "./address-policy.ts";
+import { assertAllowedUrl, effectivePort, type AddressPolicy } from "./address-policy.ts";
 
 /**
  * The transport half of `fetchUrl`: follows redirects **by hand** so the address guard runs on
- * every hop, reads the body under a byte cap, and bounds the whole operation with one timeout.
- *
- * **Why manual redirects.** `fetch(url, { redirect: "follow" })` resolves each hop inside the
- * runtime, where no policy of ours can see it — a public host that 302s to `169.254.169.254`
- * would be fetched before we ever got a `Response`. `redirect: "manual"` hands back the 3xx
- * itself, so `assertAllowedUrl` runs against each `Location` before it is requested. That makes
- * the post-redirect case the *same* check as the initial one rather than a second code path
- * (house rule 3).
- *
- * **One timeout for everything.** The deadline is a single `AbortSignal` spanning DNS, every
- * redirect hop and the body read, so a server that dribbles bytes forever cannot outlast it by
- * staying under a per-hop limit. It is composed with the caller's own `abortSignal` via
- * `AbortSignal.any`, so an aborted agent run cancels an in-flight fetch immediately.
- *
- * **The cap is enforced while reading, not after.** The body is pulled a chunk at a time and the
- * stream is cancelled the moment the cap is reached, so an oversized (or endless) response never
- * gets buffered past `maxBytes`. `Response.text()`/`arrayBuffer()` would buffer the whole body
- * first and only then let us measure it, which is the failure mode the cap exists to prevent.
+ * every hop, reads the body under a byte cap enforced while reading (not after), and bounds the
+ * whole operation with one `AbortSignal` (DNS, every hop, and the body read) composed with the
+ * caller's own signal. See `README.md`'s "Transport" section for why each of these is manual, and
+ * its "IP pinning" section for why an `http:` hop with a `pinnedAddress` goes out over
+ * `node:http` instead of the global `fetch` the rest of this file uses.
  */
 
 /** Statuses that carry a `Location` to follow. */
@@ -73,12 +63,9 @@ export function parseRequestUrl(raw: string): URL {
 }
 
 /**
- * Reads at most `maxBytes` from `body`, cancelling the stream as soon as the cap is hit.
- *
- * Not `process-channel.ts`'s `truncatingAppend`: that one keeps draining a subprocess's pipes
- * after the cap because a child that cannot write blocks, whereas here the correct response to
- * hitting the cap is to stop pulling and let the connection go — different behavior, so sharing
- * one helper would mean a flag deciding which, and `src/bash/` is out of this change's scope.
+ * Reads at most `maxBytes` from `body`, cancelling the stream as soon as the cap is hit. Not
+ * `process-channel.ts`'s `truncatingAppend`: that one keeps draining after the cap (a blocked
+ * subprocess pipe needs to keep flowing); here the correct response is to stop and let go.
  */
 async function readCapped(
   body: ReadableStream<Uint8Array>,
@@ -106,11 +93,8 @@ async function readCapped(
       total += value.byteLength;
     }
   } finally {
-    // Releases the connection whether we finished, capped out, or threw. Cancelling a stream
-    // that is already closed or already errored rejects, and this runs on the throwing path too
-    // — so the rejection is discarded deliberately: propagating it out of a `finally` would
-    // replace the real failure with a cleanup artifact. Nothing is being hidden, because a
-    // failed cancel has no consequence beyond a connection the runtime reclaims anyway.
+    // Releases the connection whichever way this exits. Cancelling an already-closed/errored
+    // stream rejects; discarded deliberately so cleanup never replaces the real failure.
     await reader.cancel().catch(() => {});
   }
 
@@ -124,13 +108,9 @@ async function readCapped(
 }
 
 /**
- * Returns the error to throw for a transport failure. Both places that can hit one — issuing the
- * request and reading the body — classify it here rather than each deciding for itself, so the
- * two cannot drift apart (house rule 3).
- *
- * The deadline firing is the one failure with a specific, actionable explanation. A caller-side
- * abort is returned untouched, so an agent run's own cancellation is never disguised as a fetch
- * problem.
+ * Classifies a transport failure — shared by both places that can hit one (issuing the request,
+ * reading the body). The deadline firing gets a specific message; a caller-side abort is returned
+ * untouched, so an agent run's own cancellation is never disguised as a fetch problem.
  */
 function transportFailure(
   action: string,
@@ -166,6 +146,79 @@ function resolveLocation(location: string, base: URL): URL {
 }
 
 /**
+ * One hop's response, normalized to the fields the redirect loop and body reader need —
+ * whichever of {@link issueViaFetch} or {@link issueViaPinnedAddress} produced it. Exported (like
+ * `issueViaPinnedAddress` itself) only so `fetch.test.ts` can exercise the pinned path directly:
+ * `assertAllowedUrl` only ever pins a *genuinely public* address (never a loopback fixture's), so
+ * there's no way to reach it through `fetchGuardedUrl`'s real gate in a network-free test — see
+ * `README.md`'s "Testing" section.
+ */
+export interface HopResponse {
+  status: number;
+  location: string | null;
+  contentType: string | null;
+  /** `null` only for a hop with no body at all (a 204, a HEAD-like response) — never for an
+   * empty-but-present one, which is a zero-length stream instead. */
+  body: ReadableStream<Uint8Array> | null;
+}
+
+/** The ordinary path: an unpinned hop (`https:`, a literal IP, or a bypassed check) goes out
+ * through the global `fetch`, letting it resolve and connect however it normally would. */
+async function issueViaFetch(url: URL, signal: AbortSignal): Promise<HopResponse> {
+  const response = await fetch(url, {
+    method: "GET",
+    redirect: "manual",
+    headers: { ...REQUEST_HEADERS },
+    signal,
+  });
+  return {
+    status: response.status,
+    location: response.headers.get("location"),
+    contentType: response.headers.get("content-type"),
+    body: response.body,
+  };
+}
+
+/**
+ * The pinned path: an `http:` hop whose domain name {@link assertAllowedUrl} already resolved and
+ * validated. Dials `pinnedAddress` directly via `node:http` — bypassing whatever a second,
+ * independent `fetch`-internal resolution of `url.hostname` would land on — while still sending
+ * `url.host` as the `Host` header, so the server sees the request exactly as it would have
+ * without pinning. See `README.md`'s "IP pinning" section for why this needs `node:http` rather
+ * than `fetch` (Bun's `fetch` has no connect-target override; Node's `fetch` ignores a `host`
+ * header set this way, verified directly — only `node:http.request`'s `host`/`headers.host` split
+ * behaves the same on both runtimes).
+ */
+export async function issueViaPinnedAddress(
+  url: URL,
+  pinnedAddress: string,
+  signal: AbortSignal,
+): Promise<HopResponse> {
+  const response = await new Promise<IncomingMessage>((resolve, reject) => {
+    const req = httpRequest({
+      host: pinnedAddress,
+      port: effectivePort(url),
+      path: `${url.pathname}${url.search}`,
+      method: "GET",
+      headers: { ...REQUEST_HEADERS, host: url.host },
+      signal,
+    });
+    req.on("response", resolve);
+    req.on("error", reject);
+    req.end();
+  });
+
+  return {
+    status: response.statusCode ?? 0,
+    location: response.headers.location ?? null,
+    contentType: response.headers["content-type"] ?? null,
+    // `IncomingMessage` is a Node `Readable`; converted to the same `ReadableStream<Uint8Array>`
+    // shape `issueViaFetch`'s `response.body` already is, so `readCapped` needs no second version.
+    body: Readable.toWeb(response) as ReadableStream<Uint8Array>,
+  };
+}
+
+/**
  * Fetches `url`, following redirects one hop at a time with {@link assertAllowedUrl} applied
  * before each request.
  *
@@ -185,39 +238,34 @@ export async function fetchGuardedUrl(
   let current = url;
 
   for (let hop = 0; hop <= options.maxRedirects; hop++) {
-    await assertAllowedUrl(current, options.policy);
+    const { pinnedAddress } = await assertAllowedUrl(current, options.policy);
 
-    let response: Response;
+    let response: HopResponse;
     try {
-      response = await fetch(current, {
-        method: "GET",
-        redirect: "manual",
-        headers: { ...REQUEST_HEADERS },
-        signal,
-      });
+      response = pinnedAddress
+        ? await issueViaPinnedAddress(current, pinnedAddress, signal)
+        : await issueViaFetch(current, signal);
     } catch (cause) {
       throw transportFailure("Fetching", current, options, deadline, cause);
     }
 
-    const location = response.headers.get("location");
-    if (REDIRECT_STATUSES.has(response.status) && location !== null) {
+    if (REDIRECT_STATUSES.has(response.status) && response.location !== null) {
       // Nothing here needs the redirect's body, and an unread body holds the connection open.
       // The rejection is discarded for the same reason as in `readCapped`: a failed cancel on a
       // body we are about to abandon has no effect on the fetch that follows.
       await response.body?.cancel().catch(() => {});
-      const next = resolveLocation(location, current);
+      const next = resolveLocation(response.location, current);
       redirects.push(next.href);
       current = next;
       continue;
     }
 
-    const contentType = response.headers.get("content-type");
     if (response.body === null) {
       // A 204/304 or a HEAD-like empty response: no body to read, which is not an error.
       return {
         finalUrl: current.href,
         status: response.status,
-        contentType,
+        contentType: response.contentType,
         body: new Uint8Array(0),
         truncated: false,
         redirects,
@@ -234,7 +282,7 @@ export async function fetchGuardedUrl(
     return {
       finalUrl: current.href,
       status: response.status,
-      contentType,
+      contentType: response.contentType,
       body: read.bytes,
       truncated: read.truncated,
       redirects,

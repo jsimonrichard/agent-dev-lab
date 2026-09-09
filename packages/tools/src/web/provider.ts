@@ -13,8 +13,8 @@ import {
   DEFAULT_MAX_REDIRECTS,
   DEFAULT_MAX_RESPONSE_BYTES,
   FETCH_URL_DESCRIPTION,
+  type FetchUrlTool,
   type FetchUrlToolOptions,
-  type WebTools,
 } from "./tools.ts";
 import type { UrlPattern } from "./url-pattern.ts";
 
@@ -24,18 +24,13 @@ export interface WebAccessInfo {
   allowedSchemes: readonly string[];
   /**
    * The URL patterns exempt from the address check for this call. Empty when nothing is exempt.
-   * Reported as display strings (`String(pattern)`: a glob unchanged, a `RegExp` as
-   * `/source/flags`) rather than the raw `UrlPattern` values — this payload is a tool result,
-   * which an AI SDK model turn serializes, and a `RegExp` instance serializes to `{}` under
-   * `JSON.stringify` (it has no enumerable own properties), silently discarding exactly the
-   * information this tool exists to report.
+   * Reported as display strings (`String(pattern)`) rather than raw `UrlPattern` values — a
+   * `RegExp` serializes to `"{}"` under `JSON.stringify`, silently losing the pattern once an AI
+   * SDK turn serializes the tool result.
    */
   allowedUrls: readonly string[];
-  /**
-   * `true` when this call's `fetchUrl` has the address check disabled entirely — see
-   * `AddressPolicy.allowPrivateNetwork`. Reported as its own field, not folded into
-   * `allowedUrls`, so a host-set boolean is never misattributed as a pattern the caller wrote.
-   */
+  /** `true` when this call's `fetchUrl` has the address check disabled entirely — see
+   * `AddressPolicy.allowPrivateNetwork`. Its own field, not folded into `allowedUrls`. */
   allowPrivateNetwork: boolean;
   /** The wall-clock timeout (ms) this call's `fetchUrl` actually enforces. */
   timeoutMs: number;
@@ -74,79 +69,65 @@ type DescribeWebEnvInput = z.infer<typeof describeWebEnvInputSchema>;
 /** Reported by `createWebToolProvider`'s `describeWebEnv` tool. */
 export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAccessInfo }>;
 
-export interface WebToolProviderOptions {
-  /** Default exempt URL patterns when a call's context doesn't specify them. */
-  allowedUrls?: readonly UrlPattern[];
-  /** Default for whether the address check is disabled entirely, when a call's context doesn't
-   * specify one — see `AddressPolicy.allowPrivateNetwork`. Default `false`. */
-  allowPrivateNetwork?: boolean;
+/**
+ * Validates a `toolProviderContext` passed to `createWebToolProvider` — ground truth for
+ * `WebToolProviderContext`, which is `z.infer`'d from it below rather than hand-typed alongside
+ * it, so the two shapes can't drift. `allowedUrls` accepts a glob string or a `RegExp` instance
+ * per entry — matching `AddressPolicy.allowedUrls`/`UrlPattern` exactly, not just the string half
+ * of it, since a caller building `toolProviderContext` programmatically should get the same
+ * schema-level guarantee this provider actually enforces at runtime.
+ */
+const webToolProviderContextSchema = z
+  .object({
+    allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])).readonly(),
+    allowPrivateNetwork: z.boolean(),
+    timeoutMs: z.number(),
+    maxResponseBytes: z.number(),
+    maxRedirects: z.number(),
+  })
+  .partial();
+
+/**
+ * Overrides `options` for one call — every field is optional, defaulting to `options`'s own
+ * value. `toolProviderContext` is host/workflow-set and trusted — the model never reaches it
+ * (`notes/tool-sandboxing.md`'s "trust, not restriction"). A `RegExp` entry in `allowedUrls`
+ * survives here (unlike `WebAccessInfo.allowedUrls`) since this is a plain in-process value,
+ * never serialized through JSON.
+ */
+export type WebToolProviderContext = z.infer<typeof webToolProviderContextSchema>;
+
+/**
+ * Defaults for `createWebToolProvider`'s `fetchUrl` — every `WebToolProviderContext` field, used
+ * when a call's `toolProviderContext` doesn't override it, plus `resolver`, which has no per-call
+ * override because it's fixed at construction time.
+ */
+export interface WebToolProviderOptions extends WebToolProviderContext {
   /** Hostname resolver override, fixed at construction time — see `FetchUrlToolOptions`. */
   resolver?: FetchUrlToolOptions["resolver"];
-  /** Default timeout (ms) when a call's context doesn't specify one. */
-  timeoutMs?: number;
-  /** Default response byte cap when a call's context doesn't specify one. */
-  maxResponseBytes?: number;
-  /** Default redirect limit when a call's context doesn't specify one. */
-  maxRedirects?: number;
-}
-
-export interface WebToolProviderContext {
-  /**
-   * Overrides `options.allowedUrls` for this call. Settable because
-   * `toolProviderContext` is host/workflow-supplied and trusted — the model never reaches it
-   * (see `notes/tool-sandboxing.md`'s "trust, not restriction" note). A `RegExp` entry survives
-   * here because `toolProviderContext` is a plain in-process value, not something serialized
-   * through JSON — unlike `WebAccessInfo.allowedUrls` above, nothing here needs a display form.
-   */
-  allowedUrls?: readonly UrlPattern[];
-  /** Overrides `options.allowPrivateNetwork` for this call — same trust boundary as
-   * `allowedUrls` above: host/workflow-set, never model-reachable. */
-  allowPrivateNetwork?: boolean;
-  /** Overrides `options.timeoutMs` for this call. */
-  timeoutMs?: number;
-  /** Overrides `options.maxResponseBytes` for this call. */
-  maxResponseBytes?: number;
-  /** Overrides `options.maxRedirects` for this call. */
-  maxRedirects?: number;
 }
 
 /**
- * `createWebToolProvider`'s tools — `fetchUrl` plus `describeWebEnv`. Named for its actual scope
- * (this tool's own network policy), not a generic "describeEnvironment": an agent may hold other
- * tools with their own network access that this knows nothing about. A plain object-literal type
- * alias, not an interface — see `BashProviderTools`'s doc comment for why an interface anywhere
- * in the shape loses the implicit index signature `ToolProvider<Tools extends ToolSet>` needs.
+ * `createWebToolProvider`'s tools — `fetchUrl` plus `describeWebEnv`. Named for its actual scope,
+ * not a generic "describeEnvironment": other tools may have network access this knows nothing
+ * about. A plain object-literal type alias, not an interface — see `BashProviderTools`'s doc
+ * comment for why an interface here loses the implicit index signature `ToolProvider` needs.
  */
 export type WebProviderTools = {
-  fetchUrl: WebTools["fetchUrl"];
+  fetchUrl: FetchUrlTool;
   describeWebEnv: DescribeWebEnvTool;
 };
 
 /**
- * `ToolProvider` wrapping `createFetchUrlTool` so the caps, the timeout and the exempt-URL
- * allowlist can be set per `agent.run()` call via `toolProviderContext` instead of being fixed at
- * construction time. Deliberately **not** folded into `createWorkspaceToolProvider`: that one is
- * the "file tools and bash sharing one `cwd`" surface, and `fetchUrl` has no `cwd` and touches no
- * filesystem — it is a peer provider, and a project that wants both combines them with
- * `combineToolProviders`.
+ * `ToolProvider` wrapping `createFetchUrlTool` so its options can be set per `agent.run()` call
+ * via `toolProviderContext`. Deliberately **not** folded into `createWorkspaceToolProvider` (the
+ * file+bash-sharing-one-`cwd` surface) — `fetchUrl` has no `cwd`; combine both via
+ * `combineToolProviders` when a project wants them together.
  */
 export function createWebToolProvider(
   options: WebToolProviderOptions = {},
 ): ToolProvider<WebProviderTools, WebToolProviderContext | undefined> {
   return {
-    // `allowedUrls` accepts a glob string or a `RegExp` instance per entry — matching
-    // `AddressPolicy.allowedUrls`/`UrlPattern` exactly, not just the string half of it, since a
-    // caller building `toolProviderContext` programmatically should get the same schema-level
-    // guarantee this provider actually enforces at runtime.
-    contextSchema: z
-      .object({
-        allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])),
-        allowPrivateNetwork: z.boolean(),
-        timeoutMs: z.number(),
-        maxResponseBytes: z.number(),
-        maxRedirects: z.number(),
-      })
-      .partial(),
+    contextSchema: webToolProviderContextSchema,
     listTools(): ToolProviderToolSummary[] {
       return [
         { name: "fetchUrl", description: FETCH_URL_DESCRIPTION },
@@ -166,7 +147,7 @@ export function createWebToolProvider(
       const maxRedirects =
         ctx.toolProviderContext?.maxRedirects ?? options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
 
-      const base = createFetchUrlTool({
+      const fetchUrl = createFetchUrlTool({
         allowedUrls,
         allowPrivateNetwork,
         resolver: options.resolver,
@@ -189,7 +170,7 @@ export function createWebToolProvider(
         }),
       });
 
-      return { ...base, describeWebEnv };
+      return { fetchUrl, describeWebEnv };
     },
   };
 }

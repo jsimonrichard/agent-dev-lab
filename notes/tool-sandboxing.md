@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`) and two bash `BashExecutor`s implemented (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`. Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. This is the "needs a decision before code" item flagged as P0 in [`near-term-roadmap.md`](./near-term-roadmap.md#2-standard-tool-library-file-editing-bash-web-search--sandboxed). Read that section first for why this exists and what's already confirmed about the current codebase (only the `createToolFromAgent`/`createToolFromWorkflow` adapters plus `ToolProvider` live in `packages/core/src/tools/` — built-in tools live in `packages/tools`).
+**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`), two bash `BashExecutor`s (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`, and `createFetchUrlTool` (`src/web/` — threat model and design live in that module's README). Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. This is the "needs a decision before code" item flagged as P0 in [`near-term-roadmap.md`](./near-term-roadmap.md#2-standard-tool-library-file-editing-bash-web-search--sandboxed). Read that section first for why this exists and what's already confirmed about the current codebase (only the `createToolFromAgent`/`createToolFromWorkflow` adapters plus `ToolProvider` live in `packages/core/src/tools/` — built-in tools live in `packages/tools`).
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -16,6 +16,7 @@ Rationale for a separate package rather than `core/src/tools/builtin/`: these to
 @agent-dev-lab/tools
 ├── file/          read, write, edit — jailed to a project root
 ├── bash/          sandboxed shell execution
+├── web/           fetchUrl — one URL, SSRF guard, text/markdown (done)
 ├── web-search/    thin wrapper choosing provider-native search when available
 ├── approval/      ApprovalDispatcher interface + gate wrapper (from future-extensions.md)
 └── index.ts
@@ -365,7 +366,7 @@ fetch + an allow/deny domain list + response size caps) for providers/models wit
 custom fallback's "sandboxing" is really just: no arbitrary redirects to internal/private IP
 ranges (SSRF guard), and treating fetched content as untrusted text, never executed. That same
 table also confirms `fileSearch` (OpenAI-hosted vector-store retrieval) is **not** a substitute
-for either this or the planned `fetchUrl` tool, despite the name looking like a match, and that
+for either this or the `fetchUrl` tool (`src/web/`), despite the name looking like a match, and that
 `localShell` is **not** a substitute for `createBashTool` (schema-only, still client-executed).
 
 ---

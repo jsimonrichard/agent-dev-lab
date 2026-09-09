@@ -73,101 +73,28 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
   executors share the same spawn/stream/truncate/timeout-kill logic
   (`process-channel.ts`'s `runArgvIntoChannel`) — only how each builds its `argv`/`env` differs.
 
-- `src/web/` — `createFetchUrlTool({ allowedUrls?, timeoutMs?, maxResponseBytes?, maxRedirects? })`:
+- `src/web/` — `createFetchUrlTool({ allowedUrls?, allowPrivateNetwork?, timeoutMs?, maxResponseBytes?, maxRedirects? })`:
   a `fetchUrl` tool that retrieves **one** URL and returns its body as readable text/markdown.
   The sibling of web search, not a replacement — search _finds_ pages, this _reads_ one. Web
   search itself is deliberately not built here (see the provider-native table above).
 
-  Almost all of this module is the threat model rather than the fetch:
-  - **Address guard (`address-policy.ts`)** — an **allowlist**, checked against
-    [`ipaddr.js`](https://github.com/whitequark/ipaddr.js)'s `range()` classification: loopback,
-    private, link-local (cloud metadata at `169.254.169.254` / `fe80::`), unique-local, CGNAT,
-    multicast, broadcast, reserved, IPv4-mapped and 6to4/Teredo/NAT64 addresses are all refused,
-    as is anything that fails to parse — a range nobody thought of is denied by default rather
-    than allowed by omission. Two checks, deliberately different in scope:
-    - **A literal IP address in the URL's hostname** (no DNS involved) is checked **regardless
-      of scheme** — `http://127.0.0.1/x` and `https://127.0.0.1/x` are both refused.
-    - **A domain name's resolved address** is checked **only for `http:`**, not `https:`. This
-      asymmetry is deliberate, not an oversight: for `https:`, TLS's own hostname verification is
-      already a real backstop against a domain resolving into a private address — the connection
-      still needs a certificate that validates for the attacker's own hostname, and an internal
-      service that's actually reachable essentially never has one. For `http:`, there's no TLS at
-      all, and this is exactly how the highest-value real target — cloud metadata services — is
-      served: plain, unauthenticated HTTP. A hostname answering with one public and one private
-      address is refused outright either way, since the connection, not this code, picks which
-      one it uses.
-
-      **Why block non-public addresses by default at all, rather than leave it to a project's own
-      network layer:** this is standard practice for an agent-facing fetch tool specifically (as
-      opposed to a general-purpose HTTP client, which typically has no opinion here) — see
-      [OpenClaw's `tools.web.fetch.allowPrivateNetwork`](https://github.com/openclaw/openclaw/issues/39604)
-      (default `false`, private-network access opt-in, the same shape `allowedUrls` takes here),
-      [Wiz's SSRF prevention guide](https://www.wiz.io/academy/application-security/server-side-request-forgery),
-      and [CrawlForge's write-up on SSRF in MCP servers reaching cloud metadata](https://www.crawlforge.dev/blog/mcp-server-ssrf-cloud-metadata-security).
-      The bracket-stripping and IPv4-mapped-IPv6 handling here specifically defend against
-      [CVE-2026-80347](https://www.sentinelone.com/vulnerability-database/cve-2026-80347/), a real
-      SSRF bypass found in a comparable community MCP fetch server — not a hypothetical edge case.
-      [`request-filtering-agent`](https://github.com/azu/request-filtering-agent) is the most
-      actively-maintained comparable npm library; it wasn't adopted here because it only works
-      with `http.Agent`-based clients (not WHATWG `fetch`, which this tool is built on) and its
-      own docs don't state whether it handles the IPv4-mapped-IPv6 case above.
-
-  - **Re-checked after every redirect** — `fetch` is called with `redirect: "manual"` and the hops
-    are followed by hand, so the guard runs against each `Location` _before_ it is requested. A
-    redirect landing on `169.254.169.254`, written literally in `Location`, is the case this
-    exists for.
-  - **`allowedUrls`** — URL patterns exempt from both address checks, **empty by default**. This
-    is the ordinary way to reach a literal non-public address on purpose (a test fixture), or an
-    `http:` domain that resolves privately on purpose (a company-internal service with no TLS),
-    and it is matched per hop against `scheme://host:port/path` (no query, no fragment — see
-    `urlMatchCandidate`'s doc comment), so an exempt origin cannot redirect sideways into another
-    service on the same machine. Each entry is a glob **string** or a `RegExp`:
-    - A glob is a small, deliberately narrow language, not a general glob engine (`url-pattern.ts`
-      explains why): literal characters match themselves, `*` matches one path segment, `**`
-      matches anything including `/`. `http://intranet.example:8080/**` allows a whole origin
-      (equivalent to the old host-only allowlist); `http://intranet.example:8080/wiki/*` scopes
-      the exemption to one directory — precision plain `hostname:port` allowlisting couldn't
-      express.
-    - A `RegExp` is matched over the **whole** candidate regardless of its own `^`/`$` anchors —
-      an omitted anchor fails closed instead of silently matching as a substring.
-    - `describeWebEnv` reports each entry as a display string (`String(pattern)`), since a raw
-      `RegExp` serializes to `"{}"` under `JSON.stringify` and would otherwise silently lose the
-      pattern once an AI SDK turn serializes the tool result.
-  - **`allowPrivateNetwork`** — disables both address checks entirely, **default `false`**. Not a
-    second enforcement path (house rule 3): it's checked at the exact same decision point
-    `allowedUrls` is, so there's one place that decides "is the address exempt," not two —
-    `allowedUrls: ["**"]` already has this same effect today (`**` matches any candidate string);
-    this is a clearer, more discoverable name for that intent, matching the name a comparable
-    agent framework already uses for it (see the OpenClaw link above). Host/workflow-only, like
-    `allowedUrls` and `resolver` — never exposed on `fetchUrl`'s own input schema, so the model
-    can't reach it. `describeWebEnv` reports it as its own boolean field, not folded into
-    `allowedUrls`'s reported list.
-  - **Untrusted content** — the response is never executed, evaluated or resolved; `<script>`,
-    `<style>`, `<noscript>`, `<iframe>`, `<object>`, `<embed>`, `<template>` and `<svg>` are
-    dropped with their contents before conversion, and the tool description tells the model the
-    content is third-party data to quote, never instructions to follow. Same posture
-    `createBashTool` takes toward command output.
-  - **Byte cap and timeout** — the body is read a chunk at a time and the stream is cancelled the
-    moment `maxResponseBytes` is reached, so an oversized _or endless_ response is never buffered
-    past the cap; one `AbortSignal` bounds DNS, every hop and the body read together, composed
-    with the agent run's own signal. Defaults mirror the other modules': 1 MB and 30s.
-  - **Text only** — HTML becomes markdown, other text types are decoded as-is, and binary or
-    unlabelled content is **refused by name** rather than decoded into garbage. A non-2xx status,
-    by contrast, is returned as data, the same way `createBashTool` reports a non-zero exit code.
-
-  See `address-policy.ts`'s doc comment for the `http:`-only domain-resolution check's own
-  limitation (DNS rebinding — a userland check, not a transport-enforced one, for the same reason
-  `createFileJail` documents a symlink TOCTOU — and one this package's own research found is
-  handled the same way, not more strictly, in comparable tools: the documented mitigation for
-  this ["refuse to follow redirects whose target resolves to a private network"](https://www.crawlforge.dev/blog/mcp-server-ssrf-cloud-metadata-security)
-  is exactly the resolve-and-classify-per-hop check here, not full connection pinning) and
-  `extract.ts`'s for why `turndown` was chosen over the alternatives, plus what it does _not_ do
-  (it converts markup; it does not strip nav/footer boilerplate).
+  Almost all of this module is the threat model rather than the fetch — see
+  [`src/web/README.md`](./src/web/README.md) for the full design: the address guard (an
+  allowlist against `ipaddr.js`'s `range()` classification, checked on a literal IP and on a
+  domain's resolved address, both regardless of scheme — `https:` gets TLS's own certificate
+  check as a second, independent backstop on top), re-checked on every redirect hop; `http:` IP
+  pinning (dials the exact address `assertAllowedUrl` validated via `node:http`, closing the
+  DNS-rebinding TOCTOU the check alone can't — `https:` relies on the TLS backstop instead, since
+  pinning it would also mean pinning SNI); `allowedUrls`' glob/`RegExp` exemption language; the
+  `allowPrivateNetwork` opt-out; the citations (a real CVE, a comparable framework's default, an
+  evaluated-and-declined npm library) behind all of the above; the untrusted-content posture
+  (including stripping a `javascript:`/`data:` link or image down to its visible text) and library
+  choice `extract.ts` implements for reducing a response to text.
 
   **Dependencies added:** `turndown` (+ its one dependency `@mixmark-io/domino`) and `ipaddr.js`
   — three runtime packages, no native builds. Called out because this package is meant to be
   independently installable; the seven-package `@mozilla/readability` + `linkedom` option was
-  rejected on that basis.
+  rejected on that basis (see the module README for the full comparison).
 
   **Production lifecycle note:** a process using `createAsrtBashExecutor` must call
   `SandboxManager.reset()` (from `@anthropic-ai/sandbox-runtime`) on its own shutdown path, or
@@ -212,17 +139,13 @@ directory (`mkdirSync`) is still the caller's job.
 ## Testing
 
 `bash/{process-channel,native-executor,asrt-executor}.test.ts` and
-`web/{url-pattern,address-policy,fetch-url}.test.ts` are `node:test`-based (not `bun:test`) and run under both
+`web/{url-pattern,address-policy,fetch,fetch-url}.test.ts` are `node:test`-based (not `bun:test`) and run under both
 `bun test` (the normal per-package suite) and `node --test` via `bun run test:node` from the repo
 root — this package's process/spawn-heavy code is exactly where Bun and Node have been found to
 disagree (see `notes/tool-sandboxing.md`), and `src/web/` is in the same category: it rests on
 `fetch` with `redirect: "manual"`, streaming body reads and `AbortSignal` composition, all of which
 the two runtimes implement separately.
 
-`src/web/`'s tests never touch the network. The SSRF policy is unit-tested with an injected
-hostname resolver, and the end-to-end tests run against a `node:http` fixture server on an
-ephemeral loopback port, whose origin is exempted via `allowedUrls` (a `${origin}/**` glob). Because that exemption is
-matched per redirect hop, a fixture response redirecting to `169.254.169.254` still lands on a
-non-exempt hop and is refused — so the post-redirect guard is covered end to end without a real
-host, and the purely-public case (public host → private redirect target, nothing exempted) is
-covered as a unit alongside it.
+`src/web/`'s tests never touch the network — see [`src/web/README.md`](./src/web/README.md)'s
+"Testing" section for how the fixture-based end-to-end tests and the address-guard unit tests
+divide the coverage.

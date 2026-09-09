@@ -9,12 +9,8 @@ import {
   DEFAULT_MAX_RESPONSE_BYTES,
 } from "./tools.ts";
 
-/**
- * `bun:test`, matching `file/provider.test.ts` and `bash/provider.test.ts`: a provider is
- * per-call config resolution, with none of the `fetch`/`AbortSignal` surface that puts
- * `address-policy.test.ts` and `fetch-url.test.ts` on `node:test`. Nothing here reaches the
- * network — the one behavioral case is refused by the guard before a connection is attempted.
- */
+/** `bun:test`, matching `file/provider.test.ts` and `bash/provider.test.ts` — per-call config
+ * resolution, none of the surface that puts the other `src/web/` test files on `node:test`. */
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 

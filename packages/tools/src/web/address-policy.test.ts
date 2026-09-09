@@ -9,18 +9,11 @@ import {
 } from "./address-policy.ts";
 
 /**
- * `node:test` + `node:assert`, matching this package's own convention for the rest of `src/web/`.
- *
- * `allowedUrls`' pattern-matching mechanics (glob wildcards, `RegExp` full-match semantics,
- * stateful-pattern safety) are tested directly in `url-pattern.test.ts`, against plain strings —
- * not here. Whether a glob or `RegExp` matches has nothing to do with whether an address is
- * public or private, so this file keeps only enough `allowedUrls` coverage to prove
- * `assertAllowedUrl` actually *wires the policy in* — not an exhaustive re-test of the matcher.
- *
- * The resolver is injected rather than mocked globally, and used only for the `http:`
- * domain-name cases below — see `address-policy.ts`'s module doc comment for why domain
- * resolution is checked for `http:` only, never `https:` (TLS's own hostname verification is
- * the backstop there).
+ * `node:test` + `node:assert`, matching the rest of `src/web/`. Pattern-matching mechanics
+ * (globs, `RegExp` semantics) are `url-pattern.test.ts`'s job — this file keeps only enough
+ * `allowedUrls` coverage to prove `assertAllowedUrl` wires the policy in. The resolver is
+ * injected, used for the domain-name cases — both `http:` and `https:` resolve and classify the
+ * same way (see `README.md`).
  */
 
 /** A resolver over a fixed hostname → addresses table; an unlisted host is NXDOMAIN. */
@@ -34,9 +27,10 @@ function resolverFor(table: Record<string, string[]>): HostnameResolver {
   };
 }
 
-/** A resolver that throws if ever called — for proving the `https:` path never invokes one. */
+/** A resolver that throws if ever called — for proving a bypass path (`allowedUrls`,
+ * `allowPrivateNetwork`) short-circuits before resolution is ever attempted. */
 const unreachedResolver: HostnameResolver = async () => {
-  throw new Error("resolver should never have been called for an https: domain name");
+  throw new Error("resolver should never have been called");
 };
 
 describe("isPublicAddress", () => {
@@ -98,10 +92,9 @@ describe("isPublicAddress", () => {
 describe("assertAllowedUrl", () => {
   describe("scheme allowlist", () => {
     it("allows http and https", async () => {
-      await assertAllowedUrl(new URL("http://example.com/a"), {
-        resolver: resolverFor({ "example.com": ["93.184.216.34"] }),
-      });
-      await assertAllowedUrl(new URL("https://example.com/a"));
+      const resolver = resolverFor({ "example.com": ["93.184.216.34"] });
+      await assertAllowedUrl(new URL("http://example.com/a"), { resolver });
+      await assertAllowedUrl(new URL("https://example.com/a"), { resolver });
     });
 
     it("rejects file:, data:, and gopher:", async () => {
@@ -171,72 +164,102 @@ describe("assertAllowedUrl", () => {
     });
   });
 
-  describe("domain names — resolved and classified for http: only", () => {
-    it("allows an http: domain resolving only to public addresses", async () => {
-      await assertAllowedUrl(new URL("http://docs.example.com/page"), {
-        resolver: resolverFor({ "docs.example.com": ["93.184.216.34", "2606:4700::1111"] }),
-      });
+  describe("domain names — resolved and classified for http: and https: alike", () => {
+    it("allows a domain resolving only to public addresses, http or https", async () => {
+      const resolver = resolverFor({ "docs.example.com": ["93.184.216.34", "2606:4700::1111"] });
+      for (const scheme of ["http", "https"]) {
+        await assertAllowedUrl(new URL(`${scheme}://docs.example.com/page`), { resolver });
+      }
     });
 
-    it("rejects an http: domain resolving to the cloud metadata service", async () => {
-      await assert.rejects(
-        assertAllowedUrl(new URL("http://metadata.example/latest/meta-data/"), {
-          resolver: resolverFor({ "metadata.example": ["169.254.169.254"] }),
-        }),
-        (error: Error) => {
-          assert.match(error.message, /169\.254\.169\.254/);
-          assert.match(error.message, /not a public address/);
-          return true;
-        },
-      );
+    it("rejects a domain resolving to the cloud metadata service, http or https", async () => {
+      const resolver = resolverFor({ "metadata.example": ["169.254.169.254"] });
+      for (const scheme of ["http", "https"]) {
+        await assert.rejects(
+          assertAllowedUrl(new URL(`${scheme}://metadata.example/latest/meta-data/`), {
+            resolver,
+          }),
+          (error: Error) => {
+            assert.match(error.message, /169\.254\.169\.254/);
+            assert.match(error.message, /not a public address/);
+            return true;
+          },
+        );
+      }
     });
 
-    it("rejects an http: domain with one public and one private answer", async () => {
+    it("rejects a domain with one public and one private answer, http or https", async () => {
       // The connection picks an address from the set and this code does not choose which, so a
       // mixed answer is refused rather than gambled on.
-      await assert.rejects(
-        assertAllowedUrl(new URL("http://split-horizon.example/"), {
-          resolver: resolverFor({ "split-horizon.example": ["93.184.216.34", "10.0.0.7"] }),
-        }),
-        (error: Error) => {
-          assert.match(error.message, /10\.0\.0\.7/);
-          assert.doesNotMatch(error.message, /93\.184\.216\.34/);
-          return true;
-        },
-      );
+      const resolver = resolverFor({ "split-horizon.example": ["93.184.216.34", "10.0.0.7"] });
+      for (const scheme of ["http", "https"]) {
+        await assert.rejects(
+          assertAllowedUrl(new URL(`${scheme}://split-horizon.example/`), { resolver }),
+          (error: Error) => {
+            assert.match(error.message, /10\.0\.0\.7/);
+            assert.doesNotMatch(error.message, /93\.184\.216\.34/);
+            return true;
+          },
+        );
+      }
     });
 
-    it("rejects an http: domain that resolves to nothing", async () => {
-      await assert.rejects(
-        assertAllowedUrl(new URL("http://empty.example/"), { resolver: async () => [] }),
-        /resolved to no addresses/,
-      );
+    it("rejects a domain that resolves to nothing, http or https", async () => {
+      for (const scheme of ["http", "https"]) {
+        await assert.rejects(
+          assertAllowedUrl(new URL(`${scheme}://empty.example/`), { resolver: async () => [] }),
+          /resolved to no addresses/,
+        );
+      }
     });
 
-    it("rejects when resolution itself fails, rather than proceeding unchecked", async () => {
-      await assert.rejects(
-        assertAllowedUrl(new URL("http://nxdomain.example/"), { resolver: resolverFor({}) }),
-        /could not resolve host/,
-      );
+    it("rejects when resolution itself fails, rather than proceeding unchecked, http or https", async () => {
+      const resolver = resolverFor({});
+      for (const scheme of ["http", "https"]) {
+        await assert.rejects(
+          assertAllowedUrl(new URL(`${scheme}://nxdomain.example/`), { resolver }),
+          /could not resolve host/,
+        );
+      }
     });
 
-    it("never resolves or checks an https: domain, no matter what it would resolve to", async () => {
-      // TLS's own hostname verification is the backstop for https: — see the module doc comment.
-      // The resolver here would reject on sight if it were ever called; it isn't.
-      await assertAllowedUrl(new URL("https://metadata.example/latest/meta-data/"), {
-        resolver: unreachedResolver,
-      });
-      await assertAllowedUrl(new URL("https://this-name-does-not-need-to-resolve.example/x"), {
-        resolver: unreachedResolver,
-      });
-    });
-
-    it("names an allowedUrls entry that would permit the http: origin on purpose", async () => {
+    it("names an allowedUrls entry that would permit the origin on purpose", async () => {
       await assert.rejects(
         assertAllowedUrl(new URL("http://intranet.example:8080/"), {
           resolver: resolverFor({ "intranet.example": ["10.0.0.7"] }),
         }),
         /"http:\/\/intranet\.example:8080\/\*\*" to the tool's allowedUrls/,
+      );
+    });
+  });
+
+  describe("pinnedAddress", () => {
+    // fetch.test.ts covers what pinning *does* once handed an address; this is the decision
+    // that file's docstring assigns here: when a pin is returned at all.
+    it("pins the first validated address for http:, and does not pin for https:", async () => {
+      const resolver = resolverFor({ "docs.example.com": ["93.184.216.34", "2606:4700::1111"] });
+      assert.deepEqual(
+        await assertAllowedUrl(new URL("http://docs.example.com/page"), { resolver }),
+        { pinnedAddress: "93.184.216.34" },
+      );
+      assert.deepEqual(
+        await assertAllowedUrl(new URL("https://docs.example.com/page"), { resolver }),
+        {},
+      );
+    });
+
+    it("does not pin a literal IP or a bypassed check — nothing was resolved to pin", async () => {
+      assert.deepEqual(await assertAllowedUrl(new URL("http://93.184.216.34/x")), {});
+      assert.deepEqual(
+        await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedUrls: ["**"] }),
+        {},
+      );
+      assert.deepEqual(
+        await assertAllowedUrl(new URL("http://intranet.example/"), {
+          allowPrivateNetwork: true,
+          resolver: unreachedResolver,
+        }),
+        {},
       );
     });
   });
@@ -248,7 +271,7 @@ describe("assertAllowedUrl", () => {
       });
     });
 
-    it("a matching entry bypasses the http: domain-resolve check the same way", async () => {
+    it("a matching entry bypasses the domain-resolve check the same way", async () => {
       await assertAllowedUrl(new URL("http://intranet.example:8080/wiki/Home"), {
         allowedUrls: ["http://intranet.example:8080/wiki/*"],
         resolver: unreachedResolver, // never called — allowedUrls is checked first
@@ -312,7 +335,7 @@ describe("assertAllowedUrl", () => {
       });
     });
 
-    it("disables the http: domain-resolve check when true, without even calling the resolver", async () => {
+    it("disables the domain-resolve check when true, without even calling the resolver", async () => {
       await assertAllowedUrl(new URL("http://intranet.example/"), {
         allowPrivateNetwork: true,
         resolver: unreachedResolver,

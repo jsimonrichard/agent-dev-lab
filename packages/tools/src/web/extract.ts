@@ -3,31 +3,15 @@ import { TextDecoder } from "node:util";
 import { AdlError } from "@agent-dev-lab/core";
 import TurndownService from "turndown";
 
+import { ALLOWED_URL_SCHEMES } from "./address-policy.ts";
+
 /**
- * Reduces a fetched response body to readable text or markdown.
- *
- * **Library choice — `turndown` (house rule 2: don't hand-roll HTML-to-text).** Picked over the
- * alternatives on dependency weight, because `@agent-dev-lab/tools` is meant to be installable
- * on its own:
- *
- * | Candidate                            | Runtime packages added | Why not |
- * | ------------------------------------ | ---------------------- | ------- |
- * | **`turndown`**                       | **2** (`turndown` + `@mixmark-io/domino`) | **chosen** — MIT, actively released, pure JS, and it bundles its own DOM so it behaves identically under Bun and Node |
- * | `node-html-markdown`                 | 2 (`node-html-parser`) | comparable, but less widely exercised |
- * | `html-to-text`                       | 6 (`htmlparser2`, `selderee`, …) | plain text only, three times the tree |
- * | `@mozilla/readability` + `linkedom`  | 7 | best extraction quality, but seven packages, and readability targets a jsdom-grade DOM — `linkedom` compatibility is claimed rather than guaranteed |
- *
- * **Stated gap:** `turndown` converts markup; it does not identify a page's main article. Site
- * navigation, sidebars and footers therefore survive into the markdown. Readability-grade
- * boilerplate stripping is the seven-package option above and is **not** implemented here.
- *
- * **Untrusted content.** Nothing in this module executes, evaluates or resolves anything from the
- * response — it is string-to-string, the same posture `createBashTool` takes with a command's
- * stdout. Active elements (`<script>`, `<style>`, `<noscript>`, `<iframe>`, `<object>`,
- * `<embed>`, `<template>`, `<svg>`) are dropped *with their contents* before conversion, so
- * inline JavaScript and CSS never reach the model as text at all. That is a noise and
- * prompt-injection-surface reduction, not a sandbox: whatever remains is still third-party text
- * and is still untrusted — see `FETCH_URL_DESCRIPTION`.
+ * Reduces a fetched response body to readable text or markdown, dispatching on its declared MIME
+ * type. Nothing here executes, evaluates, or resolves anything from the response — string to
+ * string. See `README.md` for the `turndown` library choice (vs. the alternatives, and its stated
+ * gap: it converts markup, it doesn't identify a page's main article), the untrusted-content
+ * posture this implements, and why a `javascript:`/`data:` link or image source is stripped down
+ * to its visible text rather than carried through as a link.
  */
 
 /** Elements removed along with their content before HTML is converted. */
@@ -41,6 +25,26 @@ const ACTIVE_ELEMENTS = [
   "template",
   "svg",
 ];
+
+/**
+ * Matches a URL's scheme per the WHATWG grammar (`scheme = alpha *( alpha / digit / "+" / "-" /
+ * "." )`) — the same rule a browser uses to decide `href="javascript:..."` is absolute regardless
+ * of context, not a heuristic of our own.
+ */
+const URL_SCHEME = /^([a-zA-Z][a-zA-Z0-9+.-]*):/;
+
+/**
+ * True for a relative reference (no scheme — safe, resolved against whatever the eventual
+ * renderer's base URL is) or one whose scheme is `http`/`https` — the same allowlist `fetchUrl`
+ * itself fetches under ({@link ALLOWED_URL_SCHEMES}), reused rather than restated. False for
+ * `javascript:`, `data:`, `vbscript:`, `file:`, and every other scheme: this fetched page's
+ * markup doesn't get to hand the eventual reader of this output a link that runs code or opens a
+ * local file when clicked.
+ */
+function isFetchableLinkTarget(url: string): boolean {
+  const [, scheme] = URL_SCHEME.exec(url.trim()) ?? [];
+  return scheme === undefined || ALLOWED_URL_SCHEMES.includes(scheme.toLowerCase());
+}
 
 /** Content types converted from HTML to markdown. */
 const HTML_TYPES = new Set(["text/html", "application/xhtml+xml"]);
@@ -116,10 +120,8 @@ export function parseContentType(header: string | null): ParsedContentType {
 function decode(body: Uint8Array, charset: string | undefined): string {
   const label = charset ?? "utf-8";
   // `node:util`'s `TextDecoder`, not the global one: `@types/bun` narrows the global
-  // constructor's parameter to its own fixed `Encoding` union, which a `charset` taken from an
-  // arbitrary HTTP header does not fit. The Node built-in is the same WHATWG class typed as the
-  // spec defines it (`string` label), so this is the upstream API rather than a cast around a
-  // too-narrow type (house rule 2).
+  // constructor to its own fixed `Encoding` union, which an arbitrary HTTP-header charset doesn't
+  // fit. The Node one is the same WHATWG class typed per spec (`string` label) — no cast needed.
   let decoder;
   try {
     decoder = new TextDecoder(label);
@@ -138,7 +140,22 @@ const turndown = new TurndownService({
   headingStyle: "atx",
   codeBlockStyle: "fenced",
   bulletListMarker: "-",
-}).remove(ACTIVE_ELEMENTS);
+})
+  .remove(ACTIVE_ELEMENTS)
+  // `addRule` checks custom rules before the built-ins (`Rules.prototype.add` unshifts), and a
+  // `filter` that returns false falls through to the default `a`/`img` rule — so a fetchable
+  // `href`/`src` still becomes a normal markdown link/image; only a scheme like `javascript:` or
+  // `data:` is caught here and flattened to plain text instead.
+  .addRule("nonFetchableLink", {
+    filter: (node) =>
+      node.nodeName === "A" && !isFetchableLinkTarget(node.getAttribute("href") ?? ""),
+    replacement: (content) => content,
+  })
+  .addRule("nonFetchableImage", {
+    filter: (node) =>
+      node.nodeName === "IMG" && !isFetchableLinkTarget(node.getAttribute("src") ?? ""),
+    replacement: (_content, node) => node.getAttribute("alt") ?? "",
+  });
 
 export interface ReducedContent {
   /** The readable text. Markdown when the source was HTML, otherwise the decoded body. */
