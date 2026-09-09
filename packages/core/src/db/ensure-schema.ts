@@ -61,6 +61,18 @@ const TABLES = [
     fork_json TEXT,
     deleted_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS adl_agent_episodes (
+    agent_call_id TEXT PRIMARY KEY NOT NULL,
+    agent_id TEXT NOT NULL,
+    memory_scope TEXT NOT NULL,
+    workflow_run_id TEXT,
+    step_id TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    status TEXT NOT NULL,
+    model_id TEXT,
+    model_provider TEXT
+  )`,
 ];
 
 const INDEXES = [
@@ -72,6 +84,10 @@ const INDEXES = [
     ON adl_run_events (type)`,
   `CREATE INDEX IF NOT EXISTS adl_workflow_run_tags_tag
     ON adl_workflow_run_tags (tag)`,
+  `CREATE INDEX IF NOT EXISTS adl_agent_episodes_started_at
+    ON adl_agent_episodes (started_at)`,
+  `CREATE INDEX IF NOT EXISTS adl_agent_episodes_agent_started_at
+    ON adl_agent_episodes (agent_id, started_at)`,
 ];
 
 const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = [

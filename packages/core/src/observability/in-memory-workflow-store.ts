@@ -245,6 +245,11 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       if (filter?.agentId && started.agentId !== filter.agentId) {
         continue;
       }
+      // Same terminal-event lookup the SQLite projection encodes into a row:
+      // "running" until an agent_finished/agent_failed shows up for this call.
+      const finished = list.find(
+        (event) => event.type === "agent_finished" || event.type === "agent_failed",
+      );
       episodes.push({
         agentCallId: started.agentCallId,
         agentId: started.agentId,
@@ -252,6 +257,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         startedAt: started.at,
         workflowRunId: started.workflowRunId,
         stepId: started.stepId,
+        status: finished ? (finished.type === "agent_finished" ? "ok" : "error") : "running",
+        finishedAt: finished?.at,
       });
     }
     episodes.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

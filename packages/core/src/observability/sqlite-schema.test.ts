@@ -226,3 +226,26 @@ describe("adl_conversation_metadata", () => {
     expect(tableNames(sqlite)).toContain("adl_inspector_sessions");
   });
 });
+
+describe("adl_agent_episodes", () => {
+  it("creates the table with its lifecycle and model-descriptor columns", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    expect(tableNames(sqlite)).toContain("adl_agent_episodes");
+    expect(columnNames(sqlite, "adl_agent_episodes")).toEqual([
+      "agent_call_id",
+      "agent_id",
+      "memory_scope",
+      "workflow_run_id",
+      "step_id",
+      "started_at",
+      "finished_at",
+      "status",
+      "model_id",
+      "model_provider",
+    ]);
+    const indexes = indexNames(sqlite, "adl_agent_episodes");
+    expect(indexes).toContain("adl_agent_episodes_started_at");
+    expect(indexes).toContain("adl_agent_episodes_agent_started_at");
+  });
+});

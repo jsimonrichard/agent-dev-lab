@@ -9,6 +9,7 @@
  */
 import type { AdlDb } from "../index";
 
+import { projectAgentEpisode } from "./agent-episodes";
 import { projectStepRecord } from "./step-records";
 import { projectWorkflowRun } from "./workflow-runs";
 
@@ -20,4 +21,5 @@ export { stepSlotKey } from "./step-records";
 export function applyProjections(db: AdlDb, event: RunEvent): void {
   projectWorkflowRun(db, event);
   projectStepRecord(db, event);
+  projectAgentEpisode(db, event);
 }

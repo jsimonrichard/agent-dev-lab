@@ -87,6 +87,37 @@ export const workflowRunTags = sqliteTable(
   ],
 );
 
+/** Matches {@link AgentEpisodeSummary.status} in `observability/workflow-store.ts`. */
+export const AGENT_EPISODE_STATUSES = ["running", "ok", "error"] as const;
+
+/**
+ * One row per `agent.run()` episode, projected from `agent_started` /
+ * `agent_finished` / `agent_failed` — a single row for the episode's mutable
+ * lifecycle (`status`, `finishedAt`) rather than splitting start and terminal
+ * state across two event rows. `modelId`/`modelProvider` are nullable
+ * placeholders for the `{ modelId, provider }` descriptor Lane E adds to
+ * `agent_started`; this lane persists what that event carries, once it does.
+ */
+export const agentEpisodes = sqliteTable(
+  "adl_agent_episodes",
+  {
+    agentCallId: text("agent_call_id").primaryKey(),
+    agentId: text("agent_id").notNull(),
+    memoryScope: text("memory_scope").notNull(),
+    workflowRunId: text("workflow_run_id"),
+    stepId: text("step_id"),
+    startedAt: text("started_at").notNull(),
+    finishedAt: text("finished_at"),
+    status: text("status", { enum: AGENT_EPISODE_STATUSES }).notNull(),
+    modelId: text("model_id"),
+    modelProvider: text("model_provider"),
+  },
+  (table) => [
+    index("adl_agent_episodes_started_at").on(table.startedAt),
+    index("adl_agent_episodes_agent_started_at").on(table.agentId, table.startedAt),
+  ],
+);
+
 /**
  * Metadata *about* a conversation — not the source of truth for message
  * content (that stays `messages`, keyed the same way by `memory_scope`).

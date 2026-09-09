@@ -7,7 +7,7 @@ import type {
   WorkflowRunSummary,
 } from "./events";
 
-/** One `agent_started` episode, used to rebuild inspector chats after restart. */
+/** One `agent.run()` episode, used to rebuild inspector chats after restart. */
 export type AgentEpisodeSummary = {
   agentCallId: string;
   agentId: string;
@@ -15,6 +15,12 @@ export type AgentEpisodeSummary = {
   startedAt: string;
   workflowRunId?: string;
   stepId?: string | null;
+  /** Mutable lifecycle: `"running"` until `agent_finished`/`agent_failed`. */
+  status: "running" | "ok" | "error";
+  finishedAt?: string;
+  /** The `{ modelId, provider }` descriptor Lane E adds to `agent_started`; absent until then. */
+  modelId?: string;
+  modelProvider?: string;
 };
 
 /**

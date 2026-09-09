@@ -2,7 +2,14 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
 import { applyProjections, stepSlotKey } from "../db/projections";
-import { runEvents, stepOutputs, stepRecords, workflowRuns, workflowRunTags } from "../db/schema";
+import {
+  agentEpisodes,
+  runEvents,
+  stepOutputs,
+  stepRecords,
+  workflowRuns,
+  workflowRunTags,
+} from "../db/schema";
 import type { AdlDb } from "../db";
 
 import type {
@@ -273,35 +280,29 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async listAgentEpisodes(filter) {
-      const rows = db
-        .select({ payloadJson: runEvents.payloadJson })
-        .from(runEvents)
-        .where(eq(runEvents.type, "agent_started"))
-        .orderBy(desc(runEvents.at))
-        .all();
-      const episodes: AgentEpisodeSummary[] = [];
-      for (const row of rows) {
-        const event = JSON.parse(row.payloadJson) as RunEvent;
-        if (event.type !== "agent_started") {
-          continue;
-        }
-        if (filter?.agentId && event.agentId !== filter.agentId) {
-          continue;
-        }
-        episodes.push({
-          agentCallId: event.agentCallId,
-          agentId: event.agentId,
-          memoryScope: event.memoryScope,
-          startedAt: event.at,
-          workflowRunId: event.workflowRunId,
-          stepId: event.stepId,
-        });
-      }
-      if (filter?.limit !== undefined) {
-        return episodes.slice(0, filter.limit);
-      }
-      return episodes;
+      const query = db
+        .select()
+        .from(agentEpisodes)
+        .where(filter?.agentId ? eq(agentEpisodes.agentId, filter.agentId) : undefined)
+        .orderBy(desc(agentEpisodes.startedAt));
+      const rows = (filter?.limit !== undefined ? query.limit(filter.limit) : query).all();
+      return rows.map(toEpisodeSummary);
     },
+  };
+}
+
+function toEpisodeSummary(row: typeof agentEpisodes.$inferSelect): AgentEpisodeSummary {
+  return {
+    agentCallId: row.agentCallId,
+    agentId: row.agentId,
+    memoryScope: row.memoryScope,
+    workflowRunId: row.workflowRunId ?? undefined,
+    stepId: row.stepId ?? undefined,
+    startedAt: row.startedAt,
+    finishedAt: row.finishedAt ?? undefined,
+    status: row.status,
+    modelId: row.modelId ?? undefined,
+    modelProvider: row.modelProvider ?? undefined,
   };
 }
 

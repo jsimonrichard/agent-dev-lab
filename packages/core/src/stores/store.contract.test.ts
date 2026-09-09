@@ -179,7 +179,63 @@ describe("sqlite stores share a file", () => {
         startedAt: "2026-01-01T00:00:00.000Z",
         workflowRunId: undefined,
         stepId: undefined,
+        status: "running",
+        finishedAt: undefined,
+        modelId: undefined,
+        modelProvider: undefined,
       },
     ]);
+
+    await reopened.recordEvent({
+      type: "agent_finished",
+      agentCallId: "call-1",
+      agentId: "researcher",
+      runSeq: 2,
+      at: "2026-01-01T00:00:05.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+    });
+    const afterFinish = await reopened.listAgentEpisodes();
+    expect(afterFinish[0]?.status).toBe("ok");
+    expect(afterFinish[0]?.finishedAt).toBe("2026-01-01T00:00:05.000Z");
+  });
+
+  it("pushes agentId and limit into the query instead of filtering in JavaScript", async () => {
+    const store = sqliteWorkflowStore({ path: await uniqueDbPath() });
+    for (let i = 0; i < 3; i++) {
+      await store.recordEvent({
+        type: "agent_started",
+        agentCallId: `researcher-${i}`,
+        agentId: "researcher",
+        memoryScope: `conv:${i}`,
+        runSeq: 1,
+        at: `2026-01-01T00:00:0${i}.000Z`,
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+    }
+    await store.recordEvent({
+      type: "agent_started",
+      agentCallId: "writer-0",
+      agentId: "writer",
+      memoryScope: "conv:writer",
+      runSeq: 1,
+      at: "2026-01-01T00:00:09.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+    });
+
+    const filtered = await store.listAgentEpisodes({ agentId: "researcher" });
+    expect(filtered.map((e) => e.agentCallId).sort()).toEqual([
+      "researcher-0",
+      "researcher-1",
+      "researcher-2",
+    ]);
+
+    const limited = await store.listAgentEpisodes({ limit: 1 });
+    expect(limited).toHaveLength(1);
+    // newest first
+    expect(limited[0]?.agentCallId).toBe("writer-0");
+
+    const both = await store.listAgentEpisodes({ agentId: "researcher", limit: 2 });
+    expect(both).toHaveLength(2);
+    expect(both.every((e) => e.agentId === "researcher")).toBe(true);
   });
 });
