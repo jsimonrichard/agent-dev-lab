@@ -87,7 +87,11 @@ export const workflowRunTags = sqliteTable(
   ],
 );
 
-export const inspectorSessions = sqliteTable("adl_inspector_sessions", {
+/**
+ * Metadata *about* a conversation — not the source of truth for message
+ * content (that stays `messages`, keyed the same way by `memory_scope`).
+ */
+export const conversationMetadata = sqliteTable("adl_conversation_metadata", {
   memoryScope: text("memory_scope").primaryKey(),
   agentId: text("agent_id").notNull(),
   agentCallId: text("agent_call_id").notNull(),

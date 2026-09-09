@@ -1,11 +1,11 @@
 import { desc, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
-import { inspectorSessions } from "../db/schema";
+import { conversationMetadata } from "../db/schema";
 
 import type { SqliteStoreOptions } from "./sqlite";
 
-export type InspectorSessionFork = {
+export type ConversationFork = {
   sourceWorkflowId: string;
   sourceWorkflowRunId: string;
   sourceStepId: string;
@@ -13,20 +13,20 @@ export type InspectorSessionFork = {
   sourceMemoryScope: string;
 };
 
-export type InspectorSessionRecord = {
+export type ConversationMetadataRecord = {
   memoryScope: string;
   agentId: string;
   agentCallId: string;
   title: string;
   createdAt: string;
   updatedAt: string;
-  fork?: InspectorSessionFork;
+  fork?: ConversationFork;
   deletedAt?: string;
 };
 
-type SessionRow = typeof inspectorSessions.$inferSelect;
+type ConversationMetadataRow = typeof conversationMetadata.$inferSelect;
 
-function rowToRecord(row: SessionRow): InspectorSessionRecord {
+function rowToRecord(row: ConversationMetadataRow): ConversationMetadataRecord {
   return {
     memoryScope: row.memoryScope,
     agentId: row.agentId,
@@ -34,17 +34,21 @@ function rowToRecord(row: SessionRow): InspectorSessionRecord {
     title: row.title,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    fork: row.forkJson ? (JSON.parse(row.forkJson) as InspectorSessionFork) : undefined,
+    fork: row.forkJson ? (JSON.parse(row.forkJson) as ConversationFork) : undefined,
     deletedAt: row.deletedAt ?? undefined,
   };
 }
 
-/** Persists inspection-UI chat sessions alongside workflow/message stores. */
-export function sqliteInspectorSessionStore(options: SqliteStoreOptions = {}) {
+/**
+ * Metadata about a conversation — not the source of truth for message
+ * content (that's {@link sqliteMessageStore}). Persists alongside the
+ * workflow/message stores.
+ */
+export function sqliteConversationMetadataStore(options: SqliteStoreOptions = {}) {
   const db = createDb(options.path ?? resolveAdlSqlitePath());
 
   return {
-    upsert(record: InspectorSessionRecord): void {
+    upsert(record: ConversationMetadataRecord): void {
       const values = {
         memoryScope: record.memoryScope,
         agentId: record.agentId,
@@ -55,36 +59,36 @@ export function sqliteInspectorSessionStore(options: SqliteStoreOptions = {}) {
         forkJson: record.fork ? JSON.stringify(record.fork) : null,
         deletedAt: record.deletedAt ?? null,
       };
-      db.insert(inspectorSessions)
+      db.insert(conversationMetadata)
         .values(values)
-        .onConflictDoUpdate({ target: inspectorSessions.memoryScope, set: values })
+        .onConflictDoUpdate({ target: conversationMetadata.memoryScope, set: values })
         .run();
     },
 
-    list(): InspectorSessionRecord[] {
+    list(): ConversationMetadataRecord[] {
       const rows = db
         .select()
-        .from(inspectorSessions)
-        .where(isNull(inspectorSessions.deletedAt))
-        .orderBy(desc(inspectorSessions.updatedAt))
+        .from(conversationMetadata)
+        .where(isNull(conversationMetadata.deletedAt))
+        .orderBy(desc(conversationMetadata.updatedAt))
         .all();
       return rows.map(rowToRecord);
     },
 
     listDeletedScopes(): string[] {
       const rows = db
-        .select({ memoryScope: inspectorSessions.memoryScope })
-        .from(inspectorSessions)
-        .where(isNotNull(inspectorSessions.deletedAt))
+        .select({ memoryScope: conversationMetadata.memoryScope })
+        .from(conversationMetadata)
+        .where(isNotNull(conversationMetadata.deletedAt))
         .all();
       return rows.map((row) => row.memoryScope);
     },
 
-    get(memoryScope: string): InspectorSessionRecord | undefined {
+    get(memoryScope: string): ConversationMetadataRecord | undefined {
       const row = db
         .select()
-        .from(inspectorSessions)
-        .where(eq(inspectorSessions.memoryScope, memoryScope))
+        .from(conversationMetadata)
+        .where(eq(conversationMetadata.memoryScope, memoryScope))
         .get();
       return row ? rowToRecord(row) : undefined;
     },

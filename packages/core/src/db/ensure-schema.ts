@@ -48,7 +48,7 @@ const TABLES = [
     tag TEXT NOT NULL,
     PRIMARY KEY (workflow_run_id, tag)
   )`,
-  `CREATE TABLE IF NOT EXISTS adl_inspector_sessions (
+  `CREATE TABLE IF NOT EXISTS adl_conversation_metadata (
     memory_scope TEXT PRIMARY KEY NOT NULL,
     agent_id TEXT NOT NULL,
     agent_call_id TEXT NOT NULL,
@@ -73,16 +73,22 @@ const INDEXES = [
 
 const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = [
   { table: "adl_workflow_runs", column: "title", sqlType: "TEXT" },
-  { table: "adl_inspector_sessions", column: "deleted_at", sqlType: "TEXT" },
+  { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
 ];
 
 /**
- * The log holds every {@link RunEvent} — agent episodes and standalone
- * conversations included — so `adl_workflow_events` named one of its writers
- * rather than its contents.
+ * - `adl_workflow_events` → `adl_run_events`: the log holds every
+ *   {@link RunEvent} — agent episodes and standalone conversations included —
+ *   so the old name described one of its writers rather than its contents.
+ * - `adl_inspector_sessions` → `adl_conversation_metadata`: named for what it
+ *   is, metadata *about* a conversation, not the source of truth for message
+ *   content (that stays `adl_messages`). The old name described the writer
+ *   (the inspection UI) rather than the entity — core's own vocabulary is
+ *   "conversation" throughout (`conversation-title.ts`, `ConversationTitleInput`).
  */
 const TABLE_RENAMES: { from: string; to: string }[] = [
   { from: "adl_workflow_events", to: "adl_run_events" },
+  { from: "adl_inspector_sessions", to: "adl_conversation_metadata" },
 ];
 
 /**

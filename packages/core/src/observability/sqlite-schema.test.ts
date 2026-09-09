@@ -133,3 +133,96 @@ describe("adl_run_events", () => {
     expect(events.map((event) => event.runSeq)).toEqual([1, 2]);
   });
 });
+
+/** A pre-rename database: old table name, and no `deleted_at` column yet. */
+function createLegacyInspectorSessionsTable(sqlite: Database): void {
+  sqlite.exec(`
+    CREATE TABLE adl_inspector_sessions (
+      memory_scope TEXT PRIMARY KEY NOT NULL,
+      agent_id TEXT NOT NULL,
+      agent_call_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      fork_json TEXT
+    )
+  `);
+  sqlite
+    .prepare(
+      `INSERT INTO adl_inspector_sessions
+        (memory_scope, agent_id, agent_call_id, title, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      "scope-1",
+      "agent-1",
+      "call-1",
+      "My chat",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+}
+
+describe("adl_conversation_metadata", () => {
+  it("creates the table under its new name on a fresh database", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    const tables = tableNames(sqlite);
+    expect(tables).toContain("adl_conversation_metadata");
+    expect(tables).not.toContain("adl_inspector_sessions");
+    expect(columnNames(sqlite, "adl_conversation_metadata")).toContain("deleted_at");
+  });
+
+  it("renames a pre-release adl_inspector_sessions table and keeps its rows", () => {
+    const sqlite = new Database(":memory:");
+    createLegacyInspectorSessionsTable(sqlite);
+
+    ensureAdlSchema(sqlite);
+
+    const tables = tableNames(sqlite);
+    expect(tables).toContain("adl_conversation_metadata");
+    expect(tables).not.toContain("adl_inspector_sessions");
+
+    const row = sqlite
+      .prepare("SELECT title, deleted_at FROM adl_conversation_metadata WHERE memory_scope = ?")
+      .get("scope-1") as { title: string; deleted_at: string | null };
+    expect(row.title).toBe("My chat");
+    expect(row.deleted_at).toBeNull();
+  });
+
+  it("keeps the primary key enforced after the rename", () => {
+    // SQLite renames a table's own PRIMARY KEY autoindex along with the table
+    // (unlike an explicitly-named CREATE INDEX, which keeps its old name — see
+    // the adl_run_events tests above), so this table needs no STALE_INDEXES
+    // entry. Verified by exercising the constraint, not just reading pragmas.
+    const sqlite = new Database(":memory:");
+    createLegacyInspectorSessionsTable(sqlite);
+    ensureAdlSchema(sqlite);
+
+    expect(() =>
+      sqlite
+        .prepare(
+          `INSERT INTO adl_conversation_metadata
+            (memory_scope, agent_id, agent_call_id, title, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          "scope-1",
+          "agent-2",
+          "call-2",
+          "dup",
+          "2026-01-02T00:00:00.000Z",
+          "2026-01-02T00:00:00.000Z",
+        ),
+    ).toThrow(/UNIQUE constraint failed/);
+  });
+
+  it("refuses to migrate when both table names exist", () => {
+    const sqlite = new Database(":memory:");
+    createLegacyInspectorSessionsTable(sqlite);
+    sqlite.exec(`CREATE TABLE adl_conversation_metadata (memory_scope TEXT PRIMARY KEY NOT NULL)`);
+
+    expect(() => ensureAdlSchema(sqlite)).toThrow(/both tables exist/);
+    expect(tableNames(sqlite)).toContain("adl_inspector_sessions");
+  });
+});

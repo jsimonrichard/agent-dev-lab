@@ -7,7 +7,7 @@ import {
   type RunEvent as CoreRunEvent,
   type WorkflowRunHandle,
 } from "@agent-dev-lab/core";
-import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-lab/core";
+import { resolveAdlSqlitePath, sqliteConversationMetadataStore } from "@agent-dev-lab/core";
 import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
@@ -102,7 +102,7 @@ registerShutdownRunHooks({
 
 async function inspectorSessionStore() {
   const project = await getLoadedAdlProject();
-  return sqliteInspectorSessionStore({ path: resolveAdlSqlitePath(project.root) });
+  return sqliteConversationMetadataStore({ path: resolveAdlSqlitePath(project.root) });
 }
 
 async function ensureSessionsHydrated(): Promise<void> {

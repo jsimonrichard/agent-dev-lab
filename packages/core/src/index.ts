@@ -120,12 +120,12 @@ export {
   CUSTOM_MESSAGE_STORE_KIND,
   inMemoryMessageStore,
   inspectMessageStoreKind,
-  sqliteInspectorSessionStore,
+  sqliteConversationMetadataStore,
   sqliteMessageStore,
 } from "./stores";
 export type {
-  InspectorSessionFork,
-  InspectorSessionRecord,
+  ConversationFork,
+  ConversationMetadataRecord,
   MessageStore,
   SqliteStoreOptions,
 } from "./stores";

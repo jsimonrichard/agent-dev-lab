@@ -1,4 +1,4 @@
-import type { InspectorSessionRecord, RunEvent } from "@agent-dev-lab/core";
+import type { ConversationMetadataRecord, RunEvent } from "@agent-dev-lab/core";
 
 import { displayConversationTitle } from "../memory-scope-label";
 
@@ -151,7 +151,7 @@ export function registerAgentSession(session: AgentSession): void {
   byAgentCallId.set(session.agentCallId, session);
 }
 
-export function hydrateInspectorSessions(records: InspectorSessionRecord[]): void {
+export function hydrateInspectorSessions(records: ConversationMetadataRecord[]): void {
   for (const record of records) {
     if (byMemoryScope.has(record.memoryScope)) {
       continue;

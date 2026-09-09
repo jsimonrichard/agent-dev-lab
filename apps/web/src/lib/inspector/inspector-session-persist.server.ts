@@ -1,4 +1,4 @@
-import { resolveAdlSqlitePath, sqliteInspectorSessionStore } from "@agent-dev-lab/core";
+import { resolveAdlSqlitePath, sqliteConversationMetadataStore } from "@agent-dev-lab/core";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import type { AgentSession } from "#/lib/agent/agent-sessions";
@@ -8,7 +8,7 @@ export async function persistInspectorSession(
   deletedAt?: string,
 ): Promise<void> {
   const project = await getLoadedAdlProject();
-  const store = sqliteInspectorSessionStore({ path: resolveAdlSqlitePath(project.root) });
+  const store = sqliteConversationMetadataStore({ path: resolveAdlSqlitePath(project.root) });
   store.upsert({
     memoryScope: session.memoryScope,
     agentId: session.agentId,
