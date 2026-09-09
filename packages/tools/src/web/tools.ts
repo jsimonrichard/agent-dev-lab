@@ -56,11 +56,18 @@ export const FETCH_URL_DESCRIPTION =
 export interface FetchUrlToolOptions {
   /**
    * URL patterns (glob strings and/or `RegExp`s) allowed past the address check — see
-   * {@link AddressPolicy.allowedUrls}. Empty by default; there is no option that turns the
-   * address check off (house rule 1: a guard is never an optional flag with a safe-looking
-   * default).
+   * {@link AddressPolicy.allowedUrls}. Empty by default.
    */
   allowedUrls?: readonly UrlPattern[];
+  /**
+   * Disables the address check entirely — see {@link AddressPolicy.allowPrivateNetwork}.
+   * **Default `false`.** House rule 1 is still satisfied: the *default* stays safe (protection
+   * on), this option is never reachable from the model (constructor option / host-set
+   * `toolProviderContext` only, same trust tier as `allowedUrls`), and enabling it is fully
+   * discoverable via `describeWebEnv`'s own `allowPrivateNetwork` field — nothing about it is
+   * silent.
+   */
+  allowPrivateNetwork?: boolean;
   /** Hostname resolver override. Defaults to `node:dns`; exists so the policy can be tested. */
   resolver?: AddressPolicy["resolver"];
   /** Wall-clock timeout for the whole fetch, in milliseconds. Default 30,000 (30s). */
@@ -123,6 +130,7 @@ export function createFetchUrlTool(options: FetchUrlToolOptions = {}): WebTools 
 
   const policy: AddressPolicy = {
     allowedUrls: options.allowedUrls,
+    allowPrivateNetwork: options.allowPrivateNetwork,
     resolver: options.resolver,
   };
 

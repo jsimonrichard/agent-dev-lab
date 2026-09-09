@@ -376,6 +376,16 @@ describe("fetchUrl", () => {
       await assert.rejects(fetchRaw("not a url"), /is not a valid absolute URL/);
       await assert.rejects(fetchRaw("/relative/path"), /is not a valid absolute URL/);
     });
+
+    it("allowPrivateNetwork reaches the fixture with no allowedUrls entry at all", async () => {
+      const result = await fetchRaw(`${main.origin}/page`, { allowPrivateNetwork: true });
+      assert.equal(result.status, 200);
+      assert.match(result.content, /^# Install$/m);
+    });
+
+    it("allowPrivateNetwork off by default — the same URL is still refused without it", async () => {
+      await assert.rejects(fetchRaw(`${main.origin}/page`), /not a public address/);
+    });
   });
 
   describe("response byte cap", () => {

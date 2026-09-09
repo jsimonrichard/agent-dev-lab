@@ -98,13 +98,14 @@ export interface AddressPolicy {
    * address checks — **empty by default**, so nothing bypasses them unless a host explicitly
    * says so.
    *
-   * This is an allowlist, not a switch that turns the guard off: it is the only way to reach a
-   * literal non-public address on purpose (a test fixture on `127.0.0.1`, say) or an `http:`
-   * domain that resolves privately on purpose (a company-internal service with no TLS), and it
-   * is matched **per redirect hop** against {@link urlMatchCandidate}, so an allowlisted origin
-   * that redirects somewhere else gains that destination nothing — a pattern this permissive for
-   * the *first* hop (`http://intranet.example:8080/**`) still blocks a redirect to a different
-   * origin entirely.
+   * This is a URL-scoped allowlist: it is the ordinary way to reach a literal non-public address
+   * on purpose (a test fixture on `127.0.0.1`, say) or an `http:` domain that resolves privately
+   * on purpose (a company-internal service with no TLS), and it is matched **per redirect hop**
+   * against {@link urlMatchCandidate}, so an allowlisted origin that redirects somewhere else
+   * gains that destination nothing — a pattern this permissive for the *first* hop
+   * (`http://intranet.example:8080/**`) still blocks a redirect to a different origin entirely.
+   * (`allowPrivateNetwork` below is the blanket, non-URL-scoped escape hatch — see its own doc
+   * comment for why that's a different tool for a different job, not a rival mechanism.)
    *
    * Path-scoped by design: `http://intranet.example:8080/**` allows the whole origin, but
    * `http://intranet.example:8080/wiki/*` allows only that one directory — precision plain
@@ -112,6 +113,28 @@ export interface AddressPolicy {
    * one copied from this guard's own rejection message) matches only that exact URL.
    */
   allowedUrls?: readonly UrlPattern[];
+  /**
+   * Disables both address checks entirely — **default `false`** (protection on). Every URL that
+   * clears the scheme allowlist is fetched regardless of what its hostname is or resolves to,
+   * private/loopback/link-local/metadata-service addresses included.
+   *
+   * **Not a second enforcement path** (house rule 3: one path) — it is implemented as an
+   * unconditional match, checked in the exact same place `allowedUrls` is, so there is one
+   * decision point for "is the address exempt," not two independently-maintained ones. In fact
+   * `allowedUrls: ["**"]` already has this exact effect today (`**` matches any candidate
+   * string); this option exists as a clearer, more discoverable name for that same intent —
+   * matching the name a comparable agent framework (OpenClaw) already uses for it — not as new
+   * capability.
+   *
+   * Reported by `describeWebEnv` as its own field (not folded into the `allowedUrls` list, which
+   * would misattribute a host-set boolean as something the caller wrote as a pattern) — see
+   * `WebAccessInfo.allowPrivateNetwork`.
+   *
+   * Still a host/workflow-only knob, never model-reachable, the same trust boundary
+   * `allowedUrls` and `resolver` already sit behind (see `notes/tool-sandboxing.md`'s "trust,
+   * not restriction" note) — this is not exposed on `fetchUrl`'s own input schema.
+   */
+  allowPrivateNetwork?: boolean;
   /** Hostname resolver, defaulting to `node:dns`' `lookup(..., { all: true })`. */
   resolver?: HostnameResolver;
 }
@@ -188,10 +211,12 @@ function rejectNonPublic(url: URL, offendingAddresses: readonly string[]): never
 }
 
 /**
- * Throws unless `url` may be fetched. Checks, in order: the scheme (absolute — no `allowedUrls`
- * pattern can exempt a non-`http(s)` URL), then `allowedUrls`, then the address — a literal IP in
- * the hostname regardless of scheme, or (only for `http:`) every address a domain name resolves
- * to. See the module doc comment for why the domain-resolution check is scheme-conditional.
+ * Throws unless `url` may be fetched. Checks, in order: the scheme (absolute — nothing below can
+ * exempt a non-`http(s)` URL, not `allowedUrls` and not `allowPrivateNetwork`), then whether the
+ * address checks are exempted at all (`allowPrivateNetwork`, or a matching `allowedUrls` entry),
+ * then the address itself — a literal IP in the hostname regardless of scheme, or (only for
+ * `http:`) every address a domain name resolves to. See the module doc comment for why the
+ * domain-resolution check is scheme-conditional.
  *
  * When a domain resolves (the `http:` case), every resolved address must pass, not merely one of
  * them: the connection picks an address from that set and this code does not get to choose
@@ -207,7 +232,10 @@ export async function assertAllowedUrl(url: URL, policy: AddressPolicy = {}): Pr
   }
 
   const candidate = urlMatchCandidate(url);
-  if (policy.allowedUrls?.some((pattern) => matchesUrlPattern(pattern, candidate))) {
+  if (
+    policy.allowPrivateNetwork ||
+    policy.allowedUrls?.some((pattern) => matchesUrlPattern(pattern, candidate))
+  ) {
     return;
   }
 

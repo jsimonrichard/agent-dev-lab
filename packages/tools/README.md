@@ -117,12 +117,11 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
     redirect landing on `169.254.169.254`, written literally in `Location`, is the case this
     exists for.
   - **`allowedUrls`** — URL patterns exempt from both address checks, **empty by default**. This
-    is the only way to reach a literal non-public address on purpose (a test fixture), or an
+    is the ordinary way to reach a literal non-public address on purpose (a test fixture), or an
     `http:` domain that resolves privately on purpose (a company-internal service with no TLS),
     and it is matched per hop against `scheme://host:port/path` (no query, no fragment — see
     `urlMatchCandidate`'s doc comment), so an exempt origin cannot redirect sideways into another
-    service on the same machine. There is deliberately no option that turns the guard off. Each
-    entry is a glob **string** or a `RegExp`:
+    service on the same machine. Each entry is a glob **string** or a `RegExp`:
     - A glob is a small, deliberately narrow language, not a general glob engine (`url-pattern.ts`
       explains why): literal characters match themselves, `*` matches one path segment, `**`
       matches anything including `/`. `http://intranet.example:8080/**` allows a whole origin
@@ -134,6 +133,15 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
     - `describeWebEnv` reports each entry as a display string (`String(pattern)`), since a raw
       `RegExp` serializes to `"{}"` under `JSON.stringify` and would otherwise silently lose the
       pattern once an AI SDK turn serializes the tool result.
+  - **`allowPrivateNetwork`** — disables both address checks entirely, **default `false`**. Not a
+    second enforcement path (house rule 3): it's checked at the exact same decision point
+    `allowedUrls` is, so there's one place that decides "is the address exempt," not two —
+    `allowedUrls: ["**"]` already has this same effect today (`**` matches any candidate string);
+    this is a clearer, more discoverable name for that intent, matching the name a comparable
+    agent framework already uses for it (see the OpenClaw link above). Host/workflow-only, like
+    `allowedUrls` and `resolver` — never exposed on `fetchUrl`'s own input schema, so the model
+    can't reach it. `describeWebEnv` reports it as its own boolean field, not folded into
+    `allowedUrls`'s reported list.
   - **Untrusted content** — the response is never executed, evaluated or resolved; `<script>`,
     `<style>`, `<noscript>`, `<iframe>`, `<object>`, `<embed>`, `<template>` and `<svg>` are
     dropped with their contents before conversion, and the tool description tells the model the

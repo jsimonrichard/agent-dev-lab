@@ -33,6 +33,7 @@ describe("createWebToolProvider", () => {
       webAccess: {
         allowedSchemes: ["http", "https"],
         allowedUrls: [],
+        allowPrivateNetwork: false,
         timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
         maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
         maxRedirects: DEFAULT_MAX_REDIRECTS,
@@ -87,6 +88,7 @@ describe("createWebToolProvider", () => {
       webAccess: {
         allowedSchemes: ["http", "https"],
         allowedUrls: ["https://docs.internal:443/**"],
+        allowPrivateNetwork: false,
         timeoutMs: 111,
         maxResponseBytes: 222,
         maxRedirects: 3,
@@ -104,6 +106,7 @@ describe("createWebToolProvider", () => {
     const { describeWebEnv } = await provider.getTools(
       ctx({
         allowedUrls: ["https://other.internal:8080/**"],
+        allowPrivateNetwork: true,
         timeoutMs: 999,
         maxResponseBytes: 888,
         maxRedirects: 7,
@@ -114,6 +117,7 @@ describe("createWebToolProvider", () => {
       webAccess: {
         allowedSchemes: ["http", "https"],
         allowedUrls: ["https://other.internal:8080/**"],
+        allowPrivateNetwork: true,
         timeoutMs: 999,
         maxResponseBytes: 888,
         maxRedirects: 7,
@@ -133,6 +137,7 @@ describe("createWebToolProvider", () => {
       webAccess: {
         allowedSchemes: ["http", "https"],
         allowedUrls: [String(pattern)],
+        allowPrivateNetwork: false,
         timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
         maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
         maxRedirects: DEFAULT_MAX_REDIRECTS,
@@ -193,5 +198,58 @@ describe("createWebToolProvider", () => {
     await expect(
       fetchUrl.execute?.({ url: "http://169.254.169.254/latest/meta-data/" }, toolCallOptions),
     ).rejects.toThrow(/not a public address/);
+  });
+
+  it("allowPrivateNetwork defaults to false — the address check stays on unless a host opts out", async () => {
+    const provider = createWebToolProvider();
+    const { describeWebEnv } = await provider.getTools(ctx());
+    const result = await describeWebEnv.execute?.({}, toolCallOptions);
+    expect(result).toMatchObject({ webAccess: { allowPrivateNetwork: false } });
+  });
+
+  it("allowPrivateNetwork carries through to the fetchUrl tool, disabling the address check", async () => {
+    const provider = createWebToolProvider({ allowPrivateNetwork: true });
+    const { fetchUrl } = await provider.getTools(ctx());
+
+    // Nothing listens on 127.0.0.1:9 — "connection refused" comes back immediately, fast and
+    // deterministic, unlike attempting a real connection to a metadata-service-shaped address
+    // that would just hang in this sandbox. Same "get past the address check" claim as the
+    // allowedUrls-wiring tests above: what happens next is the connection's business and
+    // deliberately not asserted.
+    let message = "";
+    try {
+      await fetchUrl.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).not.toMatch(/not a public address/);
+  });
+
+  it("toolProviderContext.allowPrivateNetwork overrides the constructor default per call", async () => {
+    const onProvider = createWebToolProvider({ allowPrivateNetwork: true });
+    const { fetchUrl: onFetchUrl } = await onProvider.getTools(ctx({ allowPrivateNetwork: false }));
+    await expect(
+      onFetchUrl.execute?.({ url: "http://169.254.169.254/latest/meta-data/" }, toolCallOptions),
+    ).rejects.toThrow(/not a public address/);
+
+    const offProvider = createWebToolProvider({ allowPrivateNetwork: false });
+    const { fetchUrl: offFetchUrl } = await offProvider.getTools(
+      ctx({ allowPrivateNetwork: true }),
+    );
+    let message = "";
+    try {
+      await offFetchUrl.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).not.toMatch(/not a public address/);
+  });
+
+  it("does not exempt a scheme-rejected URL — allowPrivateNetwork only affects the address check", async () => {
+    const provider = createWebToolProvider({ allowPrivateNetwork: true });
+    const { fetchUrl } = await provider.getTools(ctx());
+    await expect(
+      fetchUrl.execute?.({ url: "file:///etc/passwd" }, toolCallOptions),
+    ).rejects.toThrow(/scheme/);
   });
 });

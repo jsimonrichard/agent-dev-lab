@@ -23,14 +23,20 @@ export interface WebAccessInfo {
   /** URL schemes this call's `fetchUrl` will fetch. */
   allowedSchemes: readonly string[];
   /**
-   * The URL patterns exempt from the address check for this call — the only way to reach a
-   * non-public address. Empty when nothing is exempt. Reported as display strings
-   * (`String(pattern)`: a glob unchanged, a `RegExp` as `/source/flags`) rather than the raw
-   * `UrlPattern` values — this payload is a tool result, which an AI SDK model turn serializes,
-   * and a `RegExp` instance serializes to `{}` under `JSON.stringify` (it has no enumerable own
-   * properties), silently discarding exactly the information this tool exists to report.
+   * The URL patterns exempt from the address check for this call. Empty when nothing is exempt.
+   * Reported as display strings (`String(pattern)`: a glob unchanged, a `RegExp` as
+   * `/source/flags`) rather than the raw `UrlPattern` values — this payload is a tool result,
+   * which an AI SDK model turn serializes, and a `RegExp` instance serializes to `{}` under
+   * `JSON.stringify` (it has no enumerable own properties), silently discarding exactly the
+   * information this tool exists to report.
    */
   allowedUrls: readonly string[];
+  /**
+   * `true` when this call's `fetchUrl` has the address check disabled entirely — see
+   * `AddressPolicy.allowPrivateNetwork`. Reported as its own field, not folded into
+   * `allowedUrls`, so a host-set boolean is never misattributed as a pattern the caller wrote.
+   */
+  allowPrivateNetwork: boolean;
   /** The wall-clock timeout (ms) this call's `fetchUrl` actually enforces. */
   timeoutMs: number;
   /** The response byte cap this call's `fetchUrl` actually enforces. */
@@ -41,6 +47,7 @@ export interface WebAccessInfo {
 
 export function describeWebAccess(
   allowedUrls: readonly UrlPattern[],
+  allowPrivateNetwork: boolean,
   timeoutMs: number,
   maxResponseBytes: number,
   maxRedirects: number,
@@ -48,6 +55,7 @@ export function describeWebAccess(
   return {
     allowedSchemes: ALLOWED_URL_SCHEMES,
     allowedUrls: allowedUrls.map((pattern) => String(pattern)),
+    allowPrivateNetwork,
     timeoutMs,
     maxResponseBytes,
     maxRedirects,
@@ -56,9 +64,9 @@ export function describeWebAccess(
 
 const describeWebEnvDescription =
   "Reports what fetchUrl is allowed to retrieve: the permitted URL schemes, any URL patterns " +
-  "exempt from the private-address block, the response byte cap, the timeout, and the " +
-  "redirect limit. Call before a fetch you're unsure is allowed, or after one fails " +
-  "unexpectedly.";
+  "exempt from the private-address block, whether that block is disabled entirely, the " +
+  "response byte cap, the timeout, and the redirect limit. Call before a fetch you're unsure " +
+  "is allowed, or after one fails unexpectedly.";
 
 const describeWebEnvInputSchema = z.object({});
 type DescribeWebEnvInput = z.infer<typeof describeWebEnvInputSchema>;
@@ -69,6 +77,9 @@ export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAcces
 export interface WebToolProviderOptions {
   /** Default exempt URL patterns when a call's context doesn't specify them. */
   allowedUrls?: readonly UrlPattern[];
+  /** Default for whether the address check is disabled entirely, when a call's context doesn't
+   * specify one — see `AddressPolicy.allowPrivateNetwork`. Default `false`. */
+  allowPrivateNetwork?: boolean;
   /** Hostname resolver override, fixed at construction time — see `FetchUrlToolOptions`. */
   resolver?: FetchUrlToolOptions["resolver"];
   /** Default timeout (ms) when a call's context doesn't specify one. */
@@ -88,6 +99,9 @@ export interface WebToolProviderContext {
    * through JSON — unlike `WebAccessInfo.allowedUrls` above, nothing here needs a display form.
    */
   allowedUrls?: readonly UrlPattern[];
+  /** Overrides `options.allowPrivateNetwork` for this call — same trust boundary as
+   * `allowedUrls` above: host/workflow-set, never model-reachable. */
+  allowPrivateNetwork?: boolean;
   /** Overrides `options.timeoutMs` for this call. */
   timeoutMs?: number;
   /** Overrides `options.maxResponseBytes` for this call. */
@@ -127,6 +141,7 @@ export function createWebToolProvider(
     contextSchema: z
       .object({
         allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])),
+        allowPrivateNetwork: z.boolean(),
         timeoutMs: z.number(),
         maxResponseBytes: z.number(),
         maxRedirects: z.number(),
@@ -140,6 +155,8 @@ export function createWebToolProvider(
     },
     getTools(ctx) {
       const allowedUrls = ctx.toolProviderContext?.allowedUrls ?? options.allowedUrls ?? [];
+      const allowPrivateNetwork =
+        ctx.toolProviderContext?.allowPrivateNetwork ?? options.allowPrivateNetwork ?? false;
       const timeoutMs =
         ctx.toolProviderContext?.timeoutMs ?? options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
       const maxResponseBytes =
@@ -151,6 +168,7 @@ export function createWebToolProvider(
 
       const base = createFetchUrlTool({
         allowedUrls,
+        allowPrivateNetwork,
         resolver: options.resolver,
         timeoutMs,
         maxResponseBytes,
@@ -161,7 +179,13 @@ export function createWebToolProvider(
         description: describeWebEnvDescription,
         inputSchema: describeWebEnvInputSchema,
         execute: async () => ({
-          webAccess: describeWebAccess(allowedUrls, timeoutMs, maxResponseBytes, maxRedirects),
+          webAccess: describeWebAccess(
+            allowedUrls,
+            allowPrivateNetwork,
+            timeoutMs,
+            maxResponseBytes,
+            maxRedirects,
+          ),
         }),
       });
 

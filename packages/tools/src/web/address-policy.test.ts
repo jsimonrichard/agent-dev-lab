@@ -295,6 +295,44 @@ describe("assertAllowedUrl", () => {
       );
     });
   });
+
+  describe("allowPrivateNetwork", () => {
+    it("is off by default — omitting it is the same as passing false", async () => {
+      await assert.rejects(assertAllowedUrl(new URL("http://127.0.0.1/x")), /not a public address/);
+      await assert.rejects(
+        assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowPrivateNetwork: false }),
+        /not a public address/,
+      );
+    });
+
+    it("disables the literal-IP check when true", async () => {
+      await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowPrivateNetwork: true });
+      await assertAllowedUrl(new URL("https://169.254.169.254/latest/meta-data/"), {
+        allowPrivateNetwork: true,
+      });
+    });
+
+    it("disables the http: domain-resolve check when true, without even calling the resolver", async () => {
+      await assertAllowedUrl(new URL("http://intranet.example/"), {
+        allowPrivateNetwork: true,
+        resolver: unreachedResolver,
+      });
+    });
+
+    it("is checked at the same point allowedUrls is — not a second enforcement path", async () => {
+      // Equivalent, today, to writing allowedUrls: ["**"] — proven by producing the identical
+      // outcome, not by inspecting internals.
+      await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedUrls: ["**"] });
+      await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowPrivateNetwork: true });
+    });
+
+    it("does not exempt anything from the scheme check", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("file:///etc/passwd"), { allowPrivateNetwork: true }),
+        /scheme/,
+      );
+    });
+  });
 });
 
 describe("urlMatchCandidate", () => {
