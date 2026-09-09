@@ -23,6 +23,7 @@ const TABLES = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workflow_run_id TEXT,
     agent_call_id TEXT,
+    memory_scope TEXT,
     run_seq INTEGER NOT NULL,
     type TEXT NOT NULL,
     at TEXT NOT NULL,
@@ -88,11 +89,14 @@ const INDEXES = [
     ON adl_agent_episodes (started_at)`,
   `CREATE INDEX IF NOT EXISTS adl_agent_episodes_agent_started_at
     ON adl_agent_episodes (agent_id, started_at)`,
+  `CREATE INDEX IF NOT EXISTS adl_run_events_memory_scope_seq
+    ON adl_run_events (memory_scope, run_seq)`,
 ];
 
 const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = [
   { table: "adl_workflow_runs", column: "title", sqlType: "TEXT" },
   { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
+  { table: "adl_run_events", column: "memory_scope", sqlType: "TEXT" },
 ];
 
 /**

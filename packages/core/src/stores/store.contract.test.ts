@@ -146,6 +146,38 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(named?.workflowId).toBe("contract-early-title");
       expect(named?.title).toBe("Named up front");
     });
+
+    it("reads back a conversation-scoped event that has no owning run", async () => {
+      const store = await createStore();
+      // conversation_forked carries neither workflowRunId nor agentCallId, so
+      // it is only reachable through the memoryScope scope — the reason that
+      // scope (and adl_run_events.memory_scope) exists at all.
+      await store.recordEvent({
+        type: "conversation_forked",
+        memoryScope: "fork:abc",
+        agentId: "researcher",
+        fork: {
+          sourceWorkflowId: "demo",
+          sourceWorkflowRunId: "run-1",
+          sourceStepId: "step-1",
+          sourceAgentCallId: "call-1",
+          sourceMemoryScope: "conv:1",
+        },
+        runSeq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+
+      const events = await store.listEvents({ memoryScope: "fork:abc" });
+      expect(events).toHaveLength(1);
+      const [event] = events;
+      expect(event?.type).toBe("conversation_forked");
+      expect(event && "fork" in event ? event.fork.sourceMemoryScope : null).toBe("conv:1");
+
+      // Not addressable by the run/episode scopes, and not mixed into them.
+      expect(await store.listEvents({ memoryScope: "fork:nope" })).toEqual([]);
+      expect(await store.listEvents({ agentCallId: "call-1" })).toEqual([]);
+    });
   });
 }
 

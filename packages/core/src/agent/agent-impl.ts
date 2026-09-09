@@ -463,6 +463,7 @@ export class AgentImpl<
         agentCallId: options.agentCallId,
         workflowRunId: options.workflowRunId,
         stepId: options.stepId,
+        agentId: this.definition.id,
         memoryScope: options.memoryScope,
         title,
       });

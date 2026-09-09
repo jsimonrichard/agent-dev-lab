@@ -179,8 +179,39 @@ export type AgentMessagesCommittedEvent = AgentEventBase & {
 
 export type AgentTitleSetEvent = AgentEventBase & {
   type: "agent_title_set";
+  agentId: string;
   memoryScope: string;
   title: string;
+};
+
+/**
+ * Conversation-scoped events: no owning workflow run or agent episode, so
+ * they carry neither `workflowRunId` nor `agentCallId` — they can happen
+ * before any episode exists for the `memoryScope` (a fork, for instance, is
+ * created before the forked conversation's first turn runs). `runSeq` is
+ * therefore not drawn from a per-run counter the way {@link WorkflowRunEventBase}'s
+ * and {@link AgentEventBase}'s are; see {@link RunRecorder}'s `attachMeta`.
+ */
+export type ConversationEventBase = {
+  memoryScope: string;
+  runSeq: number;
+  at: string;
+  eventSchemaVersion: number;
+};
+
+/** Where a forked conversation's transcript and pin were copied from. */
+export type ConversationForkLineage = {
+  sourceWorkflowId: string;
+  sourceWorkflowRunId: string;
+  sourceStepId: string;
+  sourceAgentCallId: string;
+  sourceMemoryScope: string;
+};
+
+export type ConversationForkedEvent = ConversationEventBase & {
+  type: "conversation_forked";
+  agentId: string;
+  fork: ConversationForkLineage;
 };
 
 export type RunEvent =
@@ -202,7 +233,8 @@ export type RunEvent =
   | AgentToolResultEvent
   | AgentTextDeltaEvent
   | AgentMessagesCommittedEvent
-  | AgentTitleSetEvent;
+  | AgentTitleSetEvent
+  | ConversationForkedEvent;
 
 export type RunEventType = RunEvent["type"];
 

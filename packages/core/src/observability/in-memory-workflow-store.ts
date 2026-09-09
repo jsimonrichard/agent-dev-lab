@@ -23,6 +23,8 @@ function stepSlotKey(slot: StepSlot): StepKey {
 export class InMemoryWorkflowStore implements WorkflowStore {
   private readonly eventsByWorkflowRun = new Map<string, RunEvent[]>();
   private readonly eventsByAgentCall = new Map<string, RunEvent[]>();
+  /** Conversation-scoped events only — see `ConversationEventBase`. */
+  private readonly eventsByMemoryScope = new Map<string, RunEvent[]>();
   private readonly runs = new Map<string, WorkflowRunSummary>();
   private readonly runInputs = new Map<string, unknown>();
   private readonly runOutputs = new Map<string, unknown>();
@@ -123,14 +125,27 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       list.push(event);
       this.eventsByAgentCall.set(event.agentCallId, list);
     }
+
+    if (event.type === "conversation_forked") {
+      const list = this.eventsByMemoryScope.get(event.memoryScope) ?? [];
+      list.push(event);
+      this.eventsByMemoryScope.set(event.memoryScope, list);
+    }
   }
 
   async listEvents(scope: ListEventsScope, filter?: ListEventsFilter): Promise<RunEvent[]> {
-    const list =
-      "workflowRunId" in scope
-        ? [...(this.eventsByWorkflowRun.get(scope.workflowRunId) ?? [])]
-        : [...(this.eventsByAgentCall.get(scope.agentCallId) ?? [])];
+    const list = [...this.scopedEvents(scope)];
     return applyEventFilter(list, filter);
+  }
+
+  private scopedEvents(scope: ListEventsScope): RunEvent[] {
+    if ("workflowRunId" in scope) {
+      return this.eventsByWorkflowRun.get(scope.workflowRunId) ?? [];
+    }
+    if ("agentCallId" in scope) {
+      return this.eventsByAgentCall.get(scope.agentCallId) ?? [];
+    }
+    return this.eventsByMemoryScope.get(scope.memoryScope) ?? [];
   }
 
   async getLatestEvent<T extends RunEventType>(

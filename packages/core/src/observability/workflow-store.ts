@@ -24,9 +24,13 @@ export type AgentEpisodeSummary = {
 };
 
 /**
- * Scope for reading events — workflow log vs standalone agent episode.
+ * Scope for reading events — workflow log, standalone agent episode, or
+ * conversation-scoped events with no owning run (see {@link ConversationEventBase}).
  */
-export type ListEventsScope = { workflowRunId: string } | { agentCallId: string };
+export type ListEventsScope =
+  | { workflowRunId: string }
+  | { agentCallId: string }
+  | { memoryScope: string };
 
 export type ListEventsFilter = {
   type?: RunEventType | RunEventType[];

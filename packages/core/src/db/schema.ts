@@ -33,6 +33,15 @@ export const runEvents = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     workflowRunId: text("workflow_run_id"),
     agentCallId: text("agent_call_id"),
+    /**
+     * Set only for conversation-scoped events (no owning run or episode —
+     * see `ConversationEventBase`), never in addition to workflowRunId/
+     * agentCallId: those carry per-run counters, so mixing memory_scope in
+     * for them would make `runSeq` non-monotonic within this column's own
+     * scope. A conversation's episodes stay reachable via
+     * adl_agent_episodes.memory_scope instead.
+     */
+    memoryScope: text("memory_scope"),
     /** Per-run / per-episode order. Same value as `RunEvent.runSeq`. */
     runSeq: integer("run_seq").notNull(),
     type: text("type").notNull(),
@@ -44,6 +53,7 @@ export const runEvents = sqliteTable(
     index("adl_run_events_run_seq").on(table.workflowRunId, table.runSeq),
     index("adl_run_events_agent_seq").on(table.agentCallId, table.runSeq),
     index("adl_run_events_type").on(table.type),
+    index("adl_run_events_memory_scope_seq").on(table.memoryScope, table.runSeq),
   ],
 );
 

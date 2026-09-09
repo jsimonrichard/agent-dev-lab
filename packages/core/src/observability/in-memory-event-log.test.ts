@@ -74,7 +74,9 @@ describe("InMemoryEventLog", () => {
 
     const listed = log.list();
     expect(listed).toHaveLength(2);
-    expect(listed.map((entry) => entry.event.workflowRunId)).toEqual(["b", "c"]);
+    expect(
+      listed.map((entry) => ("workflowRunId" in entry.event ? entry.event.workflowRunId : null)),
+    ).toEqual(["b", "c"]);
     expect(listed.map((entry) => entry.logSeq)).toEqual([2, 3]);
   });
 

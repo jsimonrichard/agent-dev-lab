@@ -97,6 +97,21 @@ export class RunRecorder {
         eventSchemaVersion: EVENT_SCHEMA_VERSION,
       } as RunEvent;
     }
+    if (event.type === "conversation_forked") {
+      // Conversation-scoped events have no run to hold a durable counter (a
+      // RunRecorder is constructed per run/episode, not per memoryScope), so
+      // this is asserted rather than derived: a fork is by construction the
+      // first thing that ever happens to a memoryScope (see forkAgentFromWorkflow,
+      // which always mints a brand-new one), making runSeq 1 correct rather
+      // than a guess. A second conversation-scoped event type would need a
+      // real counter before this assertion holds.
+      return {
+        ...event,
+        runSeq: 1,
+        at: this.now(),
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      } as RunEvent;
+    }
     return event as RunEvent;
   }
 

@@ -45,6 +45,17 @@ function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, stri
   return tagsByRun;
 }
 
+/** Maps a {@link ListEventsScope} to the log column that addresses it. */
+function scopeCondition(scope: ListEventsScope) {
+  if ("workflowRunId" in scope) {
+    return eq(runEvents.workflowRunId, scope.workflowRunId);
+  }
+  if ("agentCallId" in scope) {
+    return eq(runEvents.agentCallId, scope.agentCallId);
+  }
+  return eq(runEvents.memoryScope, scope.memoryScope);
+}
+
 function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEvent[] {
   let list = events;
   if (filter?.type) {
@@ -71,11 +82,16 @@ function applyEventFilter(events: RunEvent[], filter?: ListEventsFilter): RunEve
 function materializeEvent(db: AdlDb, event: RunEvent): void {
   const workflowRunId = "workflowRunId" in event ? (event.workflowRunId ?? null) : null;
   const agentCallId = "agentCallId" in event ? event.agentCallId : null;
+  // Only conversation-scoped events get addressed by memory_scope — see the
+  // column's note in db/schema.ts for why run-scoped events must not, even
+  // though several of them also carry a memoryScope field.
+  const memoryScope = event.type === "conversation_forked" ? event.memoryScope : null;
 
   db.insert(runEvents)
     .values({
       workflowRunId,
       agentCallId,
+      memoryScope,
       runSeq: event.runSeq,
       type: event.type,
       at: event.at,
@@ -101,20 +117,12 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async listEvents(scope, filter) {
-      const rows =
-        "workflowRunId" in scope
-          ? db
-              .select({ payloadJson: runEvents.payloadJson })
-              .from(runEvents)
-              .where(eq(runEvents.workflowRunId, scope.workflowRunId))
-              .orderBy(asc(runEvents.runSeq))
-              .all()
-          : db
-              .select({ payloadJson: runEvents.payloadJson })
-              .from(runEvents)
-              .where(eq(runEvents.agentCallId, scope.agentCallId))
-              .orderBy(asc(runEvents.runSeq))
-              .all();
+      const rows = db
+        .select({ payloadJson: runEvents.payloadJson })
+        .from(runEvents)
+        .where(scopeCondition(scope))
+        .orderBy(asc(runEvents.runSeq))
+        .all();
       const events = rows.map((row) => JSON.parse(row.payloadJson) as RunEvent);
       return applyEventFilter(events, filter);
     },
