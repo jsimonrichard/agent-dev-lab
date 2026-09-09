@@ -22,7 +22,7 @@ export const DEFAULT_SQLITE_RELATIVE_PATH = ".data/agent-dev-lab.sqlite";
  * `import.meta.url` points at the chunk and cannot resolve those deps — anchor
  * `require` at the installed `@agent-dev-lab/core` entry instead.
  */
-function createPackageRequire(): NodeRequire {
+function createPackageRequire(): NodeJS.Require {
   const fromThisFile = createRequire(import.meta.url);
   try {
     return createRequire(fromThisFile.resolve("@agent-dev-lab/core"));
