@@ -6,6 +6,10 @@
 #   .claude/gate.sh full -v         stream every command's output live
 #   .claude/gate.sh full --event=<claude-pretooluse|claude-stop|cursor-shell|cursor-stop>
 #
+# Scaffold: ~/.local/share/orch/pack/gate/gate.sh
+# This copy keeps the repo's run_checks (no GATE_UNCONFIGURED) and prepends
+# bun/mise dirs because Cursor hooks are non-interactive and skip ~/.bashrc.
+#
 # CLAUDE_GATE_VERBOSE=1 is equivalent to -v. Progress goes to stdout when run by
 # hand and to stderr under a hook, where stdout is parsed as JSON.
 #
@@ -29,14 +33,30 @@ done
 
 is_hook=1; case "$EVENT" in cli) is_hook=0 ;; esac
 
-# Progress and streamed output: stdout by hand, stderr under a hook (a hook's
-# stdout is parsed as JSON, so anything else there would corrupt the response).
+# Cursor/Claude hooks skip interactive bashrc, so bun/jj are often missing.
+prepend_dir() {
+  local d="$1"
+  [ -d "$d" ] || return 0
+  case ":$PATH:" in
+    *":$d:"*) ;;
+    *) PATH="$d:$PATH" ;;
+  esac
+}
+prepend_dir "${HOME:-}/.local/share/mise/shims"
+prepend_dir "${HOME:-}/.bun/bin"
+prepend_dir "${HOME:-}/.cache/.bun/bin"
+prepend_dir "${HOME:-}/.local/bin"
+prepend_dir "${HOME:-}/.cargo/bin"
+export PATH
+
+# Cursor beforeShellExecution + failClosed requires JSON on stdout.
+cursor_shell_allow() {
+  [ "$EVENT" = "cursor-shell" ] && printf '%s\n' '{"permission":"allow"}'
+}
+
 say()   { if [ "$is_hook" = 1 ]; then printf '%s\n' "$*" >&2; else printf '%s\n' "$*"; fi; }
 say_n() { if [ "$is_hook" = 1 ]; then printf '%s'   "$*" >&2; else printf '%s'   "$*"; fi; }
 
-# step "label" cmd... - announce before running, then report outcome + duration.
-# Captures the command's output either way so a failure can be reported back
-# even when it was not streamed.
 GATE_STEP=0
 GATE_FAIL_LABEL=""
 GATE_FAIL_OUT=""
@@ -66,7 +86,6 @@ step() {
   return "$rc"
 }
 
-# --- emit a refusal in whatever dialect the caller speaks -------------------
 fail() {
   local reason="$1"
   case "$EVENT" in
@@ -77,16 +96,12 @@ fail() {
       jq -nc --arg r "$reason" '{decision:"block",reason:$r}'
       exit 0 ;;
     cursor-shell|cursor-stop)
-      # Cursor documents exit code 2 as "block"; don't guess at its JSON shape.
       printf '%s\n' "$reason" >&2; exit 2 ;;
     *)
       printf '%s\n' "$reason" >&2; exit 1 ;;
   esac
 }
 
-# --- cheapest possible exit for the common case ----------------------------
-# On shell events this runs for every command, so match the push before doing
-# any repo detection.
 case "$EVENT" in
   claude-pretooluse|cursor-shell)
     STDIN_JSON="$(timeout 2 cat 2>/dev/null || true)"
@@ -94,31 +109,31 @@ case "$EVENT" in
       claude-pretooluse) CMD="$(printf '%s' "$STDIN_JSON" | jq -r '.tool_input.command // ""' 2>/dev/null)" ;;
       cursor-shell)      CMD="$(printf '%s' "$STDIN_JSON" | jq -r '.command // ""' 2>/dev/null)" ;;
     esac
-    # `git push`, `jj git push`, and either behind a `cd x &&` or after a `;`.
-    printf '%s' "$CMD" | grep -Eq \
+    if ! printf '%s' "$CMD" | grep -Eq \
       -e '(^|[;&|])[[:space:]]*git([[:space:]]+-[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)' \
-      -e '(^|[;&|])[[:space:]]*jj([[:space:]]+-[^[:space:]]+)*[[:space:]]+git([[:space:]]+-[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)' \
-      || exit 0
+      -e '(^|[;&|])[[:space:]]*jj([[:space:]]+-[^[:space:]]+)*[[:space:]]+git([[:space:]]+-[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)'; then
+      cursor_shell_allow
+      exit 0
+    fi
     ;;
 esac
 
 if [ -n "${CLAUDE_GATE_SKIP:-}" ]; then
   [ "$is_hook" = 0 ] && echo "gate: skipped (CLAUDE_GATE_SKIP set)"
+  cursor_shell_allow
   exit 0
 fi
 
-# --- VCS shim ---------------------------------------------------------------
 VCS=""; ROOT=""
 if command -v jj >/dev/null 2>&1 && R="$(jj root 2>/dev/null)" && [ -d "$R/.jj" ]; then
   VCS=jj; ROOT="$R"
 elif R="$(git rev-parse --show-toplevel 2>/dev/null)" && [ -n "$R" ]; then
   VCS=git; ROOT="$R"
 else
-  # Refuse rather than silently allowing an unverified push.
   case "$EVENT" in
     claude-pretooluse|cursor-shell)
       fail "Gate could not run: no git or jj repository found here, so nothing was verified." ;;
-    *) exit 0 ;;   # end-of-turn outside a repo is not interesting
+    *) exit 0 ;;
   esac
 fi
 cd "$ROOT" 2>/dev/null || fail "Gate could not run: cannot enter repo root $ROOT."
@@ -126,8 +141,6 @@ cd "$ROOT" 2>/dev/null || fail "Gate could not run: cannot enter repo root $ROOT
 case "$VCS" in
   jj)
     STATE_DIR="$ROOT/.jj"
-    # jj snapshots the working copy on every command, and the working copy IS a
-    # commit, so @'s commit_id changes whenever the tree changes.
     state_hash() { jj log -r @ --no-graph -T 'commit_id' 2>/dev/null; }
     has_pending() { [ "$(jj log -r @ --no-graph -T 'if(empty,"empty","dirty")' 2>/dev/null)" = dirty ]; }
     ;;
@@ -144,20 +157,22 @@ case "$VCS" in
 esac
 SENTINEL="$STATE_DIR/claude-gate-state"
 
-# --- end-of-turn: skip when idle, and never report the same tree twice ------
 case "$EVENT" in
   claude-stop|cursor-stop)
     has_pending || exit 0
     NOW="$(state_hash)"
     if [ -n "$NOW" ] && [ -f "$SENTINEL" ] && [ "$(cat "$SENTINEL" 2>/dev/null)" = "$NOW" ]; then
-      exit 0   # already reported on this exact tree; do not loop
+      exit 0
     fi
     ;;
 esac
 
-# --- checks (per repo) ------------------------------------------------------
 preflight() {
   [ -d node_modules ] || { echo "dependencies are not installed - run 'bun install' in the repo root."; return 1; }
+  command -v bun >/dev/null 2>&1 || {
+    echo "bun is not on PATH. Install bun, or put it on PATH (Cursor hooks do not load interactive bashrc)."
+    return 1
+  }
 }
 run_checks() {
   step "format:check" bun run format:check || return 1
@@ -171,41 +186,15 @@ run_checks() {
   step "build"        bun run build        || return 1
 }
 
-# --- an unconfigured gate must not pretend to have checked anything ---------
-if [ -n "${GATE_UNCONFIGURED:-}" ]; then
-  case "$EVENT" in
-    claude-pretooluse|cursor-shell)
-      fail "Push blocked: this repo's quality gate is not configured yet.
-$GATE_UNCONFIGURED
-Fill in run_checks in .claude/gate.sh (recipes are in the file), then delete the
-GATE_UNCONFIGURED line. Do not stub run_checks out to get past this." ;;
-    claude-stop|cursor-stop)
-      # Warn, but do not block every turn on a setup task.
-      printf 'gate: not configured for this repo (%s); end-of-turn checks skipped.\n' \
-        "$GATE_UNCONFIGURED" >&2
-      exit 0 ;;
-    *)
-      printf 'gate: not configured (%s)\n' "$GATE_UNCONFIGURED" >&2
-      exit 1 ;;
-  esac
-fi
-
-# --- run --------------------------------------------------------------------
-# preflight runs at top level, NOT inside a command substitution, so a fail()
-# here can actually emit its decision and exit. Anything meaning "cannot
-# verify" belongs here, never inside run_checks.
 if declare -F preflight >/dev/null 2>&1; then
   PRE="$(preflight 2>&1)"; PRC=$?
   [ "$PRC" -ne 0 ] && fail "Gate could not run, so nothing was verified: $PRE"
 fi
 
-# Announce before the first check, so a slow `full` run does not look hung.
 GATE_T0=$SECONDS
 say "gate: running $MODE checks in $(basename "$ROOT") ($VCS)$([ "$VERBOSE" = 1 ] && echo ' [verbose]')"
 [ "$VERBOSE" = 1 ] || [ "$is_hook" = 1 ] || say "      (add -v to stream each command's output)"
 
-# Called directly, not inside a command substitution, so step() can report
-# progress live and set variables the caller can still read.
 run_checks; RC=$?
 
 case "$EVENT" in
@@ -215,6 +204,7 @@ esac
 GATE_ELAPSED=$((SECONDS - GATE_T0))
 if [ "$RC" -eq 0 ]; then
   say "gate: $MODE checks passed in ${GATE_ELAPSED}s"
+  cursor_shell_allow
   exit 0
 fi
 say "gate: $MODE checks FAILED after ${GATE_ELAPSED}s"
