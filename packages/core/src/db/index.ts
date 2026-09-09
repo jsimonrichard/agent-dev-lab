@@ -2,47 +2,20 @@
  * SQLite helpers published as `@agent-dev-lab/core/db`.
  * Used by message/workflow stores; also the package export for schema and open helpers.
  */
-import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 import { ensureAdlSchema } from "./ensure-schema";
-import * as schema from "./schema";
+import { isBunRuntime, packageRequire as require } from "./runtime";
 import type { AdlSqliteDatabase } from "./sqlite-types";
+import { wrapAdlDb, type AdlDb } from "./wrap-drizzle";
 
 export type { AdlSqliteDatabase, AdlSqliteStatement } from "./sqlite-types";
+export type { AdlDb } from "./wrap-drizzle";
 
 export const DEFAULT_SQLITE_RELATIVE_PATH = ".data/agent-dev-lab.sqlite";
-
-/**
- * Native SQLite / Drizzle adapters are dependencies of this package. When this
- * module is bundled into another app's SSR output (e.g. inspection UI `.output`),
- * `import.meta.url` points at the chunk and cannot resolve those deps — anchor
- * `require` at the installed `@agent-dev-lab/core` entry instead.
- */
-function createPackageRequire(): NodeJS.Require {
-  const fromThisFile = createRequire(import.meta.url);
-  try {
-    return createRequire(fromThisFile.resolve("@agent-dev-lab/core"));
-  } catch {
-    return fromThisFile;
-  }
-}
-
-const require = createPackageRequire();
-
-/**
- * Drizzle client over {@link schema}.
- *
- * The bun-sqlite and better-sqlite3 adapters construct different concrete
- * classes, which is why this was previously opaque (`unknown`) at the package
- * boundary and every store hand-wrote SQL instead. `BaseSQLiteDatabase` is the
- * driver-agnostic base both extend, so typed queries work without the boundary
- * knowing which runtime opened the file.
- */
-export type AdlDb = BaseSQLiteDatabase<"sync", unknown, typeof schema>;
 
 type CachedDb = {
   sqlite: AdlSqliteDatabase;
@@ -50,10 +23,6 @@ type CachedDb = {
 };
 
 const dbCache = new Map<string, CachedDb>();
-
-function isBunRuntime(): boolean {
-  return typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
-}
 
 /**
  * Resolves the SQLite file path: absolute `ADL_SQLITE_PATH` as-is, otherwise
@@ -74,24 +43,21 @@ function cacheKey(resolvedPath: string): string {
 function openWithBun(resolved: string): CachedDb {
   // bun:sqlite must not be a static import — Node builds cannot resolve it.
   const { Database } = require("bun:sqlite") as typeof import("bun:sqlite");
-  const { drizzle } = require("drizzle-orm/bun-sqlite") as typeof import("drizzle-orm/bun-sqlite");
   const sqlite = new Database(resolved) as AdlSqliteDatabase;
-  sqlite.exec("PRAGMA journal_mode = WAL;");
-  sqlite.exec("PRAGMA foreign_keys = ON;");
+  const db = wrapAdlDb(sqlite);
+  db.run(sql.raw("PRAGMA journal_mode = WAL;"));
+  db.run(sql.raw("PRAGMA foreign_keys = ON;"));
   ensureAdlSchema(sqlite);
-  const db = drizzle(sqlite as never, { schema });
   return { sqlite, db };
 }
 
 function openWithBetterSqlite(resolved: string): CachedDb {
   const Database = require("better-sqlite3") as typeof import("better-sqlite3");
-  const { drizzle } =
-    require("drizzle-orm/better-sqlite3") as typeof import("drizzle-orm/better-sqlite3");
   const sqlite = new Database(resolved) as AdlSqliteDatabase;
-  sqlite.exec("PRAGMA journal_mode = WAL;");
-  sqlite.exec("PRAGMA foreign_keys = ON;");
+  const db = wrapAdlDb(sqlite);
+  db.run(sql.raw("PRAGMA journal_mode = WAL;"));
+  db.run(sql.raw("PRAGMA foreign_keys = ON;"));
   ensureAdlSchema(sqlite);
-  const db = drizzle(sqlite as never, { schema });
   return { sqlite, db };
 }
 
@@ -123,7 +89,7 @@ export function openAdlSqlite(sqlitePath?: string): AdlSqliteDatabase {
  * Opens the shared SQLite database and returns a Drizzle client.
  * Schema is applied automatically on first open.
  */
-export function createDb(sqlitePath?: string) {
+export function createDb(sqlitePath?: string): AdlDb {
   const resolved = sqlitePath ?? resolveAdlSqlitePath();
   const key = cacheKey(resolved);
   openAdlSqlite(resolved);
@@ -133,5 +99,5 @@ export function createDb(sqlitePath?: string) {
 export type Db = ReturnType<typeof createDb>;
 
 export type { MessageRow, WorkflowRunRow } from "./schema";
-export { schema };
+export * as schema from "./schema";
 export { ensureAdlSchema } from "./ensure-schema";

@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
+
 import type { AdlSqliteDatabase } from "./sqlite-types";
+import { wrapAdlDb, type AdlDb } from "./wrap-drizzle";
 
 const TABLES = [
   `CREATE TABLE IF NOT EXISTS adl_messages (
@@ -110,41 +113,39 @@ const COLUMN_RENAMES: { table: string; from: string; to: string }[] = [
 
 type PragmaColumn = { name: string };
 
-function tableColumns(sqlite: AdlSqliteDatabase, table: string): PragmaColumn[] {
-  return sqlite.prepare(`PRAGMA table_info(${table})`).all() as PragmaColumn[];
+// PRAGMA doesn't accept a bound parameter for its target, so `table` is
+// interpolated with sql.raw() below — as it always was via raw string
+// interpolation. Safe: every caller passes a name from the static arrays
+// above, never external input. `db.all()` (not `db.get()`) is deliberate:
+// verified against both drivers that `db.get()` on a query with no field
+// mapping returns array-mode rows under bun:sqlite but object-mode rows
+// under better-sqlite3 (an accessor by *position* would silently read the
+// wrong thing on one driver); `db.all()` returns object-mode rows on both.
+function tableColumns(db: AdlDb, table: string): PragmaColumn[] {
+  return db.all<PragmaColumn>(sql.raw(`PRAGMA table_info(${table})`));
 }
 
-function addColumnIfMissing(
-  sqlite: AdlSqliteDatabase,
-  table: string,
-  column: string,
-  sqlType: string,
-): void {
-  if (tableColumns(sqlite, table).some((col) => col.name === column)) {
+function addColumnIfMissing(db: AdlDb, table: string, column: string, sqlType: string): void {
+  if (tableColumns(db, table).some((col) => col.name === column)) {
     return;
   }
-  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`);
+  db.run(sql.raw(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`));
 }
 
-function renameColumnIfPresent(
-  sqlite: AdlSqliteDatabase,
-  table: string,
-  from: string,
-  to: string,
-): void {
-  const names = new Set(tableColumns(sqlite, table).map((col) => col.name));
+function renameColumnIfPresent(db: AdlDb, table: string, from: string, to: string): void {
+  const names = new Set(tableColumns(db, table).map((col) => col.name));
   if (names.has(from) && !names.has(to)) {
-    sqlite.exec(`ALTER TABLE ${table} RENAME COLUMN ${from} TO ${to}`);
+    db.run(sql.raw(`ALTER TABLE ${table} RENAME COLUMN ${from} TO ${to}`));
   }
 }
 
-function tableExists(sqlite: AdlSqliteDatabase, table: string): boolean {
-  // A miss is `null` under bun:sqlite and `undefined` under better-sqlite3, and
-  // this package runs on both — so test truthiness, never against one of them.
-  const row = sqlite
-    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
-    .get(table) as { name: string } | null | undefined;
-  return Boolean(row);
+function tableExists(db: AdlDb, table: string): boolean {
+  // See the db.all() vs db.get() note on tableColumns above — same reason
+  // this reads .length rather than reaching for db.get() + Boolean().
+  const rows = db.all<{ name: string }>(
+    sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${table}`,
+  );
+  return rows.length > 0;
 }
 
 /**
@@ -154,9 +155,9 @@ function tableExists(sqlite: AdlSqliteDatabase, table: string): boolean {
  * hand-made table, and picking either one silently would orphan the rows in
  * the other.
  */
-function renameTableIfPresent(sqlite: AdlSqliteDatabase, from: string, to: string): void {
-  const fromExists = tableExists(sqlite, from);
-  const toExists = tableExists(sqlite, to);
+function renameTableIfPresent(db: AdlDb, from: string, to: string): void {
+  const fromExists = tableExists(db, from);
+  const toExists = tableExists(db, to);
   if (fromExists && toExists) {
     throw new Error(
       `ADL schema migration cannot rename ${from} to ${to}: both tables exist. ` +
@@ -164,7 +165,7 @@ function renameTableIfPresent(sqlite: AdlSqliteDatabase, from: string, to: strin
     );
   }
   if (fromExists) {
-    sqlite.exec(`ALTER TABLE ${from} RENAME TO ${to}`);
+    db.run(sql.raw(`ALTER TABLE ${from} RENAME TO ${to}`));
   }
 }
 
@@ -177,31 +178,32 @@ function renameTableIfPresent(sqlite: AdlSqliteDatabase, from: string, to: strin
  * table beside the one holding the rows, and the rename would then have nowhere
  * to go. Stale indexes are dropped before the index list is created, since a
  * renamed table keeps its original index names.
+ *
+ * Runs through the driver's own transaction wrapper (`db.transaction`) rather
+ * than hand-written `BEGIN`/`COMMIT`/`ROLLBACK` — verified against both bun's
+ * and better-sqlite3's drizzle adapters that a thrown error inside auto-rolls
+ * back and re-throws, matching this function's previous manual behavior.
  */
 export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
-  sqlite.exec("BEGIN");
-  try {
+  const db = wrapAdlDb(sqlite);
+  db.transaction((tx) => {
     for (const rename of TABLE_RENAMES) {
-      renameTableIfPresent(sqlite, rename.from, rename.to);
+      renameTableIfPresent(tx, rename.from, rename.to);
     }
-    for (const sql of TABLES) {
-      sqlite.exec(sql);
+    for (const statement of TABLES) {
+      tx.run(sql.raw(statement));
     }
     for (const migration of COLUMN_MIGRATIONS) {
-      addColumnIfMissing(sqlite, migration.table, migration.column, migration.sqlType);
+      addColumnIfMissing(tx, migration.table, migration.column, migration.sqlType);
     }
     for (const rename of COLUMN_RENAMES) {
-      renameColumnIfPresent(sqlite, rename.table, rename.from, rename.to);
+      renameColumnIfPresent(tx, rename.table, rename.from, rename.to);
     }
     for (const name of STALE_INDEXES) {
-      sqlite.exec(`DROP INDEX IF EXISTS ${name}`);
+      tx.run(sql.raw(`DROP INDEX IF EXISTS ${name}`));
     }
-    for (const sql of INDEXES) {
-      sqlite.exec(sql);
+    for (const statement of INDEXES) {
+      tx.run(sql.raw(statement));
     }
-    sqlite.exec("COMMIT");
-  } catch (error) {
-    sqlite.exec("ROLLBACK");
-    throw error;
-  }
+  });
 }
