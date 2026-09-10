@@ -51,6 +51,11 @@ after(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
+/** The bash tool's own wrap — existing tests that need a shell keep going through it. */
+function sh(command: string): string[] {
+  return ["/bin/bash", "-c", command];
+}
+
 /** Drains a `BashExecutor.run()` generator, returning every update it yielded, in order. */
 async function drainRun(gen: AsyncGenerator<BashExecutorUpdate>): Promise<BashExecutorUpdate[]> {
   const updates: BashExecutorUpdate[] = [];
@@ -109,7 +114,7 @@ describe("createAsrtBashExecutor", () => {
     { timeout: 15_000 },
     async () => {
       const result = await finalResult(
-        executor.run("echo hello", { cwd: allowedDir, timeoutMs: 10_000 }),
+        executor.run(sh("echo hello"), { cwd: allowedDir, timeoutMs: 10_000 }),
       );
       assert.equal(result.stdout.trim(), "hello");
       assert.equal(result.exitCode, 0);
@@ -119,7 +124,7 @@ describe("createAsrtBashExecutor", () => {
 
   it("allows writing under an allowWrite path", { timeout: 15_000 }, async () => {
     const result = await finalResult(
-      executor.run("echo written > ok.txt", { cwd: allowedDir, timeoutMs: 10_000 }),
+      executor.run(sh("echo written > ok.txt"), { cwd: allowedDir, timeoutMs: 10_000 }),
     );
     assert.equal(result.exitCode, 0);
     assert.equal((await readFile(path.join(allowedDir, "ok.txt"), "utf8")).trim(), "written");
@@ -131,7 +136,7 @@ describe("createAsrtBashExecutor", () => {
     async () => {
       const target = path.join(deniedDir, "nope.txt");
       const result = await finalResult(
-        executor.run(`echo nope > ${target}`, { cwd: allowedDir, timeoutMs: 10_000 }),
+        executor.run(sh(`echo nope > ${target}`), { cwd: allowedDir, timeoutMs: 10_000 }),
       );
       assert.notEqual(result.exitCode, 0);
       await assert.rejects(readFile(target, "utf8"));
@@ -143,7 +148,7 @@ describe("createAsrtBashExecutor", () => {
     { timeout: 15_000 },
     async () => {
       const result = await finalResult(
-        executor.run("curl -sS --max-time 5 https://example.com", {
+        executor.run(sh("curl -sS --max-time 5 https://example.com"), {
           cwd: allowedDir,
           timeoutMs: 10_000,
         }),
@@ -159,7 +164,7 @@ describe("createAsrtBashExecutor", () => {
       // `sleep` between writes so each write reliably lands in its own `data` event/update
       // instead of the OS coalescing them into one.
       const updates = await drainRun(
-        executor.run("printf a; sleep 0.2; printf b; sleep 0.2; printf c", {
+        executor.run(sh("printf a; sleep 0.2; printf b; sleep 0.2; printf c"), {
           cwd: allowedDir,
           timeoutMs: 10_000,
         }),
@@ -190,14 +195,36 @@ describe("createAsrtBashExecutor", () => {
     // `SandboxManager` singleton with its own smaller truncation cap.
     const smallCap = createAsrtBashExecutor({ allowWrite: [allowedDir], maxOutputBytes: 10 });
     const result = await finalResult(
-      smallCap.run("printf '0123456789ABCDEF'", { cwd: allowedDir, timeoutMs: 10_000 }),
+      smallCap.run(sh("printf '0123456789ABCDEF'"), { cwd: allowedDir, timeoutMs: 10_000 }),
     );
     assert.equal(result.stdout.length, 10);
     assert.equal(result.truncated, true);
   });
 
+  it(
+    "treats shell metacharacters in an argv element as literal text",
+    { timeout: 15_000 },
+    async () => {
+      const payload = "safe; $(echo pwned) `echo pwned` && echo pwned";
+      const result = await finalResult(
+        executor.run(["/bin/echo", payload], { cwd: allowedDir, timeoutMs: 10_000 }),
+      );
+      assert.equal(result.exitCode, 0);
+      assert.equal(result.stdout.trim(), payload);
+    },
+  );
+
+  it("fails closed on an empty argv", { timeout: 15_000 }, async () => {
+    await assert.rejects(
+      () => finalResult(executor.run([], { cwd: allowedDir, timeoutMs: 5_000 })),
+      /Empty argv/,
+    );
+  });
+
   it("kills a command that runs past timeoutMs", { timeout: 15_000 }, async () => {
-    const result = await finalResult(executor.run("sleep 5", { cwd: allowedDir, timeoutMs: 300 }));
+    const result = await finalResult(
+      executor.run(sh("sleep 5"), { cwd: allowedDir, timeoutMs: 300 }),
+    );
     assert.notEqual(result.exitCode, 0);
   });
 
@@ -207,7 +234,7 @@ describe("createAsrtBashExecutor", () => {
     async () => {
       // Self-contained: don't rely on an earlier test in this file having already
       // initialized the shared singleton — initialize it here first, via `executor`.
-      await finalResult(executor.run("true", { cwd: allowedDir, timeoutMs: 5_000 }));
+      await finalResult(executor.run(sh("true"), { cwd: allowedDir, timeoutMs: 5_000 }));
 
       const differentRoot = await mkdtemp(path.join(tmpdir(), "adl-asrt-conflict-"));
       try {
@@ -218,7 +245,7 @@ describe("createAsrtBashExecutor", () => {
         const other = createAsrtBashExecutor({ allowWrite: [differentRoot] });
 
         const deniedInOwnRoot = await finalResult(
-          other.run(`echo nope > ${path.join(differentRoot, "nope.txt")}`, {
+          other.run(sh(`echo nope > ${path.join(differentRoot, "nope.txt")}`), {
             cwd: differentRoot,
             timeoutMs: 5_000,
           }),
@@ -226,7 +253,7 @@ describe("createAsrtBashExecutor", () => {
         assert.notEqual(deniedInOwnRoot.exitCode, 0);
 
         const allowedInSharedRoot = await finalResult(
-          other.run("echo shared > shared.txt", { cwd: allowedDir, timeoutMs: 5_000 }),
+          other.run(sh("echo shared > shared.txt"), { cwd: allowedDir, timeoutMs: 5_000 }),
         );
         assert.equal(allowedInSharedRoot.exitCode, 0);
         assert.equal(
@@ -259,7 +286,7 @@ describe("createAsrtBashExecutor — missing dependencies", () => {
           import { createAsrtBashExecutor } from "../asrt-executor.ts";
           try {
             const executor = createAsrtBashExecutor({ allowWrite: [] });
-            for await (const _update of executor.run("echo hi", {
+            for await (const _update of executor.run(["echo", "hi"], {
               cwd: ${JSON.stringify(fixtureDir)},
               timeoutMs: 5000,
             })) {

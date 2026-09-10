@@ -19,13 +19,13 @@ function ctx(
 }
 
 function stubExecutor(): BashExecutor & {
-  calls: Array<{ command: string; opts: BashExecutorRunOptions }>;
+  calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }>;
 } {
-  const calls: Array<{ command: string; opts: BashExecutorRunOptions }> = [];
+  const calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }> = [];
   return {
     calls,
-    async *run(command, opts) {
-      calls.push({ command, opts });
+    async *run(argv, opts) {
+      calls.push({ argv, opts });
       yield {
         done: true,
         stdout: "",

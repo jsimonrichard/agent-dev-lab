@@ -145,23 +145,42 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
   };
 
   return {
-    run(command, run) {
+    run(argv, run) {
       const channel = createAsyncChannel<BashExecutorUpdate>();
 
       void (async () => {
         try {
+          if (argv.length === 0) {
+            throw new AdlError("INIT_FAILED", "Empty argv for the command to run.");
+          }
           await ensureInitialized();
           const commandId = randomUUID();
-          const { argv, env } = await SandboxManager.wrapWithSandboxArgv(
-            command,
+          // wrapWithSandboxArgv takes a command *string* (the "Argv" in the name is its
+          // return shape). Putting each element in the spawn env and exec'ing the
+          // `$ADL_ARGV_*` refs means the values never appear in that string — they are
+          // not shell-parsed. Named because there is no upstream argv-in API.
+          const extraEnv: Record<string, string> = {};
+          const refs: string[] = [];
+          for (const [i, arg] of argv.entries()) {
+            const key = `ADL_ARGV_${String(i)}`;
+            extraEnv[key] = arg;
+            refs.push(`"$${key}"`);
+          }
+          const { argv: sandboxArgv, env } = await SandboxManager.wrapWithSandboxArgv(
+            `exec ${refs.join(" ")}`,
             undefined,
             undefined,
             run.signal,
             run.cwd,
             { commandId },
           );
-          runArgvIntoChannel(argv, env, run, maxOutputBytes, channel, (rawStderr) =>
-            SandboxManager.annotateStderrWithSandboxFailures(commandId, rawStderr),
+          runArgvIntoChannel(
+            sandboxArgv,
+            { ...env, ...extraEnv },
+            run,
+            maxOutputBytes,
+            channel,
+            (rawStderr) => SandboxManager.annotateStderrWithSandboxFailures(commandId, rawStderr),
           );
         } catch (error) {
           channel.fail(error);

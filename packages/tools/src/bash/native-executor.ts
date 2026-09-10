@@ -145,7 +145,7 @@ function denyReadArgsFor(resolvedPath: string): string[] {
  *    if `allowNetwork` — network access here is all-or-nothing, no per-domain filtering.
  */
 function buildBwrapArgv(
-  command: string,
+  commandArgv: readonly string[],
   cwd: string,
   allowWrite: string[],
   allowRead: string[] | null,
@@ -175,7 +175,7 @@ function buildBwrapArgv(
     argv.push("--share-net");
   }
   argv.push("--die-with-parent", "--new-session", "--chdir", cwd);
-  argv.push("--", "/bin/bash", "-c", command);
+  argv.push("--", ...commandArgv);
   return argv;
 }
 
@@ -219,19 +219,22 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   const env = options.env ?? defaultEnv();
 
   return {
-    run(command, run) {
+    run(argv, run) {
       const channel = createAsyncChannel<BashExecutorUpdate>();
       try {
+        if (argv.length === 0) {
+          throw new AdlError("INIT_FAILED", "Empty argv for the command to run.");
+        }
         checkBwrapAvailable();
-        const argv = buildBwrapArgv(
-          command,
+        const bwrapArgv = buildBwrapArgv(
+          argv,
           run.cwd,
           allowWrite,
           allowRead,
           denyRead,
           allowNetwork,
         );
-        runArgvIntoChannel(argv, env, run, maxOutputBytes, channel);
+        runArgvIntoChannel(bwrapArgv, env, run, maxOutputBytes, channel);
       } catch (error) {
         channel.fail(error);
       }

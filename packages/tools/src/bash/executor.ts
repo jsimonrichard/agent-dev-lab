@@ -12,13 +12,17 @@ export interface BashExecutor {
    * stream progress can just yield the final result alone — both shapes satisfy the same
    * `AsyncGenerator`, so a caller (e.g. {@link createBashTool}) doesn't need to know which.
    *
+   * `argv` is spawned as-is — no shell. A caller that *wants* a shell (the model-facing
+   * `bash` tool) passes `["/bin/bash", "-c", command]`. Empty argv is an invariant break
+   * (`AdlError("INIT_FAILED")`), not a no-op.
+   *
    * This return type is exactly what the AI SDK's tool `execute` accepts for a
    * *streaming* tool (`AsyncIterable<OUTPUT>` — see `ai`'s `ToolExecuteFunction`): every
    * yielded value becomes a `preliminary` tool-result, and the last one is re-emitted as the
    * final one. `createBashTool` forwards this generator directly with no wrapping.
    */
   run(
-    command: string,
+    argv: readonly string[],
     options: BashExecutorRunOptions,
   ): AsyncGenerator<BashExecutorUpdate, void, void>;
 

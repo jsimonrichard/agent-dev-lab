@@ -20,6 +20,11 @@ import type { BashExecutorResult, BashExecutorUpdate } from "./executor.ts";
  * `bun test` (as part of the normal suite) and `node --test` (`package.json`'s `test:node`).
  */
 
+/** The bash tool's own wrap — existing tests that need a shell keep going through it. */
+function sh(command: string): string[] {
+  return ["/bin/bash", "-c", command];
+}
+
 /** Drains a `BashExecutor.run()` generator, returning every update it yielded, in order. */
 async function drainRun(gen: AsyncGenerator<BashExecutorUpdate>): Promise<BashExecutorUpdate[]> {
   const updates: BashExecutorUpdate[] = [];
@@ -58,13 +63,13 @@ describe("createNativeBashExecutor", () => {
           const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
 
           const inside = await finalResult(
-            executor.run("cat in.txt", { cwd: root, timeoutMs: 10_000 }),
+            executor.run(sh("cat in.txt"), { cwd: root, timeoutMs: 10_000 }),
           );
           assert.equal(inside.exitCode, 0);
           assert.equal(inside.stdout.trim(), "needle inside");
 
           const escaped = await finalResult(
-            executor.run(`cat ${JSON.stringify(path.join(outside, "out.txt"))}`, {
+            executor.run(sh(`cat ${JSON.stringify(path.join(outside, "out.txt"))}`), {
               cwd: root,
               timeoutMs: 10_000,
             }),
@@ -89,7 +94,7 @@ describe("createNativeBashExecutor", () => {
           const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
           const home = process.env.HOME ?? "/root";
           const result = await finalResult(
-            executor.run(`ls ${JSON.stringify(home)}`, { cwd: root, timeoutMs: 10_000 }),
+            executor.run(sh(`ls ${JSON.stringify(home)}`), { cwd: root, timeoutMs: 10_000 }),
           );
           assert.notEqual(result.exitCode, 0);
           assert.match(result.stderr, /No such file or directory/);
@@ -113,7 +118,7 @@ describe("createNativeBashExecutor", () => {
       try {
         const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
         const result = await finalResult(
-          executor.run("rg --no-filename needle .", { cwd: root, timeoutMs: 10_000 }),
+          executor.run(sh("rg --no-filename needle ."), { cwd: root, timeoutMs: 10_000 }),
         );
         assert.equal(result.stdout.trim(), "needle in sub");
         assert.ok(!result.stdout.includes("secret"), result.stdout);
@@ -131,7 +136,7 @@ describe("createNativeBashExecutor", () => {
           const executor = createNativeBashExecutor({ allowWrite: [root] });
           assert.equal(executor.describe().allowRead, null);
           const result = await finalResult(
-            executor.run("head -1 /etc/passwd", { cwd: root, timeoutMs: 10_000 }),
+            executor.run(sh("head -1 /etc/passwd"), { cwd: root, timeoutMs: 10_000 }),
           );
           assert.equal(result.exitCode, 0);
         } finally {
@@ -159,7 +164,7 @@ describe("createNativeBashExecutor", () => {
       try {
         const executor = createNativeBashExecutor({ allowWrite: [root] });
         const result = await finalResult(
-          executor.run("echo hello", { cwd: root, timeoutMs: 10_000 }),
+          executor.run(sh("echo hello"), { cwd: root, timeoutMs: 10_000 }),
         );
         assert.equal(result.stdout.trim(), "hello");
         assert.equal(result.exitCode, 0);
@@ -175,7 +180,7 @@ describe("createNativeBashExecutor", () => {
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root] });
       const result = await finalResult(
-        executor.run("echo written > ok.txt", { cwd: root, timeoutMs: 10_000 }),
+        executor.run(sh("echo written > ok.txt"), { cwd: root, timeoutMs: 10_000 }),
       );
       assert.equal(result.exitCode, 0);
       assert.equal((await readFile(path.join(root, "ok.txt"), "utf8")).trim(), "written");
@@ -197,7 +202,7 @@ describe("createNativeBashExecutor", () => {
         const executor = createNativeBashExecutor({ allowWrite: [allowed] });
         const target = path.join(denied, "nope.txt");
         const result = await finalResult(
-          executor.run(`echo nope > ${target}`, { cwd: allowed, timeoutMs: 10_000 }),
+          executor.run(sh(`echo nope > ${target}`), { cwd: allowed, timeoutMs: 10_000 }),
         );
         assert.notEqual(result.exitCode, 0);
         await assert.rejects(readFile(target, "utf8"));
@@ -212,7 +217,7 @@ describe("createNativeBashExecutor", () => {
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root] });
       const result = await finalResult(
-        executor.run("curl -sS --max-time 5 https://example.com", {
+        executor.run(sh("curl -sS --max-time 5 https://example.com"), {
           cwd: root,
           timeoutMs: 10_000,
         }),
@@ -228,10 +233,13 @@ describe("createNativeBashExecutor", () => {
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root], allowNetwork: true });
       const result = await finalResult(
-        executor.run("curl -sS --max-time 8 -o /dev/null -w '%{http_code}' https://example.com", {
-          cwd: root,
-          timeoutMs: 15_000,
-        }),
+        executor.run(
+          sh("curl -sS --max-time 8 -o /dev/null -w '%{http_code}' https://example.com"),
+          {
+            cwd: root,
+            timeoutMs: 15_000,
+          },
+        ),
       );
       assert.equal(result.exitCode, 0);
       assert.equal(result.stdout.trim(), "200");
@@ -253,7 +261,7 @@ describe("createNativeBashExecutor", () => {
           denyRead: [secretFile],
         });
         const result = await finalResult(
-          executor.run(`cat ${secretFile}; echo "type:$(stat -c %F ${secretFile})"`, {
+          executor.run(sh(`cat ${secretFile}; echo "type:$(stat -c %F ${secretFile})"`), {
             cwd: root,
             timeoutMs: 10_000,
           }),
@@ -275,7 +283,7 @@ describe("createNativeBashExecutor", () => {
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root], denyRead: [secretDir] });
       const result = await finalResult(
-        executor.run(`cat ${path.join(secretDir, "inside.txt")}`, {
+        executor.run(sh(`cat ${path.join(secretDir, "inside.txt")}`), {
           cwd: root,
           timeoutMs: 10_000,
         }),
@@ -300,7 +308,7 @@ describe("createNativeBashExecutor", () => {
           denyRead: [secretFile],
         });
         const result = await finalResult(
-          executor.run(`cat ${secretFile}`, { cwd: root, timeoutMs: 10_000 }),
+          executor.run(sh(`cat ${secretFile}`), { cwd: root, timeoutMs: 10_000 }),
         );
         assert.ok(!result.stdout.includes("top-secret"));
       } finally {
@@ -317,7 +325,7 @@ describe("createNativeBashExecutor", () => {
       try {
         const executor = createNativeBashExecutor({ allowWrite: [root] });
         const updates = await drainRun(
-          executor.run("printf a; sleep 0.2; printf b; sleep 0.2; printf c", {
+          executor.run(sh("printf a; sleep 0.2; printf b; sleep 0.2; printf c"), {
             cwd: root,
             timeoutMs: 10_000,
           }),
@@ -345,7 +353,7 @@ describe("createNativeBashExecutor", () => {
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root], maxOutputBytes: 10 });
       const result = await finalResult(
-        executor.run("printf '0123456789ABCDEF'", { cwd: root, timeoutMs: 10_000 }),
+        executor.run(sh("printf '0123456789ABCDEF'"), { cwd: root, timeoutMs: 10_000 }),
       );
       assert.equal(result.stdout.length, 10);
       assert.equal(result.truncated, true);
@@ -358,8 +366,40 @@ describe("createNativeBashExecutor", () => {
     const root = await mkdtemp(path.join(tmpdir(), "adl-native-executor-"));
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root] });
-      const result = await finalResult(executor.run("sleep 5", { cwd: root, timeoutMs: 300 }));
+      const result = await finalResult(executor.run(sh("sleep 5"), { cwd: root, timeoutMs: 300 }));
       assert.notEqual(result.exitCode, 0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it(
+    "treats shell metacharacters in an argv element as literal text",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-argv-"));
+      try {
+        const executor = createNativeBashExecutor({ allowWrite: [root] });
+        const payload = "safe; $(echo pwned) `echo pwned` && echo pwned";
+        const result = await finalResult(
+          executor.run(["/bin/echo", payload], { cwd: root, timeoutMs: 10_000 }),
+        );
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.stdout.trim(), payload);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("fails closed on an empty argv", { timeout: 15_000 }, async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "adl-native-empty-argv-"));
+    try {
+      const executor = createNativeBashExecutor({ allowWrite: [root] });
+      await assert.rejects(
+        () => finalResult(executor.run([], { cwd: root, timeoutMs: 5_000 })),
+        /Empty argv/,
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -405,7 +445,7 @@ describe("createNativeBashExecutor — missing dependencies", () => {
           import { createNativeBashExecutor } from "../native-executor.ts";
           try {
             const executor = createNativeBashExecutor({ allowWrite: [] });
-            for await (const _update of executor.run("echo hi", {
+            for await (const _update of executor.run(["echo", "hi"], {
               cwd: ${JSON.stringify(fixtureDir)},
               timeoutMs: 5000,
             })) {

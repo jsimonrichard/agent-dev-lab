@@ -21,11 +21,11 @@ function finalUpdate(
 
 /** A `BashExecutor` whose `run` yields exactly the given updates in order. */
 function stubExecutor(
-  handler: (command: string, opts: BashExecutorRunOptions) => BashExecutorUpdate[],
+  handler: (argv: readonly string[], opts: BashExecutorRunOptions) => BashExecutorUpdate[],
 ): BashExecutor {
   return {
-    async *run(command, opts) {
-      for (const update of handler(command, opts)) {
+    async *run(argv, opts) {
+      for (const update of handler(argv, opts)) {
         yield update;
       }
     },
@@ -53,9 +53,9 @@ async function drain<T>(iterable: AsyncIterable<T>): Promise<T[]> {
 
 describe("createBashTool", () => {
   it("passes the command, cwd, and default timeout through to the executor", async () => {
-    let received: { command: string; opts: BashExecutorRunOptions } | undefined;
-    const executor = stubExecutor((command, opts) => {
-      received = { command, opts };
+    let received: { argv: readonly string[]; opts: BashExecutorRunOptions } | undefined;
+    const executor = stubExecutor((argv, opts) => {
+      received = { argv, opts };
       return [finalUpdate({ stdout: "ok" })];
     });
 
@@ -65,14 +65,14 @@ describe("createBashTool", () => {
       await drain(result as AsyncIterable<BashExecutorUpdate>);
     }
 
-    expect(received?.command).toBe("echo hi");
+    expect(received?.argv).toEqual(["/bin/bash", "-c", "echo hi"]);
     expect(received?.opts.cwd).toBe("/workspace");
     expect(received?.opts.timeoutMs).toBe(30_000);
   });
 
   it("uses a custom timeoutMs when provided", async () => {
     let receivedTimeout: number | undefined;
-    const executor = stubExecutor((_command, opts) => {
+    const executor = stubExecutor((_argv, opts) => {
       receivedTimeout = opts.timeoutMs;
       return [finalUpdate()];
     });
@@ -88,7 +88,7 @@ describe("createBashTool", () => {
 
   it("forwards the tool call's abortSignal to the executor", async () => {
     let receivedSignal: AbortSignal | undefined;
-    const executor = stubExecutor((_command, opts) => {
+    const executor = stubExecutor((_argv, opts) => {
       receivedSignal = opts.signal;
       return [finalUpdate()];
     });

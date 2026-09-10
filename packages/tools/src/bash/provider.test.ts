@@ -25,16 +25,16 @@ function finalUpdate(overrides: Partial<BashExecutorUpdate> = {}): BashExecutorU
 
 /** A `BashExecutor` whose `run` yields exactly the given updates and records every call. */
 function stubExecutor(
-  handler: (command: string, opts: BashExecutorRunOptions) => BashExecutorUpdate[] = () => [
+  handler: (argv: readonly string[], opts: BashExecutorRunOptions) => BashExecutorUpdate[] = () => [
     finalUpdate(),
   ],
-): BashExecutor & { calls: Array<{ command: string; opts: BashExecutorRunOptions }> } {
-  const calls: Array<{ command: string; opts: BashExecutorRunOptions }> = [];
+): BashExecutor & { calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }> } {
+  const calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }> = [];
   return {
     calls,
-    async *run(command, opts) {
-      calls.push({ command, opts });
-      for (const update of handler(command, opts)) {
+    async *run(argv, opts) {
+      calls.push({ argv, opts });
+      for (const update of handler(argv, opts)) {
         yield update;
       }
     },

@@ -60,7 +60,7 @@ export function createBashTool(options: BashToolOptions): BashTools {
         command: z.string().min(1).describe("The shell command to run."),
       }),
       execute: ({ command }, { abortSignal }) =>
-        options.executor.run(command, {
+        options.executor.run(["/bin/bash", "-c", command], {
           cwd: options.cwd,
           timeoutMs,
           signal: abortSignal,

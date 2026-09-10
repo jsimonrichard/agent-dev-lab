@@ -185,7 +185,7 @@ export function createBashToolProvider(
           // Calls the executor directly (not `base.bash.execute`) — its return type is a
           // concrete AsyncGenerator, not the AI SDK's broader `Tool.execute` return union
           // (`AsyncIterable | PromiseLike | OUTPUT`), which `yield*` can't statically iterate.
-          yield* options.executor.run(input.command, {
+          yield* options.executor.run(["/bin/bash", "-c", input.command], {
             cwd,
             timeoutMs: resolvedTimeoutMs,
             signal: toolOptions.abortSignal,
