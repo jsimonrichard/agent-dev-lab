@@ -8,7 +8,6 @@ import {
   acquireAdlProject,
   ensureAdlProjectFileWatch,
   findAdlProjectRootFromCwd,
-  requestAdlProjectReload,
   setAdlProjectWatchListeners,
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
@@ -74,17 +73,4 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
     // getAdl() throws when config.adl is missing; catalog loaders surface that.
   }
   return project;
-}
-
-/**
- * Dev-only entry for the Vite plugin's Nitro `dispatchFetch` into
- * `/api/project/reload` — runs in the same worker isolate as other `/api/*`
- * handlers so the registry that executes workflows is the one that reloads.
- */
-export async function reloadAdlProjectForViteWatcher(triggerPath?: string): Promise<{
-  generation: number;
-  lastReloadError: string | null;
-}> {
-  await getLoadedAdlProject();
-  return requestAdlProjectReload(triggerPath);
 }

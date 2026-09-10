@@ -20,7 +20,6 @@ import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppWorkflowsIndexRouteImport } from './routes/_app/workflows/index'
 import { Route as ApiProjectEventsRouteImport } from './routes/api/project/events'
-import { Route as ApiProjectReloadRouteImport } from './routes/api/project/reload'
 import { Route as ApiRunsRunIdRouteImport } from './routes/api/runs/$runId'
 import { Route as AppAgentAgentIdIndexRouteImport } from './routes/_app/agent/$agentId/index'
 import { Route as AppWorkflowsWorkflowIdIndexRouteImport } from './routes/_app/workflows/$workflowId/index'
@@ -83,11 +82,6 @@ const ApiProjectEventsRoute = ApiProjectEventsRouteImport.update({
   path: '/events',
   getParentRoute: () => ApiProjectRoute,
 } as any)
-const ApiProjectReloadRoute = ApiProjectReloadRouteImport.update({
-  id: '/reload',
-  path: '/reload',
-  getParentRoute: () => ApiProjectRoute,
-} as any)
 const ApiRunsRunIdRoute = ApiRunsRunIdRouteImport.update({
   id: '/$runId',
   path: '/$runId',
@@ -134,7 +128,6 @@ export interface FileRoutesByFullPath {
   '/api/runs': typeof ApiRunsRouteWithChildren
   '/api/runtime': typeof ApiRuntimeRoute
   '/api/project/events': typeof ApiProjectEventsRoute
-  '/api/project/reload': typeof ApiProjectReloadRoute
   '/api/runs/$runId': typeof ApiRunsRunIdRouteWithChildren
   '/agent/': typeof AppAgentIndexRoute
   '/events/': typeof AppEventsIndexRoute
@@ -154,7 +147,6 @@ export interface FileRoutesByTo {
   '/api/runtime': typeof ApiRuntimeRoute
   '/': typeof AppIndexRoute
   '/api/project/events': typeof ApiProjectEventsRoute
-  '/api/project/reload': typeof ApiProjectReloadRoute
   '/api/runs/$runId': typeof ApiRunsRunIdRouteWithChildren
   '/agent': typeof AppAgentIndexRoute
   '/events': typeof AppEventsIndexRoute
@@ -176,7 +168,6 @@ export interface FileRoutesById {
   '/api/runtime': typeof ApiRuntimeRoute
   '/_app/': typeof AppIndexRoute
   '/api/project/events': typeof ApiProjectEventsRoute
-  '/api/project/reload': typeof ApiProjectReloadRoute
   '/api/runs/$runId': typeof ApiRunsRunIdRouteWithChildren
   '/_app/agent/': typeof AppAgentIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
@@ -198,7 +189,6 @@ export interface FileRouteTypes {
     | '/api/runs'
     | '/api/runtime'
     | '/api/project/events'
-    | '/api/project/reload'
     | '/api/runs/$runId'
     | '/agent/'
     | '/events/'
@@ -218,7 +208,6 @@ export interface FileRouteTypes {
     | '/api/runtime'
     | '/'
     | '/api/project/events'
-    | '/api/project/reload'
     | '/api/runs/$runId'
     | '/agent'
     | '/events'
@@ -239,7 +228,6 @@ export interface FileRouteTypes {
     | '/api/runtime'
     | '/_app/'
     | '/api/project/events'
-    | '/api/project/reload'
     | '/api/runs/$runId'
     | '/_app/agent/'
     | '/_app/events/'
@@ -341,13 +329,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProjectEventsRouteImport
       parentRoute: typeof ApiProjectRoute
     }
-    '/api/project/reload': {
-      id: '/api/project/reload'
-      path: '/reload'
-      fullPath: '/api/project/reload'
-      preLoaderRoute: typeof ApiProjectReloadRouteImport
-      parentRoute: typeof ApiProjectRoute
-    }
     '/api/runs/$runId': {
       id: '/api/runs/$runId'
       path: '/$runId'
@@ -428,12 +409,10 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface ApiProjectRouteChildren {
   ApiProjectEventsRoute: typeof ApiProjectEventsRoute
-  ApiProjectReloadRoute: typeof ApiProjectReloadRoute
 }
 
 const ApiProjectRouteChildren: ApiProjectRouteChildren = {
   ApiProjectEventsRoute: ApiProjectEventsRoute,
-  ApiProjectReloadRoute: ApiProjectReloadRoute,
 }
 
 const ApiProjectRouteWithChildren = ApiProjectRoute._addFileChildren(

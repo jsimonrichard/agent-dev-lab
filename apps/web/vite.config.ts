@@ -10,7 +10,6 @@ import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
-import { adlProjectReloadPlugin } from "./src/lib/adl-project-reload-plugin";
 import { createAdlViteLogger } from "./src/lib/adl-vite-logger";
 
 const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
@@ -58,7 +57,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      adlProjectReloadPlugin(projectRoot),
       devtools(),
       tailwindcss(),
       tanstackStart({
