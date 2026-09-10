@@ -101,7 +101,7 @@ An ADL **project** is any directory with an `adl.config.*` file at its root — 
 
 ## Development
 
-Working on the framework itself (this monorepo, as opposed to a project built with ADL). Requires [Bun](https://bun.sh) `1.3.13` (declared in the root `packageManager` field) — Bun is not required to use ADL in your own project, see [Getting started](#getting-started).
+Working on the framework itself (this monorepo, as opposed to a project built with ADL). Requires [Bun](https://bun.sh) `1.4.2` (declared in the root `packageManager` field) — Bun is not required to use ADL in your own project, see [Getting started](#getting-started).
 
 ```bash
 bun install

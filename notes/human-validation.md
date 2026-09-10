@@ -18,7 +18,7 @@ Large files to read as one unit: `apps/web/src/components/app/workflow-tree-pane
 
 ## Prereqs
 
-- Bun **1.3.13** (see root `packageManager`) for monorepo install/dev
+- Bun **1.4.2** (see root `packageManager`) for monorepo install/dev
 - Node **22+** for the published Node path (`better-sqlite3`)
 - `OPENAI_API_KEY` for live LLM checks (playground)
 - This checkout

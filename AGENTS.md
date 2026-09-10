@@ -32,7 +32,7 @@ All standard commands are in root `package.json`:
 
 ### Non-obvious notes
 
-- Bun must be version 1.3.13 (declared in `packageManager` field). The update script installs it if missing.
+- Bun must be version 1.4.2 (declared in `packageManager` field). The update script installs it if missing.
 - Nitro is the published `nitro` package (v3), pinned to `3.0.260610-beta` in root + `apps/web` + `overrides` to match [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) (`npm install nitro`). Do not mix `nitro` and `nitro-nightly` — Bun will nest two copies and Vite/Nitro fail (`setModuleRunner`, `h3/rules`).
 - Inspection UI **dev** uses the Bun toolchain (`bun --bun vite`). SQLite uses `bun:sqlite` under Bun and `better-sqlite3` under Node 22+ (`adl` no longer relaunches into Bun). Production `vite build` stays on Node; `start` / `--serve` run `.output` on Node.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
