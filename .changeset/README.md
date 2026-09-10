@@ -1,6 +1,6 @@
 # Changesets
 
-This repo uses [Changesets](https://github.com/changesets/changesets) to version and publish `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web`. `@agent-dev-lab/docs` and `@agent-dev-lab/playground` are ignored.
+This repo uses [Changesets](https://github.com/changesets/changesets) to version and publish `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web`. `@agent-dev-lab/docs` and `@agent-dev-lab/playground` are ignored. `@agent-dev-lab/tools` is versioned (so a changeset can describe work that lands there) but stays `private: true` and is not part of `ci:publish`.
 
 ```bash
 bun run changeset

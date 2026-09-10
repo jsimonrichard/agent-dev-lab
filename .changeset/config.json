@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@agent-dev-lab/docs", "@agent-dev-lab/playground", "@agent-dev-lab/tools"]
+  "ignore": ["@agent-dev-lab/docs", "@agent-dev-lab/playground"]
 }

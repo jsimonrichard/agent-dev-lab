@@ -3,8 +3,8 @@
 Sandboxed file/bash/web-search tools for `@agent-dev-lab/core` agents. Design doc:
 [`notes/tool-sandboxing.md`](../../notes/tool-sandboxing.md).
 
-**Status: not yet published.** `private: true`, changeset-ignored (see `.changeset/config.json`)
-until the package is ready to ship.
+**Status: not yet published.** `private: true` — versioned via changesets but not part of
+`ci:publish` (see `.changeset/README.md`) until the package is ready to ship.
 
 ## Provider-native tools — check before building one here
 
