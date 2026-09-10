@@ -1,14 +1,16 @@
 # `watch.e2e.test.ts` — why it goes red, and what is actually broken
 
-**Status:** diagnosed; the `ADL_VITE_PROJECT_WATCH` trap is removed, the rest is reported.
-Written 2026-09-08, corrected 2026-09-10, for Lane D (§5 of
+**Status:** **fixed.** Bun is on 1.4.2, `watchAdlProject` watches through chokidar, and the
+Vite reload plugin is gone — one watcher, one reload per save. Written 2026-09-08, corrected
+and closed 2026-09-10, for Lane D (§5 of
 [`parallel-work-plan.md`](./parallel-work-plan.md)). Every claim below is from a run on this
 machine or from the CI logs of run `34157533330`; where something is inferred rather than
 observed it says so.
 
-Lane D owns `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts` and `.github/`. The
-`ADL_VITE_PROJECT_WATCH` removal in `apps/web/src/lib/` was made at the maintainer's request;
-everything else below is reported rather than changed.
+Lane D was scoped to `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts` and
+`.github/`. The Bun upgrade and the watcher work below go past that, including the brief's
+"no further `ci.yml` changes" — expanded at the maintainer's request once the cause turned out
+to be the runtime rather than the code.
 
 ---
 
@@ -181,31 +183,34 @@ Two things are worth separating:
 
 ---
 
-## 3. What would fix this
+## 3. What was done
 
-1. **Upgrade Bun to 1.4** — the single highest-value item, and it closes two of this lane's
-   four: it restores the full `fs.watch` event stream for atomic saves (so Vite's watcher
-   becomes reliable, which is how it is remembered behaving), and it fixes the `node:test`
-   cascade in [`bun-node-test-cascade.md`](./bun-node-test-cascade.md). Its own lane —
-   `packageManager`, `@types/bun`, `ci.yml`'s `bun-version` and `AGENTS.md` all pin 1.3.13, and
-   1.4 is a major.
-2. **Decide who owns reload in dev.** With `ADL_VITE_PROJECT_WATCH` gone both watchers are live
-   in `vite dev`. Measured: on 1.3.13 an in-place edit settles at `generation: 1` (the two
-   triggers land close enough that `reload()`'s in-flight promise coalesces them), but on 1.4.0
-   an atomic edit settles at `generation: 2` — two full jiti reloads per save, because Bun 1.4
-   gives each watcher a different event to fire on. Redundancy is what makes the current
-   arrangement robust; the cost lands on the Bun upgrade. Either accept it, or make
-   `watchAdlProject` the sole owner and drop the plugin's `change`/`add` wiring — the plugin's
-   `dispatchFetch` exists to reach the worker isolate, and core's watcher already runs _in_ that
-   isolate, so it does not need the detour.
-3. **Make a failed watch install loud** (house rule 1). Do not set `host.watchedRoot` unless at
-   least one directory was subscribed; report a watch error on `/api/project` beside
-   `lastReloadError` so a dead watcher is visible instead of looking like an idle project. This
-   is the one change that would have made CI's `generation: 0` self-explaining.
-4. **Stop transpiling `packages/core` on reload** — `nativeModules: ["@agent-dev-lab/core"]` on
-   the jiti instance, or resolve the package's `default` export condition.
-5. **Give the e2e test something to assert about the watcher**, so its failure message says
-   "the watcher never armed" rather than `generation: 0`.
+1. **Bun 1.3.13 → 1.4.2.** The root fix. `fs.watch` reports the full event stream for an atomic
+   save again, so any watcher — ours or chokidar's — can see an editor save. It also closes the
+   `node:test` cascade in [`bun-node-test-cascade.md`](./bun-node-test-cascade.md).
+2. **`watchAdlProject` now uses chokidar**, not a hand-rolled recursive `fs.watch`. The tree
+   walk, the re-subscribe-on-new-directory path and the null-filename inotify special case are
+   all gone.
+3. **The Vite reload plugin is deleted**, along with `/api/project/reload` and
+   `reloadAdlProjectForViteWatcher`. It was a second watcher over the same tree; on 1.4 each
+   caught a different event from one atomic save and a single edit cost two jiti reloads
+   (`generation: 2`). Measured after: `generation: 1`, for atomic and in-place saves alike. The
+   plugin's `dispatchFetch` existed only to reach the worker isolate, and the core watcher
+   already runs there.
+4. **A watch that fails to arm is no longer silently permanent.** `watchAdlProject` returns
+   `{ ready, close }`; `ready` rejects if the watcher never subscribed, the host forgets the
+   root so the next request retries, and the error reaches SSE subscribers. Since
+   `getLoadedAdlProject` awaits it, a first `/api/project` response now implies the watcher is
+   armed — the property the e2e test was silently relying on.
+
+### Still open
+
+- **`packages/core/dist` (§2 below).** Untouched. `turbo.json`'s `test` still declares no
+  `dependsOn: ["^build"]`.
+- **CI's intermittency.** Everything measured was deterministic, so the original flake is
+  explained by mechanism but not by timing. Item 4 above is what would have made it
+  self-explaining; whether it was the cause is still unproven.
+- **jiti re-transpiling core on reload** — `nativeModules: ["@agent-dev-lab/core"]` is the lever.
 
 ## Reproducing
 

@@ -1,9 +1,8 @@
 # The Bun `node:test` cascade — already fixed upstream in Bun 1.4
 
-**Status:** investigated 2026-09-08 (Lane D, §5 of
+**Status:** closed 2026-09-10 (Lane D, §5 of
 [`parallel-work-plan.md`](./parallel-work-plan.md)). **Nothing filed, nothing to file** — the
-bug does not exist in the current Bun release. This repo is pinned to `bun@1.3.13`, which
-still has it.
+bug does not exist in the current Bun release, and the repo is now on `bun@1.4.2`.
 
 ## What was seen
 
@@ -69,14 +68,15 @@ the one to trust; a smaller one would need to be re-derived from it.
 Under 1.4.0 the victim file runs normally and the offender's failures are reported against the
 offender, which is the correct behaviour. No attempt was made to find the commit that fixed it.
 
-## What to do about it here
+## What was done about it here
 
-Nothing upstream. The repo-side follow-up is **the Bun upgrade itself** — `packageManager`,
-`@types/bun`, `.github/workflows/ci.yml`'s `bun-version`, and `AGENTS.md`'s "Bun must be
-version 1.3.13" all pin 1.3.13, and 1.4 is a major with its own breaking-change list
-([oven-sh/bun#28792](https://github.com/oven-sh/bun/issues/28792)). That is its own lane, not a
-line in this one.
+Nothing upstream, and nothing to work around. The repo moved to **Bun 1.4.2**, which fixes it —
+see the Bun row in [`watch-e2e-flake.md`](./watch-e2e-flake.md) §3, since the same upgrade fixes
+the `fs.watch` bug behind that one. 1.4 is a major with its own breaking-change list
+([oven-sh/bun#28792](https://github.com/oven-sh/bun/issues/28792)); the gate, `packages/tools`
+(89 under `bun test`, 31 under `node --test`) and the watch e2e were all green on it before the
+pins moved.
 
-Until then the behaviour stands as described: loud, non-zero exit, arbitrary victim. When
-`bun test` reports an error in a file you did not touch, check whether an earlier file in the
-run failed.
+If the repo is ever pinned back below 1.4, the behaviour returns as described: loud, non-zero
+exit, arbitrary victim. When `bun test` reports an error in a file you did not touch, check
+whether an earlier file in the run failed.

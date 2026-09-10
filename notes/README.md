@@ -39,8 +39,8 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | [`near-term-roadmap.md`](./near-term-roadmap.md)         | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
 | [`parallel-work-plan.md`](./parallel-work-plan.md)       | Scheduling companion to the roadmap: file-contention map, decision gates, lanes that can run concurrently                    |
 | [`tool-sandboxing.md`](./tool-sandboxing.md)             | `@agent-dev-lab/tools` design: file/bash/web-search sandboxing, approval dispatcher                                          |
-| [`watch-e2e-flake.md`](./watch-e2e-flake.md)             | Why `watch.e2e.test.ts` goes red: two dashboard watch paths, only one working; jiti re-transpiling core on reload            |
-| [`bun-node-test-cascade.md`](./bun-node-test-cascade.md) | Why one failing `node:test` file kills an unrelated one under `bun test` 1.3.13; fixed in Bun 1.4                            |
+| [`watch-e2e-flake.md`](./watch-e2e-flake.md)             | Why `watch.e2e.test.ts` went red: Bun 1.3.13's `fs.watch` and atomic saves; jiti re-transpiling core on reload               |
+| [`bun-node-test-cascade.md`](./bun-node-test-cascade.md) | Why one failing `node:test` file killed an unrelated one under `bun test` 1.3.13; fixed by Bun 1.4                           |
 | [`inspection-ui.md`](./inspection-ui.md)                 | Control vs data plane, SSE, client reducer                                                                                   |
 | [`tracing.md`](./tracing.md)                             | OTel spans vs AI SDK telemetry                                                                                               |
 | [`resumability.md`](./resumability.md)                   | Run retry / step skip (memory is separate)                                                                                   |
