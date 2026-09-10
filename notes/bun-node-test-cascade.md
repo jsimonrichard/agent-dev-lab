@@ -33,50 +33,38 @@ shape. It was closed as completed (fix #23110, Oct 2025), and two later commente
 hitting it again on 1.3.1 and on v1.4 — which is consistent with 1.3.13 still failing here.
 Their v1.4 case was not reproduced; the shape below is clean on 1.4.0.
 
-## Minimal reproduction
+## Reproduction
 
-Two files. The offender needs an **even number** of async tests that reject **after a real
-(macrotask) suspension**:
+Reliable, and re-verified on 2026-09-10. From a checkout with dependencies installed, hide
+`bwrap` from `PATH` (build a directory of symlinks to `/usr/bin/*` minus `bwrap`) so the
+executor tests fail, then run two files together:
 
-```js
-// a.test.js
-import { test } from "node:test";
-test("A1", async () => {
-  await new Promise((r) => setTimeout(r, 5));
-  throw new Error("boom");
-});
-test("A2", async () => {
-  await new Promise((r) => setTimeout(r, 5));
-  throw new Error("boom");
-});
-
-// b.test.js
-import { describe, it } from "node:test";
-describe("unrelated suite", () => {
-  it("B1", () => {});
-});
+```bash
+cd packages/tools
+PATH="<bun>:<binlink>" bun test src/bash/native-executor.test.ts src/bash/process-channel.test.ts
 ```
 
-`bun test .` — `b.test.js` never runs; it throws at module evaluation.
+- **Bun 1.3.13** — `3 pass, 12 fail, 1 error`, `Ran 15 tests across 2 files`. The error is
+  `process-channel.test.ts` dying at module evaluation; its 8 tests never run.
+- **Bun 1.4.2** — `11 pass, 11 fail`, `Ran 22 tests across 2 files`. Every failure is a real
+  `bwrap`-missing failure and nothing is lost.
 
-The conditions are sharp, and were narrowed by bisecting `native-executor.test.ts` down to
-duplicated copies of a single test:
-
-| Vary                                           | Cascades?                                                     |
-| ---------------------------------------------- | ------------------------------------------------------------- |
-| 1, 3, 5 … failing async tests in the offender  | **no**                                                        |
-| 2, 4, 6, 8 … failing async tests               | **yes** — parity, not timing (5/20/50 ms all behave the same) |
-| rejection after `await Promise.resolve()` only | no — needs a macrotask suspension                             |
-| synchronous `throw` in an `async` test body    | no                                                            |
-| the same tests passing instead of failing      | no                                                            |
-| `describe()` wrapper in the offender           | irrelevant — bare top-level `test()` cascades too             |
+A standalone two-file reduction (an offender with an even number of async tests rejecting after
+a macrotask suspension, plus any file with a top-level `describe`) **did** reproduce during the
+first investigation, and an earlier revision of this note published it along with a parity table
+— even counts cascade, odd counts do not. **Re-testing on 2026-09-10 could not reproduce any of
+it**, on 1.3.13 or 1.4.2, in either the `test()` or `describe()`/`it()` form, for n = 1, 2, 3, 4
+or 6. Whatever the reduction actually depended on was not what the table said it was, so the
+table has been withdrawn rather than left standing as fact. The repo-level reproduction above is
+the one to trust; a smaller one would need to be re-derived from it.
 
 ## Versions
 
-| Bun        | Minimal repro             | `native-executor.test.ts` + `process-channel.test.ts`, `bwrap` hidden |
-| ---------- | ------------------------- | --------------------------------------------------------------------- |
-| **1.3.13** | cascades (n = 2, 4, 6, 8) | 15 tests ran, 1 error — the victim's 8 tests never run                |
-| **1.4.0**  | clean (n = 2, 4, 6, 8)    | 22 tests ran, 11 fail — every failure is a real one                   |
+| Bun        | `native-executor.test.ts` + `process-channel.test.ts`, `bwrap` hidden |
+| ---------- | --------------------------------------------------------------------- |
+| **1.3.13** | 15 tests ran, 1 error — the victim's 8 tests never run                |
+| **1.4.0**  | 22 tests ran, 11 fail — every failure is a real one                   |
+| **1.4.2**  | 22 tests ran, 11 fail — same                                          |
 
 Under 1.4.0 the victim file runs normally and the offender's failures are reported against the
 offender, which is the correct behaviour. No attempt was made to find the commit that fixed it.
