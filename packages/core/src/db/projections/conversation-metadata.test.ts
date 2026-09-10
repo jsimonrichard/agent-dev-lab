@@ -72,6 +72,92 @@ describe("adl_conversation_metadata projection", () => {
     expect(store.list().map((row) => row.memoryScope)).toEqual(["notes"]);
   });
 
+  it("records a fork through the runtime API, into both the log and fork_json", async () => {
+    const dbPath = await uniqueDbPath();
+    const workflowStore = sqliteWorkflowStore({ path: dbPath });
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel() },
+      stores: { workflow: workflowStore },
+    });
+
+    await adl.recordConversationForked({
+      memoryScope: "fork:abc",
+      agentId: "researcher",
+      title: "Fork · notes",
+      fork: {
+        sourceWorkflowId: "demo",
+        sourceWorkflowRunId: "run-1",
+        sourceStepId: "step-1",
+        sourceAgentCallId: "call-1",
+        sourceMemoryScope: "conv:1",
+      },
+    });
+
+    // In the log, addressable only by memoryScope (it has no run or episode).
+    const events = await workflowStore.listEvents({ memoryScope: "fork:abc" });
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "conversation_forked",
+      memoryScope: "fork:abc",
+      agentId: "researcher",
+      runSeq: 1,
+    });
+    expect(events[0]?.at).toBeTruthy();
+
+    // And projected into the table, with no episode yet — the row agent_call_id
+    // is null, which the previous change made possible.
+    const record = sqliteConversationMetadataStore({ path: dbPath }).get("fork:abc");
+    expect(record?.title).toBe("Fork · notes");
+    expect(record?.agentId).toBe("researcher");
+    expect(record?.agentCallId).toBeUndefined();
+    expect(record?.fork).toEqual({
+      sourceWorkflowId: "demo",
+      sourceWorkflowRunId: "run-1",
+      sourceStepId: "step-1",
+      sourceAgentCallId: "call-1",
+      sourceMemoryScope: "conv:1",
+    });
+  });
+
+  it("keeps fork lineage when the forked conversation is later titled", async () => {
+    const dbPath = await uniqueDbPath();
+    const workflowStore = sqliteWorkflowStore({ path: dbPath });
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel() },
+      stores: { workflow: workflowStore },
+    });
+
+    await adl.recordConversationForked({
+      memoryScope: "fork:abc",
+      agentId: "researcher",
+      title: "Fork · notes",
+      fork: {
+        sourceWorkflowId: "demo",
+        sourceWorkflowRunId: "run-1",
+        sourceStepId: "step-1",
+        sourceAgentCallId: "call-1",
+        sourceMemoryScope: "conv:1",
+      },
+    });
+    // The forked conversation runs and gets its own generated title: this is
+    // the replay order too, so the title must win without losing the lineage.
+    await workflowStore.recordEvent({
+      type: "agent_title_set",
+      agentCallId: "call-9",
+      agentId: "researcher",
+      memoryScope: "fork:abc",
+      title: "Generated later",
+      runSeq: 1,
+      at: "2026-02-01T00:00:00.000Z",
+      eventSchemaVersion: 1,
+    });
+
+    const record = sqliteConversationMetadataStore({ path: dbPath }).get("fork:abc");
+    expect(record?.title).toBe("Generated later");
+    expect(record?.agentCallId).toBe("call-9");
+    expect(record?.fork?.sourceMemoryScope).toBe("conv:1");
+  });
+
   it("leaves fork_json and deleted_at alone when a later title arrives", async () => {
     const dbPath = await uniqueDbPath();
     const store = sqliteConversationMetadataStore({ path: dbPath });

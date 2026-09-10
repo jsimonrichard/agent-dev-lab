@@ -3,6 +3,7 @@ import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
 import type { MessageStore } from "../stores/types";
+import type { ConversationForkLineage } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { WorkflowStore } from "../observability/workflow-store";
 import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
@@ -133,4 +134,27 @@ export interface AdlRuntime {
   createTemplate<TSchema extends z.ZodType<object>>(
     config: TemplateConfig<TSchema>,
   ): Template<z.infer<TSchema>>;
+
+  /**
+   * Records that a conversation was forked out of an agent episode.
+   *
+   * Forking happens outside any run — the new `memoryScope` is created before
+   * its first turn — so there is no {@link WorkflowContext} or agent handle to
+   * emit through, and this is the seam for it. Persists a
+   * `conversation_forked` {@link RunEvent} (readable back via
+   * `listEvents({ memoryScope })`) which projects the lineage into
+   * `adl_conversation_metadata.fork_json`.
+   *
+   * `title` is the forked conversation's initial display name; the caller has
+   * a real one at this point, and it is the row's first writer.
+   *
+   * No-op when the runtime has no workflow store configured, matching how
+   * every other event behaves without one.
+   */
+  recordConversationForked(input: {
+    memoryScope: string;
+    agentId: string;
+    title: string;
+    fork: ConversationForkLineage;
+  }): Promise<void>;
 }

@@ -211,6 +211,14 @@ export type ConversationForkLineage = {
 export type ConversationForkedEvent = ConversationEventBase & {
   type: "conversation_forked";
   agentId: string;
+  /**
+   * The forked conversation's initial display title. Carried on the event
+   * because `adl_conversation_metadata.title` is NOT NULL and the fork is the
+   * row's first writer — the caller has a real title at this point (the
+   * inspection UI generates one from the source scope), so this is the
+   * conversation's actual name, not a placeholder.
+   */
+  title: string;
   fork: ConversationForkLineage;
 };
 

@@ -2,6 +2,8 @@ import type { ToolSet, Tool } from "ai";
 
 import { AgentImpl } from "../agent/agent-impl";
 import type { Agent, AgentDefinition } from "../agent/types";
+import type { ConversationForkLineage } from "../observability/events";
+import { RunRecorder } from "./run-recorder";
 import { createToolFromAgent, createToolFromWorkflow } from "../tools";
 import {
   createWorkflowFromAgent,
@@ -81,5 +83,26 @@ export class AdlRuntimeImpl implements AdlRuntime {
 
   createTemplate<TSchema extends z.ZodType<object>>(config: TemplateConfig<TSchema>) {
     return buildTemplate(this.services.templateEngine, config);
+  }
+
+  async recordConversationForked(input: {
+    memoryScope: string;
+    agentId: string;
+    title: string;
+    fork: ConversationForkLineage;
+  }): Promise<void> {
+    // A one-off RunRecorder: its per-run seq counters are irrelevant here,
+    // since attachMeta assigns conversation events runSeq 1 by construction
+    // (a fork is the first thing that happens to a memoryScope). Going
+    // through the recorder anyway keeps one event sink rather than a second
+    // write path straight to the store.
+    const runRecorder = new RunRecorder(this.services);
+    await runRecorder.emit({
+      type: "conversation_forked",
+      memoryScope: input.memoryScope,
+      agentId: input.agentId,
+      title: input.title,
+      fork: input.fork,
+    });
   }
 }

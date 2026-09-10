@@ -156,6 +156,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
         type: "conversation_forked",
         memoryScope: "fork:abc",
         agentId: "researcher",
+        title: "Fork · notes",
         fork: {
           sourceWorkflowId: "demo",
           sourceWorkflowRunId: "run-1",

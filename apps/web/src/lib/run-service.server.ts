@@ -416,18 +416,32 @@ export async function forkAgentFromWorkflow(options: {
 
   await messageStore.save(memoryScope, toSave);
 
+  const title = generatedForkTitle(options.sourceMemoryScope, options.sourceRunId);
+  const fork = {
+    sourceWorkflowId: options.sourceWorkflowId,
+    sourceWorkflowRunId: options.sourceRunId,
+    sourceStepId: options.sourceStepId,
+    sourceAgentCallId: options.sourceEpisodeId,
+    sourceMemoryScope: options.sourceMemoryScope,
+  };
+
   const session = registerForkSession({
     memoryScope,
     agentId: options.agentId,
-    title: generatedForkTitle(options.sourceMemoryScope, options.sourceRunId),
-    fork: {
-      sourceWorkflowId: options.sourceWorkflowId,
-      sourceWorkflowRunId: options.sourceRunId,
-      sourceStepId: options.sourceStepId,
-      sourceAgentCallId: options.sourceEpisodeId,
-      sourceMemoryScope: options.sourceMemoryScope,
-    },
+    title,
+    fork,
   });
+
+  // Record the fork in the event log, so the lineage is durable and replayable
+  // rather than existing only as a row this process happened to write.
+  const runtime = await getAdlRuntime();
+  await runtime.recordConversationForked({
+    memoryScope,
+    agentId: options.agentId,
+    title,
+    fork,
+  });
+
   await persistInspectorSession(session);
 
   return { memoryScope };
