@@ -1,5 +1,6 @@
-import { readdirSync, statSync, watch, type FSWatcher } from "node:fs";
 import path from "node:path";
+
+import { watch, type FSWatcher } from "chokidar";
 
 import { createAdlProjectReloadGate } from "./reload-gate";
 import type { LoadedAdlProject } from "./resolve";
@@ -15,31 +16,32 @@ export type AdlProjectWatchHandlers = {
   onError?: (error: Error) => void;
 };
 
-function isIgnoredAdlProjectPath(filePath: string, projectRoot: string): boolean {
-  const relative = path.relative(path.resolve(projectRoot), path.resolve(filePath));
-  if (relative.startsWith("..")) {
-    return true;
-  }
-  return relative
-    .split(path.sep)
-    .some((segment) => segment.length > 0 && isIgnoredAdlProjectSegment(segment));
-}
+export type AdlProjectWatcher = {
+  /**
+   * Resolves once the initial scan has subscribed every directory under the
+   * project root; rejects if the watcher could not arm at all.
+   *
+   * Await it before relying on an edit being noticed. The scan is asynchronous
+   * — about 12 ms for a small project here, and slower on a loaded machine —
+   * and an edit made before it finishes is never reported.
+   */
+  readonly ready: Promise<void>;
+  close(): void;
+};
 
 /**
  * Watch an ADL project directory and call {@link LoadedAdlProject.reload} when
- * registry source files change. Ignored trees (`node_modules`, `.data`, …) are
- * never subscribed. Returns a dispose function.
+ * registry source files change.
  *
- * Each non-ignored directory is watched non-recursively so nested files such as
- * `src/workflows/answer-question.ts` are covered even when `fs.watch({ recursive })`
- * is unreliable.
+ * Ignored trees (`node_modules`, `.data`, …) are pruned during the scan rather
+ * than filtered afterwards, so they are never subscribed, and symlinks are not
+ * followed — a project may link a tree far larger than itself.
  */
 export function watchAdlProject(
   project: LoadedAdlProject,
   handlers: AdlProjectWatchHandlers = {},
-): () => void {
-  const watchers: FSWatcher[] = [];
-  const watchedDirs = new Set<string>();
+): AdlProjectWatcher {
+  const root = path.resolve(project.root);
 
   const gate = createAdlProjectReloadGate({
     reload: () => project.reload(),
@@ -49,77 +51,50 @@ export function watchAdlProject(
     onError: handlers.onError,
   });
 
-  const onWatchError = (error: Error) => {
-    handlers.onError?.(error);
-  };
+  const watcher: FSWatcher = watch(root, {
+    ignoreInitial: true,
+    followSymlinks: false,
+    ignored: (candidate: string) =>
+      path
+        .relative(root, path.resolve(candidate))
+        .split(path.sep)
+        .some((segment) => segment.length > 0 && isIgnoredAdlProjectSegment(segment)),
+  });
 
-  const watchDirectory = (dir: string) => {
-    const resolved = path.resolve(dir);
-    if (watchedDirs.has(resolved) || isIgnoredAdlProjectPath(resolved, project.root)) {
-      return;
-    }
-    watchedDirs.add(resolved);
-
-    try {
-      const watcher = watch(resolved, { recursive: false }, (_event, filename) => {
-        handleEvent(resolved, filename);
-      });
-      watcher.on("error", (error: Error) => {
-        onWatchError(error);
-      });
-      watchers.push(watcher);
-    } catch (error) {
-      onWatchError(error instanceof Error ? error : new Error(String(error)));
-    }
-  };
-
-  const watchTree = (dir: string) => {
-    watchDirectory(dir);
-    try {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || isIgnoredAdlProjectSegment(entry.name)) {
-          continue;
-        }
-        watchTree(path.join(dir, entry.name));
+  let armed = false;
+  const ready = new Promise<void>((resolve, reject) => {
+    watcher.once("ready", () => {
+      armed = true;
+      resolve();
+    });
+    watcher.on("error", (error: unknown) => {
+      const failure = error instanceof Error ? error : new Error(String(error));
+      // An error before `ready` means nothing was subscribed. Fail closed: the
+      // caller must be able to tell "armed" from "arming failed", or a dead
+      // watcher is indistinguishable from a project nobody edited.
+      if (!armed) {
+        reject(failure);
       }
-    } catch (error) {
-      onWatchError(error instanceof Error ? error : new Error(String(error)));
-    }
-  };
+      handlers.onError?.(failure);
+    });
+  });
+  // A caller that never awaits `ready` should not crash the process on an
+  // arming failure — it is already reported through `onError`. Real awaiters
+  // still see the rejection; this only keeps it from going unhandled.
+  void ready.catch(() => {});
 
-  const handleEvent = (watchRoot: string, filename: string | Buffer | null) => {
-    // Linux inotify often omits `filename` (null) on rename/atomic save. Still
-    // debounce a reload for events from a tree we already decided to watch.
-    if (!filename) {
-      gate.schedule(watchRoot);
+  watcher.on("all", (_event, changedPath: string) => {
+    if (!shouldReloadAdlProjectPath(changedPath, root)) {
       return;
     }
-    const relative = typeof filename === "string" ? filename : filename.toString();
-    const fullPath = path.join(watchRoot, relative);
+    gate.schedule(path.resolve(changedPath));
+  });
 
-    try {
-      if (
-        statSync(fullPath).isDirectory() &&
-        !isIgnoredAdlProjectSegment(path.basename(fullPath))
-      ) {
-        watchTree(fullPath);
-      }
-    } catch {
-      // Path may have been removed between the event and stat.
-    }
-
-    if (!shouldReloadAdlProjectPath(fullPath, project.root)) {
-      return;
-    }
-    gate.schedule(fullPath);
-  };
-
-  watchTree(project.root);
-
-  return () => {
-    gate.dispose();
-    for (const watcher of watchers) {
-      watcher.close();
-    }
+  return {
+    ready,
+    close() {
+      gate.dispose();
+      void watcher.close();
+    },
   };
 }

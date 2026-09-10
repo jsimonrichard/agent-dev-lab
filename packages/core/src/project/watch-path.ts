@@ -4,7 +4,15 @@ import { ADL_CONFIG_FILENAMES, type AdlConfigFilename } from "./config";
 
 const RELOAD_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".js", ".mjs", ".md", ".markdown"]);
 
-const IGNORED_SEGMENTS = new Set(["node_modules", ".git", ".data", "dist", ".output", ".turbo"]);
+const IGNORED_SEGMENTS = new Set([
+  "node_modules",
+  ".git",
+  ".jj",
+  ".data",
+  "dist",
+  ".output",
+  ".turbo",
+]);
 
 const EDITOR_TEMP_SUFFIX = /(?:~|\.(?:tmp|bak|swp|swx|orig|partial)(?:\.[^.]+)?)$/i;
 

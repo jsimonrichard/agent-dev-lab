@@ -384,7 +384,7 @@ describe("watchAdlProject", () => {
       const fixture = await createTempProject();
       const project = await loadAdlProject({ root: fixture.root });
       const reloaded = Promise.withResolvers<number>();
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: ({ generation }) => {
           reloaded.resolve(generation);
         },
@@ -394,14 +394,14 @@ describe("watchAdlProject", () => {
       });
 
       try {
-        await wait(25);
+        await watcher.ready;
         await fixture.writeAgent("VERSION_WATCHED");
         await expect(reloaded.promise).resolves.toBe(1);
         expect((project.getAgent("test-agent") as AgentImpl).definition.systemPrompt).toBe(
           "VERSION_WATCHED",
         );
       } finally {
-        dispose();
+        watcher.close();
       }
     },
     { timeout: 10_000 },
@@ -415,21 +415,21 @@ describe("watchAdlProject", () => {
       await mkdir(path.join(fixture.root, ".data"), { recursive: true });
       const project = await loadAdlProject({ root: fixture.root });
       let reloads = 0;
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: () => {
           reloads += 1;
         },
       });
 
       try {
-        await wait(25);
+        await watcher.ready;
         await writeFile(path.join(fixture.root, "node_modules", "pkg.ts"), "export {}", "utf8");
         await writeFile(path.join(fixture.root, ".data", "note.ts"), "export {}", "utf8");
         await wait(400);
         expect(reloads).toBe(0);
         expect(project.generation).toBe(0);
       } finally {
-        dispose();
+        watcher.close();
       }
     },
     { timeout: 10_000 },
@@ -441,7 +441,7 @@ describe("watchAdlProject", () => {
       const fixture = await createTempProject();
       const project = await loadAdlProject({ root: fixture.root });
       const reloaded = Promise.withResolvers<number>();
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: ({ generation }) => {
           reloaded.resolve(generation);
         },
@@ -451,7 +451,7 @@ describe("watchAdlProject", () => {
       });
 
       try {
-        await wait(25);
+        await watcher.ready;
         const target = path.join(fixture.root, "src", "agent.ts");
         const tmp = `${target}.12345.tmp`;
         await writeFile(
@@ -471,24 +471,27 @@ export const testAgent = adl.createAgent({
           "VERSION_ATOMIC",
         );
       } finally {
-        dispose();
+        watcher.close();
       }
     },
     { timeout: 10_000 },
   );
 
   it(
-    "does not emit onReload after dispose",
+    "does not emit onReload after close",
     async () => {
       const fixture = await createTempProject();
       const project = await loadAdlProject({ root: fixture.root });
       let reloads = 0;
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: () => {
           reloads += 1;
         },
       });
-      dispose();
+      // Arm first, so this asserts that close() stops a live watcher rather
+      // than that the scan never finished.
+      await watcher.ready;
+      watcher.close();
 
       await fixture.writeAgent("VERSION_AFTER_DISPOSE");
       await wait(400);

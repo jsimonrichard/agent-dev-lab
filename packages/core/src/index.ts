@@ -208,6 +208,7 @@ export {
   type AdlConfigFilename,
   type AdlProjectConfig,
   type AdlProjectReloadInfo,
+  type AdlProjectWatcher,
   type AdlProjectWatchHandlers,
   type LoadedAdlProject,
 } from "./project";

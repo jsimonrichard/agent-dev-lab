@@ -12,15 +12,17 @@ import { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandler
  * reads another. `process[Symbol.for(...)]` is shared only within an isolate —
  * drive reload via Nitro `dispatchFetch` so the worker that serves runs updates.
  *
- * File watch (`watchAdlProject` / `reload-gate`) is a fallback when the Vite
- * plugin does not see a change. The host still owns the loaded project, the
- * inspector event log, and SSE reload subscribers. Tests call
+ * File watch (`watchAdlProject` / `reload-gate`) runs here, in the worker
+ * isolate that serves `/api`, so a reload updates the registry that actually
+ * executes runs. The host also owns the loaded project, the inspector event
+ * log, and SSE reload subscribers. Tests call
  * {@link resetAdlProjectProcessHost}.
  */
 type AdlProjectProcessHost = {
   project?: LoadedAdlProject;
   watchDispose?: () => void;
   watchedRoot?: string;
+  watchReady?: Promise<void>;
   listeners: AdlProjectWatchHandlers;
   reloadSubscribers: Set<(event: AdlProjectHostReloadEvent) => void>;
   inspectorAgentObserverAttached: boolean;
@@ -59,6 +61,7 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   host.watchDispose?.();
   host.watchDispose = undefined;
   host.watchedRoot = undefined;
+  host.watchReady = undefined;
   host.inspectorAgentObserverAttached = false;
   host.inspectorListedAgentIds = new Set();
   host.inspectorEventLog = undefined;
@@ -72,24 +75,34 @@ export function setAdlProjectWatchListeners(listeners: AdlProjectWatchHandlers):
   getHost().listeners = listeners;
 }
 
-export function ensureAdlProjectFileWatch(enabled: boolean): void {
+/**
+ * Arm (or tear down) the project file watch. The returned promise resolves once
+ * the watcher is actually subscribed, so a caller can guarantee that an edit
+ * made after it is awaited will be seen.
+ *
+ * If arming fails the watch is forgotten rather than remembered as live, so the
+ * next call retries; the failure itself reaches subscribers as an `error` event.
+ * Recording a watcher that never armed is what makes a dead watch look exactly
+ * like a project nobody edited.
+ */
+export function ensureAdlProjectFileWatch(enabled: boolean): Promise<void> {
   const host = getHost();
   if (!enabled) {
     host.watchDispose?.();
     host.watchDispose = undefined;
     host.watchedRoot = undefined;
-    return;
+    host.watchReady = undefined;
+    return Promise.resolve();
   }
   const project = host.project;
   if (!project) {
-    return;
+    return Promise.resolve();
   }
-  if (host.watchedRoot === project.root && host.watchDispose) {
-    return;
+  if (host.watchedRoot === project.root && host.watchReady) {
+    return host.watchReady;
   }
   host.watchDispose?.();
-  host.watchedRoot = project.root;
-  host.watchDispose = watchAdlProject(project, {
+  const watcher = watchAdlProject(project, {
     onReload: (info: AdlProjectReloadInfo) => {
       host.listeners.onReload?.(info);
       emitAdlProjectHostReload({
@@ -107,6 +120,19 @@ export function ensureAdlProjectFileWatch(enabled: boolean): void {
       });
     },
   });
+  host.watchedRoot = project.root;
+  host.watchDispose = () => {
+    watcher.close();
+  };
+  host.watchReady = watcher.ready.catch(() => {
+    if (host.watchedRoot === project.root) {
+      host.watchDispose?.();
+      host.watchDispose = undefined;
+      host.watchedRoot = undefined;
+      host.watchReady = undefined;
+    }
+  });
+  return host.watchReady;
 }
 
 export function subscribeAdlProjectHostReload(
@@ -206,6 +232,7 @@ export function resetAdlProjectProcessHost(): void {
   host.watchDispose?.();
   host.watchDispose = undefined;
   host.watchedRoot = undefined;
+  host.watchReady = undefined;
   host.project = undefined;
   host.listeners = {};
   host.reloadSubscribers.clear();

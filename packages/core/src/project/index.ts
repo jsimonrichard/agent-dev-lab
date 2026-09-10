@@ -33,4 +33,9 @@ export {
   type LoadedAdlProject,
 } from "./resolve";
 export { shouldReloadAdlProjectPath, isIgnoredAdlProjectSegment } from "./watch-path";
-export { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandlers } from "./watch";
+export {
+  watchAdlProject,
+  type AdlProjectReloadInfo,
+  type AdlProjectWatcher,
+  type AdlProjectWatchHandlers,
+} from "./watch";

@@ -113,7 +113,7 @@ describe("adl project process host", () => {
             reloaded.resolve(event.generation);
           }
         });
-        ensureAdlProjectFileWatch(true);
+        await ensureAdlProjectFileWatch(true);
 
         try {
           await wait(40);

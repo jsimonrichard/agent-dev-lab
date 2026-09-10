@@ -20,12 +20,6 @@ type PlaygroundLikeProject = {
   writeWorkflow: (version: string, options?: { atomic?: boolean }) => Promise<void>;
 };
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
 function workflowSource(version: string): string {
   return `import { z } from "zod";
 import { adl } from "#adl";
@@ -128,7 +122,7 @@ describe("watchAdlProject integration (playground-like nested registry)", () => 
       const fixture = await createPlaygroundLikeProject();
       const project = await loadAdlProject({ root: fixture.root });
       const reloaded = Promise.withResolvers<number>();
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: ({ generation }) => {
           reloaded.resolve(generation);
         },
@@ -138,13 +132,13 @@ describe("watchAdlProject integration (playground-like nested registry)", () => 
       });
 
       try {
-        await wait(40);
+        await watcher.ready;
         await fixture.writeWorkflow("B");
         await expect(reloaded.promise).resolves.toBe(1);
         expect(workflowQuestion(project)).toBe("default B");
         expect(await workflowResult(project, "q")).toBe("q_B");
       } finally {
-        dispose();
+        watcher.close();
         rmSync(fixture.root, { recursive: true, force: true });
       }
     },
@@ -157,7 +151,7 @@ describe("watchAdlProject integration (playground-like nested registry)", () => 
       const fixture = await createPlaygroundLikeProject();
       const project = await loadAdlProject({ root: fixture.root });
       const reloaded = Promise.withResolvers<number>();
-      const dispose = watchAdlProject(project, {
+      const watcher = watchAdlProject(project, {
         onReload: ({ generation }) => {
           reloaded.resolve(generation);
         },
@@ -167,13 +161,13 @@ describe("watchAdlProject integration (playground-like nested registry)", () => 
       });
 
       try {
-        await wait(40);
+        await watcher.ready;
         await fixture.writeWorkflow("C", { atomic: true });
         await expect(reloaded.promise).resolves.toBe(1);
         expect(workflowQuestion(project)).toBe("default C");
         expect(await workflowResult(project, "q")).toBe("q_C");
       } finally {
-        dispose();
+        watcher.close();
         rmSync(fixture.root, { recursive: true, force: true });
       }
     },
