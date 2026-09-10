@@ -144,5 +144,15 @@ export const conversationMetadata = sqliteTable("adl_conversation_metadata", {
   deletedAt: text("deleted_at"),
 });
 
+/**
+ * Ledger of one-time schema/backfill steps that have been applied, so
+ * "has this already run?" is answerable rather than inferred from table
+ * contents. See `db/backfill.ts`.
+ */
+export const schemaMigrations = sqliteTable("adl_schema_migrations", {
+  id: text("id").primaryKey(),
+  appliedAt: text("applied_at").notNull(),
+});
+
 export type MessageRow = typeof messages.$inferSelect;
 export type WorkflowRunRow = typeof workflowRuns.$inferSelect;

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import { backfillProjections } from "./backfill";
 import type { AdlSqliteDatabase } from "./sqlite-types";
 import { wrapAdlDb, type AdlDb } from "./wrap-drizzle";
 
@@ -65,6 +66,10 @@ const TABLES = [
     updated_at TEXT NOT NULL,
     fork_json TEXT,
     deleted_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS adl_schema_migrations (
+    id TEXT PRIMARY KEY NOT NULL,
+    applied_at TEXT NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS adl_agent_episodes (
     agent_call_id TEXT PRIMARY KEY NOT NULL,
@@ -281,5 +286,9 @@ export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
     for (const statement of INDEXES) {
       tx.run(sql.raw(statement));
     }
+    // Last: the projections it rebuilds need their tables and indexes to exist,
+    // and it only does work for a table that is empty while the log holds
+    // events for it — i.e. once, right after the migration that added it.
+    backfillProjections(tx);
   });
 }
