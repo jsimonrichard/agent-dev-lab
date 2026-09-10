@@ -2,6 +2,7 @@ export {
   createFileJail,
   createFileToolProvider,
   createFileTools,
+  createSearchTools,
   DEFAULT_MAX_BYTES,
   describeFileAccess,
 } from "./file";
@@ -14,6 +15,9 @@ export type {
   FileToolProviderContext,
   FileToolProviderOptions,
   FileToolsOptions,
+  SearchTools,
+  SearchToolsOptions,
+  SearchToolResult,
 } from "./file";
 export {
   bashSafetyCheckInputSchema,

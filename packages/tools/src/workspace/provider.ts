@@ -18,6 +18,12 @@ import {
 } from "../bash/provider";
 import { DEFAULT_TIMEOUT_MS, type BashTools } from "../bash/tools";
 import { createFileToolProvider, describeFileAccess, type FileAccessInfo } from "../file/provider";
+import {
+  createSearchTools,
+  GLOB_DESCRIPTION,
+  GREP_DESCRIPTION,
+  type SearchTools,
+} from "../file/search";
 import { DEFAULT_MAX_BYTES, type FileTools } from "../file/tools";
 
 const describeWorkspaceEnvDescription =
@@ -49,6 +55,8 @@ export type WorkspaceTools = {
   readFile: FileTools["readFile"];
   writeFile: FileTools["writeFile"];
   editFile: FileTools["editFile"];
+  grep: SearchTools["grep"];
+  glob: SearchTools["glob"];
   bash: BashTools["bash"];
   describeWorkspaceEnv: DescribeWorkspaceEnvTool;
 };
@@ -129,6 +137,8 @@ export function createWorkspaceToolProvider(
         );
       return [
         ...dropOwnDescribeEnv(fileProvider.listTools?.() ?? []),
+        { name: "grep", description: GREP_DESCRIPTION },
+        { name: "glob", description: GLOB_DESCRIPTION },
         ...dropOwnDescribeEnv(bashProvider.listTools?.() ?? []),
         { name: "describeWorkspaceEnv", description: describeWorkspaceEnvDescription },
       ];
@@ -155,6 +165,11 @@ export function createWorkspaceToolProvider(
         }),
         bashProvider.getTools({ ...ctx, toolProviderContext: { cwd, timeoutMs } }),
       ]);
+      const searchTools = createSearchTools({
+        executor: options.executor,
+        root: cwd,
+        timeoutMs,
+      });
 
       const describeWorkspaceEnv: DescribeWorkspaceEnvTool = tool({
         description: describeWorkspaceEnvDescription,
@@ -173,6 +188,8 @@ export function createWorkspaceToolProvider(
         readFile: fileTools.readFile,
         writeFile: fileTools.writeFile,
         editFile: fileTools.editFile,
+        grep: searchTools.grep,
+        glob: searchTools.glob,
         bash: bashTools.bash,
         describeWorkspaceEnv,
       };

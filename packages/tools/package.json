@@ -18,7 +18,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "bun test",
-    "test:node": "node --test src/bash/process-channel.test.ts src/bash/native-executor.test.ts src/bash/asrt-executor.test.ts src/web/url-pattern.test.ts src/web/address-policy.test.ts src/web/fetch.test.ts src/web/fetch-url.test.ts"
+    "test:node": "node --test src/bash/process-channel.test.ts src/bash/native-executor.test.ts src/bash/asrt-executor.test.ts src/file/search.executor.test.ts src/web/url-pattern.test.ts src/web/address-policy.test.ts src/web/fetch.test.ts src/web/fetch-url.test.ts"
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",
