@@ -6,6 +6,7 @@ import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
+import { existingSystemReadPaths } from "./read-bounds.ts";
 
 export interface NativeBashExecutorOptions {
   /**
@@ -17,6 +18,22 @@ export interface NativeBashExecutorOptions {
   /** Paths to hide entirely (not just deny write to), on top of the read-only view of
    * everything else this executor gives by default. */
   denyRead?: string[];
+  /**
+   * Confine **reads** to these paths (plus `allowWrite`, plus the system paths below).
+   * Omitted — the default — keeps this executor's historical behaviour of ro-binding all of
+   * `/`, i.e. reads are not bounded at all.
+   *
+   * Unlike `denyRead`, which is a deny-list and therefore only ever as complete as its
+   * author, this is an **allow**-list enforced by the kernel: a path outside it is not
+   * "permission denied" but genuinely *absent* from the mount namespace — `ls` reports
+   * `No such file or directory`. That is what makes it suitable as the read boundary for a
+   * recursive reader like `rg`, where enumerating everything to deny is hopeless.
+   *
+   * {@link SYSTEM_READ_PATHS} stay bound regardless, since nothing can execute without
+   * them; see {@link BashExecutorDescription.allowRead} for what that means for the
+   * guarantee.
+   */
+  allowRead?: string[];
   /**
    * Allow network access. Default `false` (matches ASRT's "no network unless explicitly
    * allowed" posture) — but unlike ASRT, this executor can't filter by domain: it's all
@@ -109,39 +126,44 @@ function denyReadArgsFor(resolvedPath: string): string[] {
  * Builds a `bwrap` invocation. Bind-mount ordering matters and mirrors bwrap's own
  * last-one-wins-at-a-path semantics:
  *
- * 1. `--ro-bind / /` — the whole host filesystem, read-only, so ordinary commands (`ls`,
- *    `cat`, compilers, whatever's already on the machine) just work.
+ * 1. The read base — either `--ro-bind / /` (the whole host filesystem, read-only, so
+ *    ordinary commands just work) when `allowRead` is omitted, or, when it is given, only
+ *    {@link SYSTEM_READ_PATHS}, so everything else is absent from the namespace until a
+ *    later bind puts it back.
  * 2. `--dev`/`--proc`/`--tmpfs /tmp` — a fresh `/dev`, `/proc`, and an empty, ephemeral,
  *    writable `/tmp` (vanishes with the sandbox; never the host's real `/tmp`, even for an
  *    `allowWrite`/`denyRead` path that happens to live under `/tmp` — those still need their
  *    own bind below, applied after this tmpfs, to be reachable at all).
- * 3. `allowWrite` binds (`--bind`, read-write) — override the read-only base at those paths.
- * 4. `denyRead` binds (see `denyReadArgsFor`, hiding the path entirely) — applied *after*
+ * 3. `allowRead` binds (`--ro-bind`) — added *after* the tmpfs, which matters: a root under
+ *    `/tmp` would otherwise be wiped by step 2 and simply not exist (verified).
+ * 4. `allowWrite` binds (`--bind`, read-write) — override the read-only base at those paths.
+ * 5. `denyRead` binds (see `denyReadArgsFor`, hiding the path entirely) — applied *after*
  *    `allowWrite`, so an explicit deny always wins over a broader allow, even one nested
  *    inside it (mirrors ASRT's own "denyWrite takes precedence over allowWrite" tie-break;
  *    here it's denyRead over allowWrite).
- * 5. `--unshare-all` (every namespace, including network) then `--share-net` added back only
+ * 6. `--unshare-all` (every namespace, including network) then `--share-net` added back only
  *    if `allowNetwork` — network access here is all-or-nothing, no per-domain filtering.
  */
 function buildBwrapArgv(
   command: string,
   cwd: string,
   allowWrite: string[],
+  allowRead: string[] | null,
   denyRead: string[],
   allowNetwork: boolean,
 ): string[] {
-  const argv = [
-    "bwrap",
-    "--ro-bind",
-    "/",
-    "/",
-    "--dev",
-    "/dev",
-    "--proc",
-    "/proc",
-    "--tmpfs",
-    "/tmp",
-  ];
+  const argv = ["bwrap"];
+  if (allowRead === null) {
+    argv.push("--ro-bind", "/", "/");
+  } else {
+    for (const p of existingSystemReadPaths()) {
+      argv.push("--ro-bind", p, p);
+    }
+  }
+  argv.push("--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp");
+  for (const p of allowRead ?? []) {
+    argv.push("--ro-bind", p, p);
+  }
   for (const p of allowWrite) {
     argv.push("--bind", p, p);
   }
@@ -190,6 +212,7 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   }
 
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
+  const allowRead = options.allowRead?.map((p) => path.resolve(p)) ?? null;
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
   const allowNetwork = options.allowNetwork ?? false;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
@@ -200,7 +223,14 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
       const channel = createAsyncChannel<BashExecutorUpdate>();
       try {
         checkBwrapAvailable();
-        const argv = buildBwrapArgv(command, run.cwd, allowWrite, denyRead, allowNetwork);
+        const argv = buildBwrapArgv(
+          command,
+          run.cwd,
+          allowWrite,
+          allowRead,
+          denyRead,
+          allowNetwork,
+        );
         runArgvIntoChannel(argv, env, run, maxOutputBytes, channel);
       } catch (error) {
         channel.fail(error);
@@ -212,6 +242,7 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
       return {
         backend: "native",
         allowWrite,
+        allowRead,
         denyRead,
         // No denyWrite option exists on this executor — allowWrite is the only write surface.
         denyWrite: [],

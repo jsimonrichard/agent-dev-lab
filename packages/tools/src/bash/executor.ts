@@ -38,6 +38,17 @@ export interface BashExecutorDescription {
   backend: string;
   /** Absolute paths writable inside the sandbox. */
   allowWrite: string[];
+  /**
+   * Absolute paths reads are confined to, or `null` when this executor is not bounding reads
+   * at all (the whole host filesystem is visible read-only). `null` is the honest answer for
+   * a backend that *cannot* bound reads — `createAsrtBashExecutor` — rather than reporting an
+   * empty list that would read as "nothing is readable."
+   *
+   * Even when non-`null`, the sandbox still contains the system paths any program needs to
+   * execute (`/usr`, `/etc`, the lib directories), so `/etc/passwd` stays readable. The
+   * guarantee is "no *user* data outside these roots," not "only these roots."
+   */
+  allowRead: string[] | null;
   /** Absolute paths hidden from reads, on top of the executor's own defaults. */
   denyRead: string[];
   /** Absolute paths denied write access, on top of `allowWrite` not already covering them. */

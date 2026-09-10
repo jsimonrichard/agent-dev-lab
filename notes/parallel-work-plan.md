@@ -194,15 +194,13 @@ the message store, or in a small shared projection layer.
 
 Gates D1/D1a/D1b/D5 are resolved (§2). The only shared file is the soft tools barrel (A/B).
 
-**In flight:** A, B, D, S. **E is held** and rebases onto S once S lands — see the ordering note below.
-
-| Lane                                                                | Scope                                                                                                                                                                                                                                                 | Owns                                                                         |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **A — Grep/glob search tools** (P1, §2)                             | `grep({pattern, path, glob?})` / `glob({pattern})` over `rg`. **Blocked on a `runArgv` addition to `BashExecutor`** — see §8. Roadmap calls this the highest-value/lowest-effort item of the batch; `ripgrep` is already a hard dependency.           | new `packages/tools/src/search/`, plus `packages/tools/src/bash/executor.ts` |
-| **B — `fetchUrl` tool** (P1, §2)                                    | Fetch one URL, reduce to readable text/markdown. SSRF guard against redirects into private IP ranges; fetched content always treated as untrusted text.                                                                                               | new `packages/tools/src/web/`                                                |
-| **S — Schema & persistence** (P1, §5 + D1b/D5)                      | One migration pass covering all three schema changes: `adl_agent_episodes`, `adl_conversation_metadata` (renaming `adl_inspector_sessions` and relocating it into core), and git-hash/version tagging on runs. **Holds the schema lock exclusively.** | `db/schema.ts`, `ensure-schema.ts`, `sqlite-workflow-store.ts`, `stores/`    |
-| **D — Repo hygiene & CI**                                           | The four items from the 2026-09-07 CI work; see §5.                                                                                                                                                                                                   | `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts`, `.github/`       |
-| **E — Per-call model override** (P1, §1) — **HELD, rebases onto S** | `model?` on `AgentRunInput`, threaded through the single resolution point at `agent-impl.ts:234`, plus the `{ modelId, provider }` descriptor on the `agent_started` event. **Core only — no catalog** (D1a). Step 1 of the serial core chain.        | `agent-impl.ts`, `observability/events.ts`                                   |
+| Lane                                           | Scope                                                                                                                                                                                                                                                 | Owns                                                                         |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **A — Grep/glob search tools** (P1, §2)        | `grep({pattern, path, glob?})` / `glob({pattern})` over `rg`. **Blocked on a `runArgv` addition to `BashExecutor`** — see §8. Roadmap calls this the highest-value/lowest-effort item of the batch; `ripgrep` is already a hard dependency.           | new `packages/tools/src/search/`, plus `packages/tools/src/bash/executor.ts` |
+| **B — `fetchUrl` tool** (P1, §2)               | Fetch one URL, reduce to readable text/markdown. SSRF guard against redirects into private IP ranges; fetched content always treated as untrusted text.                                                                                               | new `packages/tools/src/web/`                                                |
+| **S — Schema & persistence** (P1, §5 + D1b/D5) | One migration pass covering all three schema changes: `adl_agent_episodes`, `adl_conversation_metadata` (renaming `adl_inspector_sessions` and relocating it into core), and git-hash/version tagging on runs. **Holds the schema lock exclusively.** | `db/schema.ts`, `ensure-schema.ts`, `sqlite-workflow-store.ts`, `stores/`    |
+| **D — Repo hygiene & CI**                      | The four items from the 2026-09-07 CI work; see §5.                                                                                                                                                                                                   | `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts`, `.github/`       |
+| **E — Per-call model override** (P1, §1)       | `model?` on `AgentRunInput`, threaded through the single resolution point at `agent-impl.ts:234`, plus the `{ modelId, provider }` descriptor on the `agent_started` event. **Core only — no catalog** (D1a). Step 1 of the serial core chain.        | `agent-impl.ts`, `observability/events.ts`                                   |
 
 **Why S is one lane and not three.** Git-hash tagging, the episodes table, and the conversation
 metadata rename all migrate `db/schema.ts`. Under §6's schema-lock rule they would serialize into
@@ -214,19 +212,9 @@ three sequenced ones.
 override is a targeted change at one resolution point. Landing it first means the refactor
 (Lane I) absorbs it once, instead of the override rebasing onto a rewritten function.
 
-**The E ↔ S ordering — decided 2026-09-08: S first, then E rebases onto it.** E adds `model?` to
-the `agent_started` event and S persists it into `adl_agent_episodes`. On paper these touch
-different files and could run concurrently against an agreed field shape, but S's migration
-turned out to conflict with E in practice, so E is held and will rebase onto S once S lands.
-
-Two consequences worth tracking:
-
-- **E is not provisioned with the rest of Wave 1.** Wave 1 in flight is A, B, D, S.
-- **The `agent-impl.ts` serial chain (§4) starts later than planned**, since E is its first step.
-  The chain order is unchanged — override → refactor → usage/cost — but its start now waits on S.
-  If that delay becomes the critical path, the alternative is to land E's `AgentRunInput.model`
-  change without the `agent_started` descriptor and let S add the field itself; that decouples
-  the two at the cost of splitting D1b across two lanes.
+**The E ↔ S contract.** E adds `model?` to the `agent_started` event; S persists it into
+`adl_agent_episodes`. Different files, so they can run concurrently provided the field shape is
+agreed up front — otherwise land E first and let S project an already-stable event.
 
 ## 4. The serial chain — `agent-impl.ts`
 

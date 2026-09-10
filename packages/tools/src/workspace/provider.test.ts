@@ -38,6 +38,7 @@ function stubExecutor(): BashExecutor & {
       return {
         backend: "stub",
         allowWrite: ["/allowed"],
+        allowRead: null,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },
@@ -126,6 +127,7 @@ describe("createWorkspaceToolProvider", () => {
         timeoutMs: 30_000,
         backend: "stub",
         allowWrite: ["/allowed"],
+        allowRead: null,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },

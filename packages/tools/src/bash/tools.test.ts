@@ -33,6 +33,7 @@ function stubExecutor(
       return {
         backend: "stub",
         allowWrite: [],
+        allowRead: null,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },

@@ -72,6 +72,38 @@ async function finalResult(gen: AsyncGenerator<BashExecutorUpdate>): Promise<Bas
 }
 
 describe("createAsrtBashExecutor", () => {
+  describe("allowRead", () => {
+    // A second executor with a *different* config cannot be exercised here: SandboxManager is
+    // a process-wide singleton and this file's shared `executor` already won the config (see
+    // the header). So this suite asserts the config an executor reports, and the enforcement
+    // itself is covered end-to-end by native-executor.test.ts, which has no such constraint.
+    it("reports null when allowRead is omitted, matching ASRT's read-everywhere default", () => {
+      assert.equal(executor.describe().allowRead, null);
+    });
+
+    it("reports the caller's roots, not the widened set handed to ASRT", () => {
+      const bounded = createAsrtBashExecutor({
+        allowWrite: [allowedDir],
+        allowRead: [allowedDir],
+      });
+      const described = bounded.describe();
+      // Resolved caller roots only — the system paths and ASRT's own package directory are an
+      // implementation detail of enforcing the bound, not part of the promise.
+      assert.deepEqual(described.allowRead, [allowedDir]);
+      // And the broad denial that makes the carve-out mean anything is in place.
+      assert.ok(described.denyRead.includes("/"), described.denyRead.join(","));
+    });
+
+    it("keeps a caller-supplied denyRead on top of the synthesized one", () => {
+      const bounded = createAsrtBashExecutor({
+        allowWrite: [allowedDir],
+        allowRead: [allowedDir],
+        denyRead: [deniedDir],
+      });
+      assert.deepEqual(bounded.describe().denyRead, ["/", deniedDir]);
+    });
+  });
+
   it(
     "runs a command and returns its stdout and a zero exit code",
     { timeout: 15_000 },

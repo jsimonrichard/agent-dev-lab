@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -41,6 +41,116 @@ async function finalResult(gen: AsyncGenerator<BashExecutorUpdate>): Promise<Bas
 }
 
 describe("createNativeBashExecutor", () => {
+  describe("allowRead", () => {
+    it(
+      "makes a path outside the allowed roots absent, not merely denied",
+      { timeout: 15_000 },
+      async () => {
+        const base = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+        const root = path.join(base, "root");
+        const outside = path.join(base, "outside");
+        await mkdir(root, { recursive: true });
+        await mkdir(outside, { recursive: true });
+        await writeFile(path.join(root, "in.txt"), "needle inside\n");
+        await writeFile(path.join(outside, "out.txt"), "needle outside\n");
+
+        try {
+          const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
+
+          const inside = await finalResult(
+            executor.run("cat in.txt", { cwd: root, timeoutMs: 10_000 }),
+          );
+          assert.equal(inside.exitCode, 0);
+          assert.equal(inside.stdout.trim(), "needle inside");
+
+          const escaped = await finalResult(
+            executor.run(`cat ${JSON.stringify(path.join(outside, "out.txt"))}`, {
+              cwd: root,
+              timeoutMs: 10_000,
+            }),
+          );
+          assert.notEqual(escaped.exitCode, 0);
+          // Absent from the mount namespace, not a permissions error — that distinction is
+          // the whole point of a kernel-enforced allow-list over a deny-list.
+          assert.match(escaped.stderr, /No such file or directory/);
+          assert.ok(!escaped.stdout.includes("needle outside"), escaped.stdout);
+        } finally {
+          await rm(base, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it(
+      "hides the home directory while keeping the sandbox usable",
+      { timeout: 15_000 },
+      async () => {
+        const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+        try {
+          const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
+          const home = process.env.HOME ?? "/root";
+          const result = await finalResult(
+            executor.run(`ls ${JSON.stringify(home)}`, { cwd: root, timeoutMs: 10_000 }),
+          );
+          assert.notEqual(result.exitCode, 0);
+          assert.match(result.stderr, /No such file or directory/);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it("keeps a recursive rg inside the allowed root", { timeout: 15_000 }, async () => {
+      const base = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+      const root = path.join(base, "root");
+      const outside = path.join(base, "outside");
+      await mkdir(path.join(root, "sub"), { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(path.join(root, "sub", "b.txt"), "needle in sub\n");
+      await writeFile(path.join(outside, "secret.txt"), "needle secret\n");
+      // A symlink pointing out of the root: nothing it points at may surface.
+      await symlink(outside, path.join(root, "link"));
+
+      try {
+        const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
+        const result = await finalResult(
+          executor.run("rg --no-filename needle .", { cwd: root, timeoutMs: 10_000 }),
+        );
+        assert.equal(result.stdout.trim(), "needle in sub");
+        assert.ok(!result.stdout.includes("secret"), result.stdout);
+      } finally {
+        await rm(base, { recursive: true, force: true });
+      }
+    });
+
+    it(
+      "leaves reads unbounded, and reports null, when allowRead is omitted",
+      { timeout: 15_000 },
+      async () => {
+        const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+        try {
+          const executor = createNativeBashExecutor({ allowWrite: [root] });
+          assert.equal(executor.describe().allowRead, null);
+          const result = await finalResult(
+            executor.run("head -1 /etc/passwd", { cwd: root, timeoutMs: 10_000 }),
+          );
+          assert.equal(result.exitCode, 0);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it("reports the resolved allowRead roots from describe()", async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+      try {
+        const executor = createNativeBashExecutor({ allowWrite: [], allowRead: [root, "."] });
+        assert.deepEqual(executor.describe().allowRead, [root, path.resolve(".")]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   it(
     "runs a command and returns its stdout and a zero exit code",
     { timeout: 15_000 },

@@ -42,6 +42,7 @@ function stubExecutor(
       return {
         backend: "stub",
         allowWrite: ["/allowed"],
+        allowRead: null,
         denyRead: ["/denied"],
         denyWrite: [],
         network: { allowNetwork: false },
@@ -131,6 +132,7 @@ describe("createBashToolProvider", () => {
         timeoutMs: 12_345,
         backend: "stub",
         allowWrite: ["/allowed"],
+        allowRead: null,
         denyRead: ["/denied"],
         denyWrite: [],
         network: { allowNetwork: false },

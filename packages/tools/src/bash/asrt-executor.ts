@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
@@ -10,6 +11,7 @@ import {
 
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
+import { existingSystemReadPaths } from "./read-bounds.ts";
 
 export interface AsrtBashExecutorOptions {
   /**
@@ -20,6 +22,24 @@ export interface AsrtBashExecutorOptions {
   allowWrite: string[];
   /** Paths to deny read, on top of whatever ASRT denies by default (e.g. `~/.ssh`). */
   denyRead?: string[];
+  /**
+   * Confine **reads** to these paths. Omitted — the default — leaves reads unbounded, which
+   * is ASRT's own default ("read access is allowed everywhere").
+   *
+   * ASRT expresses this as deny-then-allow, where `allowRead` re-allows within a denied
+   * region and takes precedence over `denyRead` (the opposite of write). This executor
+   * supplies the broad denial for you — `denyRead: ["/"]` — so the option means the same
+   * thing here as on `createNativeBashExecutor`: reads are confined to these roots, rather
+   * than being a modifier whose effect depends on a `denyRead` the caller had to think to
+   * write. Any `denyRead` you pass is still applied on top, and stays denied even inside an
+   * allowed root when it is the more specific path.
+   *
+   * `existingSystemReadPaths()` and ASRT's own package directory are re-allowed
+   * automatically: without the former nothing can execute, and without the latter ASRT's
+   * vendored `apply-seccomp` helper is hidden from the sandbox it is setting up (verified —
+   * the command dies with exit 127 before it starts).
+   */
+  allowRead?: string[];
   denyWrite?: string[];
   /** Domains allowed for network access. Omit/empty (the default) means no network access. */
   allowedDomains?: string[];
@@ -78,45 +98,20 @@ function dependencyError(check: SandboxDependencyCheck): AdlError {
 }
 
 /**
- * `BashExecutor` backed by `@anthropic-ai/sandbox-runtime` (ASRT) — the preferred default per
- * `notes/tool-sandboxing.md`. Uses ASRT's library API (`SandboxManager`), not the `srt` CLI
- * binary: the CLI's `commander`-based argv parser misreads a wrapped command's own short
- * flags as its *own* flags (confirmed: `srt curl -sS ...` reads `-sS` as `-s S`, ASRT's
- * `--settings` flag) — a real risk here since the command comes from the model, not a human
- * typing one well-formed invocation.
- *
- * **Process-global state:** `SandboxManager` is a single, process-wide singleton (per its own
- * docs: "Global sandbox manager... for this session") — module-scoped state, not a class, so
- * there is no way to run two independently-configured sandboxes in one process. `initialize()`
- * is itself idempotent: once it has succeeded once, later calls (from a second
- * `createAsrtBashExecutor` with a *different* config) just await the same already-resolved
- * initialization and silently keep the first config — ASRT's own behavior, not something this
- * wrapper adds. So the practical rule is: whichever `createAsrtBashExecutor` call's `run()`
- * executes first wins its config for the whole process; every other instance transparently
- * shares that same sandbox instead of getting its own `allowWrite`/`denyRead`/network settings.
- * Construct one instance per distinct config you actually need, and prefer one shared instance
- * per process when configs would otherwise match.
- *
- * Never calls `SandboxManager.reset()` between commands — doing so would tear down the shared
- * network proxy for every other in-flight or future command in this process, not just the one
- * that just finished.
- *
- * **Caller's responsibility: call `SandboxManager.reset()` yourself when your process is
- * shutting down.** ASRT's own docs describe this as optional, "happens automatically on
- * process exit" — verified directly that this is not reliable: a plain Node script that
- * finishes all its own work and calls nothing else hangs indefinitely rather than exiting
- * (`SandboxManager` holds the process open, most likely via its proxy bridge processes/
- * sockets not being unref'd). `bun test` masked this for a long time — it force-ends the whole
- * process at suite completion regardless of open handles, so no hang was ever visible, but
- * every one of `SandboxManager`'s child processes leaked (confirmed: dozens of orphaned
- * `socat` bridges accumulated silently across many `bun test` runs). `node --test` does not
- * force anything — it waits for a natural exit — so the same code hung indefinitely under it
- * until `asrt-executor.test.ts` added an explicit `SandboxManager.reset()` in its `after()`
- * hook. A real host application (a long-running CLI command, a server) using this executor
- * needs the same: call `SandboxManager.reset()` on its own shutdown path, or it will neither
- * exit cleanly nor release these processes.
+ * ASRT's own installed package directory, which must stay readable for its vendored
+ * `apply-seccomp` helper to run inside a read-bounded sandbox. Resolved once via the package's
+ * `package.json` rather than assumed to sit under any particular `node_modules` layout.
  */
+function asrtPackageDir(): string {
+  return path.dirname(
+    createRequire(import.meta.url).resolve("@anthropic-ai/sandbox-runtime/package.json"),
+  );
+}
+
 export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashExecutor {
+  const allowRead = options.allowRead?.map((p) => path.resolve(p)) ?? null;
+  const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
+
   const config: SandboxRuntimeConfig = {
     network: {
       allowedDomains: options.allowedDomains ?? [],
@@ -124,7 +119,12 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     },
     filesystem: {
       allowWrite: options.allowWrite.map((p) => path.resolve(p)),
-      denyRead: (options.denyRead ?? []).map((p) => path.resolve(p)),
+      // Reads are allowed everywhere until something denies them, so bounding them means
+      // denying "/" and carving the roots back out — see `allowRead`'s doc comment.
+      denyRead: allowRead === null ? denyRead : ["/", ...denyRead],
+      ...(allowRead === null
+        ? {}
+        : { allowRead: [...allowRead, asrtPackageDir(), ...existingSystemReadPaths()] }),
       denyWrite: (options.denyWrite ?? []).map((p) => path.resolve(p)),
     },
   };
@@ -179,6 +179,9 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
       return {
         backend: "asrt",
         allowWrite: config.filesystem.allowWrite,
+        // The roots as the caller asked for them, not the widened set actually handed to
+        // ASRT — the system and vendor paths are an implementation detail of enforcing it.
+        allowRead,
         denyRead: config.filesystem.denyRead,
         denyWrite: config.filesystem.denyWrite,
         network: {
