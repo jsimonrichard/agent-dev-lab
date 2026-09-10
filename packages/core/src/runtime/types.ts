@@ -63,6 +63,13 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
   /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
   telemetry?: AdlOpenTelemetrySettings;
   /**
+   * Identifies which version of the project's code a run came from, recorded
+   * as a `version:<value>` tag on every `workflow.run()`. Overrides the git
+   * commit that would otherwise be resolved — set it for a release
+   * identifier, or for a project with no git repository at all.
+   */
+  version?: string;
+  /**
    * Load `.env*` into `process.env` when constructing the runtime.
    * Defaults to `true` (project root = `process.cwd()`). Pass `false` to skip,
    * or `{ root }` when the ADL project is not the cwd.
@@ -86,6 +93,8 @@ export type RuntimeServices = {
   tools: ToolSet;
   /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
   telemetry?: AdlOpenTelemetrySettings;
+  /** See {@link AdlRuntimeConfig.version}. */
+  version?: string;
 };
 
 /**

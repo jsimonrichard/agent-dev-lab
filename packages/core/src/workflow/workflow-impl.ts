@@ -4,6 +4,7 @@ import { AdlError } from "../errors";
 import { abortError, linkAbortController, raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
+import { resolveProjectVersionTag } from "../project/version-tag";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { createWorkflowContext, refreshWorkflowContext } from "./context";
@@ -119,7 +120,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           workflowRunId,
           workflowId: this.definition.id,
           input: parsedInput,
-          tags: options?.tags,
+          tags: withVersionTag(options?.tags, effectiveServices.version),
         });
 
         try {
@@ -211,4 +212,30 @@ function mergeServicesForRun(
       agents: [...services.observers.agents, ...(extra.agents ?? [])],
     },
   };
+}
+
+/**
+ * Adds the project's version tag (see {@link resolveProjectVersionTag}) to a
+ * run's tags, so every run records which code produced it.
+ *
+ * A caller-supplied tag with the same prefix wins: an explicit tag at the call
+ * site is more specific than a process-wide default, and duplicating it would
+ * make `listRuns({ tags })` match the same run twice.
+ */
+function withVersionTag(
+  tags: string[] | undefined,
+  version: string | undefined,
+): string[] | undefined {
+  const versionTag = resolveProjectVersionTag({ version });
+  if (!versionTag) {
+    return tags;
+  }
+  if (!tags?.length) {
+    return [versionTag];
+  }
+  const prefix = versionTag.slice(0, versionTag.indexOf(":") + 1);
+  if (tags.some((tag) => tag.startsWith(prefix))) {
+    return tags;
+  }
+  return [...tags, versionTag];
 }

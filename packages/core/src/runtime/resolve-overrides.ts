@@ -41,6 +41,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     defaults: config.defaults ?? {},
     tools: config.tools ?? {},
     telemetry: config.telemetry,
+    version: config.version,
   };
 }
 
@@ -67,5 +68,6 @@ export function resolveRuntimeOverrides(
     defaults: base.defaults,
     tools: base.tools,
     telemetry: base.telemetry,
+    version: base.version,
   };
 }

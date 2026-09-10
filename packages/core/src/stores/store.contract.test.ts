@@ -147,6 +147,38 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(named?.title).toBe("Named up front");
     });
 
+    it("tags every run with the configured project version", async () => {
+      const store = await createStore();
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: "1.4.0" });
+      const workflow = runtime.createWorkflow({
+        id: "contract-version",
+        run: async () => ({ ok: true }),
+      });
+
+      const auto = workflow.run({});
+      await auto.result;
+      expect((await store.getRun(auto.workflowRunId))?.tags).toEqual(["version:1.4.0"]);
+
+      // Caller tags are kept alongside it...
+      const withTags = workflow.run({}, { tags: ["dataset:qa-v1"] });
+      await withTags.result;
+      expect((await store.getRun(withTags.workflowRunId))?.tags).toEqual(
+        expect.arrayContaining(["dataset:qa-v1", "version:1.4.0"]),
+      );
+
+      // ...but a caller's own version tag wins, rather than being duplicated,
+      // which would make listRuns({ tags }) match the same run twice.
+      const explicit = workflow.run({}, { tags: ["version:override"] });
+      await explicit.result;
+      expect((await store.getRun(explicit.workflowRunId))?.tags).toEqual(["version:override"]);
+
+      expect(
+        (await store.listRuns({ workflowId: "contract-version", tags: ["version:1.4.0"] })).map(
+          (run) => run.workflowRunId,
+        ),
+      ).toEqual(expect.arrayContaining([auto.workflowRunId, withTags.workflowRunId]));
+    });
+
     it("reads back a conversation-scoped event that has no owning run", async () => {
       const store = await createStore();
       // conversation_forked carries neither workflowRunId nor agentCallId, so
