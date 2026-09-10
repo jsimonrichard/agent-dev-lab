@@ -392,6 +392,24 @@ describe("createNativeBashExecutor", () => {
     },
   );
 
+  it("treats single quotes in an argv element as literal text", { timeout: 15_000 }, async () => {
+    // A naive `'…'` wrap around this payload closes the quote and runs
+    // `/bin/echo INJECTED`. execve never does that wrap — there is no
+    // escaping step on this path.
+    const root = await mkdtemp(path.join(tmpdir(), "adl-native-argv-quote-"));
+    try {
+      const executor = createNativeBashExecutor({ allowWrite: [root] });
+      const payload = "'; /bin/echo INJECTED; '";
+      const result = await finalResult(
+        executor.run(["/bin/echo", payload], { cwd: root, timeoutMs: 10_000 }),
+      );
+      assert.equal(result.exitCode, 0);
+      assert.equal(result.stdout.trim(), payload);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed on an empty argv", { timeout: 15_000 }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "adl-native-empty-argv-"));
     try {

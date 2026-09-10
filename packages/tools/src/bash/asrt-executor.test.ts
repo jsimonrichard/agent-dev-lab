@@ -214,6 +214,18 @@ describe("createAsrtBashExecutor", () => {
     },
   );
 
+  it("treats single quotes in an argv element as literal text", { timeout: 15_000 }, async () => {
+    // Same breakout as the native test: a `'…'` wrap would run
+    // `/bin/echo INJECTED`. ASRT puts the value in $ADL_ARGV_* and
+    // exec's `"$ADL_ARGV_N"` — the quotes never appear in the script.
+    const payload = "'; /bin/echo INJECTED; '";
+    const result = await finalResult(
+      executor.run(["/bin/echo", payload], { cwd: allowedDir, timeoutMs: 10_000 }),
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout.trim(), payload);
+  });
+
   it("fails closed on an empty argv", { timeout: 15_000 }, async () => {
     await assert.rejects(
       () => finalResult(executor.run([], { cwd: allowedDir, timeoutMs: 5_000 })),
