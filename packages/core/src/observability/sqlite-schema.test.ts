@@ -227,6 +227,119 @@ describe("adl_conversation_metadata", () => {
   });
 });
 
+describe("adl_conversation_metadata.agent_call_id nullability", () => {
+  /** Pre-relaxation shape: agent_call_id NOT NULL, already at the new table name. */
+  function createNotNullTable(sqlite: Database): void {
+    sqlite.exec(`
+      CREATE TABLE adl_conversation_metadata (
+        memory_scope TEXT PRIMARY KEY NOT NULL,
+        agent_id TEXT NOT NULL,
+        agent_call_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        fork_json TEXT,
+        deleted_at TEXT
+      )
+    `);
+  }
+
+  function notNullFlag(sqlite: Database, table: string, column: string): number | undefined {
+    return (
+      sqlite.prepare(`PRAGMA table_info(${table})`).all() as {
+        name: string;
+        notnull: number;
+      }[]
+    ).find((col) => col.name === column)?.notnull;
+  }
+
+  it("is nullable on a fresh database", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    expect(notNullFlag(sqlite, "adl_conversation_metadata", "agent_call_id")).toBe(0);
+  });
+
+  it("rebuilds an older NOT NULL table, preserving every row and column", () => {
+    const sqlite = new Database(":memory:");
+    createNotNullTable(sqlite);
+    sqlite
+      .prepare(
+        `INSERT INTO adl_conversation_metadata
+          (memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "conv:1",
+        "researcher",
+        "call-1",
+        "Kept title",
+        "2026-01-01T00:00:00.000Z",
+        "2026-01-02T00:00:00.000Z",
+        '{"sourceMemoryScope":"conv:0"}',
+        "2026-01-03T00:00:00.000Z",
+      );
+    expect(notNullFlag(sqlite, "adl_conversation_metadata", "agent_call_id")).toBe(1);
+
+    ensureAdlSchema(sqlite);
+
+    expect(notNullFlag(sqlite, "adl_conversation_metadata", "agent_call_id")).toBe(0);
+    // The rebuild drops the old table, so row preservation is the thing to prove.
+    const row = sqlite
+      .prepare(`SELECT * FROM adl_conversation_metadata WHERE memory_scope = ?`)
+      .get("conv:1") as Record<string, string | null>;
+    expect(row).toMatchObject({
+      memory_scope: "conv:1",
+      agent_id: "researcher",
+      agent_call_id: "call-1",
+      title: "Kept title",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-02T00:00:00.000Z",
+      fork_json: '{"sourceMemoryScope":"conv:0"}',
+      deleted_at: "2026-01-03T00:00:00.000Z",
+    });
+    // Primary key survives the rebuild.
+    expect(notNullFlag(sqlite, "adl_conversation_metadata", "memory_scope")).toBe(1);
+    expect(() =>
+      sqlite
+        .prepare(
+          `INSERT INTO adl_conversation_metadata
+            (memory_scope, agent_id, title, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run("conv:1", "x", "dup", "2026-01-04T00:00:00.000Z", "2026-01-04T00:00:00.000Z"),
+    ).toThrow(/UNIQUE constraint failed/);
+
+    // And no rebuild scaffolding is left behind.
+    expect(tableNames(sqlite)).not.toContain("adl_conversation_metadata_rebuild");
+  });
+
+  it("accepts a row with no agent_call_id after migrating, and is idempotent", () => {
+    const sqlite = new Database(":memory:");
+    createNotNullTable(sqlite);
+    ensureAdlSchema(sqlite);
+    // Second call must not rebuild again (guarded on the current shape).
+    ensureAdlSchema(sqlite);
+
+    sqlite
+      .prepare(
+        `INSERT INTO adl_conversation_metadata
+          (memory_scope, agent_id, title, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        "fork:abc",
+        "researcher",
+        "Fork · notes",
+        "2026-01-01T00:00:00.000Z",
+        "2026-01-01T00:00:00.000Z",
+      );
+    const row = sqlite
+      .prepare(`SELECT agent_call_id FROM adl_conversation_metadata WHERE memory_scope = ?`)
+      .get("fork:abc") as { agent_call_id: string | null };
+    expect(row.agent_call_id).toBeNull();
+  });
+});
+
 describe("adl_agent_episodes", () => {
   it("creates the table with its lifecycle and model-descriptor columns", () => {
     const sqlite = new Database(":memory:");

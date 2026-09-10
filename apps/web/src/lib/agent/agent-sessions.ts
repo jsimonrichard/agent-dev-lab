@@ -157,7 +157,11 @@ export function hydrateInspectorSessions(records: ConversationMetadataRecord[]):
       continue;
     }
     registerAgentSession({
-      agentCallId: record.agentCallId,
+      // Core leaves agent_call_id null for a conversation whose first episode
+      // hasn't run yet; this layer still keys sessions by it, so fall back to
+      // the same placeholder registerForkSession uses. linkAgentCallId swaps
+      // it for the real id once an episode starts.
+      agentCallId: record.agentCallId ?? `pending:${record.memoryScope}`,
       agentId: record.agentId,
       memoryScope: record.memoryScope,
       title: record.title,

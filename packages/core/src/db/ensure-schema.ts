@@ -52,10 +52,14 @@ const TABLES = [
     tag TEXT NOT NULL,
     PRIMARY KEY (workflow_run_id, tag)
   )`,
+  // agent_call_id is nullable: a conversation can exist before its first
+  // episode does (a fork is created before its first turn runs), and the
+  // NOT NULL this replaced is what forced apps/web to invent a
+  // `pending:<memoryScope>` sentinel. See relaxConversationMetadataNulls.
   `CREATE TABLE IF NOT EXISTS adl_conversation_metadata (
     memory_scope TEXT PRIMARY KEY NOT NULL,
     agent_id TEXT NOT NULL,
-    agent_call_id TEXT NOT NULL,
+    agent_call_id TEXT,
     title TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -131,7 +135,7 @@ const COLUMN_RENAMES: { table: string; from: string; to: string }[] = [
   { table: "adl_run_events", from: "seq", to: "run_seq" },
 ];
 
-type PragmaColumn = { name: string };
+type PragmaColumn = { name: string; notnull: number };
 
 // PRAGMA doesn't accept a bound parameter for its target, so `table` is
 // interpolated with sql.raw() below — as it always was via raw string
@@ -157,6 +161,54 @@ function renameColumnIfPresent(db: AdlDb, table: string, from: string, to: strin
   if (names.has(from) && !names.has(to)) {
     db.run(sql.raw(`ALTER TABLE ${table} RENAME COLUMN ${from} TO ${to}`));
   }
+}
+
+/**
+ * Drops the `NOT NULL` on `adl_conversation_metadata.agent_call_id`.
+ *
+ * SQLite has no `ALTER COLUMN`, so relaxing a constraint means rebuilding the
+ * table. Guarded on the current shape, so it runs once on an old database and
+ * never on a fresh one (whose `CREATE TABLE` above already declares the column
+ * nullable). Safe as a plain 4-step rebuild rather than the full 12-step
+ * procedure from SQLite's ALTER TABLE docs: nothing in this schema declares a
+ * foreign key, view, or trigger against this table, and the whole migration
+ * already runs inside a transaction that rolls back on any error.
+ *
+ * Why relax it at all: a conversation legitimately exists before its first
+ * episode does — a fork is created before its first turn runs — and the
+ * constraint is what forced `apps/web` to write a `pending:<memoryScope>`
+ * sentinel into a column it then had to overwrite. Core needs to insert such a
+ * row too, and writing that same fudge into the durable log would be worse.
+ */
+function relaxConversationMetadataNulls(db: AdlDb): void {
+  const columns = tableColumns(db, "adl_conversation_metadata");
+  const agentCallId = columns.find((col) => col.name === "agent_call_id");
+  if (!agentCallId || agentCallId.notnull === 0) {
+    return;
+  }
+
+  db.run(
+    sql.raw(`CREATE TABLE adl_conversation_metadata_rebuild (
+      memory_scope TEXT PRIMARY KEY NOT NULL,
+      agent_id TEXT NOT NULL,
+      agent_call_id TEXT,
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      fork_json TEXT,
+      deleted_at TEXT
+    )`),
+  );
+  db.run(
+    sql.raw(`INSERT INTO adl_conversation_metadata_rebuild
+      (memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at)
+     SELECT memory_scope, agent_id, agent_call_id, title, created_at, updated_at, fork_json, deleted_at
+       FROM adl_conversation_metadata`),
+  );
+  db.run(sql.raw(`DROP TABLE adl_conversation_metadata`));
+  db.run(
+    sql.raw(`ALTER TABLE adl_conversation_metadata_rebuild RENAME TO adl_conversation_metadata`),
+  );
 }
 
 function tableExists(db: AdlDb, table: string): boolean {
@@ -193,11 +245,14 @@ function renameTableIfPresent(db: AdlDb, from: string, to: string): void {
  * Creates ADL tables if they do not exist, and migrates older local databases.
  * Safe to call on every open.
  *
- * Step order is load-bearing: table renames run **before** `CREATE TABLE IF NOT
- * EXISTS`, because a create under the new name would otherwise make an empty
- * table beside the one holding the rows, and the rename would then have nowhere
- * to go. Stale indexes are dropped before the index list is created, since a
- * renamed table keeps its original index names.
+ * Step order is load-bearing:
+ * - Table renames run **before** `CREATE TABLE IF NOT EXISTS`, because a create
+ *   under the new name would otherwise make an empty table beside the one
+ *   holding the rows, and the rename would then have nowhere to go.
+ * - Column adds run **before** the constraint rebuild, whose `INSERT … SELECT`
+ *   names every column and would fail against a database still missing one.
+ * - Stale indexes are dropped before the index list is created, since a renamed
+ *   table keeps its original index names.
  *
  * Runs through the driver's own transaction wrapper (`db.transaction`) rather
  * than hand-written `BEGIN`/`COMMIT`/`ROLLBACK` — verified against both bun's
@@ -219,6 +274,7 @@ export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
     for (const rename of COLUMN_RENAMES) {
       renameColumnIfPresent(tx, rename.table, rename.from, rename.to);
     }
+    relaxConversationMetadataNulls(tx);
     for (const name of STALE_INDEXES) {
       tx.run(sql.raw(`DROP INDEX IF EXISTS ${name}`));
     }

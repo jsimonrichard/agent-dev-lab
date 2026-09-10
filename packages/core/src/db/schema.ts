@@ -135,7 +135,8 @@ export const agentEpisodes = sqliteTable(
 export const conversationMetadata = sqliteTable("adl_conversation_metadata", {
   memoryScope: text("memory_scope").primaryKey(),
   agentId: text("agent_id").notNull(),
-  agentCallId: text("agent_call_id").notNull(),
+  /** Null until the conversation's first episode exists — a fork predates its first turn. */
+  agentCallId: text("agent_call_id"),
   title: text("title").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
