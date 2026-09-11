@@ -3,7 +3,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "bun:test";
 
-import { resolveUiLaunchMode, shouldForwardUiChildSignals } from "./ui-launch";
+import {
+  adlProjectWatchEnvValue,
+  resolveUiLaunchMode,
+  shouldForwardUiChildSignals,
+} from "./ui-launch";
 
 const webRoot = path.resolve(fileURLToPath(new URL("../../web", import.meta.url)));
 
@@ -11,22 +15,29 @@ describe("resolveUiLaunchMode", () => {
   it("uses vite in the monorepo web tree", () => {
     expect(
       resolveUiLaunchMode({
-        serve: false,
+        prebuilt: false,
         frameworkDev: false,
         webRoot,
       }),
     ).toBe("project-dev");
   });
 
-  it("serves the Nitro build when requested or when src is missing", () => {
-    expect(resolveUiLaunchMode({ serve: true, frameworkDev: false })).toBe("serve");
+  it("uses Nitro when the web package has no Vite tree, or when --prebuilt is set", () => {
     expect(
       resolveUiLaunchMode({
-        serve: false,
+        prebuilt: false,
         frameworkDev: false,
         webRoot: "/tmp/not-a-web-package",
       }),
     ).toBe("serve");
+    expect(resolveUiLaunchMode({ prebuilt: true, frameworkDev: false, webRoot })).toBe("serve");
+  });
+});
+
+describe("adlProjectWatchEnvValue", () => {
+  it("disables watch only when the user passed --serve", () => {
+    expect(adlProjectWatchEnvValue({ serve: true })).toBe("0");
+    expect(adlProjectWatchEnvValue({ serve: false })).toBe("1");
   });
 });
 

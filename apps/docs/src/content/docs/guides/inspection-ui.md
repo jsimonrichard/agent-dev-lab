@@ -17,7 +17,7 @@ bunx adl dashboard --serve
 bunx adl dashboard --project ../other-research
 ```
 
-The header shows the project **name**. Plain `adl dashboard` watches the project and hot-reloads agent/workflow/template edits; `--serve` runs the Nitro build shipped in `@agent-dev-lab/web` and does not watch — restart it after any change. Either way, `.env*` edits need a restart. `--project` points at another directory that contains `adl.config.*`.
+The header shows the project **name**. Editing agents, workflows, or templates updates the catalog while the dashboard is running; `--serve` turns that off (restart after those edits). Changing `.env*` always needs a restart. `--project` points at another directory that contains `adl.config.*`.
 
 Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list`, etc.) are separate processes: they load the project once and exit.
 

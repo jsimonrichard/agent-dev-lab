@@ -35,9 +35,9 @@ All standard commands are in root `package.json`:
 
 - Bun must be version 1.4.2 (declared in `packageManager` field). The update script installs it if missing.
 - Nitro is the published `nitro` package (v3), pinned to `3.0.260610-beta` in root + `apps/web` + `overrides` to match [TanStack Start hosting](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) (`npm install nitro`). Do not mix `nitro` and `nitro-nightly` — Bun will nest two copies and Vite/Nitro fail (`setModuleRunner`, `h3/rules`).
-- Inspection UI **dev** uses the Bun toolchain (`bun --bun vite`). SQLite uses `bun:sqlite` under Bun and `better-sqlite3` under Node 22+ (`adl` no longer relaunches into Bun). Production `vite build` stays on Node; `start` / `--serve` run `.output` on Node.
+- Inspection UI **dev** uses the Bun toolchain (`bun --bun vite`). SQLite uses `bun:sqlite` under Bun and `better-sqlite3` under Node 22+ (`adl` no longer relaunches into Bun). Production `vite build` stays on Node; packed `adl dashboard` and `--prebuilt` run `.output` on Node. `--serve` disables project file watching only.
 - **Framework UI dev** (`bun run dev:web`): sets `ADL_FRAMEWORK_DEV=1` and defaults `ADL_PROJECT_ROOT` to `apps/playground`.
-- **End-user / CLI** (`adl dashboard`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT` and runs `vite dev`. `--serve` runs the built Nitro UI.
+- **End-user / CLI** (`adl dashboard`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT`. Vite when `@agent-dev-lab/web` still has `src/routes` (this monorepo); otherwise Nitro `.output`. `--prebuilt` forces Nitro; `--serve` sets `ADL_PROJECT_WATCH=0`.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`. There is no `@agent-dev-lab/common` package — SQLite/ESLint/tsconfig are `@agent-dev-lab/core/db`, `./eslint`, and `./tsconfig/node.json`.
 - SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`. Event order is `run_seq` (same as `RunEvent.runSeq`).
 - `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).

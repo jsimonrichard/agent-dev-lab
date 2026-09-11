@@ -2,6 +2,7 @@ export {
   ADL_CONFIG_FILENAMES,
   ADL_FRAMEWORK_DEV_ENV,
   ADL_PROJECT_WATCH_ENV,
+  shouldWatchAdlProject,
   type AdlConfigFilename,
   type AdlProjectConfig,
 } from "./config";

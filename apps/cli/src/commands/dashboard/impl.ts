@@ -3,6 +3,7 @@ import path from "node:path";
 import type { AdlCliContext } from "../../context";
 import { importProjectCore } from "../../resolve-packages";
 import {
+  adlProjectWatchEnvValue,
   resolveUiLaunchMode,
   shouldForwardUiChildSignals,
   spawnInspectionUi,
@@ -12,6 +13,7 @@ interface DashboardFlags {
   project?: string;
   port: number;
   serve: boolean;
+  prebuilt: boolean;
 }
 
 export default async function dashboard(this: AdlCliContext, flags: DashboardFlags): Promise<void> {
@@ -20,7 +22,7 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
     flags.project ?? core.findAdlProjectRootFromCwd(this.process.cwd()),
   );
   const loaded = await core.loadAdlProject({ root: projectRoot });
-  const mode = resolveUiLaunchMode({ serve: flags.serve, frameworkDev: false });
+  const mode = resolveUiLaunchMode({ prebuilt: flags.prebuilt, frameworkDev: false });
 
   this.process.stdout.write(
     `Starting inspection UI (${mode}) for "${loaded.config.name}" (${loaded.root})\n`,
@@ -32,6 +34,7 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
     env: {
       ...this.process.env,
       [core.ADL_PROJECT_ROOT_ENV]: loaded.root,
+      [core.ADL_PROJECT_WATCH_ENV]: adlProjectWatchEnvValue({ serve: flags.serve }),
     },
   });
 

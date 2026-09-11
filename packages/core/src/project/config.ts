@@ -53,6 +53,18 @@ export const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
 
 /**
  * When `"1"`, file-backed prompt templates re-read from disk on each `render()`.
- * Set by the inspection UI dev server while the project watcher is active.
+ * The inspection UI sets `"1"` for a long-lived dashboard and `"0"` for
+ * `adl dashboard --serve` (explicit no-watch). Nitro `.output` without that
+ * flag still watches — packed `adl dashboard` is not `--serve`.
  */
 export const ADL_PROJECT_WATCH_ENV = "ADL_PROJECT_WATCH";
+
+/**
+ * Whether a long-lived inspector should arm the project file watcher.
+ *
+ * `"0"` is the `adl dashboard --serve` opt-out. Unset and `"1"` both watch —
+ * packed `adl dashboard` runs Nitro `.output` without passing `--serve`.
+ */
+export function shouldWatchAdlProject(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env[ADL_PROJECT_WATCH_ENV] !== "0";
+}

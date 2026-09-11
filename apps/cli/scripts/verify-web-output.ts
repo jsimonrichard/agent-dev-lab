@@ -1,7 +1,7 @@
 /**
  * Build helper (not a test): `prebuild` runs this so the CLI package fails
- * fast when the inspection UI has not been built. `adl dashboard --serve`
- * needs `apps/web/.output` (Nitro server entry + public assets).
+ * fast when the inspection UI has not been built. Packed `adl dashboard` and
+ * `--prebuilt` need `apps/web/.output` (Nitro server entry + public assets).
  *
  * Long-term: keep this next to other `apps/cli/scripts/` packaging checks.
  * It is not leftover debug — published tarballs embed that `.output` tree.

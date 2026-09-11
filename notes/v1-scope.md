@@ -10,39 +10,39 @@ Last reconciled: **2026-09-11**.
 
 ## Runtime (`@agent-dev-lab/core`)
 
-| Item                                                                        | Status                                                |
-| --------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `createAgent`, `createWorkflow`, `createTemplate`                           | ✅                                                    |
-| `createAdlRuntime`, `adl.createAgent` / `createWorkflow` / `createTemplate` | ✅                                                    |
-| `workflow.run(input)` + ALS context + `workflowRunId` on handle             | ✅                                                    |
-| Nested `workflow.run` (shared run id) and `{ isolated: true }`              | ✅                                                    |
-| `workflow.stream` live event tail                                           | ✅                                                    |
-| `agent.run`, `agent.stream` (shared `streamText` core)                      | ✅                                                    |
-| System prompt pinned on first episode; live inspect is `Result<string>`     | ✅                                                    |
-| Structured output (`outputSchema` / per-call override)                      | ✅                                                    |
-| `titleWorkflow` + isolated title runs + `agent_title_set`                   | ✅                                                    |
-| `ctx.setTitle` / `workflow_title_set`                                       | ✅                                                    |
-| Workflow generics when Zod is omitted                                       | ✅                                                    |
-| `MessageStore` + `inMemoryMessageStore` / `sqliteMessageStore` (`kind`)     | ✅                                                    |
-| `WorkflowStore` + in-memory / SQLite                                        | ✅                                                    |
-| `sqliteConversationMetadataStore` (conversation title/fork/soft-delete)     | ✅ was `sqliteInspectorSessionStore`                  |
-| `WorkflowStore.listAgentEpisodes` + `adl_agent_episodes`                    | ✅ `model_id`/`model_provider` empty until Lane E     |
-| Auto `version:` / `commit:` tags on `workflow.run()` and `agent.run()`      | ✅ jj then git; `AdlRuntimeConfig.version` / `false`  |
-| `ctx.step` skip when stored output exists; `{ force: true }`                | ✅                                                    |
-| Step keys, duplicate-name rules, nested steps                               | ✅                                                    |
-| `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                    |
-| OTel spans at workflow / step / agent boundaries (`withActiveSpan`)         | ✅                                                    |
-| `loadAdlProject` + indexes + duplicate id checks + `.env*` loading          | ✅                                                    |
-| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅ chokidar; returns `{ ready, close }`               |
-| `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                    |
-| `AdlError` + `createTestRuntime`                                            | ✅                                                    |
-| `eventSchemaVersion` on persisted events                                    | ✅                                                    |
-| `EventLog` / `inMemoryEventLog` (process-wide observer, ring buffer)        | ✅                                                    |
-| `inspectLanguageModel` / `Agent.modelInfo`                                  | ✅                                                    |
-| AI SDK re-exports (`generateText`, `streamText`, `tool`, `stepCountIs`, …)  | ✅                                                    |
-| Cancellation: `handle.cancel()` + `ctx.signal` + linked agent abort         | ✅                                                    |
-| AI SDK `experimental_telemetry` on `streamText`                             | ✅ `createAdlRuntime({ telemetry })`; default enabled |
-| `WorkflowResumer` / episode `cacheable`                                     | ⏸                                                     |
+| Item                                                                         | Status                                                |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `createAgent`, `createWorkflow`, `createTemplate`                            | ✅                                                    |
+| `createAdlRuntime`, `adl.createAgent` / `createWorkflow` / `createTemplate`  | ✅                                                    |
+| `workflow.run(input)` + ALS context + `workflowRunId` on handle              | ✅                                                    |
+| Nested `workflow.run` (shared run id) and `{ isolated: true }`               | ✅                                                    |
+| `workflow.stream` live event tail                                            | ✅                                                    |
+| `agent.run`, `agent.stream` (shared `streamText` core)                       | ✅                                                    |
+| System prompt pinned on first episode; live inspect is `Result<string>`      | ✅                                                    |
+| Structured output (`outputSchema` / per-call override)                       | ✅                                                    |
+| `titleWorkflow` + isolated title runs + `agent_title_set`                    | ✅                                                    |
+| `ctx.setTitle` / `workflow_title_set`                                        | ✅                                                    |
+| Workflow generics when Zod is omitted                                        | ✅                                                    |
+| `MessageStore` + `inMemoryMessageStore` / `sqliteMessageStore` (`kind`)      | ✅                                                    |
+| `WorkflowStore` + in-memory / SQLite                                         | ✅                                                    |
+| `sqliteConversationMetadataStore` (conversation title/fork/soft-delete)      | ✅ was `sqliteInspectorSessionStore`                  |
+| `WorkflowStore.listAgentEpisodes` + `adl_agent_episodes`                     | ✅ `model_id`/`model_provider` empty until Lane E     |
+| Auto `version:` / `commit:` tags on `workflow.run()` and `agent.run()`       | ✅ jj then git; `AdlRuntimeConfig.version` / `false`  |
+| `ctx.step` skip when stored output exists; `{ force: true }`                 | ✅                                                    |
+| Step keys, duplicate-name rules, nested steps                                | ✅                                                    |
+| `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`               | ✅                                                    |
+| OTel spans at workflow / step / agent boundaries (`withActiveSpan`)          | ✅                                                    |
+| `loadAdlProject` + indexes + duplicate id checks + `.env*` loading           | ✅                                                    |
+| `LoadedAdlProject.reload()` + `watchAdlProject()` (inspector; stores pinned) | ✅ chokidar; packed Nitro watches, `--serve` opts out |
+| `createToolFromAgent` / `createToolFromWorkflow`                             | ✅                                                    |
+| `AdlError` + `createTestRuntime`                                             | ✅                                                    |
+| `eventSchemaVersion` on persisted events                                     | ✅                                                    |
+| `EventLog` / `inMemoryEventLog` (process-wide observer, ring buffer)         | ✅                                                    |
+| `inspectLanguageModel` / `Agent.modelInfo`                                   | ✅                                                    |
+| AI SDK re-exports (`generateText`, `streamText`, `tool`, `stepCountIs`, …)   | ✅                                                    |
+| Cancellation: `handle.cancel()` + `ctx.signal` + linked agent abort          | ✅                                                    |
+| AI SDK `experimental_telemetry` on `streamText`                              | ✅ `createAdlRuntime({ telemetry })`; default enabled |
+| `WorkflowResumer` / episode `cacheable`                                      | ⏸                                                     |
 
 Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 
@@ -50,14 +50,14 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 
 ## CLI (`adl`)
 
-| Item                                                    | Status                                   |
-| ------------------------------------------------------- | ---------------------------------------- |
-| `adl dashboard` / `adl dashboard --serve` / `--project` | ✅                                       |
-| `adl workflow run <workflow-id> --input '{}'`           | ✅                                       |
-| `adl agent run <agent-id> --input '…'` (string user)    | ✅                                       |
-| `adl workflow list` / `adl agent list`                  | ✅                                       |
-| `adl init` dedicated scaffold (`apps/cli/scaffold`)     | ✅ typecheck + demo-counter in CLI tests |
-| Packaged `dist/scaffold` for published CLI              | ✅ copies `apps/cli/scaffold`            |
+| Item                                                                | Status                                   |
+| ------------------------------------------------------------------- | ---------------------------------------- |
+| `adl dashboard` / `--serve` (no watch) / `--prebuilt` / `--project` | ✅                                       |
+| `adl workflow run <workflow-id> --input '{}'`                       | ✅                                       |
+| `adl agent run <agent-id> --input '…'` (string user)                | ✅                                       |
+| `adl workflow list` / `adl agent list`                              | ✅                                       |
+| `adl init` dedicated scaffold (`apps/cli/scaffold`)                 | ✅ typecheck + demo-counter in CLI tests |
+| Packaged `dist/scaffold` for published CLI                          | ✅ copies `apps/cli/scaffold`            |
 
 ---
 

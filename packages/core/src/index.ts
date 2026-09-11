@@ -198,6 +198,7 @@ export {
   ADL_PROJECT_ROOT_ENV,
   ADL_FRAMEWORK_DEV_ENV,
   ADL_PROJECT_WATCH_ENV,
+  shouldWatchAdlProject,
   findAdlConfigPath,
   findAdlProjectRootFromCwd,
   invalidateAdlConfigCache,

@@ -4,7 +4,7 @@
 
 **Legend:** ✅ done · 🚧 partial · 🔲 not started / new ask
 
-Last written: **2026-09-05**, updated **2026-09-07**, updated **2026-09-09** (§8: competitive tool survey vs. OpenClaw/Claude Code/Cursor). Last reconciled: **2026-09-11** (grep/glob, `fetchUrl`, git/jj run tags on workflow + agent, Zod 4, chokidar watch).
+Last written: **2026-09-05**, updated **2026-09-07**, updated **2026-09-09** (§8: competitive tool survey vs. OpenClaw/Claude Code/Cursor). Last reconciled: **2026-09-11** (grep/glob, `fetchUrl`, git/jj run tags on workflow + agent, Zod 4, chokidar watch; `--serve` is the watch opt-out).
 
 ---
 

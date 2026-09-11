@@ -7,6 +7,7 @@ import {
   ADL_PROJECT_WATCH_ENV,
   acquireAdlProject,
   ensureAdlProjectFileWatch,
+  shouldWatchAdlProject,
   findAdlProjectRootFromCwd,
   setAdlProjectWatchListeners,
   type LoadedAdlProject,
@@ -33,16 +34,9 @@ function resolveAdlProjectRoot(): string {
   return findAdlProjectRootFromCwd(process.cwd());
 }
 
-/**
- * Watch in every dev mode; only `adl dashboard --serve` opts out, and it has nothing to watch
- * with anyway (it runs the built Nitro `.output` under Node, with no dev server).
- */
-function shouldWatchProject(): boolean {
-  return process.env.ADL_INSPECTOR_SERVE !== "1";
-}
-
-// Prompt / template caches honor this even when Vite (not fs.watch) drives reload.
-if (process.env.ADL_INSPECTOR_SERVE !== "1") {
+// `ADL_PROJECT_WATCH=0` is the `--serve` opt-out. Do not derive watch from
+// `ADL_INSPECTOR_SERVE` — packed `adl dashboard` also runs Nitro `.output`.
+if (shouldWatchAdlProject()) {
   process.env[ADL_PROJECT_WATCH_ENV] = "1";
 }
 
@@ -66,7 +60,7 @@ export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   const root = resolveAdlProjectRoot();
   const project = await acquireAdlProject(root);
   bindInspectorWatchListeners(project);
-  await ensureAdlProjectFileWatch(shouldWatchProject());
+  await ensureAdlProjectFileWatch(shouldWatchAdlProject());
   try {
     await ensureInspectorAgentObserver(project.getAdl(), project);
   } catch {

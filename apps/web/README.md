@@ -2,7 +2,7 @@
 
 # `@agent-dev-lab/web`
 
-TanStack Start inspection UI for [Agent Dev Lab](https://agent-dev-lab.com). End users don't run this package directly — `adl init` adds it as a project dependency, and `adl dashboard` (from [`@agent-dev-lab/cli`](https://www.npmjs.com/package/@agent-dev-lab/cli)) starts it against the nearest `adl.config.*`. `adl dashboard --serve` runs the prebuilt Nitro output shipped in this package instead of Vite dev.
+TanStack Start inspection UI for [Agent Dev Lab](https://agent-dev-lab.com). End users don't run this package directly — `adl init` adds it as a project dependency, and `adl dashboard` (from [`@agent-dev-lab/cli`](https://www.npmjs.com/package/@agent-dev-lab/cli)) starts it against the nearest `adl.config.*`.
 
 ## What it shows
 
@@ -30,12 +30,12 @@ From this package:
 
 ```bash
 bun --bun vite dev --port 3000
-bun run build      # Nitro `.output` (needed before publishing the CLI)
+bun run build
 bun run start      # Bun runtime (bun:sqlite) — local convenience
-bun run start-node # Node runtime (better-sqlite3) — matches `adl dashboard --serve`
+bun run start-node # Node runtime (better-sqlite3)
 ```
 
-Framework UI **dev** uses `bun --bun vite` (Bun toolchain + hot reload). Production `vite build` stays on Node. The CLI’s `--serve` path runs `.output/server/index.mjs` with Node directly (not via `start`), using `better-sqlite3`.
+Framework UI **dev** uses `bun --bun vite`. `bun run build` writes the published UI; use `start-node` when you need the Node / `better-sqlite3` path.
 
 ### Tests
 

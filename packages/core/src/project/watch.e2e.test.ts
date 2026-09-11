@@ -1,5 +1,13 @@
 import { createServer } from "node:net";
-import { mkdirSync, openSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { mkdir, mkdtemp, rename, writeFile } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
@@ -219,6 +227,83 @@ function startDashboard(projectRoot: string, port: number, logPath: string): Chi
   );
 }
 
+const nitroServerEntry = path.join(webPkg, ".output/server/index.mjs");
+
+function startServeDashboard(
+  projectRoot: string,
+  port: number,
+  logPath: string,
+  options?: { watch?: boolean },
+): ChildProcess {
+  if (!existsSync(nitroServerEntry)) {
+    throw new Error(
+      `Nitro UI build is missing (${nitroServerEntry}). Build @agent-dev-lab/web before this test.`,
+    );
+  }
+  const logFd = openSync(logPath, "w");
+  // Packed installs run Node `.output`, not Bun (`better-sqlite3`). `--serve`
+  // is the watch opt-out (`ADL_PROJECT_WATCH=0`); Nitro alone still watches.
+  return spawn("node", [nitroServerEntry], {
+    cwd: webPkg,
+    env: {
+      ...process.env,
+      ADL_PROJECT_ROOT: projectRoot,
+      ADL_FRAMEWORK_DEV: "0",
+      ADL_INSPECTOR_SERVE: "1",
+      ADL_PROJECT_WATCH: options?.watch === false ? "0" : "1",
+      PORT: String(port),
+      BROWSER: "none",
+      NO_COLOR: "1",
+    },
+    stdio: ["ignore", logFd, logFd],
+  });
+}
+
+type RunApiResponse = {
+  summary: { status: string };
+  events: { type: string; output?: { result?: string } }[];
+};
+
+async function runAnswerQuestion(port: number, question: string): Promise<string> {
+  const started = await fetch(`http://127.0.0.1:${port}/api/runs`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ workflowId: "answer-question", input: { question } }),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!started.ok) {
+    throw new Error(`POST /api/runs failed: ${started.status} ${await started.text()}`);
+  }
+  const { runId } = (await started.json()) as { runId: string };
+  let lastBody: RunApiResponse | undefined;
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/runs/${encodeURIComponent(runId)}`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (response.ok) {
+      lastBody = (await response.json()) as RunApiResponse;
+      const finished = lastBody.events.find((event) => event.type === "run_finished");
+      if (finished?.output?.result !== undefined) {
+        return finished.output.result;
+      }
+    }
+    await wait(40);
+  }
+  throw new Error(
+    `run ${runId} never finished with an output\n${lastBody ? JSON.stringify(lastBody) : ""}`,
+  );
+}
+
+async function stopDashboard(child: ChildProcess, root: string): Promise<void> {
+  child.kill("SIGTERM");
+  await wait(300);
+  if (child.exitCode === null && child.signalCode === null) {
+    child.kill("SIGKILL");
+  }
+  rmSync(root, { recursive: true, force: true });
+}
+
 function dashboardLogs(logPath: string): string {
   try {
     return readFileSync(logPath, "utf8");
@@ -265,12 +350,104 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
           () => `dashboard did not pick up nested workflow edit\n${logs()}`,
         );
       } finally {
-        child.kill("SIGTERM");
-        await wait(300);
-        if (child.exitCode === null && child.signalCode === null) {
-          child.kill("SIGKILL");
+        await stopDashboard(child, fixture.root);
+      }
+    },
+    { timeout: 70_000 },
+  );
+});
+
+describe("inspection UI packed Nitro hot reload e2e (Node .output)", () => {
+  it(
+    "GET /api/project reloads on an atomic edit when Nitro is not --serve",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      const port = await allocatePort();
+      const logPath = path.join(fixture.root, "serve.log");
+      const child = startServeDashboard(fixture.root, port, logPath);
+      const logs = () => dashboardLogs(logPath);
+
+      try {
+        await waitForProjectApi(
+          port,
+          (body) =>
+            workflowSampleQuestion(body) === "default A" && body.meta.lastReloadError === null,
+          30_000,
+          () => `GET /api/project never returned the initial nested workflow sample\n${logs()}`,
+        );
+
+        await wait(40);
+        await fixture.writeWorkflow("E", { atomic: true });
+
+        await waitForProjectApi(
+          port,
+          (body) =>
+            body.meta.generation >= 1 &&
+            workflowSampleQuestion(body) === "default E" &&
+            body.meta.lastReloadError === null,
+          20_000,
+          () => `packed Nitro dashboard did not pick up nested workflow edit\n${logs()}`,
+        );
+
+        const result = await runAnswerQuestion(port, "probe");
+        if (result !== "probe_E") {
+          throw new Error(`reloaded workflow did not run: expected probe_E, got ${result}`);
         }
-        rmSync(fixture.root, { recursive: true, force: true });
+
+        await writeFile(fixture.workflowPath, "this is not valid typescript [[[\n", "utf8");
+
+        const failed = await waitForProjectApi(
+          port,
+          (body) =>
+            body.meta.lastReloadError !== null && workflowSampleQuestion(body) === "default E",
+          20_000,
+          () =>
+            `packed Nitro dashboard did not surface lastReloadError after a broken edit\n${logs()}`,
+        );
+        if (failed.meta.generation < 1) {
+          throw new Error(
+            `broken edit must keep the previous registry (generation was ${failed.meta.generation})`,
+          );
+        }
+      } finally {
+        await stopDashboard(child, fixture.root);
+      }
+    },
+    { timeout: 70_000 },
+  );
+});
+
+describe("inspection UI --serve disables project watch", () => {
+  it(
+    "GET /api/project stays at generation 0 after an atomic edit when ADL_PROJECT_WATCH=0",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      const port = await allocatePort();
+      const logPath = path.join(fixture.root, "serve-nowatch.log");
+      const child = startServeDashboard(fixture.root, port, logPath, { watch: false });
+      const logs = () => dashboardLogs(logPath);
+
+      try {
+        await waitForProjectApi(
+          port,
+          (body) =>
+            workflowSampleQuestion(body) === "default A" && body.meta.lastReloadError === null,
+          30_000,
+          () => `GET /api/project never returned the initial nested workflow sample\n${logs()}`,
+        );
+
+        await wait(40);
+        await fixture.writeWorkflow("E", { atomic: true });
+        await wait(2_000);
+
+        const body = await fetchProjectApi(port);
+        if (body.meta.generation !== 0 || workflowSampleQuestion(body) !== "default A") {
+          throw new Error(
+            `--serve must leave the registry unchanged\n${JSON.stringify(body.meta)}\n${logs()}`,
+          );
+        }
+      } finally {
+        await stopDashboard(child, fixture.root);
       }
     },
     { timeout: 70_000 },

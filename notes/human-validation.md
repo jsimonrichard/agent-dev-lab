@@ -85,13 +85,15 @@ Exercise:
 - Fork from a workflow episode
 - Edit a registered workflow file → sidebar refresh; break syntax → failed-reload banner
 
-## E. Serve mode (published default)
+## E. No-watch dashboard (`--serve`)
 
 ```bash
 adl dashboard --serve --project /tmp/adl-validate
 ```
 
-And in **G**, a tarball install **without** `--serve` (should still be Nitro). Confirm **no hot reload**; start a run anyway.
+Confirm **no project hot reload** (`--serve` sets `ADL_PROJECT_WATCH=0`). In this monorepo the UI is still Vite unless you also pass `--prebuilt`. Start a run anyway.
+
+And in **G**, a tarball install **without** `--serve` (Nitro, because published web has no Vite tree). Confirm **project** hot reload (edit a registered workflow → catalog refresh; break syntax → failed-reload banner). UI-bundle HMR is vite-dev only. `.env*` still needs a restart.
 
 ## F. Docs walkthrough
 

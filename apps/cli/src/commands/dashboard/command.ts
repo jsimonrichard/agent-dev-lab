@@ -18,7 +18,12 @@ export const dashboardCommand = buildCommand({
       },
       serve: {
         kind: "boolean",
-        brief: "Run the prebuilt inspection UI (Nitro) instead of Vite dev",
+        brief: "Do not reload agents, workflows, or templates when their files change",
+        default: false,
+      },
+      prebuilt: {
+        kind: "boolean",
+        brief: "Use the shipped UI build instead of the live UI source",
         default: false,
       },
     },

@@ -136,6 +136,7 @@ export interface LoadedProjectForCli {
 
 export interface ProjectRuntimeProjectModule {
   ADL_PROJECT_ROOT_ENV: string;
+  ADL_PROJECT_WATCH_ENV: string;
   findAdlProjectRootFromCwd: (cwd?: string) => string;
   loadAdlProject: (options?: { root?: string; cwd?: string }) => Promise<LoadedProjectForCli>;
 }

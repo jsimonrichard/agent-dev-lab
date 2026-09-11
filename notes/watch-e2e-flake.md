@@ -1,11 +1,19 @@
 # `watch.e2e.test.ts` — why it goes red, and what is actually broken
 
-**Status:** **fixed.** Bun is on 1.4.2, `watchAdlProject` watches through chokidar, and the
+**Status:** **fixed**, with a 2026-09-11 follow-up. Bun is on 1.4.2, `watchAdlProject` watches through chokidar, and the
 Vite reload plugin is gone — one watcher, one reload per save. Written 2026-09-08, corrected
 and closed 2026-09-10, for Lane D (§5 of
 [`parallel-work-plan.md`](./parallel-work-plan.md)). Every claim below is from a run on this
 machine or from the CI logs of run `34157533330`; where something is inferred rather than
 observed it says so.
+
+**Follow-up (2026-09-11):** Deleting the Vite plugin left watch opted out whenever
+`ADL_INSPECTOR_SERVE=1`. That flag means "this process is Nitro `.output`", which packed
+`adl dashboard` _without_ `--serve` also sets — so the only remaining watcher never armed
+on the published path. `--serve` is the public no-watch API (`ADL_PROJECT_WATCH=0`) and
+does not choose Vite vs Nitro. Packed Nitro without that flag watches. `--prebuilt`
+forces Nitro in the monorepo. UI-bundle HMR stays vite-dev only. `.env*` still needs a
+restart.
 
 Lane D was scoped to `AGENTS.md`, `packages/core/src/project/watch.e2e.test.ts` and
 `.github/`. The Bun upgrade and the watcher work below go past that, including the brief's

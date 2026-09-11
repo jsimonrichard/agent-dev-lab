@@ -14,14 +14,15 @@ export function hasViteDevTree(webRoot: string): boolean {
 }
 
 export function resolveUiLaunchMode(options: {
-  serve: boolean;
+  /** Force Nitro `.output` even when the web package still has a Vite tree. */
+  prebuilt: boolean;
   frameworkDev: boolean;
   webRoot?: string;
 }): UiLaunchMode {
   if (options.frameworkDev) {
     return "framework-dev";
   }
-  if (options.serve) {
+  if (options.prebuilt) {
     return "serve";
   }
   if (hasViteDevTree(options.webRoot ?? webPackageRoot())) {
@@ -39,6 +40,11 @@ export function shouldForwardUiChildSignals(
   stdin: { isTTY?: boolean } | null | undefined,
 ): boolean {
   return stdin?.isTTY !== true;
+}
+
+/** `--serve` is the public opt-out; packed Nitro without that flag still watches. */
+export function adlProjectWatchEnvValue(options: { serve: boolean }): "0" | "1" {
+  return options.serve ? "0" : "1";
 }
 
 export function spawnInspectionUi(options: {

@@ -11,8 +11,9 @@ export function loadPromptFile(absolutePath: string): string {
 
 /**
  * Whether file-backed templates should re-read markdown from disk on each `render()`.
- * Enabled only in inspection UI dev (project watcher active). Production serve and
- * one-shot CLI runs cache prompt text at template creation.
+ * Enabled when the inspection UI has armed the project watcher (`ADL_PROJECT_WATCH=1`).
+ * `adl dashboard --serve` sets `ADL_PROJECT_WATCH=0`. One-shot CLI runs cache prompt text
+ * at template creation.
  */
 export function shouldRereadPromptFileOnRender(): boolean {
   return process.env[ADL_PROJECT_WATCH_ENV] === "1";
