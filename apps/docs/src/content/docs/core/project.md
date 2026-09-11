@@ -65,7 +65,7 @@ Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-sty
 
 ## Reloading a project
 
-`loadAdlProject()` evaluates `adl.config.*` once, with no reload of its own. `adl dashboard` layers `watchAdlProject()` on top and calls `reload()` on registry/template changes. `--serve` turns that off — restart after any registry change. `.env*` edits need a restart either way — see "Not reloaded" below. On a successful reload the inspector process prints a Vite-shaped line (`3:04:05 PM [adl] reload src/workflows/foo.ts`); a failed reload prints `[adl] reload failed` plus the error.
+`loadAdlProject()` evaluates `adl.config.*` once, with no reload of its own. `adl dashboard` layers `watchAdlProject()` on top and calls `reload()` on registry/template changes as soon as the inspector process starts — a browser session is not required. `--serve` turns that off — restart after any registry change. `.env*` edits need a restart either way — see "Not reloaded" below. On a successful reload the inspector process prints a Vite-shaped line (`3:04:05 PM [adl] reload src/workflows/foo.ts`); a failed reload prints `[adl] reload failed` plus the error.
 
 **CLI execution** (`adl workflow run`, `adl agent run`, list, etc.) loads the project once and exits.
 

@@ -34,6 +34,14 @@ describe("formatAdlProjectReloadLog", () => {
     expect(line).toBe(`${noon.toLocaleTimeString()} [adl] reload src/workflows/demo.ts`);
   });
 
+  it("announces watching with the project root", () => {
+    const line = formatAdlProjectReloadLog(
+      { type: "watching", root: "/tmp/proj", now: noon },
+      { color: false },
+    );
+    expect(line).toBe(`${noon.toLocaleTimeString()} [adl] watching /tmp/proj`);
+  });
+
   it("omits the file when the watcher did not report a path", () => {
     const line = formatAdlProjectReloadLog(
       { type: "reload", root: "/tmp/proj", now: noon },

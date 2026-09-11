@@ -61,11 +61,18 @@ function bindInspectorWatchListeners(project: LoadedAdlProject): void {
   });
 }
 
+let announcedWatch = false;
+
 export async function getLoadedAdlProject(): Promise<LoadedAdlProject> {
   const root = resolveAdlProjectRoot();
   const project = await acquireAdlProject(root);
   bindInspectorWatchListeners(project);
-  await ensureAdlProjectFileWatch(shouldWatchAdlProject());
+  const watchEnabled = shouldWatchAdlProject();
+  await ensureAdlProjectFileWatch(watchEnabled);
+  if (watchEnabled && !announcedWatch) {
+    announcedWatch = true;
+    logAdlProjectReload({ type: "watching", root: project.root });
+  }
   try {
     await ensureInspectorAgentObserver(project.getAdl(), project);
   } catch {

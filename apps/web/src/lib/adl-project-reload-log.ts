@@ -9,6 +9,7 @@ const ANSI = {
 } as const;
 
 export type AdlProjectReloadLogInput =
+  | { type: "watching"; root: string; now?: Date }
   | { type: "reload"; root: string; path?: string; now?: Date }
   | { type: "error"; message: string; now?: Date };
 
@@ -48,6 +49,9 @@ export function formatAdlProjectReloadLog(
   const color = options.color === true;
   const time = (input.now ?? new Date()).toLocaleTimeString();
   const tag = `${paint(color, ANSI.dim, time)} ${paint(color, ANSI.cyan, "[adl]")}`;
+  if (input.type === "watching") {
+    return `${tag} ${paint(color, ANSI.green, "watching")} ${paint(color, ANSI.dim, input.root)}`;
+  }
   if (input.type === "error") {
     return `${tag} ${paint(color, ANSI.red, "reload failed")} ${paint(color, ANSI.dim, input.message)}`;
   }

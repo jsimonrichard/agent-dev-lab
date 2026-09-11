@@ -49,6 +49,14 @@ async function waitUntil(
   throw new Error(message);
 }
 
+function waitForWatchArmed(
+  logs: () => string,
+  timeoutMs: number,
+  message: () => string,
+): Promise<void> {
+  return waitUntil(() => logs().includes("[adl] watching"), timeoutMs, message());
+}
+
 function workflowSource(version: string): string {
   return `import { z } from "zod";
 import { adl } from "#adl";
@@ -355,6 +363,45 @@ describe("inspection UI server hot reload e2e (no browser)", () => {
     },
     { timeout: 70_000 },
   );
+
+  it(
+    "reloads an atomic edit made before any /api/project request (vite)",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      const port = await allocatePort();
+      const logPath = path.join(fixture.root, "vite-pre-request.log");
+      const child = startDashboard(fixture.root, port, logPath);
+      const logs = () => dashboardLogs(logPath);
+
+      try {
+        await waitUntil(
+          () => logs().includes("Local:"),
+          30_000,
+          `dashboard never printed a ready URL on port ${port}\n${logs()}`,
+        );
+        await waitForWatchArmed(
+          logs,
+          20_000,
+          () => `vite dashboard never armed project watch\n${logs()}`,
+        );
+        await wait(40);
+        await fixture.writeWorkflow("E", { atomic: true });
+
+        await waitForProjectApi(
+          port,
+          (body) =>
+            body.meta.generation >= 1 &&
+            workflowSampleQuestion(body) === "default E" &&
+            body.meta.lastReloadError === null,
+          20_000,
+          () => `vite watch did not fire before the first /api/project request\n${logs()}`,
+        );
+      } finally {
+        await stopDashboard(child, fixture.root);
+      }
+    },
+    { timeout: 70_000 },
+  );
 });
 
 describe("inspection UI packed Nitro hot reload e2e (Node .output)", () => {
@@ -409,6 +456,40 @@ describe("inspection UI packed Nitro hot reload e2e (Node .output)", () => {
             `broken edit must keep the previous registry (generation was ${failed.meta.generation})`,
           );
         }
+      } finally {
+        await stopDashboard(child, fixture.root);
+      }
+    },
+    { timeout: 70_000 },
+  );
+
+  it(
+    "reloads an atomic edit made before any /api/project request (packed nitro)",
+    async () => {
+      const fixture = await createPlaygroundLikeProject();
+      const port = await allocatePort();
+      const logPath = path.join(fixture.root, "serve-pre-request.log");
+      const child = startServeDashboard(fixture.root, port, logPath);
+      const logs = () => dashboardLogs(logPath);
+
+      try {
+        await waitForWatchArmed(
+          logs,
+          30_000,
+          () => `packed Nitro dashboard never armed project watch\n${logs()}`,
+        );
+        await wait(40);
+        await fixture.writeWorkflow("E", { atomic: true });
+
+        await waitForProjectApi(
+          port,
+          (body) =>
+            body.meta.generation >= 1 &&
+            workflowSampleQuestion(body) === "default E" &&
+            body.meta.lastReloadError === null,
+          20_000,
+          () => `packed Nitro watch did not fire before the first /api/project request\n${logs()}`,
+        );
       } finally {
         await stopDashboard(child, fixture.root);
       }
