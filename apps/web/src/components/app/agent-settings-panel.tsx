@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
+import { RunTagsFooter } from "@/components/app/run-tags-footer";
 import { Badge } from "@/components/ui/badge";
 import { ErrorDetails } from "@/components/app/error-details";
 import { InspectorNoun } from "@/components/app/inspector-noun";
@@ -30,6 +31,7 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
           <AgentConfigBody settings={settings} conversation={conversation} />
         </div>
       </ScrollArea>
+      {conversation ? <RunTagsFooter tags={conversation.tags} /> : null}
     </div>
   );
 }

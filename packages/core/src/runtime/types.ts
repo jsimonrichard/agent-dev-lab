@@ -64,7 +64,7 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
   telemetry?: AdlOpenTelemetrySettings;
   /**
    * Identifies which version of the project's code a run came from, recorded
-   * as a `version:<value>` tag on every `workflow.run()`. Overrides the commit
+   * as a `version:<value>` tag on every `workflow.run()` and `agent.run()`. Overrides the commit
    * that would otherwise be resolved from jj or git — set it for a release
    * identifier, or for a project with no VCS at all.
    *

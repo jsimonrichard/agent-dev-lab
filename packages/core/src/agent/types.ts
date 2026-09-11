@@ -177,6 +177,15 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
    * `notes/tool-sandboxing.md`.
    */
   toolProviderContext?: ToolProviderContext;
+  /**
+   * Labels recorded on this episode (e.g. `["dataset:qa-v1"]`).
+   *
+   * Every `agent.run()` also records which project code produced it, unless a
+   * caller tag already uses the same prefix — same rules as
+   * {@link WorkflowRunStartOptions.tags}. Pass `version: false` on the runtime
+   * to skip that lookup.
+   */
+  tags?: string[];
   // cacheable?: boolean; // deferred — episode cache (see notes/resumability.md)
 };
 

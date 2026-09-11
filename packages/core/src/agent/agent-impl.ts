@@ -5,6 +5,7 @@ import { AdlError } from "../errors";
 import { linkAbortController, abortError, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
+import { withProjectVersionTag } from "../project/version-tag";
 import { inspectMessageStoreKind } from "../stores/inspect";
 import type { Result } from "../result";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
@@ -175,6 +176,7 @@ export class AgentImpl<
           stepId,
           agentId: this.definition.id,
           memoryScope,
+          tags: withProjectVersionTag(input.tags, this.services.version),
         });
 
         try {

@@ -27,7 +27,7 @@ Last reconciled: **2026-09-11**.
 | `WorkflowStore` + in-memory / SQLite                                        | ✅                                                    |
 | `sqliteConversationMetadataStore` (conversation title/fork/soft-delete)     | ✅ was `sqliteInspectorSessionStore`                  |
 | `WorkflowStore.listAgentEpisodes` + `adl_agent_episodes`                    | ✅ `model_id`/`model_provider` empty until Lane E     |
-| Auto `version:` / `commit:` tags on `workflow.run()`                        | ✅ jj then git; `AdlRuntimeConfig.version` / `false`  |
+| Auto `version:` / `commit:` tags on `workflow.run()` and `agent.run()`      | ✅ jj then git; `AdlRuntimeConfig.version` / `false`  |
 | `ctx.step` skip when stored output exists; `{ force: true }`                | ✅                                                    |
 | Step keys, duplicate-name rules, nested steps                               | ✅                                                    |
 | `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                    |

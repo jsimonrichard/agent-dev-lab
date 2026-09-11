@@ -239,6 +239,7 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
                 streamingText={streamingText}
                 workflowId={view.workflowId}
                 runId={view.runId}
+                tags={summary.tags}
                 workflowInput={view.input}
                 workflowOutput={view.output}
                 runStatus={view.status}

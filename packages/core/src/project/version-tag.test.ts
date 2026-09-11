@@ -5,7 +5,11 @@ import path from "node:path";
 
 import { beforeEach, describe, expect, it } from "bun:test";
 
-import { clearProjectVersionTagCache, resolveProjectVersionTag } from "./version-tag";
+import {
+  clearProjectVersionTagCache,
+  resolveProjectVersionTag,
+  withProjectVersionTag,
+} from "./version-tag";
 
 async function tempDir(prefix: string): Promise<string> {
   return mkdtemp(path.join(tmpdir(), prefix));
@@ -173,5 +177,32 @@ describe("resolveProjectVersionTag", () => {
     expect(resolveProjectVersionTag({ projectRoot: root })).toBe(`commit:${sha}+dirty`);
     // A different configured version is a different cache key.
     expect(resolveProjectVersionTag({ projectRoot: root, version: "9.9.9" })).toBe("version:9.9.9");
+  });
+});
+
+describe("withProjectVersionTag", () => {
+  beforeEach(() => {
+    clearProjectVersionTagCache();
+  });
+
+  it("skips the VCS lookup when version tagging is disabled", () => {
+    expect(withProjectVersionTag(["dataset:qa-v1"], false)).toEqual(["dataset:qa-v1"]);
+    expect(withProjectVersionTag(undefined, false)).toBeUndefined();
+  });
+
+  it("adds the configured version tag when the caller supplied none", () => {
+    expect(withProjectVersionTag(undefined, "1.4.0")).toEqual(["version:1.4.0"]);
+    expect(withProjectVersionTag([], "1.4.0")).toEqual(["version:1.4.0"]);
+  });
+
+  it("keeps caller tags alongside the automatic version tag", () => {
+    expect(withProjectVersionTag(["dataset:qa-v1"], "1.4.0")).toEqual([
+      "dataset:qa-v1",
+      "version:1.4.0",
+    ]);
+  });
+
+  it("lets a caller tag with the same prefix win", () => {
+    expect(withProjectVersionTag(["version:override"], "1.4.0")).toEqual(["version:override"]);
   });
 });

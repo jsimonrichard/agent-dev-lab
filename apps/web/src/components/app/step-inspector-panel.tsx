@@ -19,6 +19,7 @@ import {
   InspectorStackSection,
 } from "@/components/app/inspector-stack";
 import { Button } from "@/components/ui/button";
+import { RunTagsFooter } from "@/components/app/run-tags-footer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatStepLabel } from "@/lib/view-model/run-projection";
@@ -40,6 +41,7 @@ interface StepInspectorPanelProps {
   streamingText: string | null;
   workflowId: string;
   runId: string;
+  tags: string[];
   workflowInput: unknown;
   workflowOutput: unknown;
   runStatus: RunStatus;
@@ -54,39 +56,41 @@ export function StepInspectorPanel({
   streamingText,
   workflowId,
   runId,
+  tags,
   workflowInput,
   workflowOutput,
   runStatus,
   runError,
 }: StepInspectorPanelProps) {
-  if (!step) {
-    return (
-      <WorkflowInspector
-        workflowId={workflowId}
-        input={workflowInput}
-        output={workflowOutput}
-        status={runStatus}
-        error={runError}
-      />
-    );
-  }
+  const body = !step ? (
+    <WorkflowInspector
+      workflowId={workflowId}
+      input={workflowInput}
+      output={workflowOutput}
+      status={runStatus}
+      error={runError}
+    />
+  ) : episode ? (
+    <ConversationInspector
+      step={step}
+      episode={episode}
+      events={events}
+      messagesPromise={messagesPromise}
+      streamingText={streamingText}
+      runStatus={runStatus}
+      runError={runError}
+      runId={runId}
+    />
+  ) : (
+    <StepOutputInspector step={step} runError={runError} />
+  );
 
-  if (episode) {
-    return (
-      <ConversationInspector
-        step={step}
-        episode={episode}
-        events={events}
-        messagesPromise={messagesPromise}
-        streamingText={streamingText}
-        runStatus={runStatus}
-        runError={runError}
-        runId={runId}
-      />
-    );
-  }
-
-  return <StepOutputInspector step={step} runError={runError} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-hidden">{body}</div>
+      <RunTagsFooter tags={tags} />
+    </div>
+  );
 }
 
 function StepOutputInspector({ step, runError }: { step: StepNode; runError?: unknown }) {

@@ -982,3 +982,50 @@ describe("ToolProvider-owned context validation", () => {
     expect(agent.tools?.contextSchema).toBe(contextSchema);
   });
 });
+
+describe("AgentImpl run tags", () => {
+  it("records caller tags plus the configured version on agent_started", async () => {
+    const adl = createTestRuntime({
+      version: "1.4.0",
+      defaults: { model: mockTextModel("ok") },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      tags: ["dataset:qa-v1"],
+    });
+    await handle.result;
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started?.tags).toEqual(["dataset:qa-v1", "version:1.4.0"]);
+  });
+
+  it("does not invent a version tag when tagging is disabled", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      tags: ["dataset:qa-v1"],
+    });
+    await handle.result;
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started?.tags).toEqual(["dataset:qa-v1"]);
+  });
+});

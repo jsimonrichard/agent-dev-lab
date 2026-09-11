@@ -249,6 +249,8 @@ export interface ResolvedAgentConversation {
   messages: InspectorMessage[];
   /** Latest agent call on this conversation, when one has started. */
   latestAgentCallId: string | null;
+  /** From the latest `agent_started` on this conversation; empty if none yet. */
+  tags: string[];
   forkSession: ForkedAgentSession | null;
   workflowLink: ConversationWorkflowLink | null;
 }

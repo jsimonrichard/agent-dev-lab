@@ -115,6 +115,8 @@ export type AgentStartedEvent = AgentEventBase & {
   type: "agent_started";
   agentId: string;
   memoryScope: string;
+  /** Set from {@link AgentRunInput.tags} plus the automatic project version tag. */
+  tags?: string[];
 };
 
 export type AgentFinishedEvent = AgentEventBase & {

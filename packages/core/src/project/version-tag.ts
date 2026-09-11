@@ -153,8 +153,8 @@ function resolveUncached(projectRoot: string, version: string | undefined): stri
  * mutates the repo being described and, in a multi-workspace checkout, can
  * leave a sibling workspace stale.
  *
- * Applied automatically to `workflow.run()` — see {@link WorkflowRunStartOptions.tags},
- * whose docs already anticipated "a project's git commit" as a tag.
+ * Applied automatically to `workflow.run()` and `agent.run()` — see
+ * {@link WorkflowRunStartOptions.tags} and {@link AgentRunInput.tags}.
  */
 export function resolveProjectVersionTag(options?: {
   projectRoot?: string;
@@ -170,6 +170,35 @@ export function resolveProjectVersionTag(options?: {
   const resolved = resolveUncached(projectRoot, options?.version);
   cache.set(key, resolved);
   return resolved;
+}
+
+/**
+ * Adds the project's version tag (see {@link resolveProjectVersionTag}) to a
+ * run's tags, so every workflow and agent run records which code produced it.
+ *
+ * A caller-supplied tag with the same prefix wins: an explicit tag at the call
+ * site is more specific than a process-wide default, and duplicating it would
+ * make tag filters match the same run twice.
+ */
+export function withProjectVersionTag(
+  tags: string[] | undefined,
+  version: string | false | undefined,
+): string[] | undefined {
+  if (version === false) {
+    return tags;
+  }
+  const versionTag = resolveProjectVersionTag({ version });
+  if (!versionTag) {
+    return tags;
+  }
+  if (!tags?.length) {
+    return [versionTag];
+  }
+  const prefix = versionTag.slice(0, versionTag.indexOf(":") + 1);
+  if (tags.some((tag) => tag.startsWith(prefix))) {
+    return tags;
+  }
+  return [...tags, versionTag];
 }
 
 /** Test seam: drops the per-process resolution cache. */

@@ -510,14 +510,21 @@ export async function resolveAgentConversation(
 
   const messages = await loadMessagesForScope(memoryScope);
   const latestAgentCallId = await latestAgentCallIdForScope(memoryScope, viewAgentId);
+  const resolvedCallId =
+    latestAgentCallId ?? (session.agentCallId.startsWith("pending:") ? null : session.agentCallId);
+  // SQLite only indexes `agent_started` by agentCallId (memoryScope is reserved
+  // for conversation-scoped events like `conversation_forked`).
+  const store = await getWorkflowStore();
+  const started = resolvedCallId
+    ? await store.getLatestEvent({ agentCallId: resolvedCallId }, "agent_started")
+    : null;
   return {
     runId: memoryScope,
     agentId: viewAgentId,
     title: sessionDisplayTitle(session),
     messages,
-    latestAgentCallId:
-      latestAgentCallId ??
-      (session.agentCallId.startsWith("pending:") ? null : session.agentCallId),
+    latestAgentCallId: resolvedCallId,
+    tags: started?.tags ?? [],
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {
