@@ -13,6 +13,7 @@ import {
   type LoadedAdlProject,
 } from "@agent-dev-lab/core/project";
 
+import { logAdlProjectReload } from "#/lib/adl-project-reload-log";
 import {
   ensureInspectorAgentObserver,
   resetInspectorAgentObserver,
@@ -42,7 +43,8 @@ if (shouldWatchAdlProject()) {
 
 function bindInspectorWatchListeners(project: LoadedAdlProject): void {
   setAdlProjectWatchListeners({
-    onReload: () => {
+    onReload: (info) => {
+      logAdlProjectReload({ type: "reload", root: project.root, path: info.path });
       // jiti reload builds a new runtime with empty observer arrays; attach again.
       resetInspectorAgentObserver();
       try {
@@ -52,6 +54,9 @@ function bindInspectorWatchListeners(project: LoadedAdlProject): void {
       } catch {
         // getAdl() throws when config.adl is missing.
       }
+    },
+    onError: (error) => {
+      logAdlProjectReload({ type: "error", message: error.message });
     },
   });
 }
