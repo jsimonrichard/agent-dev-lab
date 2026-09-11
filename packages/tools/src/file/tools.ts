@@ -18,7 +18,7 @@ export const EDIT_FILE_DESCRIPTION =
 export interface FileToolsOptions {
   /**
    * Directory every path is confined to. Resolved (and symlink-checked) lazily on first
-   * tool call, not at `createFileTools` time — see `notes/tool-sandboxing.md`.
+   * tool call, not at `createFileTools` time.
    */
   root: string;
   /** Refuse to read a file over this many bytes. Default 1,000,000 (1 MB). */
@@ -43,16 +43,14 @@ function countOccurrences(haystack: string, needle: string): number {
 /**
  * `readFile`/`writeFile`/`editFile` tools jailed to `options.root` — no path may resolve
  * (after symlink resolution) outside it. There is **no zero-config unsafe default**: `root`
- * is required, matching `notes/tool-sandboxing.md`'s "tie dangerous tools to a sandbox
- * structurally" principle.
+ * is required.
  *
  * `editFile` is a find/replace, not a diff format: it fails unless `find` appears exactly
- * once in the file, so an ambiguous edit is rejected rather than guessed at (same reasoning
- * as this repo's own editing tool).
+ * once in the file, so an ambiguous edit is rejected rather than guessed at.
  *
- * Writing a file requires its parent directory to already exist — this first increment does
- * not create intermediate directories, since doing so safely (without a symlink defeating the
- * jail partway through) needs a level-by-level check this package doesn't implement yet.
+ * Writing a file requires its parent directory to already exist — this package does not
+ * create intermediate directories, since doing so safely (without a symlink defeating the
+ * jail partway through) needs a level-by-level check that is not implemented yet.
  */
 /** Named return type (rather than bare `ToolSet`) so destructuring a single tool out doesn't
  * trip `noUncheckedIndexedAccess` the way indexing into a `Record<string, Tool>` would. */

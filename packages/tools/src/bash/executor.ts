@@ -1,9 +1,8 @@
 /**
  * Pluggable boundary a bash tool runs commands through. Implementations decide the actual
- * isolation strategy (kernel-enforced OS sandbox, bare subprocess, container, ...) — see
- * `notes/tool-sandboxing.md`'s Bash tool section for the tiers and why there's no automatic
- * fallback between them: a project picks one executor explicitly, and a missing prerequisite
- * is a thrown error, never a silent downgrade to a weaker one.
+ * isolation strategy (kernel-enforced OS sandbox, bare subprocess, container, ...).
+ * A project picks one executor explicitly; a missing prerequisite is a thrown error,
+ * never a silent downgrade to a weaker one.
  */
 export interface BashExecutor {
   /**

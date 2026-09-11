@@ -41,7 +41,7 @@ All standard commands are in root `package.json`:
 - **End-user / CLI** (`adl dashboard`): walks up from cwd for `adl.config.*`; no playground default. Sets `ADL_PROJECT_ROOT`. Vite when `@agent-dev-lab/web` still has `src/routes` (this monorepo); otherwise Nitro `.output`. `--prebuilt` forces Nitro; `--serve` sets `ADL_PROJECT_WATCH=0`.
 - End-user projects install `@agent-dev-lab/core`; the CLI loads it from the target project's `node_modules`. There is no `@agent-dev-lab/common` package — SQLite/ESLint/tsconfig are `@agent-dev-lab/core/db`, `./eslint`, and `./tsconfig/node.json`.
 - SQLite database is auto-created at `.data/agent-dev-lab.sqlite` on first access — configurable via `ADL_SQLITE_PATH`. Event order is `run_seq` (same as `RunEvent.runSeq`).
-- `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` JSDoc (`src/content/docs/api/` gitignored).
+- `apps/docs` — Starlight guides for cross-cutting concepts; TypeDoc API from `packages/core` and `packages/tools` JSDoc (`src/content/docs/api/` gitignored).
 - `notes/` — coding-agent gap tracking only.
 - No Docker, no external services required.
 - CI (`.github/workflows/ci.yml`, on push/PR to `main`) is two parallel jobs, each on

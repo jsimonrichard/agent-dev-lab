@@ -16,7 +16,7 @@ import { existingSystemReadPaths } from "./read-bounds.ts";
 export interface AsrtBashExecutorOptions {
   /**
    * Paths writable inside the sandbox — e.g. the tool's configured project root. Required,
-   * matching `notes/tool-sandboxing.md`'s "no zero-config unsafe default": pass `[]` for a
+   * matching the no-unsandboxed-default rule: pass `[]` for a
    * sandbox that can run commands but write nowhere, not an implicit "everything."
    */
   allowWrite: string[];
@@ -91,9 +91,8 @@ function dependencyError(check: SandboxDependencyCheck): AdlError {
   return new AdlError(
     "INIT_FAILED",
     `ASRT sandbox dependencies missing: ${check.errors.join("; ")}.${hintText} ` +
-      `See notes/tool-sandboxing.md's Bash tool section — no automatic fallback to an ` +
-      `unsandboxed executor is used; install the missing dependencies or configure a ` +
-      `different BashExecutor.`,
+      `No automatic fallback to an unsandboxed executor is used; install the missing ` +
+      `dependencies or configure a different BashExecutor.`,
   );
 }
 

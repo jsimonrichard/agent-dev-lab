@@ -89,8 +89,8 @@ const webToolProviderContextSchema = z
 
 /**
  * Overrides `options` for one call — every field is optional, defaulting to `options`'s own
- * value. `toolProviderContext` is host/workflow-set and trusted — the model never reaches it
- * (`notes/tool-sandboxing.md`'s "trust, not restriction"). A `RegExp` entry in `allowedUrls`
+ * value. `toolProviderContext` is host/workflow-set and trusted — the model never reaches it.
+ * A `RegExp` entry in `allowedUrls`
  * survives here (unlike `WebAccessInfo.allowedUrls`) since this is a plain in-process value,
  * never serialized through JSON.
  */

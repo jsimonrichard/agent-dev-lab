@@ -62,7 +62,7 @@ export type WorkspaceTools = {
 };
 
 export interface WorkspaceToolProviderOptions {
-  /** Isolation strategy for the `bash` tool — see `notes/tool-sandboxing.md`'s Bash tool section. */
+  /** Isolation strategy for the `bash` tool. Required — there is no unsandboxed default. */
   executor: BashExecutor;
   /** Default working directory when a call's context doesn't specify one — used as both the
    * file jail root and the bash cwd. */
@@ -98,10 +98,10 @@ export interface WorkspaceToolProviderContext {
  * bash cwd drifting apart. For a narrower need (bash-only, no project-directory concept), use
  * `createBashToolProvider` directly instead.
  *
- * See `notes/tool-sandboxing.md`'s "trust, not restriction" note: `cwd` here is set by the
- * workflow/host via `toolProviderContext`, never by the model directly, so it's trusted to
- * point anywhere — the file jail fully re-scopes to it, while bash's actual write permissions
- * stay whatever `options.executor` was constructed with (fixed, independent of `cwd`).
+ * `cwd` here is set by the workflow/host via `toolProviderContext`, never by the model
+ * directly, so it's trusted to point anywhere — the file jail fully re-scopes to it, while
+ * bash's actual write permissions stay whatever `options.executor` was constructed with
+ * (fixed, independent of `cwd`).
  */
 export function createWorkspaceToolProvider(
   options: WorkspaceToolProviderOptions,

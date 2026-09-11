@@ -147,7 +147,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`).
 
 ```ts
-import type { ModelMessage } from "@agent-dev-lab/core";
+import type { ModelMessage, ToolProvider, ToolSet } from "@agent-dev-lab/core";
 import type { z } from "zod";
 
 type AgentRunInput = {
@@ -160,11 +160,15 @@ type AgentRunInput = {
   systemPromptConflict?: "keep-pinned" | "use-current";
   suppressSystemPromptConflictWarning?: boolean;
   workflow?: { workflowRunId: string; stepId: string | null };
+  tools?: ToolSet | ToolProvider<ToolSet>;
+  toolProviderContext?: unknown;
   tags?: string[];
 };
 ```
 
 Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active context — omit `workflow` unless you are linking a standalone call.
+
+`tools` overrides the agent's tools for this episode (`ToolSet` or [`ToolProvider`](/core/tool-provider/)). `toolProviderContext` is the raw value passed into a provider's `getTools` — the framework never validates it.
 
 `tags` labels this episode. The inspection UI shows them in a **Tags** footer (no run-list filter). Every `agent.run` also records automatic `version:` / `commit:` provenance unless you pass a tag with the same prefix or set `createAdlRuntime({ version: false })`. See [Run tags](/core/workflows/#run-tags).
 
@@ -293,6 +297,8 @@ await askAsWorkflow.run("What is CRISPR?").result;
 `createToolFromAgent` / `createToolFromWorkflow` return an AI SDK `Tool<TInput, TOutput>`. Agent tools use the agent's `TOutput` (inferred from `outputSchema`, otherwise `string`). Pass `inputSchema` so `mapRun` / `mapInput` receive typed arguments instead of a catch-all object.
 
 These helpers work **outside** a workflow. `mapRun` receives `ctx` only when the tool runs inside a workflow body or step. `createWorkflowFromAgent` wraps an agent as a workflow that takes a string user message.
+
+`AgentDefinition.tools` also accepts a [`ToolProvider`](/core/tool-provider/) when the tool set depends on the call (sandbox root, credentials). Optional sandboxed file/bash/`fetchUrl` tools are in [`@agent-dev-lab/tools`](/guides/tools/).
 
 ## Events
 

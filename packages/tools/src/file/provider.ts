@@ -83,9 +83,9 @@ function cacheKey(root: string, maxReadBytes: number, maxWriteBytes: number): st
 
 /**
  * `ToolProvider` wrapping `createFileTools` so `root`/`maxReadBytes`/`maxWriteBytes` can be set
- * per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not the model —
- * see `notes/tool-sandboxing.md`'s "trust, not restriction" note) instead of being fixed at
- * construction time. Caches the constructed `FileTools` (and its `FileJail`'s cached `realpath`
+ * per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not the model)
+ * instead of being fixed at construction time. Caches the constructed `FileTools` (and its
+ * `FileJail`'s cached `realpath`
  * promise) per distinct resolved `(root, maxReadBytes, maxWriteBytes)` combination, since the
  * common case is the same combination recurring across many calls in one run.
  */

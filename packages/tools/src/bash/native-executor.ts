@@ -11,7 +11,7 @@ import { existingSystemReadPaths } from "./read-bounds.ts";
 export interface NativeBashExecutorOptions {
   /**
    * Paths writable inside the sandbox — e.g. the tool's configured project root. Required,
-   * matching `notes/tool-sandboxing.md`'s "no zero-config unsafe default": pass `[]` for a
+   * matching the no-unsandboxed-default rule: pass `[]` for a
    * sandbox that can run commands but write nowhere, not an implicit "everything."
    */
   allowWrite: string[];
@@ -46,7 +46,7 @@ export interface NativeBashExecutorOptions {
    * Environment variables available inside the sandbox. Default: a minimal safe subset of
    * this process's own env (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TERM`, `TMPDIR`) — **not** the
    * full `process.env`, which may hold secrets ADL's own `.env` loading put there (this
-   * mirrors `notes/tool-sandboxing.md`'s original tier-1 concern about that exact leak).
+   * avoids leaking secrets that `.env` loading put on `process.env`).
    */
   env?: Record<string, string>;
 }
@@ -88,8 +88,8 @@ function checkBwrapAvailable(): void {
     throw new AdlError(
       "INIT_FAILED",
       "bubblewrap (bwrap) not found on PATH. Install: `apt-get install bubblewrap` / " +
-        "`dnf install bubblewrap` / `pacman -S bubblewrap`. See notes/tool-sandboxing.md's " +
-        "Bash tool section — no automatic fallback to an unsandboxed executor is used.",
+        "`dnf install bubblewrap` / `pacman -S bubblewrap`. No automatic fallback to an " +
+        "unsandboxed executor is used.",
     );
   }
 }
@@ -181,15 +181,13 @@ function buildBwrapArgv(
 
 /**
  * `BashExecutor` backed directly by an OS sandboxing primitive — Bubblewrap (`bwrap`) on
- * Linux. The non-default alternative to `createAsrtBashExecutor` per
- * `notes/tool-sandboxing.md`: no npm dependency, no network-proxy layer, but network access is
- * all-or-nothing (no per-domain allowlist) and there's no violation logging.
+ * Linux. The non-default alternative to `createAsrtBashExecutor`: no npm dependency, no
+ * network-proxy layer, but network access is all-or-nothing (no per-domain allowlist) and
+ * there's no violation logging.
  *
- * **macOS is not implemented yet.** `sandbox-exec`/SBPL needs to be built and verified on an
- * actual Mac, which this development environment doesn't have — shipping an unverified
- * low-level sandboxing profile is worse than not shipping one. Constructing this executor on
- * macOS throws a clear "not implemented" error rather than silently doing nothing; use
- * `createAsrtBashExecutor` there instead.
+ * **macOS is not implemented yet.** Constructing this executor on macOS throws a clear
+ * "not implemented" error rather than silently doing nothing; use `createAsrtBashExecutor`
+ * there instead.
  *
  * Every property here (filesystem, network) is verified directly against real `bwrap` — see
  * `native-executor.test.ts` — rather than assumed from the flag names.

@@ -4,11 +4,11 @@ Gap tracking and live design — not a changelog of shipped work. Never link thi
 
 ## Documentation split
 
-| Layer                 | Location                                  | Contents                                           |
-| --------------------- | ----------------------------------------- | -------------------------------------------------- |
-| **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/` | User-facing layout, runtime, agents, workflows, UI |
-| **API reference**     | `apps/docs` TypeDoc `/api/`               | JSDoc on `packages/core` exports                   |
-| **Gaps / deferred**   | `notes/` (this folder)                    | Open work and design that is not in the guides     |
+| Layer                 | Location                                    | Contents                                           |
+| --------------------- | ------------------------------------------- | -------------------------------------------------- |
+| **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/`   | User-facing layout, runtime, agents, workflows, UI |
+| **API reference**     | `apps/docs` TypeDoc `/api/` + `/api/tools/` | JSDoc on `packages/core` and `packages/tools`      |
+| **Gaps / deferred**   | `notes/` (this folder)                      | Open work and design that is not in the guides     |
 
 `apps/docs` is the published site. Keep repo-only material here (and in `AGENTS.md`): playground / `dev:web`, `--local`, framework-dev modes, Changesets/release CI. JSDoc that TypeDoc publishes must not point at `notes/` or `apps/`.
 

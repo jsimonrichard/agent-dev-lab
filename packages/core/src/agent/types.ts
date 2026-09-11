@@ -173,8 +173,7 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
    * this class of bug entirely — confirmed by re-running the same repro against `AnyAgent`, no
    * break — but the field stays plain regardless, since there's no upside to the conditional
    * form once nothing requires it. The framework never validates this value — a `ToolProvider`
-   * that wants Zod validation/defaults parses it itself inside `getTools`. See
-   * `notes/tool-sandboxing.md`.
+   * that wants Zod validation/defaults parses it itself inside `getTools`.
    */
   toolProviderContext?: ToolProviderContext;
   /**

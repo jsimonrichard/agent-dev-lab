@@ -143,6 +143,12 @@ Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown).
 | macOS    | Supported   | ASRT only              | Supported  |
 | Windows  | Unsupported | Unsupported            | Untested   |
 
+## Documentation
+
+- [Sandboxed tools](https://agent-dev-lab.com/guides/tools/)
+- [Tool providers](https://agent-dev-lab.com/core/tool-provider/)
+- [Tools API](https://agent-dev-lab.com/api/tools/readme/)
+
 ## License
 
 [MIT](https://github.com/jsimonrichard/agent-dev-lab/blob/main/LICENSE) © J. Simon Richard

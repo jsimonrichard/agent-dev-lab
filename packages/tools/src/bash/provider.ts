@@ -82,7 +82,7 @@ const describeBashEnvInputSchema = z.object({});
 type DescribeBashEnvInput = z.infer<typeof describeBashEnvInputSchema>;
 
 export interface BashToolProviderOptions {
-  /** Isolation strategy — see `notes/tool-sandboxing.md`'s Bash tool section. */
+  /** Isolation strategy. Required — there is no unsandboxed default. */
   executor: BashExecutor;
   /** Default working directory when a call's context doesn't specify one. */
   cwd?: string;
@@ -123,9 +123,8 @@ export type BashProviderTools = {
 
 /**
  * `ToolProvider` wrapping `createBashTool` so `cwd`/`timeoutMs` can be set per `agent.run()`
- * call via `toolProviderContext` (set by the workflow/host, not the model — see
- * `notes/tool-sandboxing.md`'s "trust, not restriction" note) instead of being fixed at
- * construction time. The "command-only sandbox" primitive — no file jail attached; see
+ * call via `toolProviderContext` (set by the workflow/host, not the model) instead of being
+ * fixed at construction time. The "command-only sandbox" primitive — no file jail attached; see
  * `createWorkspaceToolProvider` for the combined file+bash surface.
  */
 export function createBashToolProvider(

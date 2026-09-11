@@ -10,3 +10,6 @@ description: Sharp edges worth knowing about before they surprise you.
 - Only ids listed in `adl.config` `agents` / `workflows` appear in the CLI/UI; `titleWorkflow` helpers are typically left out of those arrays.
 - The `adl` binary is provided by `@agent-dev-lab/cli`, not a package named `adl`.
 - **`adl init` does not create a Git repo.** Pass `--git` / `-g` if you want `git init`. It still writes `.gitignore`.
+- **`@agent-dev-lab/tools` has no unsandboxed default.** File/bash factories require a jail root or executor. Missing `bwrap` / `socat` / `ripgrep` fails closed.
+- **`writeFile` does not create parent directories.** The parent must already exist.
+- **File/bash tools are unsupported on Windows.** `fetchUrl` is untested there.

@@ -1,7 +1,12 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
+import starlightTypeDoc, {
+  createStarlightTypeDocPlugin,
+  typeDocSidebarGroup,
+} from "starlight-typedoc";
+
+const [toolsTypeDoc, toolsTypeDocSidebarGroup] = createStarlightTypeDocPlugin();
 
 // https://astro.build/config
 export default defineConfig({
@@ -26,6 +31,12 @@ export default defineConfig({
           tsconfig: "../../packages/core/tsconfig.build.json",
           sidebar: { label: "Core API", collapsed: false },
         }),
+        toolsTypeDoc({
+          entryPoints: ["../../packages/tools/src/index.ts"],
+          tsconfig: "../../packages/tools/tsconfig.build.json",
+          output: "api/tools",
+          sidebar: { label: "Tools API", collapsed: false },
+        }),
       ],
       sidebar: [
         {
@@ -35,6 +46,7 @@ export default defineConfig({
             { label: "Project Setup", slug: "guides/project-setup" },
             { label: "Manual Setup", slug: "guides/manual-setup" },
             { label: "Inspection UI", slug: "guides/inspection-ui" },
+            { label: "Sandboxed tools", slug: "guides/tools" },
             { label: "Gotchas", slug: "guides/gotchas" },
           ],
         },
@@ -43,6 +55,7 @@ export default defineConfig({
           items: [{ autogenerate: { directory: "core" } }],
         },
         typeDocSidebarGroup,
+        toolsTypeDocSidebarGroup,
       ],
     }),
   ],

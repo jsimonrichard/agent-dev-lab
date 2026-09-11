@@ -12,7 +12,7 @@ export const BASH_TOOL_DESCRIPTION =
 
 export interface BashToolOptions {
   /**
-   * Isolation strategy — see `notes/tool-sandboxing.md`'s Bash tool section. Required: this
+   * Isolation strategy. Required: this
    * tool never picks an executor on its own, and there's no unsandboxed default.
    */
   executor: BashExecutor;

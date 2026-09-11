@@ -23,7 +23,6 @@ export type ToolProviderContextField<ToolProviderContext> = undefined extends To
  * whose `any` params tolerate a parameterized copy just fine); it's because a per-call
  * `tools` override is deliberately independent of the agent's own `ToolProviderContext` — a
  * caller can pass any provider here regardless of what the agent it's overriding declares.
- * See `notes/tool-sandboxing.md`.
  *
  * This is always the **raw** value a caller passed to `AgentRunInput.toolProviderContext` — the
  * framework never parses or validates it. A provider that wants Zod validation/defaults calls
@@ -39,7 +38,7 @@ export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
 /**
  * Resolves a {@link ToolSet} from call context instead of a fixed object — for tools whose
  * availability or configuration genuinely depends on the call (e.g. which sandbox root a
- * dangerous tool should use for this run). See `notes/tool-sandboxing.md`.
+ * dangerous tool should use for this run).
  *
  * A true interface (not a bare function type) so a provider can be a class instance — useful
  * for anything that wants constructor state (a connection pool, a cache) or that needs to

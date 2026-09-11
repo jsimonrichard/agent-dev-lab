@@ -5,9 +5,8 @@ import { AdlError } from "@agent-dev-lab/core";
 
 /**
  * Confines file access to a configured root. Every requested path is resolved against the
- * root and checked (after symlink resolution) to still be inside it — see
- * `notes/tool-sandboxing.md`'s File-editing tools section for the threat this defends against
- * (`..` traversal and a symlink planted inside the jail pointing outside it).
+ * root and checked (after symlink resolution) to still be inside it. Defends against
+ * `..` traversal and a symlink planted inside the jail pointing outside it.
  *
  * **Known limitation (TOCTOU):** this is a check-then-use pattern, not a kernel-enforced
  * boundary — there's a window between a `resolve*` call's `realpath` check and the caller's
@@ -17,13 +16,13 @@ import { AdlError } from "@agent-dev-lab/core";
  * there's no gap between check and use; this package doesn't do that yet. Matches the threat
  * model this jail is scoped to (the *model* is the adversary, via tool-call arguments — not a
  * concurrent local filesystem race) but is worth knowing if that threat model ever changes.
- * A subprocess-level, kernel-enforced sandbox (e.g. Landlock, `sandbox-exec` — see the Bash
- * tool section of `notes/tool-sandboxing.md`) doesn't have this gap; this jail does.
+ * A subprocess-level, kernel-enforced sandbox (e.g. Landlock, `sandbox-exec`) doesn't have
+ * this gap; this jail does.
  *
  * **Platform support:** tested on Linux and macOS only. Windows is untested and not
  * currently supported — `path.isAbsolute`/`path.relative`/`path.sep` behave differently
  * there (drive letters, UNC paths, case-insensitive-but-case-preserving filesystems), and
- * none of that has been verified. See `packages/tools/README.md`.
+ * none of that has been verified.
  */
 export interface FileJail {
   /** The jail root, resolved to an absolute path (not yet symlink-resolved). */

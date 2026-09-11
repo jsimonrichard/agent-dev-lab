@@ -3,7 +3,7 @@ title: Overview
 description: High-level orientation for the Agent Dev Lab docs site.
 ---
 
-**Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), an inspection UI (`@agent-dev-lab/web`), and a CLI (`adl`).
+**Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), optional sandboxed tools (`@agent-dev-lab/tools`), an inspection UI (`@agent-dev-lab/web`), and a CLI (`adl`).
 
 ## What you get
 
@@ -26,9 +26,11 @@ description: High-level orientation for the Agent Dev Lab docs site.
 - [Project Setup](/guides/project-setup/) — the recommended way to start a project (`adl init`)
 - [Manual Setup](/guides/manual-setup/) — adding ADL to an existing project by hand
 - [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
+- [Sandboxed tools](/guides/tools/) — optional `@agent-dev-lab/tools` (file, bash, search, `fetchUrl`)
 - [Gotchas](/guides/gotchas/) — sharp edges worth knowing about before they surprise you
 - [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
 - [Agents](/core/agents/) — `adl.createAgent`, [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), memory, `adl agent run`
+- [Tool providers](/core/tool-provider/) — `ToolProvider`, `createToolProvider`, `combineToolProviders`
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
 - [Project Config](/core/project/) — registry, `loadAdlProject`
 
@@ -40,14 +42,17 @@ Generated from `@agent-dev-lab/core`'s own code comments — covers focused APIs
 - [MessageStore](/api/interfaces/messagestore/), [WorkflowStore](/api/interfaces/workflowstore/), [RunEvent](/api/type-aliases/runevent/) (`runSeq`)
 - [Template](/api/interfaces/template/), [createTemplate](/api/functions/createtemplate/)
 - [createWorkflowFromAgent](/api/functions/createworkflowfromagent/), [createToolFromAgent](/api/functions/createtoolfromagent/)
+- [ToolProvider](/api/interfaces/toolprovider/), [createToolProvider](/api/functions/createtoolprovider/)
 - [WorkflowObserver](/api/interfaces/workflowobserver/), [AgentObserver](/api/interfaces/agentobserver/)
+- [createWorkspaceToolProvider](/api/tools/functions/createworkspacetoolprovider/), [createFetchUrlTool](/api/tools/functions/createfetchurltool/)
 
-Use the **Core API** sidebar for the full export list.
+Use the **Core API** and **Tools API** sidebars for the full export lists.
 
 ## Packages
 
-| Package               | Role             |
-| --------------------- | ---------------- |
-| `@agent-dev-lab/core` | Headless runtime |
-| `@agent-dev-lab/web`  | Inspection UI    |
-| `@agent-dev-lab/cli`  | `adl` CLI        |
+| Package                | Role                                           |
+| ---------------------- | ---------------------------------------------- |
+| `@agent-dev-lab/core`  | Headless runtime                               |
+| `@agent-dev-lab/tools` | Optional sandboxed file/bash/search/`fetchUrl` |
+| `@agent-dev-lab/web`   | Inspection UI                                  |
+| `@agent-dev-lab/cli`   | `adl` CLI                                      |
