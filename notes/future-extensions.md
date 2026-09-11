@@ -180,6 +180,70 @@ A later release can add a **process host export** (same package, e.g. `@agent-de
 
 - [ ] Defer standalone API server
 
+---
+
+## Entity tables as views instead of hand-written projections (deferred)
+
+Today the read models over the event log are maintained by hand, in two places
+that both have to stay in step with the log:
+
+- [`db/projections/`](../packages/core/src/db/projections/) folds each
+  `RunEvent` into `adl_agent_episodes`, `adl_conversation_metadata`,
+  `adl_workflow_runs` and `adl_step_records`.
+- [`db/backfill.ts`](../packages/core/src/db/backfill.ts) replays retained
+  events through that same code to populate a table added after a database
+  already exists, keyed in `adl_schema_migrations` so it runs once.
+
+Both exist only because the tables are _stored_. If a read model were a query
+over `adl_run_events` instead, there would be no projection to write and no
+backfill to run — a new read model would be available over all history the
+moment it was defined.
+
+**What is actually available on SQLite** (checked, not assumed):
+
+- No `CREATE MATERIALIZED VIEW` — it is a syntax error. The literal feature
+  does not exist on today's backend.
+- A plain `CREATE VIEW` _can_ express the fold, including state assembled from
+  more than one event: a view grouping on
+  `json_extract(payload_json, '$.agentCallId')` derives an episode's agent from
+  its `agent_started` and its `finished_at` from the matching `agent_finished`.
+- Indexes on `json_extract(...)` expressions are supported, and a `VIRTUAL`
+  generated column over a JSON field can be added with `ALTER TABLE` and then
+  indexed. So the `WHERE` / `ORDER BY` / `LIMIT` pushdown `listAgentEpisodes`
+  now relies on would not have to be surrendered. (`STORED` generated columns
+  cannot be added by `ALTER TABLE`; that needs a table rebuild.)
+
+**Where it fits, and where it does not.** This is not uniform across the four
+tables, which is the main thing to know before starting:
+
+- `adl_agent_episodes` is the good candidate. It is a pure fold of
+  `agent_started` / `agent_finished` / `agent_failed` with no writer outside
+  the projection, so a view plus an expression index could replace both its
+  projection and its backfill outright.
+- `adl_conversation_metadata` cannot be a view as it stands. SQLite rejects
+  `UPDATE` against a view, and this table carries columns no event produces —
+  `deleted_at`, and the `agent_call_id` / `fork_json` the inspection UI writes
+  directly. Expressing it as a view would mean `INSTEAD OF` triggers, which
+  trades hand-written TypeScript for hand-written SQL rather than removing the
+  mechanism.
+- `adl_workflow_runs` and `adl_step_records` have the same objection, via
+  `setRunTitle` / `setRunTags`.
+
+**The cost to weigh.** A non-materialized view recomputes on read.
+`listAgentEpisodes` was rewritten in this lane specifically to stop
+`JSON.parse`-ing the entire log on every call, so adopting a view _without_ the
+expression indexes above would walk that straight back. The honest version of
+this change is "view + indexes", not "view".
+
+If the store ever gains a backend with real materialized views (Postgres,
+libSQL), the calculus shifts: true storage plus `REFRESH` semantics would let
+the episodes table drop both mechanisms with no read-cost regression, and would
+make the same treatment plausible for the mixed-ownership tables if their
+UI-written columns moved into the log as events first.
+
+- [ ] Defer view-backed read models; revisit for `adl_agent_episodes` first,
+      and whenever the SQLite-only assumption is relaxed
+
 ## v1
 
 - [x] Document only (this file + cross-links)
