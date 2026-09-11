@@ -2,7 +2,7 @@
 
 How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) that shaped the SSE + reducer design.
 
-**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork + process-wide event log). Template playground and a dedicated raw-token debug pane remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
+**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork + process-wide event log). Template playground, a dedicated raw-token debug pane, and a live UI for streaming / preliminary tool results remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
 
 **Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
 
@@ -105,6 +105,7 @@ Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, n
 - [x] Live assistant text via `agent_text_delta` (chat / run views — not a dedicated token-debug pane)
 - [x] Event log page (`/events`): filters, pagination, store hydrate, deep-links into run/chat
 - [ ] ⏸ Dedicated live token debug pane
+- [ ] ⏸ Streaming / preliminary tool-result UI (see below)
 - [ ] ⏸ `@agent-dev-lab/hooks` — later
 - [ ] ⏸ Registry `adl.config.tools` browser: list shared tools and run one manually (no agent turn)
 
@@ -205,6 +206,29 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 
 ---
 
+## Streaming / preliminary tool results (deferred UI)
+
+Core already streams them. A tool whose `execute` returns an `AsyncIterable` (bash is the
+shipped case — cumulative `stdout`/`stderr` snapshots while the command runs) emits one
+`agent_tool_result` per yield with `preliminary: true`, then a final non-preliminary result
+for the same `toolCallId`. See `AgentToolResultEvent` and `.changeset/streaming-tool-results.md`.
+Preliminary values never reach `MessageStore` / the model; they exist only on the event stream.
+
+The inspection UI does **not** show that live stream. Chat / run transcripts render tool
+results from committed messages (`chat-tool-call.tsx`), so a long-running bash call is a
+spinner until the final result lands. The event log lists each `agent_tool_result` as a row
+but has no growing output pane.
+
+**Wanted:** a chat/run tool card that tails preliminary `agent_tool_result` events for the
+in-flight `toolCallId` (stdout/stderr or JSON snapshot, replace-in-place as bash does) and
+settles on the final result. Same SSE/`runSeq` path as `agent_text_delta` — no second
+transport. Filter `!event.preliminary` anywhere the finished result is the only thing that
+matters.
+
+Not a token-debug pane and not the registry "run a tool manually" browser.
+
+---
+
 ## Open questions (web-specific)
 
 - [x] Start via server fn (not `POST /api/runs`); SSE is the data plane.
@@ -223,3 +247,4 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 | 3     | Start-run server fn + waterfall UI                             | Done     |
 | 4     | `agent_text_delta` in chat / run transcripts                   | Done     |
 | 5     | Optional: hooks package, template playground, token-debug pane | Deferred |
+| 6     | Live UI for streaming / preliminary tool results               | Deferred |

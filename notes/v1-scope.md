@@ -80,6 +80,7 @@ Docs: [apps/docs/src/content/docs/core/](../apps/docs/src/content/docs/core/)
 | Event-log deep-links highlight the matching call / step             | ✅     |
 | Template playground (edit/render markdown templates in UI)          | ⏸      |
 | Dedicated token-debug pane (raw delta inspector)                    | ⏸      |
+| Live UI for streaming / preliminary tool results                    | ⏸      |
 | `@agent-dev-lab/hooks` package                                      | ⏸      |
 
 Design notes (architecture still accurate; checklists below were stale): [`inspection-ui.md`](./inspection-ui.md)
@@ -234,6 +235,7 @@ Optional later: Playwright (or similar) in CI with a mock model so the inspector
 | Standalone core HTTP API   | ⏸                                  | [`future-extensions.md`](./future-extensions.md)               |
 | Merge `common` into `core` | ✅                                 | `@agent-dev-lab/core` exports `./db`, `./eslint`, `./tsconfig` |
 | Manual tool-run UI         | ⏸                                  | [`inspection-ui.md`](./inspection-ui.md) — `adl.config.tools`  |
+| Streaming tool-result UI   | ⏸                                  | [`inspection-ui.md`](./inspection-ui.md) — live `preliminary`  |
 | Human approval             | ⏸                                  | [`future-extensions.md`](./future-extensions.md)               |
 | Memory pipeline            | ⏸                                  | [`memory-pipeline.md`](./memory-pipeline.md)                   |
 | Checkpoints                | ⏸                                  | [`resumability.md`](./resumability.md)                         |
