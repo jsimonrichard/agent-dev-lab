@@ -5,6 +5,7 @@ import { conversationMetadata } from "../db/schema";
 
 import type { SqliteStoreOptions } from "./sqlite";
 
+/** Where a forked conversation's transcript and pin were copied from. */
 export type ConversationFork = {
   sourceWorkflowId: string;
   sourceWorkflowRunId: string;
@@ -13,6 +14,11 @@ export type ConversationFork = {
   sourceMemoryScope: string;
 };
 
+/**
+ * One row of conversation metadata — title, optional fork lineage, soft-delete —
+ * keyed by `memoryScope`. Not the source of truth for message content (that is
+ * {@link sqliteMessageStore}). Replaces the old inspector-session store shape.
+ */
 export type ConversationMetadataRecord = {
   memoryScope: string;
   agentId: string;

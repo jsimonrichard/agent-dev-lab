@@ -13,6 +13,7 @@ export interface AsyncChannel<T> {
   [Symbol.asyncIterator](): AsyncGenerator<T, void, unknown>;
 }
 
+/** Creates an {@link AsyncChannel}. */
 export function createAsyncChannel<T>(): AsyncChannel<T> {
   const buffer: T[] = [];
   const waiters: Array<{

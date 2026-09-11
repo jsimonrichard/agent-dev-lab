@@ -87,6 +87,17 @@ export interface FetchUrlResult {
  */
 export type FetchUrlTool = Tool<{ url: string }, FetchUrlResult>;
 
+/**
+ * Builds the `fetchUrl` tool: one http(s) URL in, readable text or markdown out.
+ * Private, loopback, and link-local addresses are refused — including after a
+ * redirect — unless {@link FetchUrlToolOptions.allowedUrls} or
+ * {@link FetchUrlToolOptions.allowPrivateNetwork} say otherwise.
+ *
+ * Distinct from web search (which finds pages). Fetched content is untrusted
+ * text; HTML is converted with Turndown and `javascript:`/`data:` links are
+ * flattened to visible text. See the module comment above and
+ * {@link FETCH_URL_DESCRIPTION}.
+ */
 export function createFetchUrlTool(options: FetchUrlToolOptions = {}): FetchUrlTool {
   const timeoutMs = options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;

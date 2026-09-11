@@ -153,9 +153,15 @@ export type WorkflowRunStartOptions = {
    */
   isolated?: boolean;
   /**
-   * Labels recorded on the run for filtering/organizing later (e.g. `["dataset:qa-v1"]` or
-   * a project's git commit). Set once at start; see {@link WorkflowStore.setRunTags} to
-   * change them after the fact.
+   * Labels recorded on the run for filtering later (e.g. `["dataset:qa-v1"]`).
+   * Set once at start; see {@link WorkflowStore.setRunTags} to change them after
+   * the fact.
+   *
+   * Every `workflow.run()` also records which project code produced it, unless
+   * a caller tag already uses the same prefix: `version:<value>` when
+   * {@link AdlRuntimeConfig.version} is a string, otherwise `commit:<id>` from
+   * jj `@` first and git HEAD second, with `+dirty` when the tree has
+   * uncommitted work. Pass `version: false` on the runtime to skip that lookup.
    */
   tags?: string[];
 };
