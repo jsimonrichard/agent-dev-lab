@@ -2,11 +2,12 @@
 
 Build and release helpers. These are **not** Bun test files except `*.test.ts`.
 
-| Script          | Role                                                                                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-publish.sh` | Per-package publish: strip `devDependencies`, `bun pm pack`, `npm publish`. Invoked as each package's `ci:publish`.                                                          |
-| `patch-lock.ts` | Rewrite `bun.lock` workspace `version` fields from each `package.json` after `changeset version`.                                                                            |
-| `pack-local.ts` | Isolated local pack of core/web/cli/tools as versionless tarballs, with attached consumer projects via `vendor/` symlinks. Does not publish. Restores version bumps on exit. |
+| Script             | Role                                                                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-publish.sh`    | Per-package publish: strip `devDependencies`, `bun pm pack`, `npm publish`. Invoked as each package's `ci:publish`.                                                          |
+| `ci-install-jj.sh` | Pin and install the Linux musl `jj` used by `packages/core` version-tag tests. Invoked from `.github/workflows/ci.yml`.                                                      |
+| `patch-lock.ts`    | Rewrite `bun.lock` workspace `version` fields from each `package.json` after `changeset version`.                                                                            |
+| `pack-local.ts`    | Isolated local pack of core/web/cli/tools as versionless tarballs, with attached consumer projects via `vendor/` symlinks. Does not publish. Restores version bumps on exit. |
 
 ## `pack:local`
 

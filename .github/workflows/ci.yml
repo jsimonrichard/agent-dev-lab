@@ -60,6 +60,11 @@ jobs:
       - name: Verify bubblewrap can actually create a sandbox
         run: bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --unshare-all -- /bin/true
 
+      # packages/core's resolveProjectVersionTag (jj) tests spawn a real `jj`.
+      # Same class of gap as the sandbox binaries above — see scripts/ci-install-jj.sh.
+      - name: Install jj
+        run: bash scripts/ci-install-jj.sh
+
       - name: Typecheck
         run: bun run typecheck
 
