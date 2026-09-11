@@ -13,6 +13,7 @@ Bun + Turborepo monorepo for an agentic workflow research framework.
 | `@agent-dev-lab/playground` | `apps/playground` | Monorepo ADL project (`adl.config.ts`) for framework dev                          |
 | `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight API/project docs — port 4321                                      |
 | `@agent-dev-lab/core`       | `packages/core`   | Headless core library (Vercel AI SDK); SQLite/ESLint/tsconfig via package exports |
+| `@agent-dev-lab/tools`      | `packages/tools`  | Sandboxed file/bash/search/`fetchUrl` tools for core (optional install)           |
 
 ### Commands
 
@@ -27,7 +28,7 @@ All standard commands are in root `package.json`:
 - **Format check**: `bun run format:check` — Prettier check (CI uses this)
 - **Lint**: `bun run lint` — ESLint across all packages
 - **Typecheck**: `bun run typecheck` — TypeScript checking via Turbo
-- **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `cli`, `web`), then `bun test scripts`
+- **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `tools`, `cli`, `web`), then `bun test scripts`
 - **Build**: `bun run build`
 - **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` attaches a consumer via a stable `vendor/` symlink. See `scripts/README.md`.
 
@@ -52,7 +53,7 @@ All standard commands are in root `package.json`:
     and verifies `bwrap` can create a sandbox (`packages/tools`' executors test against
     the real primitives and never fall back to running unsandboxed); then `typecheck`,
     `test`, `test:node`, `build`.
-- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
+- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/tools`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
 - Bun is the monorepo dev/tooling runtime (install, `bun run dev`, most tests), but **Node is the reference runtime going forward** for process/spawn-level code, where Bun and Node have been found to disagree (e.g. `spawn`/`spawnSync` PATH resolution — see `notes/tool-sandboxing.md`). New code in that category should get `node:test`-based coverage runnable under both, not just `bun test`.
 

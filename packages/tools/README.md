@@ -1,10 +1,8 @@
 # @agent-dev-lab/tools
 
-Sandboxed file/bash/web-search tools for `@agent-dev-lab/core` agents. Design doc:
-[`notes/tool-sandboxing.md`](../../notes/tool-sandboxing.md).
-
-**Status: not yet published.** `private: true` — versioned via changesets but not part of
-`ci:publish` (see `.changeset/README.md`) until the package is ready to ship.
+Sandboxed file, bash, search (`grep`/`glob`), and `fetchUrl` tools for
+`@agent-dev-lab/core` agents. Dangerous tools take their jail or executor as a
+required argument — there is no zero-config unsandboxed default.
 
 ## Provider-native tools — check before building one here
 
@@ -99,7 +97,7 @@ platform below. It is exercised under both Bun and Node (see [Testing](#testing)
   **Production lifecycle note:** a process using `createAsrtBashExecutor` must call
   `SandboxManager.reset()` (from `@anthropic-ai/sandbox-runtime`) on its own shutdown path, or
   it will neither exit cleanly nor release ASRT's child processes — see `asrt-executor.ts`'s doc
-  comment and `notes/tool-sandboxing.md`'s testing section for how this was found.
+  comment for how this was found.
 
 ## Tool providers
 
@@ -128,8 +126,7 @@ permission it would need: `describeBashEnv`, `describeFileEnv`, `describeWebEnv`
 `describeWorkspaceEnv` (merging the file and bash ones) depending on the provider — named for their actual scope rather than a generic
 `describeEnvironment`, since none of them know about other tools an agent might have with their
 own network access. `toolProviderContext` values are trusted (set by the workflow/host, never
-the model directly) — see `notes/tool-sandboxing.md`'s design notes for what that does and
-doesn't let a caller reconfigure.
+the model directly).
 
 `resolveDefaultSandboxRoot(projectRoot?)` (`src/paths.ts`) resolves a `.data/sandbox` default,
 mirroring `@agent-dev-lab/core`'s `resolveAdlSqlitePath` — an `ADL_SANDBOX_ROOT` env override,
@@ -142,7 +139,7 @@ directory (`mkdirSync`) is still the caller's job.
 `web/{url-pattern,address-policy,fetch,fetch-url}.test.ts` are `node:test`-based (not `bun:test`) and run under both
 `bun test` (the normal per-package suite) and `node --test` via `bun run test:node` from the repo
 root — this package's process/spawn-heavy code is exactly where Bun and Node have been found to
-disagree (see `notes/tool-sandboxing.md`), and `src/web/` is in the same category: it rests on
+disagree, and `src/web/` is in the same category: it rests on
 `fetch` with `redirect: "manual"`, streaming body reads and `AbortSignal` composition, all of which
 the two runtimes implement separately.
 

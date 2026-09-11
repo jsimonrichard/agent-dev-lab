@@ -65,19 +65,13 @@ describe("vendorFileSpecs", () => {
 });
 
 describe("applyE2eBump", () => {
-  it("bumps the version and adds a files list only when missing", () => {
+  it("bumps the version and leaves files untouched", () => {
     const bumped = applyE2eBump(
-      { name: "@agent-dev-lab/tools", version: "0.0.0" },
-      { label: DEFAULT_E2E_LABEL, ensureFiles: ["dist", "src"] },
+      { name: "@agent-dev-lab/tools", version: "0.0.0", files: ["dist", "src"] },
+      { label: DEFAULT_E2E_LABEL },
     );
     expect(bumped.version).toBe("0.0.1-e2e.0");
     expect(bumped.files).toEqual(["dist", "src"]);
-
-    const alreadyListed = applyE2eBump(
-      { version: "0.0.3", files: ["dist"] },
-      { label: DEFAULT_E2E_LABEL, ensureFiles: ["dist", "src"] },
-    );
-    expect(alreadyListed.files).toEqual(["dist"]);
   });
 
   it("throws when version is missing", () => {

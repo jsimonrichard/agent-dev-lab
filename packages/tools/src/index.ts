@@ -4,8 +4,6 @@
  * Sandboxed file, bash, search (`grep`/`glob`), and `fetchUrl` tools for
  * `@agent-dev-lab/core`. Dangerous tools take their jail or executor as a
  * required argument — there is no zero-config unsandboxed default.
- *
- * Private package: versioned for changelog, not published.
  */
 export {
   createFileJail,

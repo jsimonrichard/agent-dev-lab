@@ -30,7 +30,7 @@ Last reconciled: **2026-09-11**.
 
 ## 2. Tools — remaining
 
-Shipped in unpublished `@agent-dev-lab/tools`: file, bash (Linux native + ASRT), grep/glob, `fetchUrl`. Core still only has adapters + `ToolProvider`. Provider-native web search (`openai.tools.webSearch`) is the search path — do not build a second one. Details: [`tool-sandboxing.md`](./tool-sandboxing.md), [`packages/tools/README.md`](../packages/tools/README.md).
+Shipped in `@agent-dev-lab/tools`: file, bash (Linux native + ASRT), grep/glob, `fetchUrl`. Core still only has adapters + `ToolProvider`. Provider-native web search (`openai.tools.webSearch`) is the search path — do not build a second one. Details: [`tool-sandboxing.md`](./tool-sandboxing.md), [`packages/tools/README.md`](../packages/tools/README.md).
 
 | Item                                        | Notes                                                                                                                                                                                             |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

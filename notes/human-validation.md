@@ -2,7 +2,7 @@
 
 Reusable checklist before a publish. Not linked from the docs site.
 
-Published packages (2026-09-11): **core/web 0.0.3**, **cli 0.0.5**. `@agent-dev-lab/tools` stays unpublished.
+Published packages (2026-09-11): **core/web 0.0.3**, **cli 0.0.5**. Next release adds `@agent-dev-lab/tools`.
 
 ## Automated
 
@@ -41,4 +41,4 @@ After a tarball install: `node node_modules/@agent-dev-lab/cli/dist/cli.js workf
 
 ## Publish
 
-Remaining `.changeset/*.md` are patch. Merging to `main` opens a Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, cli, and web. Do not link `notes/` from product docs.
+Remaining `.changeset/*.md` are patch. Merging to `main` opens a Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, tools, cli, and web. Do not link `notes/` from product docs. First publish of `@agent-dev-lab/tools` needs that package added as an npm OIDC trusted publisher for this repo/`release.yml`.

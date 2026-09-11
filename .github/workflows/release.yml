@@ -43,7 +43,7 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
-      # Publishables: @agent-dev-lab/core, @agent-dev-lab/cli, @agent-dev-lab/web.
+      # Publishables: @agent-dev-lab/core, @agent-dev-lab/tools, @agent-dev-lab/cli, @agent-dev-lab/web.
       # docs and playground stay private (changeset ignore + no publish).
       # CLI prebuild requires apps/web/.output, so web is in the build graph.
       - name: Build publishable packages

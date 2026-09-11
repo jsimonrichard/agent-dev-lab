@@ -1,7 +1,6 @@
 /**
- * Pack the publishable workspace packages (plus private `@agent-dev-lab/tools`)
- * as local prerelease tarballs, and attach consumer projects via a stable
- * `vendor/` symlink.
+ * Pack the publishable workspace packages as local prerelease tarballs, and
+ * attach consumer projects via a stable `vendor/` symlink.
  *
  * Tarball *contents* get a bumped `*-e2e` version so `bun pm pack` rewrites
  * `workspace:*` from `bun.lock`. Filenames are versionless
@@ -45,8 +44,6 @@ export const DEFAULT_OUT_DIR = path.join(".data", "packed-e2e");
 export const TARBALLS_DIR_NAME = "tarballs";
 export const ATTACHED_DIR_NAME = "attached";
 export const VENDOR_DIR_NAME = "vendor";
-
-const TOOLS_PACK_FILES = ["dist", "src"] as const;
 
 export type PackageJson = {
   name?: string;
@@ -158,21 +155,14 @@ export function resolveVendorTarget(projectDir: string, vendorPath: string): str
   return path.resolve(projectDir, readlinkSync(vendorPath));
 }
 
-export function applyE2eBump(
-  pkg: PackageJson,
-  options: { label: string; ensureFiles?: readonly string[] },
-): PackageJson {
+export function applyE2eBump(pkg: PackageJson, options: { label: string }): PackageJson {
   if (typeof pkg.version !== "string") {
     throw new Error("package.json is missing a version");
   }
-  const next: PackageJson = {
+  return {
     ...pkg,
     version: e2ePrereleaseVersion(pkg.version, options.label),
   };
-  if (options.ensureFiles && next.files === undefined) {
-    next.files = [...options.ensureFiles];
-  }
-  return next;
 }
 
 export function applyTarballDependencies(
@@ -569,10 +559,7 @@ export async function packLocal(argv: string[], cwd: string): Promise<void> {
     for (const target of PACK_TARGETS) {
       const pkgPath = path.join(monorepoRoot, target.dir, "package.json");
       const pkg = readPackageJson(pkgPath);
-      const bumped = applyE2eBump(pkg, {
-        label: args.label,
-        ensureFiles: target.name === "@agent-dev-lab/tools" ? TOOLS_PACK_FILES : undefined,
-      });
+      const bumped = applyE2eBump(pkg, { label: args.label });
       if (typeof bumped.version !== "string") {
         throw new Error(`${pkgPath} lost its version after the e2e bump`);
       }

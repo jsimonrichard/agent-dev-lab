@@ -13,12 +13,12 @@
     "dev:cli": "turbo run dev --filter=@agent-dev-lab/cli",
     "dev:docs": "turbo run dev --filter=@agent-dev-lab/docs",
     "build": "turbo run build",
-    "build:publish": "turbo run build --filter=@agent-dev-lab/core --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli",
+    "build:publish": "turbo run build --filter=@agent-dev-lab/core --filter=@agent-dev-lab/tools --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
-    "typecheck:publish": "turbo run typecheck --filter=@agent-dev-lab/core --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli",
+    "typecheck:publish": "turbo run typecheck --filter=@agent-dev-lab/core --filter=@agent-dev-lab/tools --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli",
     "test": "turbo run test && bun test scripts",
     "test:scripts": "bun test scripts",
     "test:node": "turbo run test:node",
@@ -27,7 +27,7 @@
     "changeset": "changeset",
     "version": "changeset version && bun run scripts/patch-lock.ts",
     "version-packages": "bun run version",
-    "publish:packages": "bun run build:publish && bun turbo run ci:publish --filter=@agent-dev-lab/core --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli --env-mode=loose",
+    "publish:packages": "bun run build:publish && bun turbo run ci:publish --filter=@agent-dev-lab/core --filter=@agent-dev-lab/tools --filter=@agent-dev-lab/web --filter=@agent-dev-lab/cli --env-mode=loose",
     "ci:publish": "bun run publish:packages"
   },
   "devDependencies": {
