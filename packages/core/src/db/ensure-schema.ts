@@ -225,22 +225,45 @@ function tableExists(db: AdlDb, table: string): boolean {
   return rows.length > 0;
 }
 
+function isEmptyTable(db: AdlDb, table: string): boolean {
+  // db.all() rather than db.get(), for the driver reason on tableColumns.
+  const rows = db.all<{ n: number }>(sql.raw(`SELECT COUNT(*) AS n FROM ${table}`));
+  return (rows[0]?.n ?? 0) === 0;
+}
+
 /**
  * Renames a table, or does nothing when the rename has already happened.
  *
- * Throws when both names exist: that means a half-applied migration or a
- * hand-made table, and picking either one silently would orphan the rows in
- * the other.
+ * When both names exist, the old one is dropped if it is **empty**, and the
+ * rename is then already done. That is not a hypothetical: running an older
+ * build against a database a newer one has migrated recreates the old table
+ * (its own `CREATE TABLE IF NOT EXISTS` still names it), and without this the
+ * next upgrade would refuse to start — a real hazard while branches are being
+ * switched against one `.data/` file. An empty table can be dropped without
+ * losing anything, and this runs inside {@link ensureAdlSchema}'s transaction
+ * like every other step, so a later failure rolls the drop back with it.
+ *
+ * Throws when the old table still holds rows. Which row wins for a
+ * `memory_scope` present in both tables is a judgment call about someone's
+ * data, and making it silently is worse than refusing.
  */
 function renameTableIfPresent(db: AdlDb, from: string, to: string): void {
   const fromExists = tableExists(db, from);
   const toExists = tableExists(db, to);
+
   if (fromExists && toExists) {
-    throw new Error(
-      `ADL schema migration cannot rename ${from} to ${to}: both tables exist. ` +
-        `Merge or drop one by hand — continuing would leave the rows in ${from} unreachable.`,
-    );
+    if (!isEmptyTable(db, from)) {
+      throw new Error(
+        `ADL schema migration cannot rename ${from} to ${to}: both tables exist and ${from} ` +
+          `still holds rows. Merge them by hand and drop ${from} — continuing would either ` +
+          `orphan those rows or silently pick a winner for keys present in both.`,
+      );
+    }
+    // Left over by an older build; the rename it stands for already happened.
+    db.run(sql.raw(`DROP TABLE ${from}`));
+    return;
   }
+
   if (fromExists) {
     db.run(sql.raw(`ALTER TABLE ${from} RENAME TO ${to}`));
   }

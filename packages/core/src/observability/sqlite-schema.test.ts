@@ -227,6 +227,92 @@ describe("adl_conversation_metadata", () => {
   });
 });
 
+describe("leftover pre-rename tables", () => {
+  /**
+   * The sequence that makes this matter: a newer build migrates the database,
+   * then an older build runs against it and its own `CREATE TABLE IF NOT
+   * EXISTS` recreates the pre-rename name, empty. The next upgrade must not
+   * refuse to start.
+   */
+  it("drops an empty leftover table and migrates on", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    // Stand in for the older build re-creating what it still calls the table.
+    sqlite.exec(`
+      CREATE TABLE adl_inspector_sessions (
+        memory_scope TEXT PRIMARY KEY NOT NULL,
+        agent_id TEXT NOT NULL,
+        agent_call_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        fork_json TEXT
+      )
+    `);
+
+    expect(() => ensureAdlSchema(sqlite)).not.toThrow();
+
+    const tables = tableNames(sqlite);
+    expect(tables).not.toContain("adl_inspector_sessions");
+    expect(tables).toContain("adl_conversation_metadata");
+  });
+
+  it("drops an empty leftover event-log table too", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    sqlite.exec(`
+      CREATE TABLE adl_workflow_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workflow_run_id TEXT,
+        agent_call_id TEXT,
+        run_seq INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        at TEXT NOT NULL,
+        event_schema_version INTEGER NOT NULL DEFAULT 1,
+        payload_json TEXT NOT NULL
+      )
+    `);
+
+    expect(() => ensureAdlSchema(sqlite)).not.toThrow();
+    expect(tableNames(sqlite)).not.toContain("adl_workflow_events");
+  });
+
+  it("keeps refusing when the leftover table still holds rows", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    createLegacyInspectorSessionsTable(sqlite); // creates it *with* a row
+
+    // Dropping this would lose data, and merging it is a judgment call about
+    // which row wins for a memory_scope present in both.
+    expect(() => ensureAdlSchema(sqlite)).toThrow(/still holds rows/);
+    expect(tableNames(sqlite)).toContain("adl_inspector_sessions");
+    const row = sqlite
+      .prepare(`SELECT title FROM adl_inspector_sessions WHERE memory_scope = ?`)
+      .get("scope-1") as { title: string };
+    expect(row.title).toBe("My chat");
+  });
+
+  it("rolls the whole migration back when it refuses, leaving no partial state", () => {
+    const sqlite = new Database(":memory:");
+    createLegacyInspectorSessionsTable(sqlite);
+    sqlite.exec(`CREATE TABLE adl_conversation_metadata (memory_scope TEXT PRIMARY KEY NOT NULL)`);
+
+    expect(() => ensureAdlSchema(sqlite)).toThrow(/still holds rows/);
+
+    // The refusal happens during the rename step, before the CREATE TABLE
+    // list; the transaction must undo everything, so none of the tables this
+    // migration would otherwise add are left behind.
+    const tables = tableNames(sqlite);
+    expect(tables).not.toContain("adl_messages");
+    expect(tables).not.toContain("adl_agent_episodes");
+    expect(tables).not.toContain("adl_schema_migrations");
+    // And the original rows are untouched.
+    expect(
+      (sqlite.prepare(`SELECT COUNT(*) AS n FROM adl_inspector_sessions`).get() as { n: number }).n,
+    ).toBe(1);
+  });
+});
+
 describe("adl_conversation_metadata.agent_call_id nullability", () => {
   /** Pre-relaxation shape: agent_call_id NOT NULL, already at the new table name. */
   function createNotNullTable(sqlite: Database): void {
