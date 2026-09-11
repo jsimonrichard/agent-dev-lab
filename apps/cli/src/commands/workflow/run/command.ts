@@ -27,6 +27,10 @@ export const runCommand = buildCommand({
         default: "{}",
       },
     },
+    aliases: {
+      p: "project",
+      i: "input",
+    },
   },
   docs: {
     brief: "Run a workflow from the project registry",

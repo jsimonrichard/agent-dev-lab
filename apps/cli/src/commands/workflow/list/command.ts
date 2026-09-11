@@ -11,6 +11,9 @@ export const workflowsListCommand = buildCommand({
         parse: String,
       },
     },
+    aliases: {
+      p: "project",
+    },
   },
   docs: {
     brief: "List workflow ids in the current project",

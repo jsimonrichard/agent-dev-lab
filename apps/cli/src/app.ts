@@ -20,6 +20,10 @@ const workflow = buildRouteMap({
     list: workflowsListCommand,
     run: runCommand,
   },
+  aliases: {
+    l: "list",
+    r: "run",
+  },
   docs: {
     brief: "Inspect and run registered workflows",
   },
@@ -29,6 +33,10 @@ const agent = buildRouteMap({
   routes: {
     list: agentsListCommand,
     run: agentsRunCommand,
+  },
+  aliases: {
+    l: "list",
+    r: "run",
   },
   docs: {
     brief: "Inspect and run registered agents",
@@ -47,6 +55,7 @@ const routes = buildRouteMap({
     dash: "dashboard",
     a: "agent",
     w: "workflow",
+    i: "init",
   },
   docs: {
     brief: "Agent Development Lab — author, run, and inspect agent workflows",

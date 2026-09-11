@@ -27,6 +27,12 @@ export const dashboardCommand = buildCommand({
         default: false,
       },
     },
+    aliases: {
+      p: "project",
+      P: "port",
+      s: "serve",
+      b: "prebuilt",
+    },
   },
   docs: {
     brief: "Start the inspection UI for an ADL project",

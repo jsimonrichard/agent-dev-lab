@@ -33,6 +33,11 @@ export const agentsRunCommand = buildCommand({
         parse: String,
       },
     },
+    aliases: {
+      p: "project",
+      i: "input",
+      s: "scope",
+    },
   },
   docs: {
     brief: "Run an agent from the project registry with a string user message",

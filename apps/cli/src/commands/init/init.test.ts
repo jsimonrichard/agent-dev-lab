@@ -272,5 +272,7 @@ describe("init scaffold helpers", () => {
     expect(exitCode).toBe(0);
     expect(`${stdout}\n${stderr}`).toContain("--local");
     expect(`${stdout}\n${stderr}`).toContain("--git");
+    expect(`${stdout}\n${stderr}`).toContain("-l");
+    expect(`${stdout}\n${stderr}`).toContain("-g");
   });
 });

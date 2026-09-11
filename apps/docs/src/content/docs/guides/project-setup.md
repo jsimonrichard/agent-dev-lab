@@ -26,10 +26,10 @@ bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 bunx adl dashboard
 ```
 
-- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. Does **not** create a VCS repository (jj and others are valid); pass `--git` to run `git init`. Still writes `.gitignore`, which jj also honors.
-- **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
-- **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
-- **`adl dashboard`** — [inspection UI](/guides/inspection-ui/). Agent, workflow, and template edits update the live catalog as soon as the process starts (it prints `[adl] watching <root>`); `--serve` turns that off. Restart after `.env*` edits.
+- **`adl init`** (`adl i`) — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. Does **not** create a VCS repository (jj and others are valid); pass `--git` / `-g` to run `git init`. Still writes `.gitignore`, which jj also honors.
+- **`adl workflow run`** (`adl w r`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
+- **`adl agent run`** (`adl a r`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` / `-i` is a string, not JSON)
+- **`adl dashboard`** (`adl d`) — [inspection UI](/guides/inspection-ui/). Agent, workflow, and template edits update the live catalog as soon as the process starts (it prints `[adl] watching <root>`); `--serve` / `-s` turns that off. Restart after `.env*` edits.
 
 ## What `adl init` gives you
 

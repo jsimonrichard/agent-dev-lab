@@ -28,6 +28,10 @@ export const initCommand = buildCommand({
   loader: async () => import("./impl"),
   parameters: {
     flags: initCommandFlags(isAdlCliSourceCheckout()),
+    aliases: {
+      l: "local",
+      g: "git",
+    },
     positional: {
       kind: "tuple",
       parameters: [

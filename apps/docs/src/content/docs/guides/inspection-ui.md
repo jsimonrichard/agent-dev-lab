@@ -17,7 +17,7 @@ bunx adl dashboard --serve
 bunx adl dashboard --project ../other-research
 ```
 
-The header shows the project **name**. Editing agents, workflows, or templates updates the catalog as soon as the dashboard process is running (a browser tab is not required). The process prints `[adl] watching <project>` once the watcher is armed, then a Vite-shaped `[adl] reload <file>` (or `[adl] reload failed`) on each change. `--serve` turns watching off (`ADL_PROJECT_WATCH=0`); restart after those edits. Changing `.env*` always needs a restart. `--project` points at another directory that contains `adl.config.*`. `--prebuilt` forces the shipped Nitro UI instead of Vite — published `@agent-dev-lab/web` already has no Vite tree, so a normal install serves Nitro without the flag.
+The header shows the project **name**. Editing agents, workflows, or templates updates the catalog as soon as the dashboard process is running (a browser tab is not required). The process prints `[adl] watching <project>` once the watcher is armed, then a Vite-shaped `[adl] reload <file>` (or `[adl] reload failed`) on each change. `--serve` / `-s` turns watching off (`ADL_PROJECT_WATCH=0`); restart after those edits. Changing `.env*` always needs a restart. `--project` / `-p` points at another directory that contains `adl.config.*`. `--prebuilt` / `-b` forces the shipped Nitro UI instead of Vite — published `@agent-dev-lab/web` already has no Vite tree, so a normal install serves Nitro without the flag. Port is `--port` / `-P` (`-p` is already `--project`).
 
 Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list`, etc.) are separate processes: they load the project once and exit.
 

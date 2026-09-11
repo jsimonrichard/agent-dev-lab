@@ -11,6 +11,9 @@ export const agentsListCommand = buildCommand({
         parse: String,
       },
     },
+    aliases: {
+      p: "project",
+    },
   },
   docs: {
     brief: "List agent ids in the current project",
