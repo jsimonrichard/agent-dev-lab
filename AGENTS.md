@@ -29,7 +29,7 @@ All standard commands are in root `package.json`:
 - **Typecheck**: `bun run typecheck` — TypeScript checking via Turbo
 - **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `cli`, `web`), then `bun test scripts`
 - **Build**: `bun run build`
-- **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` scaffolds a consumer. See `scripts/README.md`.
+- **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` attaches a consumer via a stable `vendor/` symlink. See `scripts/README.md`.
 
 ### Non-obvious notes
 

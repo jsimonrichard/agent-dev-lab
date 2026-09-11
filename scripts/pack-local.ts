@@ -1,28 +1,34 @@
 /**
  * Pack the publishable workspace packages (plus private `@agent-dev-lab/tools`)
- * as local prerelease tarballs, optionally scaffolding a consumer project
- * pointed at them.
+ * as local prerelease tarballs, and attach consumer projects via a stable
+ * `vendor/` symlink.
  *
- * This is the nlttyxmo flow without leaving version bumps in the working copy:
- * `bun pm pack` rewrites `workspace:*` from `bun.lock` workspace versions, so
- * we bump + `scripts/patch-lock.ts` only for the duration of the pack, then
- * restore. Same pack recipe as `scripts/ci-publish.sh` (strip devDependencies,
- * then `bun pm pack`). Does not publish.
+ * Tarball *contents* get a bumped `*-e2e` version so `bun pm pack` rewrites
+ * `workspace:*` from `bun.lock`. Filenames are versionless
+ * (`agent-dev-lab-core.tgz`) so attached projects keep the same `file:` specs
+ * across reruns. `--project` records a symlink under `<out>/attached/`; later
+ * `pack:local` overwrites the tarballs and refreshes every attached project
+ * (no re-scaffold). Version bumps in this repo are restored on exit.
  *
- *   bun run pack:local
+ * Same pack recipe as `scripts/ci-publish.sh`. Does not publish.
+ *
  *   bun run pack:local -- --project /tmp/adl-e2e
+ *   bun run pack:local
  *   bun run pack:local -- --from-published @agent-dev-lab/cli@0.0.5 --project /tmp/adl-upgrade
  */
 
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -36,6 +42,9 @@ export const PACK_TARGETS = [
 
 export const DEFAULT_E2E_LABEL = "e2e.0";
 export const DEFAULT_OUT_DIR = path.join(".data", "packed-e2e");
+export const TARBALLS_DIR_NAME = "tarballs";
+export const ATTACHED_DIR_NAME = "attached";
+export const VENDOR_DIR_NAME = "vendor";
 
 const TOOLS_PACK_FILES = ["dist", "src"] as const;
 
@@ -73,10 +82,80 @@ export function e2ePrereleaseVersion(version: string, label: string): string {
   return `${major}.${minor}.${patch + 1}-${label}`;
 }
 
-/** npm-pack filename: `@scope/name` + version → `scope-name-version.tgz`. */
-export function tarballFileName(packageName: string, version: string): string {
-  const safeName = packageName.replace(/^@/, "").replaceAll("/", "-");
-  return `${safeName}-${version}.tgz`;
+/** npm-safe filename stem: `@scope/name` → `scope-name`. */
+export function tarballSafeName(packageName: string): string {
+  return packageName.replace(/^@/, "").replaceAll("/", "-");
+}
+
+/** Stable pack filename so attached `file:` specs survive a rerun. */
+export function stableTarballFileName(packageName: string): string {
+  return `${tarballSafeName(packageName)}.tgz`;
+}
+
+export function vendorFileSpecs(): Record<string, string> {
+  const specs: Record<string, string> = {};
+  for (const target of PACK_TARGETS) {
+    specs[target.name] = `file:./${VENDOR_DIR_NAME}/${stableTarballFileName(target.name)}`;
+  }
+  return specs;
+}
+
+export function tarballsDir(outDir: string): string {
+  return path.join(outDir, TARBALLS_DIR_NAME);
+}
+
+export function attachedDir(outDir: string): string {
+  return path.join(outDir, ATTACHED_DIR_NAME);
+}
+
+export function attachLinkName(projectDir: string): string {
+  const name = path.basename(path.resolve(projectDir));
+  if (!name || name === "." || name === "/" || name === path.sep) {
+    throw new Error(`could not derive an attach name from ${projectDir}`);
+  }
+  return name;
+}
+
+/** Symlink target for `project/vendor`, relative to the project root. */
+export function relativeVendorTarget(projectDir: string, tarballDir: string): string {
+  const rel = path.relative(path.resolve(projectDir), path.resolve(tarballDir));
+  if (rel === "") {
+    throw new Error(`refusing to point ${VENDOR_DIR_NAME}/ at the project root`);
+  }
+  return rel;
+}
+
+/** `vendor/*.tgz` paths mentioned in a bun.lock that are not on disk. */
+export function staleVendorLockRefs(lockText: string, projectDir: string): string[] {
+  const refs = new Set<string>();
+  for (const match of lockText.matchAll(/vendor\/[A-Za-z0-9._+-]+\.tgz/g)) {
+    const rel = match[0];
+    if (!existsSync(path.join(projectDir, rel))) {
+      refs.add(rel);
+    }
+  }
+  return [...refs];
+}
+
+export function removeStaleVendorLockfile(projectDir: string): string[] {
+  const lockPath = path.join(projectDir, "bun.lock");
+  if (!existsSync(lockPath)) {
+    return [];
+  }
+  const stale = staleVendorLockRefs(readFileSync(lockPath, "utf8"), projectDir);
+  if (stale.length === 0) {
+    return [];
+  }
+  rmSync(lockPath);
+  return stale;
+}
+
+export function resolveVendorTarget(projectDir: string, vendorPath: string): string {
+  const st = lstatSync(vendorPath);
+  if (!st.isSymbolicLink()) {
+    throw new Error(`${vendorPath} is not a symlink`);
+  }
+  return path.resolve(projectDir, readlinkSync(vendorPath));
 }
 
 export function applyE2eBump(
@@ -194,17 +273,22 @@ function requireValue(argv: string[], flagIndex: number, flag: string): string {
 
 export const HELP = `Pack @agent-dev-lab/{core,web,cli,tools} as local prerelease tarballs.
 
+Tarballs use stable names under <out>/tarballs/. --project attaches a consumer
+by making vendor/ a symlink there and recording <out>/attached/<name>. Later
+runs overwrite the tarballs and refresh every attached project (bun install
+unless --skip-install). No re-scaffold.
+
 Usage:
   bun run pack:local -- [options]
 
 Options:
-  --out DIR              Tarball directory (default: ${DEFAULT_OUT_DIR})
-  --project DIR          Scaffold an ADL project and point it at the tarballs
-  --from-published SPEC  Init the project with bunx SPEC (e.g. @agent-dev-lab/cli@0.0.5)
+  --out DIR              Pack directory (default: ${DEFAULT_OUT_DIR})
+  --project DIR          Attach this ADL project (scaffold if it has no adl.config.ts)
+  --from-published SPEC  Init a new project with bunx SPEC (e.g. @agent-dev-lab/cli@0.0.5)
   --label LABEL          Prerelease label after the bumped patch (default: ${DEFAULT_E2E_LABEL})
   --skip-build           Do not run turbo build before packing
-  --skip-install         With --project, write package.json but do not bun install
-  --force                Overwrite existing tarballs / a non-empty project dir
+  --skip-install         Refresh vendor/ + package.json but do not bun install
+  --force                Replace a non-symlink vendor/ directory
   -h, --help             Show this help
 
 Version bumps and bun.lock edits are restored before the script exits.
@@ -309,21 +393,114 @@ function packOne(bunBin: string, packageDir: string, destTarball: string): void 
   }
 }
 
-function copyTarballsToVendor(
-  projectDir: string,
-  packed: ReadonlyArray<{ name: string; tarball: string }>,
-): Record<string, string> {
-  const vendor = path.join(projectDir, "vendor");
-  mkdirSync(vendor, { recursive: true });
-  const specs: Record<string, string> = {};
-  for (const item of packed) {
-    const dest = path.join(vendor, path.basename(item.tarball));
-    if (path.resolve(item.tarball) !== path.resolve(dest)) {
-      copyFileSync(item.tarball, dest);
-    }
-    specs[item.name] = fileDependencySpec(projectDir, dest);
+export function listAttachedProjects(outDir: string): string[] {
+  const dir = attachedDir(outDir);
+  if (!existsSync(dir)) {
+    return [];
   }
-  return specs;
+  if (!statSync(dir).isDirectory()) {
+    throw new Error(`${dir} exists and is not a directory`);
+  }
+  const names = readdirSync(dir);
+  return names.map((name) => {
+    const link = path.join(dir, name);
+    const st = lstatSync(link);
+    if (!st.isSymbolicLink()) {
+      throw new Error(`${link} is not a symlink; attached/ must contain only project symlinks`);
+    }
+    const target = path.resolve(dir, readlinkSync(link));
+    if (!existsSync(target)) {
+      throw new Error(
+        `attached project ${name} → ${target} is missing. Remove ${link} or restore the project.`,
+      );
+    }
+    return realpathSync(target);
+  });
+}
+
+export function recordAttachedProject(outDir: string, projectDir: string): void {
+  const dir = attachedDir(outDir);
+  mkdirSync(dir, { recursive: true });
+  const name = attachLinkName(projectDir);
+  const link = path.join(dir, name);
+  const resolvedProject = realpathSync(projectDir);
+  if (existsSync(link) || isSymlink(link)) {
+    const current = path.resolve(dir, readlinkSync(link));
+    const currentReal = existsSync(current) ? realpathSync(current) : current;
+    if (currentReal !== resolvedProject) {
+      throw new Error(
+        `${link} already points at ${current}, not ${resolvedProject}. Use a distinct project directory name.`,
+      );
+    }
+    return;
+  }
+  symlinkSync(resolvedProject, link);
+}
+
+export function ensureVendorSymlink(
+  projectDir: string,
+  tarballDir: string,
+  options: { force: boolean },
+): void {
+  const vendor = path.join(projectDir, VENDOR_DIR_NAME);
+  const desired = path.resolve(tarballDir);
+  const rel = relativeVendorTarget(projectDir, tarballDir);
+
+  if (isSymlink(vendor)) {
+    const current = resolveVendorTarget(projectDir, vendor);
+    if (current === desired) {
+      return;
+    }
+    if (!options.force) {
+      throw new Error(
+        `${vendor} is a symlink to ${readlinkSync(vendor)}, expected ${rel}. Pass --force to replace it.`,
+      );
+    }
+    rmSync(vendor);
+  } else if (existsSync(vendor)) {
+    if (!options.force) {
+      throw new Error(
+        `${vendor} exists and is not a symlink to ${desired}. Pass --force to replace it with a symlink.`,
+      );
+    }
+    rmSync(vendor, { recursive: true, force: true });
+  }
+
+  symlinkSync(rel, vendor);
+}
+
+function isSymlink(filePath: string): boolean {
+  try {
+    return lstatSync(filePath).isSymbolicLink();
+  } catch (error) {
+    if (isEnoent(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isEnoent(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+function refreshAttachedProject(
+  projectDir: string,
+  tarballDir: string,
+  options: { force: boolean },
+): void {
+  const pkgPath = path.join(projectDir, "package.json");
+  if (!existsSync(pkgPath)) {
+    throw new Error(`attached project is missing ${pkgPath}`);
+  }
+  ensureVendorSymlink(projectDir, tarballDir, options);
+  const pkg = readPackageJson(pkgPath);
+  const next = applyTarballDependencies(pkg, vendorFileSpecs());
+  writePackageJson(pkgPath, { ...pkg, ...next });
+  const stale = removeStaleVendorLockfile(projectDir);
+  if (stale.length > 0) {
+    process.stdout.write(`Removed stale bun.lock in ${projectDir} (missing ${stale.join(", ")})\n`);
+  }
 }
 
 function scaffoldProject(
@@ -357,16 +534,11 @@ export async function packLocal(argv: string[], cwd: string): Promise<void> {
   const bunBin = assertBun();
   const monorepoRoot = findMonorepoRoot(cwd);
   const outDir = path.resolve(cwd, args.out ?? path.join(monorepoRoot, DEFAULT_OUT_DIR));
+  const tarballDir = tarballsDir(outDir);
   const projectDir = args.project === undefined ? undefined : path.resolve(cwd, args.project);
 
   if (projectDir !== undefined && dirHasEntries(projectDir)) {
-    const hasProject = existsSync(path.join(projectDir, "adl.config.ts"));
-    if (!args.force) {
-      throw new Error(
-        `${projectDir} is not empty. Pass --force to reuse an existing ADL project, or choose another --project.`,
-      );
-    }
-    if (!hasProject) {
+    if (!existsSync(path.join(projectDir, "adl.config.ts"))) {
       throw new Error(
         `${projectDir} is not empty and is not an ADL project; refusing to clobber it`,
       );
@@ -384,17 +556,7 @@ export async function packLocal(argv: string[], cwd: string): Promise<void> {
     });
   }
 
-  mkdirSync(outDir, { recursive: true });
-  if (dirHasEntries(outDir) && !args.force) {
-    throw new Error(`${outDir} is not empty. Pass --force to overwrite, or choose another --out.`);
-  }
-  if (args.force && existsSync(outDir)) {
-    for (const name of readdirSync(outDir)) {
-      if (name.endsWith(".tgz")) {
-        rmSync(path.join(outDir, name));
-      }
-    }
-  }
+  mkdirSync(tarballDir, { recursive: true });
 
   const mutated = [
     path.join(monorepoRoot, "bun.lock"),
@@ -424,7 +586,10 @@ export async function packLocal(argv: string[], cwd: string): Promise<void> {
       if (typeof pkg.version !== "string") {
         throw new Error(`${target.name} is missing a version after the e2e bump`);
       }
-      const dest = path.join(outDir, tarballFileName(target.name, pkg.version));
+      const dest = path.join(tarballDir, stableTarballFileName(target.name));
+      if (existsSync(dest)) {
+        rmSync(dest);
+      }
       packOne(bunBin, path.join(monorepoRoot, target.dir), dest);
       packed.push({ name: target.name, version: pkg.version, tarball: dest });
     }
@@ -437,32 +602,29 @@ export async function packLocal(argv: string[], cwd: string): Promise<void> {
     process.stdout.write(`  ${item.name}@${item.version} → ${item.tarball}\n`);
   }
 
-  if (projectDir === undefined) {
-    process.stdout.write(
-      `\nNext: bun run pack:local -- --project <dir> --force --skip-build --out ${outDir}\n`,
-    );
+  if (projectDir !== undefined) {
+    if (!existsSync(path.join(projectDir, "adl.config.ts"))) {
+      scaffoldProject(bunBin, monorepoRoot, projectDir, args.fromPublished);
+    }
+    recordAttachedProject(outDir, projectDir);
+    process.stdout.write(`Attached ${projectDir} → ${attachedDir(outDir)}\n`);
+  }
+
+  const attached = listAttachedProjects(outDir);
+  if (attached.length === 0) {
+    process.stdout.write(`\nNo attached projects. bun run pack:local -- --project <dir>\n`);
     return;
   }
 
-  if (!existsSync(path.join(projectDir, "adl.config.ts"))) {
-    scaffoldProject(bunBin, monorepoRoot, projectDir, args.fromPublished);
+  for (const attachedProject of attached) {
+    refreshAttachedProject(attachedProject, tarballDir, { force: args.force });
+    process.stdout.write(`Refreshed vendor/ in ${attachedProject}\n`);
+    if (!args.skipInstall) {
+      run([bunBin, "install"], { cwd: attachedProject, inherit: true });
+    }
   }
 
-  const pkgPath = path.join(projectDir, "package.json");
-  if (!existsSync(pkgPath)) {
-    throw new Error(`init did not create ${pkgPath}`);
-  }
-  const specs = copyTarballsToVendor(projectDir, packed);
-  const pkg = readPackageJson(pkgPath);
-  const next = applyTarballDependencies(pkg, specs);
-  writePackageJson(pkgPath, { ...pkg, ...next });
-  process.stdout.write(`Pointed ${pkgPath} at vendor/ tarballs\n`);
-
-  if (!args.skipInstall) {
-    run([bunBin, "install"], { cwd: projectDir, inherit: true });
-  }
-
-  process.stdout.write(`\nProject: ${projectDir}\n`);
+  process.stdout.write(`\nAttached: ${attached.join(", ")}\n`);
   process.stdout.write("Next: bunx adl dashboard --serve\n");
 }
 
