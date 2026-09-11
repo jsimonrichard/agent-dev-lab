@@ -48,7 +48,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
   describe(`WorkflowStore (${name})`, () => {
     it("records runs, step cache, events, and agent episodes", async () => {
       const store = await createStore();
-      const runtime = createAdlRuntime({ stores: { workflow: store } });
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: false });
       const workflow = runtime.createWorkflow({
         id: "contract-counter",
         run: async (_input, ctx) => {
@@ -79,7 +79,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
 
     it("renames a run without changing its id and can delete it", async () => {
       const store = await createStore();
-      const runtime = createAdlRuntime({ stores: { workflow: store } });
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: false });
       const workflow = runtime.createWorkflow({
         id: "contract-rename",
         run: async () => ({ ok: true }),
@@ -99,7 +99,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
 
     it("records tags at run start and filters listRuns by tag", async () => {
       const store = await createStore();
-      const runtime = createAdlRuntime({ stores: { workflow: store } });
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: false });
       const workflow = runtime.createWorkflow({
         id: "contract-tags",
         run: async () => ({ ok: true }),
@@ -132,7 +132,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
 
     it("keeps a title set before the run row exists", async () => {
       const store = await createStore();
-      const runtime = createAdlRuntime({ stores: { workflow: store } });
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: false });
       const workflow = runtime.createWorkflow({
         id: "contract-early-title",
         run: async () => ({ ok: true }),
@@ -177,6 +177,21 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
           (run) => run.workflowRunId,
         ),
       ).toEqual(expect.arrayContaining([auto.workflowRunId, withTags.workflowRunId]));
+    });
+
+    it("records no version tag when tagging is disabled", async () => {
+      const store = await createStore();
+      // version: false must skip the VCS lookup entirely, so a run's tags do
+      // not depend on the ambient state of whatever repository this runs in.
+      const runtime = createAdlRuntime({ stores: { workflow: store }, version: false });
+      const workflow = runtime.createWorkflow({
+        id: "contract-no-version",
+        run: async () => ({ ok: true }),
+      });
+
+      const handle = workflow.run({}, { tags: ["dataset:qa-v1"] });
+      await handle.result;
+      expect((await store.getRun(handle.workflowRunId))?.tags).toEqual(["dataset:qa-v1"]);
     });
 
     it("reads back a conversation-scoped event that has no owning run", async () => {

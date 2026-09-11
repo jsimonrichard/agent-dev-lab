@@ -224,8 +224,12 @@ function mergeServicesForRun(
  */
 function withVersionTag(
   tags: string[] | undefined,
-  version: string | undefined,
+  version: string | false | undefined,
 ): string[] | undefined {
+  // `false` means "do not tag", and must not even look at the VCS.
+  if (version === false) {
+    return tags;
+  }
   const versionTag = resolveProjectVersionTag({ version });
   if (!versionTag) {
     return tags;

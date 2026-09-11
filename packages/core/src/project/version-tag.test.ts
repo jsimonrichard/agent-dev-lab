@@ -29,6 +29,98 @@ async function gitRepoWithCommit(): Promise<{ root: string; sha: string }> {
   return { root, sha };
 }
 
+/** A real jj repo with one described change and an empty working copy on top. */
+async function jjRepoWithCommit(): Promise<{ root: string; commitId: string }> {
+  const root = await tempDir("adl-version-jj-");
+  execFileSync("jj", ["git", "init", "--quiet", "."], {
+    cwd: root,
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+  await writeFile(path.join(root, "tracked.txt"), "one\n");
+  execFileSync("jj", ["describe", "-m", "base"], {
+    cwd: root,
+    stdio: ["ignore", "ignore", "ignore"],
+  });
+  // `jj new` leaves @ empty, the jj analogue of a clean git tree.
+  execFileSync("jj", ["new"], { cwd: root, stdio: ["ignore", "ignore", "ignore"] });
+  const commitId = execFileSync(
+    "jj",
+    ["--ignore-working-copy", "log", "-r", "@", "--no-graph", "-T", "commit_id"],
+    { cwd: root, encoding: "utf8" },
+  ).trim();
+  return { root, commitId };
+}
+
+function jjOperationCount(root: string): number {
+  return execFileSync(
+    "jj",
+    ["--ignore-working-copy", "op", "log", "--no-graph", "-T", 'id.short() ++ "\\n"'],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0).length;
+}
+
+describe("resolveProjectVersionTag (jj)", () => {
+  beforeEach(() => {
+    clearProjectVersionTagCache();
+  });
+
+  it("resolves an empty jj working copy to its commit id", async () => {
+    const { root, commitId } = await jjRepoWithCommit();
+    expect(resolveProjectVersionTag({ projectRoot: root })).toBe(`commit:${commitId}`);
+  });
+
+  it("marks a working copy that carries changes", async () => {
+    const { root } = await jjRepoWithCommit();
+    await writeFile(path.join(root, "tracked.txt"), "changed\n");
+    // Snapshot the edit into @ so it is recorded, the way any jj command would.
+    execFileSync("jj", ["status"], { cwd: root, stdio: ["ignore", "ignore", "ignore"] });
+    clearProjectVersionTagCache();
+
+    const tag = resolveProjectVersionTag({ projectRoot: root });
+    expect(tag).toMatch(/^commit:[0-9a-f]{40}\+dirty$/);
+  });
+
+  it("does not write a jj operation while resolving", async () => {
+    const { root } = await jjRepoWithCommit();
+    // An edit jj has not snapshotted: an ordinary `jj log` here would snapshot
+    // it and add an operation. Recording provenance must not mutate the repo
+    // it describes — in a multi-workspace checkout that is what leaves a
+    // sibling workspace stale.
+    await writeFile(path.join(root, "tracked.txt"), "unsnapshotted\n");
+    const before = jjOperationCount(root);
+
+    resolveProjectVersionTag({ projectRoot: root });
+    clearProjectVersionTagCache();
+    resolveProjectVersionTag({ projectRoot: root });
+
+    expect(jjOperationCount(root)).toBe(before);
+  });
+
+  it("prefers jj over git in a colocated repo", async () => {
+    // `jj git init` makes a colocated repo: both VCSs can answer. gate.sh
+    // resolves jj first when both are present, and this follows it.
+    const { root, commitId } = await jjRepoWithCommit();
+    expect(path.join(root, ".git")).toBeTruthy();
+    const tag = resolveProjectVersionTag({ projectRoot: root });
+    expect(tag).toBe(`commit:${commitId}`);
+    // Sanity: git alone would have answered with a different id (@ is an
+    // empty change on top, which git's HEAD does not know about).
+    const gitHead = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: root,
+      encoding: "utf8",
+    }).trim();
+    expect(tag).not.toBe(`commit:${gitHead}`);
+  });
+
+  it("still lets an explicit version win over jj", async () => {
+    const { root } = await jjRepoWithCommit();
+    expect(resolveProjectVersionTag({ projectRoot: root, version: "2.0.0" })).toBe("version:2.0.0");
+  });
+});
+
 describe("resolveProjectVersionTag", () => {
   beforeEach(() => {
     clearProjectVersionTagCache();

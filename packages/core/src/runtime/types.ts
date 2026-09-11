@@ -64,11 +64,16 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
   telemetry?: AdlOpenTelemetrySettings;
   /**
    * Identifies which version of the project's code a run came from, recorded
-   * as a `version:<value>` tag on every `workflow.run()`. Overrides the git
-   * commit that would otherwise be resolved — set it for a release
-   * identifier, or for a project with no git repository at all.
+   * as a `version:<value>` tag on every `workflow.run()`. Overrides the commit
+   * that would otherwise be resolved from jj or git — set it for a release
+   * identifier, or for a project with no VCS at all.
+   *
+   * `false` disables run version tagging entirely, including the VCS lookup.
+   * Use it when tags must not depend on ambient repository state — a test
+   * asserting a run's exact tags, for instance. {@link createTestRuntime}
+   * defaults to this.
    */
-  version?: string;
+  version?: string | false;
   /**
    * Load `.env*` into `process.env` when constructing the runtime.
    * Defaults to `true` (project root = `process.cwd()`). Pass `false` to skip,
@@ -94,7 +99,7 @@ export type RuntimeServices = {
   /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
   telemetry?: AdlOpenTelemetrySettings;
   /** See {@link AdlRuntimeConfig.version}. */
-  version?: string;
+  version?: string | false;
 };
 
 /**
