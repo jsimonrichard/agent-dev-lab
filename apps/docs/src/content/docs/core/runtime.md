@@ -22,10 +22,14 @@ const adl = createAdlRuntime({
     workflow: sqliteWorkflowStore(),
   },
   observers: { workflows: [], agents: [] },
+  // optional: pin `version:<value>` on every workflow/agent run
+  // version: "1.0.0",
 });
 ```
 
 `adl.createAgent` / `adl.createWorkflow` bind the runtime automatically — use these in project code.
+
+`version` controls the automatic provenance tag on every `workflow.run()` and `agent.run()` (`version:<value>` when set, otherwise `commit:<id>` from jj then git). Pass `false` to disable the lookup — `createTestRuntime` does. Caller `tags` are recorded as well; the inspector shows them in a footer. See [Run tags](/core/workflows/#run-tags).
 
 ### Per-definition overrides
 

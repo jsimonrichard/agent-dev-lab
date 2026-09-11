@@ -153,7 +153,8 @@ export type WorkflowRunStartOptions = {
    */
   isolated?: boolean;
   /**
-   * Labels recorded on the run for filtering later (e.g. `["dataset:qa-v1"]`).
+   * Labels recorded on the run (e.g. `["dataset:qa-v1"]`). The inspection UI
+   * shows them in a Tags footer; there is no run-list filter yet.
    * Set once at start; see {@link WorkflowStore.setRunTags} to change them after
    * the fact.
    *

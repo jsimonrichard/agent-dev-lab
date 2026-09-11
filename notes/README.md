@@ -34,7 +34,7 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 
 | File                                                     | Purpose                                                                                                                      |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [`human-validation.md`](./human-validation.md)           | Pre-publish human checklist (0.0.1 alpha)                                                                                    |
+| [`human-validation.md`](./human-validation.md)           | Pre-publish human checklist (reconciled 2026-09-11; published core/web 0.0.3, cli 0.0.5)                                     |
 | [`v1-scope.md`](./v1-scope.md)                           | RC inventory, remaining work, validation                                                                                     |
 | [`near-term-roadmap.md`](./near-term-roadmap.md)         | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
 | [`parallel-work-plan.md`](./parallel-work-plan.md)       | **Superseded 2026-09-11.** Wave 1 A/B/S/D landed; remaining Lane E + serial chain. Contention map / D1–D5 record only.       |

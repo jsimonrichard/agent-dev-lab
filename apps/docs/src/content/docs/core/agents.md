@@ -160,10 +160,13 @@ type AgentRunInput = {
   systemPromptConflict?: "keep-pinned" | "use-current";
   suppressSystemPromptConflictWarning?: boolean;
   workflow?: { workflowRunId: string; stepId: string | null };
+  tags?: string[];
 };
 ```
 
 Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active context — omit `workflow` unless you are linking a standalone call.
+
+`tags` labels this episode. The inspection UI shows them in a **Tags** footer (no run-list filter). Every `agent.run` also records automatic `version:` / `commit:` provenance unless you pass a tag with the same prefix or set `createAdlRuntime({ version: false })`. See [Run tags](/core/workflows/#run-tags).
 
 ### Turn input
 

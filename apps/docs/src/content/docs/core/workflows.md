@@ -10,7 +10,7 @@ Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `P
 |              | **`ctx.step`**                                                   | **Nested workflow**                         |
 | ------------ | ---------------------------------------------------------------- | ------------------------------------------- |
 | **Purpose**  | Observability span + **retry boundary** (cached step output)     | Reusable unit with typed **input → output** |
-| **Contract** | Closure captures anything; return value becomes persisted output | Optional Zod `input` / `output` schemas     |
+| **Contract** | Closure captures anything; return value becomes persisted output | Optional Zod `inputSchema` / `outputSchema` |
 | **Reuse**    | Extract plain TS functions                                       | `otherWorkflow.run(input)`                  |
 | **Tracing**  | Always creates a step node                                       | Inner workflow defines its own steps        |
 | **Best for** | Side effects, agent calls, or work you may skip on retry         | “Named, testable sub-process”               |
@@ -25,8 +25,8 @@ import { adl } from "#adl";
 
 export const searchPapers = adl.createWorkflow({
   id: "search-papers",
-  input: z.object({ topic: z.string() }),
-  output: z.object({ papers: z.array(z.string()) }),
+  inputSchema: z.object({ topic: z.string() }),
+  outputSchema: z.object({ papers: z.array(z.string()) }),
   async run(input, ctx) {
     return { papers: [] };
   },
@@ -58,7 +58,7 @@ By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via
 | Persistence     | Events on the parent run     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
 | Inspector tree  | Inner steps under the parent | Own tree, not folded into the caller                         |
 
-Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not included in the project config's workflow array.
+Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array.
 
 ```ts
 // Inside a parent workflow (or an agent episode that happens to be in one):
@@ -69,7 +69,7 @@ Conversation [`titleWorkflow`](/core/agents/#conversation-titles) uses this so n
 
 ## Input and output types
 
-Zod `input` / `output` on `createWorkflow` both **validate at runtime** and **infer TypeScript types**. Zod is optional. Pin types with generics (or by annotating `run`) when you do not want a runtime schema:
+Zod `inputSchema` / `outputSchema` on `createWorkflow` both **validate at runtime** and **infer TypeScript types**. Zod is optional. Pin types with generics (or by annotating `run`) when you do not want a runtime schema:
 
 ```ts
 type SearchInput = { topic: string };
@@ -250,13 +250,29 @@ handle.cancel();
 ```ts
 export const literatureReview = adl.createWorkflow({
   id: "literature-review",
-  input: z.object({ topic: z.string() }),
+  inputSchema: z.object({ topic: z.string() }),
   async run(input, ctx) {
     await ctx.setTitle(`Literature review: ${input.topic}`);
     // ...
   },
 });
 ```
+
+### Run tags
+
+Pass a second argument on `workflow.run` (or `tags` on `agent.run`) to label that invocation. The CLI has no `--tags` flag; the inspection UI start dialog does not collect tags either. The UI still shows whatever was recorded — caller tags plus automatic provenance — in a **Tags** footer on the workflow-run and agent-conversation inspectors. There is no run-list filter.
+
+```ts
+await searchPapers.run({ topic: "CRISPR" }, { tags: ["dataset:qa-v1"] });
+await researcher.run({ user: "Summarize CRISPR", tags: ["dataset:qa-v1"] });
+```
+
+Every run also records which project code produced it, unless you already passed a tag with the same prefix:
+
+- `version:<value>` when `createAdlRuntime({ version })` is a string
+- otherwise `commit:<id>` from jj `@` first, then git HEAD, with `+dirty` if the tree has uncommitted work
+
+`createAdlRuntime({ version: false })` skips that lookup (`createTestRuntime` does this). See [Runtime](/core/runtime/).
 
 ## Events
 
@@ -299,7 +315,7 @@ import { findPapersPrompt } from "../prompts/find-papers";
 
 export const literatureReview = adl.createWorkflow({
   id: "literature-review",
-  input: z.object({ topic: z.string() }),
+  inputSchema: z.object({ topic: z.string() }),
   async run(input, ctx) {
     const text = findPapersPrompt.render({ topic: input.topic, maxResults: 10 });
     await researcher.run({ memoryScope: ctx.memoryScopeWithSuffix("draft"), user: text });

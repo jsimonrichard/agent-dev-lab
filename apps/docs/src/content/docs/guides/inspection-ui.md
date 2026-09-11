@@ -17,7 +17,7 @@ bunx adl dashboard --serve
 bunx adl dashboard --project ../other-research
 ```
 
-The header shows the project **name**. Editing agents, workflows, or templates updates the catalog as soon as the dashboard process is running (a browser tab is not required); `--serve` turns that off (restart after those edits). Changing `.env*` always needs a restart. `--project` points at another directory that contains `adl.config.*`.
+The header shows the project **name**. Editing agents, workflows, or templates updates the catalog as soon as the dashboard process is running (a browser tab is not required). The process prints `[adl] watching <project>` once the watcher is armed, then a Vite-shaped `[adl] reload <file>` (or `[adl] reload failed`) on each change. `--serve` turns watching off (`ADL_PROJECT_WATCH=0`); restart after those edits. Changing `.env*` always needs a restart. `--project` points at another directory that contains `adl.config.*`. `--prebuilt` forces the shipped Nitro UI instead of Vite — published `@agent-dev-lab/web` already has no Vite tree, so a normal install serves Nitro without the flag.
 
 Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list`, etc.) are separate processes: they load the project once and exit.
 
@@ -25,9 +25,9 @@ Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list
 
 Registered ids come from `adl.config` `workflows`. The sidebar lists startable workflows and past runs (title from `ctx.setTitle` when set).
 
-1. Open a workflow and start a run. If the workflow has a Zod `input` schema, the start dialog builds a form from it (defaults apply).
+1. Open a workflow and start a run. If the workflow has a Zod `inputSchema`, the start dialog builds a form from it (defaults apply).
 2. The run page is a **waterfall**: steps, nested steps, parallel keyed steps, and agent episodes.
-3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`.
+3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`. Tags from `workflow.run(input, { tags })` / `agent.run({ tags })`, plus the automatic `version:` or `commit:` tag, appear in a footer on the inspector. The start dialog does not collect tags, and there is no run-list filter.
 4. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, and child `agent.run` / `streamText` calls on that run. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
 
 Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `runSeq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
@@ -60,3 +60,4 @@ The log is a ring buffer (default 10_000 events). It is not a durable store of i
 - A template playground (edit/render `createTemplate` markdown in the UI)
 - A dedicated raw token-debug pane (assistant text already streams via `agent_text_delta` in chat/run views)
 - Manual runs of `adl.config.tools` (registry-only today; runtime merge is `createAdlRuntime({ tools })`)
+- A start-run tag picker or a run-list tag filter (tags are a TypeScript `run` option; the inspector only displays them)

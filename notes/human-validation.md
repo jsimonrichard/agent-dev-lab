@@ -1,6 +1,8 @@
-# Human validation (0.0.1 alpha)
+# Human validation
 
 Internal checklist before publishing. Not linked from the docs site.
+
+Last reconciled: **2026-09-11** after packed e2e / upgrade validation. Published packages on npm are **`@agent-dev-lab/core` 0.0.3**, **`@agent-dev-lab/web` 0.0.3**, **`@agent-dev-lab/cli` 0.0.5**. In-repo versions match those numbers (not 0.0.0). `@agent-dev-lab/tools` stays `private: true` / unpublished.
 
 ## Naming conventions (how to read the repo)
 
@@ -99,6 +101,8 @@ And in **G**, a tarball install **without** `--serve` (Nitro, because published 
 
 Follow [Project setup](../apps/docs/src/content/docs/guides/project-setup.md) literally on a new folder after docs fixes. File every step that does not work (layout under `src/`, `#adl` imports, env, pitfalls).
 
+**2026-09-11:** Starlight was reconciled against current code (`inputSchema` / `outputSchema`, run tags, `[adl] watching` / reload lines, `--serve` / `--prebuilt`, `adl init` defaulting to no VCS). A fresh-folder walkthrough of that rewritten page was **not** re-run in the docs pass.
+
 ## G. Release dry-run (packed + Node)
 
 Automated: `apps/cli/src/e2e/init-pack.e2e.test.ts` (pack four packages → `adl init` without `--local` → install tarballs → typecheck + `demo-counter` + dashboard `--serve`).
@@ -123,10 +127,10 @@ Manual extras:
 - Memory pipeline / checkpoints
 - Playwright suite
 - Second npm package named only `adl`
-- Running `changeset version` / publish in this pass (expect **0.0.1** when humans version)
+- Running `changeset version` / publish in this pass (next bump is from **0.0.3** / **0.0.5**, not a first 0.0.1)
 
 ## I. Publish notes for humans
 
-- In-repo versions are **0.0.0**; remaining `.changeset/*.md` are **patch** only → `bun run version-packages` yields **0.0.1**. Merging to `main` opens a Version Packages PR via `.github/workflows/release.yml`; merging that PR publishes core, cli, and web.
+- In-repo versions are **core/web 0.0.3**, **cli 0.0.5**. Remaining `.changeset/*.md` are **patch** only → `bun run version-packages` yields the next patch on each published package. Merging to `main` opens a Version Packages PR via `.github/workflows/release.yml`; merging that PR publishes core, cli, and web.
 - Pinning `@tanstack/*: latest` in `apps/web` is still a human judgment call.
 - `notes/` stays internal; do not link it from product docs.
