@@ -1,5 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, readFile, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -50,7 +51,7 @@ describe("adl init", () => {
   it("scaffolds a self-contained project from the dedicated scaffold", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "adl-init-"));
     const ctx = buildContext(process);
-    await init.call(ctx, { local: false }, dir);
+    await init.call(ctx, { local: false, git: false }, dir);
 
     const name = path.basename(dir);
     const scaffold = sourceScaffoldRoot();
@@ -98,12 +99,34 @@ describe("adl init", () => {
     expect(await readFile(path.join(dir, ".env.example"), "utf8")).toContain("OPENAI_API_KEY");
     expect(await readFile(path.join(dir, "tsconfig.json"), "utf8")).toContain('"#adl"');
     expect(await readFile(path.join(dir, "README.md"), "utf8")).toContain(`# ${name}`);
+    // Default is no VCS — jj and other tools are valid; Git is `--git`.
+    expect(existsSync(path.join(dir, ".git"))).toBe(false);
+  });
+
+  it("initializes a Git repository only when --git is passed", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "adl-init-git-"));
+    const ctx = buildContext(process);
+    await init.call(ctx, { local: false, git: true }, dir);
+    expect(existsSync(path.join(dir, ".git"))).toBe(true);
+  });
+
+  it("refuses --git when the target is already inside a Git work tree", async () => {
+    const parent = await mkdtemp(path.join(tmpdir(), "adl-init-git-parent-"));
+    execFileSync("git", ["init"], { cwd: parent, stdio: ["ignore", "ignore", "ignore"] });
+    const dir = path.join(parent, "child");
+    await mkdir(dir);
+    const ctx = buildContext(process);
+    await expect(init.call(ctx, { local: false, git: true }, dir)).rejects.toThrow(
+      /already inside a Git repository/,
+    );
+    expect(existsSync(path.join(dir, ".git"))).toBe(false);
+    expect(existsSync(path.join(dir, "adl.config.ts"))).toBe(false);
   });
 
   it("pins generated dependencies to this checkout with --local", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "adl-init-local-"));
     const ctx = buildContext(process);
-    await init.call(ctx, { local: true }, dir);
+    await init.call(ctx, { local: true, git: false }, dir);
 
     const localRoot = adlMonorepoRootFromCli();
     const pkg = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8")) as {
@@ -122,7 +145,7 @@ describe("adl init", () => {
     async () => {
       const dir = await mkdtemp(path.join(tmpdir(), "adl-init-"));
       const ctx = buildContext(process);
-      await init.call(ctx, { local: false }, dir);
+      await init.call(ctx, { local: false, git: false }, dir);
 
       const monorepoRoot = findMonorepoRoot(import.meta.dir);
       expect(monorepoRoot).toBeTruthy();
@@ -248,5 +271,6 @@ describe("init scaffold helpers", () => {
     ]);
     expect(exitCode).toBe(0);
     expect(`${stdout}\n${stderr}`).toContain("--local");
+    expect(`${stdout}\n${stderr}`).toContain("--git");
   });
 });

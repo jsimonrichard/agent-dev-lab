@@ -243,7 +243,7 @@ function readLog(logPath: string): string {
 export async function launchScaffoldDashboard(): Promise<ScaffoldDashboard> {
   const root = await mkdtemp(path.join(tmpdir(), "adl-init-e2e-"));
   const name = path.basename(root);
-  await init.call(buildContext(process), { local: true }, root);
+  await init.call(buildContext(process), { local: true, git: false }, root);
   writeFileSync(path.join(root, ".env"), "OPENAI_API_KEY=sk-e2e-placeholder\n", "utf8");
   await bunInstall(root);
 

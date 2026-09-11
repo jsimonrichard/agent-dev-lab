@@ -26,7 +26,7 @@ bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 bunx adl dashboard
 ```
 
-- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`.
+- **`adl init`** — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. Does **not** create a VCS repository (jj and others are valid); pass `--git` to run `git init`. Still writes `.gitignore`, which jj also honors.
 - **`adl workflow run`** (`adl w run`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
 - **`adl agent run`** (`adl a run`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` is a string, not JSON)
 - **`adl dashboard`** — [inspection UI](/guides/inspection-ui/); sets `ADL_PROJECT_ROOT`. Registry edits (agents, workflows, templates) hot-reload; restart after `.env*` edits, or when running `--serve`, which doesn't watch at all.

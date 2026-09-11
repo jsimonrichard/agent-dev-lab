@@ -24,7 +24,7 @@ bunx adl dashboard      # inspection UI
 
 | Command                               | Description                                                   |
 | ------------------------------------- | ------------------------------------------------------------- |
-| `adl init <dir>`                      | Scaffold a new ADL project                                    |
+| `adl init <dir>`                      | Scaffold a new ADL project (no VCS; `--git` runs `git init`)  |
 | `adl workflow run <id> --input '{}'`  | Run a registered workflow (`adl w run`); `--input` is JSON    |
 | `adl workflow list`                   | Print workflow ids (`adl w list`)                             |
 | `adl agent list`                      | Print agent ids (`adl a list`)                                |
@@ -43,6 +43,8 @@ cd apps/cli && bun run dev -- workflow list
 ```
 
 Framework UI development against `apps/playground` uses `bun run dev:web` (sets `ADL_FRAMEWORK_DEV=1`).
+
+`adl init` does not create a Git (or jj) repository. Pass `--git` to run `git init` in the new project. `.gitignore` is still written either way — jj uses it too.
 
 From the source checkout, `adl init --local` pins `@agent-dev-lab/*` to this repo with `file:` + `overrides` so a throwaway project can `bun install` without npm. The flag is hidden in published CLI help.
 

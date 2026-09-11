@@ -4,6 +4,8 @@ import { isAdlCliSourceCheckout } from "../../paths";
 
 export interface InitFlags {
   local: boolean;
+  /** When true, run `git init` in the new project. Default is no VCS. */
+  git: boolean;
 }
 
 export function initCommandFlags(showLocal: boolean) {
@@ -13,6 +15,11 @@ export function initCommandFlags(showLocal: boolean) {
       brief: "Pin @agent-dev-lab packages to this checkout with file: (framework development)",
       default: false,
       hidden: !showLocal,
+    },
+    git: {
+      kind: "boolean" as const,
+      brief: "Run git init in the new project (default: no repository)",
+      default: false,
     },
   };
 }

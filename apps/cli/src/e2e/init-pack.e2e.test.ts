@@ -60,7 +60,7 @@ describe("adl init packed e2e", () => {
     }
 
     projectRoot = await mkdtemp(path.join(tmpdir(), "adl-init-pack-"));
-    await init.call(buildContext(process), { local: false }, projectRoot);
+    await init.call(buildContext(process), { local: false, git: false }, projectRoot);
 
     const pkgPath = path.join(projectRoot, "package.json");
     const pkg = JSON.parse(await readFile(pkgPath, "utf8")) as {

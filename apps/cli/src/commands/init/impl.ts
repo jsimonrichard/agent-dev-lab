@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -32,6 +33,16 @@ export default async function init(
 
   if (existsSync(path.join(target, "adl.config.ts"))) {
     throw new AdlError("INIT_FAILED", `An ADL project already exists in ${target}`);
+  }
+
+  if (flags.git) {
+    const probe = existsSync(target) ? target : path.dirname(target);
+    if (isInsideGitWorkTree(probe)) {
+      throw new AdlError(
+        "INIT_FAILED",
+        `${target} is already inside a Git repository. Omit --git, or init in a directory that is not a work tree.`,
+      );
+    }
   }
 
   let localRoot: string | undefined;
@@ -75,6 +86,53 @@ export default async function init(
     writeFileSync(fullPath, contents);
   }
 
+  if (flags.git) {
+    initGitRepository(target);
+  }
+
   this.process.stdout.write(`Created ADL project "${name}" in ${target}\n`);
+  if (flags.git) {
+    this.process.stdout.write(`Initialized a Git repository in ${target}\n`);
+  }
   this.process.stdout.write("Next: bun install && add OPENAI_API_KEY to .env && bun run dev\n");
+}
+
+/**
+ * `adl init` does not create a VCS repository unless `--git` is passed.
+ * jj and other tools are valid; Git is opt-in, not a default.
+ *
+ * Refuses when `target` is already inside a Git work tree so `--git` cannot
+ * nest a second repository. A missing `git` binary is an error, not a skip.
+ */
+function initGitRepository(target: string): void {
+  if (isInsideGitWorkTree(target)) {
+    throw new AdlError(
+      "INIT_FAILED",
+      `${target} is already inside a Git repository. Omit --git, or init in a directory that is not a work tree.`,
+    );
+  }
+  try {
+    execFileSync("git", ["init"], {
+      cwd: target,
+      encoding: "utf8",
+      timeout: 30_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new AdlError("INIT_FAILED", `git init failed in ${target}: ${detail}`, { cause: error });
+  }
+}
+
+function isInsideGitWorkTree(cwd: string): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      cwd,
+      timeout: 30_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
