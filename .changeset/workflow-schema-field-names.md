@@ -3,4 +3,4 @@
 "@agent-dev-lab/cli": patch
 ---
 
-Rename `WorkflowDefinition`/`Workflow`'s `input`/`output` fields to `inputSchema`/`outputSchema`, matching `AgentDefinition.outputSchema`'s naming — these hold a Zod _schema_, not the input/output value itself. **Breaking** for any `adl.config.ts` workflow passing `input`/`output` directly (`adl.createWorkflow({ input: ..., output: ... })` → `{ inputSchema: ..., outputSchema: ... }`); `Workflow.input` (the resolved schema getter, e.g. from `project.getWorkflow(id)`) is now `Workflow.inputSchema`. The CLI scaffold (`adl init`) already uses the new names.
+Rename workflow `input`/`output` to `inputSchema`/`outputSchema` (**breaking**). Update `adl.createWorkflow({ input, output })` to `{ inputSchema, outputSchema }`.
