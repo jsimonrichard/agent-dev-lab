@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`), grep/glob (`createSearchTools`, `src/file/search.ts`), two bash `BashExecutor`s (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`, and `createFetchUrlTool` (`src/web/` — threat model and design live in that module's README). `BashExecutor.run` takes **argv** (no shell); `allowRead` on the native executor is the kernel read boundary search tools rely on. Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. Last reconciled: **2026-09-11**. Read [`near-term-roadmap.md`](./near-term-roadmap.md) §2 first for why this exists (`packages/core/src/tools/` stays adapters + `ToolProvider`; built-in tools live here).
+**Status:** unpublished `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-11**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -35,8 +35,6 @@ This framing matters because it changes what "good enough" sandboxing means for 
 ---
 
 ## Tool state per call, and a `ToolProvider` construct
-
-**Historical motivation (now resolved by items 1–2 below):** `AgentDefinition.tools` used to be fixed at agent-definition time and merged with `AdlRuntimeConfig.tools`, with **no per-call override** — in contrast to `AgentRunInput`, which already let `stopWhen` and `outputSchema` vary per call (`packages/core/src/agent/types.ts`). `tools` was conspicuously missing from that list, and this package's original motivation made the gap concrete: a bash tool's sandbox (which root directory, which executor tier) is exactly the kind of thing that legitimately varies per run, not just per agent definition. `AgentRunInput.tools` and `ToolProvider` (below) closed this gap.
 
 **What the AI SDK already gives us** (checked directly against the `ai@5.0.188` type defs, since this determines what's a wrapper vs. what ADL has to build itself):
 
@@ -410,16 +408,15 @@ export default {
 };
 ```
 
-Reuses the existing "shared `tools` in config" mechanism (`AdlRuntimeConfig.tools`, already ✅ per `v1-scope.md`) rather than inventing a new registration path.
+Reuses `AdlRuntimeConfig.tools` (runtime merge) rather than inventing a new registration path. `adl.config.tools` stays registry-only.
 
 ---
 
-## Open questions (resolve before implementation)
+## Open questions (approval gate)
 
-1. **Executor pluggability for bash:** confirmed direction above (interface + default subprocess impl) — still need to decide the exact shape of resource limits (is a wall-clock timeout enough, or do we also want a CPU/memory cap via `ulimit`/cgroups where the OS supports it?).
-2. **Where does `fileRoot`/bash `cwd` come from?** Likely the ADL project root by default, override via config — needs to be unambiguous so a model can't reason its way to a path outside it via relative traversal.
-3. **Does the approval dispatcher apply per-tool-call or per-tool-type?** (e.g. approve "bash" once for a whole conversation vs. every invocation) — affects how annoying this is to actually use day-to-day.
-4. **Auto-approve default:** confirm the "warn but don't block" default above is the right call for a research/dev tool, versus defaulting to deny-by-default and requiring explicit opt-in. Leaning toward warn-and-allow to match the rest of ADL's low-friction-by-default posture, but this is a real security-vs-ergonomics tradeoff worth a second opinion before shipping.
+1. **Per-call vs per-tool-type approval?** Approve "bash" once for a conversation vs every invocation.
+2. **Auto-approve default:** the sketch below warns and allows when no dispatcher is configured. Confirm that against deny-by-default before shipping. House rule 1 leans fail-closed for unclear permission — this default needs an explicit decision.
+3. **Resource limits beyond wall-clock timeout** (`ulimit` / cgroups) — still undecided.
 
 ---
 

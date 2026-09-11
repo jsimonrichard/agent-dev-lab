@@ -2,11 +2,11 @@
 
 How the TanStack Start inspection UI talks to the runtime, plus **takeaways** from [t3code](https://github.com/pingdotgg/t3code) and [TanStack AI](https://tanstack.com/ai/latest/docs) that shaped the SSE + reducer design.
 
-**Status:** RC inspector is implemented (server functions + SSE + waterfall + cancel + agent conversations + fork + process-wide event log). Template playground, a dedicated raw-token debug pane, and a live UI for streaming / preliminary tool results remain deferred. Checklists below are **historical**; current remaining work is in [`v1-scope.md`](./v1-scope.md).
+**Status:** Control plane is server functions; data plane is SSE of persisted `RunEvent`s, implemented only in **`apps/web` wrappers** — never injected into user `createAgent` / `createWorkflow` code.
 
-**Agreed approach:** **server functions (control plane) + SSE with ADL `RunEvent`s (data plane)**, implemented only in **`apps/web` wrappers**—never injected into user `createAgent` / `createWorkflow` code.
+Still open: template playground, a dedicated token-debug pane, live UI for streaming / preliminary tool results, registry “run a tool manually,” and the questions at the bottom. Backlog: [`near-term-roadmap.md`](./near-term-roadmap.md).
 
-Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [`v1-scope.md`](./v1-scope.md), [AI SDK notes](../packages/core/src/index.ts).
+Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [AI SDK notes](../packages/core/src/index.ts).
 
 ---
 
@@ -76,43 +76,6 @@ Encode persisted **`RunEvent`** JSON only. Do **not** adopt TanStack AI [StreamC
 - Stream ends when **`workflow_finished` / `workflow_failed` / `workflow_cancelled`** is persisted—not only `data: [DONE]`
 
 Optional small helper in `@agent-dev-lab/core` or `apps/web`: `encodeRunEventSse(event)` / `createRunEventSseStream(events)`—no dependency on `@tanstack/ai`.
-
----
-
-## v1 web UI checklist
-
-Aligns with [`v1-scope.md`](./v1-scope.md). Historical; keep for architecture, not as a todo list.
-
-### Server (`apps/web`)
-
-- [x] Reuse loaded project in wrappers (`adl-project.server.ts`)
-- [x] Start-run server fn → background `workflow.run`, return `{ runId }`
-- [x] `GET /api/runs` — list runs from `WorkflowStore`
-- [x] `GET /api/runs/:runId` — snapshot
-- [x] `GET /api/runs/:runId/events` — SSE tail + `afterSeq`
-- [x] Cancel server fn — calls `handle.cancel()` (abort propagates into steps and child agents)
-- [x] Framework dev: `ADL_PROJECT_ROOT` / playground (see root `AGENTS.md`)
-- [x] Agent conversation SSE, inspector session store, fork from a step
-- [x] `GET /api/events` — process-wide `EventLog` SSE tail + `afterSeq` / `waitForAppend`
-
-### Client (`apps/web`)
-
-- [x] Run list + run detail route(s)
-- [x] `EventSource` subscribed after `runId` known
-- [x] In-memory **reducer**: apply `RunEvent[]` → view model (step tree, agent rows)
-- [x] On reconnect: pass `afterSeq` from last applied `runSeq`
-- [x] Project banner from `/api/project`
-- [x] Live assistant text via `agent_text_delta` (chat / run views — not a dedicated token-debug pane)
-- [x] Event log page (`/events`): filters, pagination, store hydrate, deep-links into run/chat
-- [ ] ⏸ Dedicated live token debug pane
-- [ ] ⏸ Streaming / preliminary tool-result UI (see below)
-- [ ] ⏸ `@agent-dev-lab/hooks` — later
-- [ ] ⏸ Registry `adl.config.tools` browser: list shared tools and run one manually (no agent turn)
-
-### Runtime prerequisite (not in `apps/web`)
-
-- [x] `WorkflowStore` append + `listEvents` ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
-- [x] `streamText` `onChunk` → `agent_text_delta` ([`RunEvent`](../packages/core/src/observability/events.ts))
 
 ---
 
@@ -229,22 +192,8 @@ Not a token-debug pane and not the registry "run a tool manually" browser.
 
 ---
 
-## Open questions (web-specific)
+## Open questions
 
-- [x] Start via server fn (not `POST /api/runs`); SSE is the data plane.
-- [ ] Single SSE connection per tab vs per visible run (HTTP/1.1 connection limits).
-- [x] Snapshot via run GET / loader; SSE tails with `afterSeq` (not a bundled first-message snapshot).
-- [ ] Version skew: framework dev uses workspace runtime; user `adl dashboard` uses project `node_modules`—surface in UI banner if versions differ.
-
----
-
-## Phasing (web work)
-
-| Order | Work                                                           | Status   |
-| ----- | -------------------------------------------------------------- | -------- |
-| 1     | Runtime: `WorkflowStore` + emit `RunEvent`s on `workflow.run`  | Done     |
-| 2     | `GET /api/runs/:id/events` SSE                                 | Done     |
-| 3     | Start-run server fn + waterfall UI                             | Done     |
-| 4     | `agent_text_delta` in chat / run transcripts                   | Done     |
-| 5     | Optional: hooks package, template playground, token-debug pane | Deferred |
-| 6     | Live UI for streaming / preliminary tool results               | Deferred |
+- Single SSE connection per tab vs per visible run (HTTP/1.1 connection limits).
+- Version skew: framework dev uses workspace runtime; user `adl dashboard` uses project `node_modules` — surface in the UI banner if versions differ.
+- Still deferred: template playground, `@agent-dev-lab/hooks`, dedicated token-debug pane, registry “run a tool manually.”

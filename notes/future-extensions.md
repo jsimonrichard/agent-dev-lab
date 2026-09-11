@@ -174,7 +174,7 @@ Mastra **processors** on agents overlap with **pre-model** hooks. ADL defers a u
 
 ## Standalone core HTTP API (deferred)
 
-`@agent-dev-lab/core` is a **library** in 0.0.1. CLI and the inspection UI are the hosts that load a project and call `workflow.run` / `agent.run`.
+`@agent-dev-lab/core` is a **library**. CLI and the inspection UI are the hosts that load a project and call `workflow.run` / `agent.run`.
 
 A later release can add a **process host export** (same package, e.g. `@agent-dev-lab/core/server`) that serves agents and workflows over HTTP/SSE — not a second runtime package.
 

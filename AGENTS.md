@@ -174,8 +174,8 @@ Two things are part of the deliverable, not optional extras.
   conditional in `apps/web`. A second store backend extends
   `stores/store.contract.test.ts` rather than adding a parallel test file.
 - **Rule 6** — gaps and deferrals go in `notes/` (agent- and release-facing
-  only; never linked from `apps/docs`). Update `notes/v1-scope.md` and its
-  `Last reconciled` date when the inventory changes.
+  only; never linked from `apps/docs`). Update `notes/near-term-roadmap.md`
+  when the open inventory changes. Do not keep resolved incident writeups.
 
 Gate before every push: **enforced by hooks, not by your memory of this file.**
 See § Enforced gate below.

@@ -1,6 +1,6 @@
 # Coding-agent notes
 
-This directory is for **agent-oriented** tracking: RC remaining work, deferred design, and UI architecture.
+Gap tracking and live design — not a changelog of shipped work. Never link this folder from `apps/docs`.
 
 ## Documentation split
 
@@ -8,43 +8,23 @@ This directory is for **agent-oriented** tracking: RC remaining work, deferred d
 | --------------------- | ----------------------------------------- | -------------------------------------------------- |
 | **Conceptual guides** | `apps/docs` Starlight `guides/` + `core/` | User-facing layout, runtime, agents, workflows, UI |
 | **API reference**     | `apps/docs` TypeDoc `/api/`               | JSDoc on `packages/core` exports                   |
-| **Gaps / deferred**   | `notes/` (this folder)                    | RC remaining work, resumability, UI architecture   |
+| **Gaps / deferred**   | `notes/` (this folder)                    | Open work and design that is not in the guides     |
 
-`apps/docs` is the published site. Keep repo-only material here (and in `AGENTS.md`): playground / `dev:web`, `--local`, `notes/` paths, jiti vs Vite, framework-dev modes, Changesets/release CI. JSDoc that TypeDoc publishes must not point at `notes/` or `apps/`.
+`apps/docs` is the published site. Keep repo-only material here (and in `AGENTS.md`): playground / `dev:web`, `--local`, framework-dev modes, Changesets/release CI. JSDoc that TypeDoc publishes must not point at `notes/` or `apps/`.
 
 Run locally: `bun run dev:docs` (port 4321).
 
-## Starlight guides
+## Files
 
-| Topic          | Path                                                 |
-| -------------- | ---------------------------------------------------- |
-| Overview       | `apps/docs/src/content/docs/guides/overview.md`      |
-| Project setup  | `apps/docs/src/content/docs/guides/project-setup.md` |
-| Inspection UI  | `apps/docs/src/content/docs/guides/inspection-ui.md` |
-| Runtime        | `apps/docs/src/content/docs/core/runtime.md`         |
-| Agents         | `apps/docs/src/content/docs/core/agents.md`          |
-| Workflows      | `apps/docs/src/content/docs/core/workflows.md`       |
-| Project config | `apps/docs/src/content/docs/core/project.md`         |
-
-## TypeDoc (JSDoc on code)
-
-Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEvent`, observers, AI SDK compatibility (`@packageDocumentation` on `packages/core/src/index.ts`).
-
-## Still in notes
-
-| File                                                     | Purpose                                                                                                                      |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| [`human-validation.md`](./human-validation.md)           | Pre-publish human checklist (reconciled 2026-09-11; published core/web 0.0.3, cli 0.0.5)                                     |
-| [`v1-scope.md`](./v1-scope.md)                           | RC inventory, remaining work, validation                                                                                     |
-| [`near-term-roadmap.md`](./near-term-roadmap.md)         | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
-| [`parallel-work-plan.md`](./parallel-work-plan.md)       | **Superseded 2026-09-11.** Wave 1 A/B/S/D landed; remaining Lane E + serial chain. Contention map / D1–D5 record only.       |
-| [`tool-sandboxing.md`](./tool-sandboxing.md)             | `@agent-dev-lab/tools` design: file/bash/search/fetchUrl sandboxing, approval dispatcher                                     |
-| [`watch-e2e-flake.md`](./watch-e2e-flake.md)             | **Closed 2026-09-10.** Bun 1.4.2 + chokidar; Vite reload plugin deleted. Incident writeup only.                              |
-| [`bun-node-test-cascade.md`](./bun-node-test-cascade.md) | **Closed 2026-09-10.** `bun test` + `node:test` cascade; fixed in Bun 1.4. Incident writeup only.                            |
-| [`inspection-ui.md`](./inspection-ui.md)                 | Control vs data plane, SSE, client reducer                                                                                   |
-| [`tracing.md`](./tracing.md)                             | OTel spans vs AI SDK telemetry                                                                                               |
-| [`resumability.md`](./resumability.md)                   | Run retry / step skip (memory is separate)                                                                                   |
-| [`memory-pipeline.md`](./memory-pipeline.md)             | Deferred shaping                                                                                                             |
-| [`future-extensions.md`](./future-extensions.md)         | Approvals, hooks                                                                                                             |
-| [`workflow-catalog.md`](./workflow-catalog.md)           | Folder / tag / namespaced-id browsing                                                                                        |
-| [`se-paper-framing.md`](./se-paper-framing.md)           | SE paper thesis, landscape, novelty plan                                                                                     |
+| File                                             | Purpose                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| [`near-term-roadmap.md`](./near-term-roadmap.md) | Open backlog and priority                                            |
+| [`human-validation.md`](./human-validation.md)   | Pre-publish checklist                                                |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)     | `@agent-dev-lab/tools` threat model, remaining approval / macOS work |
+| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, deferred streaming-tool UI               |
+| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry                                       |
+| [`resumability.md`](./resumability.md)           | Step skip (shipped) vs crash-safe resume (not)                       |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred message shaping                                             |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks, HTTP host                                          |
+| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing                                |
+| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan                             |

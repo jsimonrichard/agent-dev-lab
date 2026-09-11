@@ -1,136 +1,44 @@
 # Human validation
 
-Internal checklist before publishing. Not linked from the docs site.
+Reusable checklist before a publish. Not linked from the docs site.
 
-Last reconciled: **2026-09-11** after packed e2e / upgrade validation. Published packages on npm are **`@agent-dev-lab/core` 0.0.3**, **`@agent-dev-lab/web` 0.0.3**, **`@agent-dev-lab/cli` 0.0.5**. In-repo versions match those numbers (not 0.0.0). `@agent-dev-lab/tools` stays `private: true` / unpublished.
+Published packages (2026-09-11): **core/web 0.0.3**, **cli 0.0.5**. `@agent-dev-lab/tools` stays unpublished.
 
-## Naming conventions (how to read the repo)
+## Automated
 
-| Pattern                                             | Meaning                                                   |
-| --------------------------------------------------- | --------------------------------------------------------- |
-| `*.test.ts` next to source                          | Unit / in-process                                         |
-| `*.integration.test.ts`                             | Multi-module, still in-process (mock model, temp project) |
-| `src/e2e/` or `*.e2e.test.ts` that spawns a process | CLI / Vite spawn                                          |
-| `create*` / `*Impl` / `inspect*` / `resolve*`       | Factories, implementations, metadata helpers, resolvers   |
-| `apps/web/src/lib/view-model/`                      | Production UI state types (not test mocks)                |
-| `notes/`                                            | Coding-agent / RC tracking only                           |
-| `@agent-dev-lab/core/project` process host          | Inspector-only project/reload wiring                      |
+From the repo root: `bun install`, then `lint`, `format:check`, `typecheck`, `test`, `build`. CLI e2e (`init-smoke` + `init-pack`) is part of `apps/cli`'s `bun test src`. Packed e2e covers Node + `better-sqlite3`.
 
-Large files to read as one unit: `apps/web/src/components/app/workflow-tree-panel.tsx`, shadcn `sidebar.tsx`.
-
-## Prereqs
-
-- Bun **1.4.2** (see root `packageManager`) for monorepo install/dev
-- Node **22+** for the published Node path (`better-sqlite3`)
-- `OPENAI_API_KEY` for live LLM checks (playground)
-- This checkout
-
-## A. Automated (must be green)
-
-From the repo root:
-
-```bash
-bun install
-bun run lint
-bun run format:check
-bun run typecheck
-bun run test          # includes CLI `src/e2e` (init-smoke + init-pack) via apps/cli test script
-bun run build
-```
-
-Confirm:
-
-- Store contract tests pass under Bun (`bun:sqlite`) and that Node can open SQLite (`better-sqlite3`) — packed e2e / section G.
-- CLI e2e is part of `bun test src` in `apps/cli` (not only `test:e2e`).
-
-## B. Fresh-user path (this checkout)
+## Fresh project
 
 ```bash
 bun apps/cli/src/bin/cli.ts init /tmp/adl-validate --local
 cd /tmp/adl-validate
 bun install
-cp .env.example .env   # optional key for ask
-adl workflow list
-adl agent list
-adl workflow run demo-counter --input '{"steps":3}'   # expect sum 6
-adl agent run assistant --input "ping"       # needs a key for a real model reply
-adl dashboard                                # or bun run dev
+cp .env.example .env
+adl workflow run demo-counter --input '{"steps":3}'   # sum 6
+adl dashboard
 ```
 
-Confirm `#adl` in `package.json` imports + `tsconfig` paths, `.env.example`, SQLite under `.data/`.
+Confirm `#adl` imports, `.env.example`, SQLite under `.data/`. In the UI: start demo-counter, reopen the run, event-log deep-link, start-run errors in the UI (not only the console).
 
-## C. Browser (scaffold, no key for counter)
+## Playground (API key)
 
-With the dashboard from B:
+`bun run dev:web` — `answer-question`, `literature-review`, `write-article`, `shared-scope` (prompt-conflict warning), new chat title after first turn, fork, edit a workflow (sidebar refresh / failed-reload banner), Cancel on a long run.
 
-1. Start **demo-counter** from the UI (`steps: 3`) → waterfall + step outputs → reopen the finished run.
-2. Event log → click a row → lands on the run (deep-link).
-3. For cancel: start a long playground run (section D) → **Cancel** → `workflow_cancelled` and the model stops.
+## Watch vs `--serve`
 
-Also confirm start-run / chat failures show in the UI (not only the server console). System-prompt conflicts should surface as amber **warnings** (`agent_warning`) when two agents share a scope.
+- Default dashboard prints `[adl] watching` and reloads registry edits (no browser required).
+- `--serve` sets `ADL_PROJECT_WATCH=0` — no project reload. In this monorepo the UI is still Vite unless `--prebuilt`.
+- Packed / published web is Nitro. Confirm project reload **without** `--serve`. `.env*` always needs a restart.
 
-## D. Browser (playground + key)
+## Docs
 
-```bash
-cd <checkout>
-cp apps/playground/.env.example apps/playground/.env   # OPENAI_API_KEY, optional ADL_MODEL
-bun run dev:web
-```
+Follow [Project setup](../apps/docs/src/content/docs/guides/project-setup.md) on a new folder. File every step that does not work.
 
-Exercise:
+## Packed Node path
 
-- `answer-question` (tool loop)
-- `literature-review` (parallel)
-- `write-article` (titles / custom events)
-- `shared-scope` (one transcript, two agents; expect prompt-conflict warning)
-- New agent chat → title appears after first turn
-- Fork from a workflow episode
-- Edit a registered workflow file → sidebar refresh; break syntax → failed-reload banner
+After a tarball install: `node node_modules/@agent-dev-lab/cli/dist/cli.js workflow run demo-counter --input '{"steps":3}'` and `dashboard --serve`. Process stays Node (no Bun relaunch).
 
-## E. No-watch dashboard (`--serve`)
+## Publish
 
-```bash
-adl dashboard --serve --project /tmp/adl-validate
-```
-
-Confirm **no project hot reload** (`--serve` sets `ADL_PROJECT_WATCH=0`). In this monorepo the UI is still Vite unless you also pass `--prebuilt`. Start a run anyway.
-
-And in **G**, a tarball install **without** `--serve` (Nitro, because published web has no Vite tree). Confirm **project** hot reload (edit a registered workflow → catalog refresh; break syntax → failed-reload banner). UI-bundle HMR is vite-dev only. `.env*` still needs a restart.
-
-## F. Docs walkthrough
-
-Follow [Project setup](../apps/docs/src/content/docs/guides/project-setup.md) literally on a new folder after docs fixes. File every step that does not work (layout under `src/`, `#adl` imports, env, pitfalls).
-
-**2026-09-11:** Starlight was reconciled against current code (`inputSchema` / `outputSchema`, run tags, `[adl] watching` / reload lines, `--serve` / `--prebuilt`, `adl init` defaulting to no VCS). A fresh-folder walkthrough of that rewritten page was **not** re-run in the docs pass.
-
-## G. Release dry-run (packed + Node)
-
-Automated: `apps/cli/src/e2e/init-pack.e2e.test.ts` (pack four packages → `adl init` without `--local` → install tarballs → typecheck + `demo-counter` + dashboard `--serve`).
-
-Manual extras:
-
-1. After tarball install, run with **Node** (not Bun):
-
-   ```bash
-   node node_modules/@agent-dev-lab/cli/dist/cli.js workflow run demo-counter --input '{"steps":3}'
-   node node_modules/@agent-dev-lab/cli/dist/cli.js dashboard --serve --port 3010
-   ```
-
-2. Confirm **no Bun relaunch** (process stays Node).
-3. Native compile of `better-sqlite3` may require build tools — document any host-specific install gotcha you hit.
-
-## H. Explicit non-goals (this release)
-
-- Template playground UI
-- Dedicated token-debug pane
-- `examples/` stress project
-- Memory pipeline / checkpoints
-- Playwright suite
-- Second npm package named only `adl`
-- Running `changeset version` / publish in this pass (next bump is from **0.0.3** / **0.0.5**, not a first 0.0.1)
-
-## I. Publish notes for humans
-
-- In-repo versions are **core/web 0.0.3**, **cli 0.0.5**. Remaining `.changeset/*.md` are **patch** only → `bun run version-packages` yields the next patch on each published package. Merging to `main` opens a Version Packages PR via `.github/workflows/release.yml`; merging that PR publishes core, cli, and web.
-- Pinning `@tanstack/*: latest` in `apps/web` is still a human judgment call.
-- `notes/` stays internal; do not link it from product docs.
+Remaining `.changeset/*.md` are patch. Merging to `main` opens a Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, cli, and web. Do not link `notes/` from product docs.
