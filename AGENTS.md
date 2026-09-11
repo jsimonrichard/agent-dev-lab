@@ -27,8 +27,9 @@ All standard commands are in root `package.json`:
 - **Format check**: `bun run format:check` — Prettier check (CI uses this)
 - **Lint**: `bun run lint` — ESLint across all packages
 - **Typecheck**: `bun run typecheck` — TypeScript checking via Turbo
-- **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `cli`, `web`)
+- **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `cli`, `web`), then `bun test scripts`
 - **Build**: `bun run build`
+- **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` scaffolds a consumer. See `scripts/README.md`.
 
 ### Non-obvious notes
 
@@ -58,6 +59,7 @@ All standard commands are in root `package.json`:
 - **`*.test.ts` / `*.e2e.test.ts`** — Bun tests (`bun test`).
 - **`packages/tools/src/bash/{process-channel,native-executor,asrt-executor}.test.ts`** — `node:test`-based, not `bun:test`; run under both `bun test` and `node --test` (`bun run test:node`). See `notes/tool-sandboxing.md`'s testing section.
 - **`apps/cli/scripts/`** — build helpers, not tests (`verify-web-output.ts`, `package-scaffold.ts`). See `apps/cli/scripts/README.md`.
+- **`scripts/`** — monorepo helpers (`ci-publish.sh`, `patch-lock.ts`, `pack-local.ts`). `scripts/*.test.ts` is included in `bun run test`. See `scripts/README.md`.
 - **`packages/core/src/stores/store.contract.test.ts`** — shared store contract suite (test infra).
 - **`packages/core/src/template/fixtures/`** — prompt fixtures used by template tests.
 
