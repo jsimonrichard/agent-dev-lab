@@ -1,6 +1,10 @@
 # Parallel work plan (post-0.1.0)
 
-**Status:** Draft, for scheduling. Companion to [`near-term-roadmap.md`](./near-term-roadmap.md), which decides _what_ and _in what priority_; this file decides _what can run at the same time_ and _what must not_.
+**Status:** **Superseded 2026-09-11.** Wave 1 lanes A (grep/glob), B (`fetchUrl`), S (schema / conversation metadata / episodes / run version tags), and D (CI / chokidar watch) have landed. Remaining from this file: **Lane E** (per-call `AgentRunInput.model` + `{ modelId, provider }` on `agent_started`), then the serial `agent-impl.ts` chain (Lane I refactor) and Lane J (model catalog / picker). Open gates D2 (todo placement), D3 (datasets vs evals), and D4 (approval dispatcher) still block F/G/H.
+
+Do not schedule new work from this file. [`near-term-roadmap.md`](./near-term-roadmap.md) is the live checklist. Kept as the contention map and the D1/D5 decision record.
+
+**Was:** Draft, for scheduling. Companion to the roadmap: _what can run at the same time_ and _what must not_.
 
 **Method:** concurrency here is bounded by two things, neither of which is priority:
 
@@ -9,7 +13,7 @@
 
 Everything below is derived from the roadmap's remaining (🔲/🚧) items plus gaps found while fixing CI on 2026-09-07.
 
-Last written: **2026-09-07**.
+Last written: **2026-09-07**. Last reconciled: **2026-09-11**.
 
 ---
 

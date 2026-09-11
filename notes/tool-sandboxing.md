@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`), two bash `BashExecutor`s (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`, and `createFetchUrlTool` (`src/web/` — threat model and design live in that module's README). Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. This is the "needs a decision before code" item flagged as P0 in [`near-term-roadmap.md`](./near-term-roadmap.md#2-standard-tool-library-file-editing-bash-web-search--sandboxed). Read that section first for why this exists and what's already confirmed about the current codebase (only the `createToolFromAgent`/`createToolFromWorkflow` adapters plus `ToolProvider` live in `packages/core/src/tools/` — built-in tools live in `packages/tools`).
+**Status:** `packages/tools` (`@agent-dev-lab/tools`, not yet published — see its `package.json`) exists with file-editing tools (`createFileTools`, `src/file/`), grep/glob (`createSearchTools`, `src/file/search.ts`), two bash `BashExecutor`s (`createAsrtBashExecutor` and `createNativeBashExecutor` — Linux only, see below) plus `createBashTool`, `src/bash/`, and `createFetchUrlTool` (`src/web/` — threat model and design live in that module's README). `BashExecutor.run` takes **argv** (no shell); `allowRead` on the native executor is the kernel read boundary search tools rely on. Still design-only: `createNativeBashExecutor`'s macOS backend, web search, and the approval gate. Last reconciled: **2026-09-11**. Read [`near-term-roadmap.md`](./near-term-roadmap.md) §2 first for why this exists (`packages/core/src/tools/` stays adapters + `ToolProvider`; built-in tools live here).
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -14,10 +14,10 @@ Rationale for a separate package rather than `core/src/tools/builtin/`: these to
 
 ```
 @agent-dev-lab/tools
-├── file/          read, write, edit — jailed to a project root
-├── bash/          sandboxed shell execution
+├── file/          read, write, edit, grep, glob — jailed to a project root
+├── bash/          sandboxed shell execution (`run(argv)`, `allowRead`)
 ├── web/           fetchUrl — one URL, SSRF guard, text/markdown (done)
-├── web-search/    thin wrapper choosing provider-native search when available
+├── web-search/    thin wrapper choosing provider-native search when available (not built)
 ├── approval/      ApprovalDispatcher interface + gate wrapper (from future-extensions.md)
 └── index.ts
 ```
@@ -90,15 +90,7 @@ This framing matters because it changes what "good enough" sandboxing means for 
 
    **Real gotcha hit while implementing this (registry widening target has since changed — see update below):** making `ToolProviderContext` appear inside a function-parameter position that's part of a heterogeneous, widened registry is contravariant, and TypeScript's bivariant relaxation for interface methods breaks the instant a field's **presence** — not just its value type — is toggled by a conditional depending on that type parameter. Confirmed via isolated repro: `{ x?: T } : { x: T }` (presence differs) breaks widening; a conditional whose value type varies but whose key is _always_ present/optional does not. This was originally found against a registry widening to `Agent<unknown, ToolSet, unknown>`; the `adl.config.ts` `agents: []` registry now instead widens to `AnyAgent` (`Agent<any, any, any>`, exported from `packages/core/src/agent/types.ts`), and `any` in every slot sidesteps this whole class of bug — re-confirmed via the same repro against an `any`-parameterized target: no break, no cast needed. `AgentRunInput.toolProviderContext` still stays a **plain, always-optional field** end to end — enforcement of "this agent requires a context" is left entirely to whatever a `ToolProvider` does inside its own `getTools`, never a TS-level requiredness toggle — but that's no longer load-bearing for widening specifically, just the simpler design. `createToolProvider<Context>(fn)` remains the typed authoring helper bridging a fully-generic authoring-time context to the stored shape.
 
-3. **Tie dangerous tools to a sandbox structurally, not by convention** (not started). This package's own `createBashTool` / `createFileTools` should have **no zero-config unsafe default** — the sandbox/executor is a required constructor argument, not an optional one with a silent bare-subprocess fallback:
-
-   ```ts
-   // sketch — not implemented
-   createBashTool({ executor: localBashExecutor({ root }) }); // required
-   createBashTool(); // should not typecheck / should throw, not silently run unsandboxed
-   ```
-
-   This makes "I forgot to configure a sandbox" a build-time or immediate-runtime error instead of a silent security gap discovered later. Combined with (2), a project can swap which sandbox a `ToolProvider` constructs per call (e.g. a stricter root for an untrusted dataset run vs. a looser one for interactive dev) without touching the agent definition.
+3. **Tie dangerous tools to a sandbox structurally, not by convention** (implemented). `createBashTool` takes `executor` as required; `createFileTools` takes `root` as required; `createSearchTools` takes `executor` + jail root. There is no zero-config unsandboxed default.
 
 This section changes the shape of the `@agent-dev-lab/tools` API surface described below: every factory takes its safety-relevant config as a required argument, and the package's tools compose naturally with a `ToolProvider` for context-dependent construction, rather than assuming one static `tools` object per agent for the lifetime of the process.
 
@@ -114,11 +106,15 @@ This section changes the shape of the `@agent-dev-lab/tools` API surface describ
 - **Non-goals (unchanged):** no execute bit changes, no arbitrary metadata (chmod/chown) tools.
 - **Known gap:** `writeFile`/`editFile` require the parent directory to already exist — this first increment doesn't create intermediate directories, since doing so safely (without a symlink defeating the jail partway through a multi-level `mkdir -p`) needs a level-by-level check not implemented yet.
 
+### Grep / glob (`createSearchTools`)
+
+**Implemented** — `packages/tools/src/file/search.ts`. Model-facing `grep` and `glob` build a fixed `rg` argv and pass it to `BashExecutor.run`; the pattern never goes through a shell. Paths are confined with `createFileJail` before argv construction. The subprocess read boundary is the executor's `allowRead` (when configured), not a kernel guarantee from the search tools themselves.
+
 ---
 
 ## Bash tool — the hard part
 
-There is currently **no isolation primitive anywhere in this codebase** to build on. Three real tiers — this mirrors how [Mastra structures its `Sandbox` abstraction](https://mastra.ai/docs/sandbox/overview#localsandbox), which is worth taking as prior art since it's solving the same problem for a similar (agent tool-calling) audience — but unlike Mastra's own `nativeSandbox`, **there is no automatic fallback between them here.** If the configured executor's prerequisites aren't met, the tool refuses to run with a clear, specific error naming what's missing and how to install it — never a silent downgrade to a weaker tier. (Decided after evaluating two real library options below — see that section for why.)
+Isolation is the `BashExecutor` you pass in — there is no fallback if its prerequisites are missing. Three real tiers — this mirrors how [Mastra structures its `Sandbox` abstraction](https://mastra.ai/docs/sandbox/overview#localsandbox), which is worth taking as prior art since it's solving the same problem for a similar (agent tool-calling) audience — but unlike Mastra's own `nativeSandbox`, **there is no automatic fallback between them here.** If the configured executor's prerequisites aren't met, the tool refuses to run with a clear, specific error naming what's missing and how to install it — never a silent downgrade to a weaker tier.
 
 ### Tier 1 — bare subprocess (available, never selected automatically)
 
@@ -202,13 +198,15 @@ single-`Promise` shape originally sketched here — see the ASRT section above f
 ```ts
 interface BashExecutor {
   run(
-    command: string,
+    argv: readonly string[],
     opts: BashExecutorRunOptions,
   ): AsyncGenerator<BashExecutorUpdate, void, void>;
 }
 // BashExecutorUpdate = BashExecutorProgress ({ done: false, stdout, stderr, truncated })
 //                    | BashExecutorResult   ({ done: true, stdout, stderr, exitCode, truncated })
 ```
+
+The bash tool wraps `["/bin/bash", "-c", command]`; `createSearchTools` never puts a model-supplied pattern through a shell. Empty argv throws (`INIT_FAILED`), it is not a no-op. `allowRead` on `createNativeBashExecutor` is an allow-list bound into the mount namespace (plus `allowWrite` and a small set of system paths); omitted, this executor still ro-binds all of `/` — historical behaviour, not a kernel guarantee for recursive readers like `rg`.
 
 `createAsrtBashExecutor` and `createNativeBashExecutor` (Linux only — see above) are both
 implemented; a bare-subprocess tier-1 executor is still design-only, not yet built. The spawn +
@@ -229,7 +227,7 @@ sandbox prerequisite). A project would pick an executor explicitly through the s
 surface tier 3 uses, the same shape as the `ApprovalDispatcher` pattern below. No executor
 silently substitutes for another.
 
-**Also worth borrowing from Mastra's tool API shape** (not just the executor): rather than one synchronous run-to-completion tool, Mastra exposes `execute_command` / `get_process_output` (with `tail` and `wait: true`) / `kill_process` as separate tools, so a model can start a long-running command, poll or tail its output, and kill it — useful for dev servers or long builds. Worth doing eventually, but it's materially more complex (needs a process registry keyed by call/session) than the synchronous version above — treat it as a fast-follow once the synchronous tool ships, not part of this first increment.
+**Also worth borrowing from Mastra's tool API shape** (not just the executor): rather than one synchronous run-to-completion tool, Mastra exposes `execute_command` / `get_process_output` (with `tail` and `wait: true`) / `kill_process` as separate tools, so a model can start a long-running command, poll or tail its output, and kill it — useful for dev servers or long builds. Worth doing eventually, but it's materially more complex (needs a process registry keyed by call/session) than the synchronous version above — treat it as a fast-follow, not part of the shipped bash tool.
 
 ### Tool providers, environment introspection, and an AI-based safety check
 

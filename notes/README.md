@@ -37,10 +37,10 @@ Smaller single-API surfaces: `MessageStore`, `WorkflowStore`, `Template`, `RunEv
 | [`human-validation.md`](./human-validation.md)           | Pre-publish human checklist (0.0.1 alpha)                                                                                    |
 | [`v1-scope.md`](./v1-scope.md)                           | RC inventory, remaining work, validation                                                                                     |
 | [`near-term-roadmap.md`](./near-term-roadmap.md)         | Post-0.1.0 usability roadmap: model switching, sandboxed tools, Zod 4, run organization/datasets, merged/prioritized backlog |
-| [`parallel-work-plan.md`](./parallel-work-plan.md)       | Scheduling companion to the roadmap: file-contention map, decision gates, lanes that can run concurrently                    |
-| [`tool-sandboxing.md`](./tool-sandboxing.md)             | `@agent-dev-lab/tools` design: file/bash/web-search sandboxing, approval dispatcher                                          |
-| [`watch-e2e-flake.md`](./watch-e2e-flake.md)             | Why `watch.e2e.test.ts` went red: Bun 1.3.13's `fs.watch` and atomic saves; jiti re-transpiling core on reload               |
-| [`bun-node-test-cascade.md`](./bun-node-test-cascade.md) | Why one failing `node:test` file killed an unrelated one under `bun test` 1.3.13; fixed by Bun 1.4                           |
+| [`parallel-work-plan.md`](./parallel-work-plan.md)       | **Superseded 2026-09-11.** Wave 1 A/B/S/D landed; remaining Lane E + serial chain. Contention map / D1–D5 record only.       |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)             | `@agent-dev-lab/tools` design: file/bash/search/fetchUrl sandboxing, approval dispatcher                                     |
+| [`watch-e2e-flake.md`](./watch-e2e-flake.md)             | **Closed 2026-09-10.** Bun 1.4.2 + chokidar; Vite reload plugin deleted. Incident writeup only.                              |
+| [`bun-node-test-cascade.md`](./bun-node-test-cascade.md) | **Closed 2026-09-10.** `bun test` + `node:test` cascade; fixed in Bun 1.4. Incident writeup only.                            |
 | [`inspection-ui.md`](./inspection-ui.md)                 | Control vs data plane, SSE, client reducer                                                                                   |
 | [`tracing.md`](./tracing.md)                             | OTel spans vs AI SDK telemetry                                                                                               |
 | [`resumability.md`](./resumability.md)                   | Run retry / step skip (memory is separate)                                                                                   |

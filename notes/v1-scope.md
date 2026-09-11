@@ -4,7 +4,7 @@ Snapshot of **designed vs implemented vs remaining** for a first public release 
 
 **Legend:** ✅ done · 🚧 partial / known gap · 🔲 not started · ⏸ deferred (not RC)
 
-Last reconciled: **2026-08-29**.
+Last reconciled: **2026-09-11**.
 
 ---
 
@@ -25,13 +25,15 @@ Last reconciled: **2026-08-29**.
 | Workflow generics when Zod is omitted                                       | ✅                                                    |
 | `MessageStore` + `inMemoryMessageStore` / `sqliteMessageStore` (`kind`)     | ✅                                                    |
 | `WorkflowStore` + in-memory / SQLite                                        | ✅                                                    |
-| `sqliteInspectorSessionStore` (UI chat sessions)                            | ✅                                                    |
+| `sqliteConversationMetadataStore` (conversation title/fork/soft-delete)     | ✅ was `sqliteInspectorSessionStore`                  |
+| `WorkflowStore.listAgentEpisodes` + `adl_agent_episodes`                    | ✅ `model_id`/`model_provider` empty until Lane E     |
+| Auto `version:` / `commit:` tags on `workflow.run()`                        | ✅ jj then git; `AdlRuntimeConfig.version` / `false`  |
 | `ctx.step` skip when stored output exists; `{ force: true }`                | ✅                                                    |
 | Step keys, duplicate-name rules, nested steps                               | ✅                                                    |
 | `WorkflowObserver` / `AgentObserver` fan-out via `RunRecorder`              | ✅                                                    |
 | OTel spans at workflow / step / agent boundaries (`withActiveSpan`)         | ✅                                                    |
 | `loadAdlProject` + indexes + duplicate id checks + `.env*` loading          | ✅                                                    |
-| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅                                                    |
+| `LoadedAdlProject.reload()` + `watchAdlProject()` (dev; stores pinned)      | ✅ chokidar; returns `{ ready, close }`               |
 | `createToolFromAgent` / `createToolFromWorkflow`                            | ✅                                                    |
 | `AdlError` + `createTestRuntime`                                            | ✅                                                    |
 | `eventSchemaVersion` on persisted events                                    | ✅                                                    |
