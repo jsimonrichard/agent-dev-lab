@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -88,6 +88,8 @@ describe("createFileToolProvider", () => {
         root: path.resolve(root),
         allowRead: [path.resolve(root)],
         denyRead: [],
+        allowWrite: [path.resolve(root)],
+        denyWrite: [],
         maxReadBytes: 111,
         maxWriteBytes: 222,
       },
@@ -129,6 +131,25 @@ describe("createFileToolProvider", () => {
     ).rejects.toThrow(/outside the allowed write roots/);
     await omitted.writeFile.execute?.({ path: "ok.txt", content: "yes" }, toolCallOptions);
     expect(await Bun.file(path.join(root, "ok.txt")).text()).toBe("yes");
+  });
+
+  it("enforces denyWrite even under the default allowWrite", async () => {
+    await mkdir(path.join(root, "hidden"), { recursive: true });
+    const provider = createFileToolProvider({
+      root,
+      denyWrite: [path.join(root, "hidden")],
+    });
+    const { writeFile: writeFileTool, describeFileEnv } = await provider.getTools(ctx());
+    const described = await describeFileEnv.execute?.({}, toolCallOptions);
+    expect(described).toMatchObject({
+      fileAccess: {
+        allowWrite: [path.resolve(root)],
+        denyWrite: [path.resolve(path.join(root, "hidden"))],
+      },
+    });
+    await expect(
+      writeFileTool.execute?.({ path: "hidden/x.txt", content: "x" }, toolCallOptions),
+    ).rejects.toThrow(/denied by denyWrite/);
   });
 
   it("treats toolProviderContext.allowRead null as nothing-readable, not as omitted", async () => {

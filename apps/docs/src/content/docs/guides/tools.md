@@ -49,7 +49,7 @@ const coder = adl.createAgent({
 
 `resolveDefaultSandboxRoot()` is `.data/sandbox` under the current working directory, or `ADL_SANDBOX_ROOT` when set. It only resolves a path — create the directory yourself.
 
-Override the working directory per call (host- or workflow-set, never by the model). Changing `cwd` relocates relative file paths and the bash working directory; it does **not** replace an explicit `allowWrite` / `allowRead` list. Omitted bash bounds default to `[cwd]` and therefore follow it. File writes must also land under `allowWrite`:
+File writes and reads are allow/deny lists (not a privileged root). `root` / `cwd` is the relative-path base; omitted `allowRead` / `allowWrite` default to `[cwd]`. Changing `cwd` relocates relative paths and omit-defaults; it does **not** replace an explicit allow list:
 
 ```ts
 await coder.run({
@@ -80,7 +80,7 @@ This package does not search the web. Use your model provider's native search to
 
 ## File tools
 
-Every path is confined to `root` after symlink resolution — writes always, and reads by default (`allowRead` omitted means `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). The jail is a userland check, not a kernel boundary.
+Every path is checked against allow/deny lists after symlink resolution. `root` is the relative-path base and the omit-default for allow lists (`allowRead` / `allowWrite` omitted → `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). `denyRead` / `denyWrite` win over allow. The jail is a userland check, not a kernel boundary.
 
 `writeFile` requires the parent directory to already exist. `editFile` replaces exactly one occurrence of `find` and fails if the string is missing or not unique.
 

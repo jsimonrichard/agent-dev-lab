@@ -9,6 +9,7 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { resolveAllowWriteList, resolveDenyList } from "../fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
 
 import {
@@ -24,7 +25,7 @@ import {
 
 /** The `describeFileEnv` tool's payload — see `createFileToolProvider`. */
 export interface FileAccessInfo {
-  /** The sandbox root writes are jailed to, and the default relative-path base. */
+  /** Relative-path base and omit-default for allow lists. */
   root: string;
   /**
    * Paths `readFile` may read, or {@link UNBOUNDED_ALLOW_READ} when reads are not confined.
@@ -33,14 +34,21 @@ export interface FileAccessInfo {
   allowRead: ModelAllowRead;
   /** Paths hidden from `readFile`. Empty when the caller set none. */
   denyRead: string[];
+  /**
+   * Paths `writeFile` / `editFile` may write. Omitted factory `allowWrite` reports `[root]`;
+   * `[]` reports no writes.
+   */
+  allowWrite: string[];
+  /** Paths denied for writes. Empty when the caller set none. */
+  denyWrite: string[];
   maxReadBytes: number;
   maxWriteBytes: number;
 }
 
 /**
- * Report the read bound actually in effect after factory resolution.
- * Pass the factory-level value (including omitted / {@link UNBOUNDED_ALLOW_READ}); this
- * applies the same `[root]` default `createFileTools` does.
+ * Report the bounds actually in effect after factory resolution.
+ * Pass factory-level values (including omitted / {@link UNBOUNDED_ALLOW_READ}); this applies
+ * the same `[root]` defaults `createFileTools` does.
  */
 export function describeFileAccess(
   root: string,
@@ -48,19 +56,26 @@ export function describeFileAccess(
   maxWriteBytes: number,
   allowRead?: FileAllowRead,
   denyRead?: readonly string[] | null,
+  allowWrite?: readonly string[] | undefined,
+  denyWrite?: readonly string[] | null,
 ): FileAccessInfo {
-  const resolved = resolveFileAllowRead(root, allowRead);
+  const resolvedRoot = path.resolve(root);
   return {
-    root,
-    allowRead: resolved,
-    denyRead: denyRead == null ? [] : [...denyRead],
+    root: resolvedRoot,
+    allowRead: resolveFileAllowRead(resolvedRoot, allowRead),
+    denyRead: resolveDenyList(denyRead),
+    allowWrite: resolveAllowWriteList({
+      anchor: resolvedRoot,
+      allowWrite: allowWrite === undefined ? undefined : [...allowWrite],
+    }),
+    denyWrite: resolveDenyList(denyWrite),
     maxReadBytes,
     maxWriteBytes,
   };
 }
 
 const describeFileEnvDescription =
-  "Report the file sandbox root, read allow-list, and read/write byte caps.";
+  "Report the file sandbox root, read/write allow and deny lists, and byte caps.";
 
 const describeFileEnvInputSchema = z.object({});
 type DescribeFileEnvInput = z.infer<typeof describeFileEnvInputSchema>;
@@ -75,7 +90,7 @@ const fileAllowReadSchema = z.union([
 ]);
 
 export interface FileToolProviderOptions {
-  /** Default sandbox root when a call's context doesn't specify one. */
+  /** Default relative-path base when a call's context doesn't specify one. */
   root?: string;
   /**
    * Default read bound when a call's context doesn't specify one. Omitted means `[root]`.
@@ -83,12 +98,14 @@ export interface FileToolProviderOptions {
    */
   allowRead?: FileAllowRead;
   /**
-   * Default extra write roots when a call's context doesn't specify any. Omitted — writes
-   * stay inside `root` only. `[]` — no writes. A list — intersection with `root`.
+   * Default write allow list when a call's context doesn't specify any. Omitted → `[root]`.
+   * `[]` — no writes.
    */
   allowWrite?: string[];
   /** Default deny-read paths when a call's context doesn't specify any. */
   denyRead?: string[];
+  /** Default deny-write paths when a call's context doesn't specify any. */
+  denyWrite?: string[];
   /** Default read byte cap when a call's context doesn't specify one. */
   maxReadBytes?: number;
   /** Default write byte cap when a call's context doesn't specify one. */
@@ -105,11 +122,13 @@ export interface FileToolProviderContext {
   allowRead?: FileAllowRead;
   /**
    * Overrides `options.allowWrite` for this call. Omitted keeps the options default
-   * (root-only when both omit). `[]` — no writes.
+   * (`[root]` when both omit). `[]` — no writes.
    */
   allowWrite?: string[];
   /** Overrides `options.denyRead` for this call. */
   denyRead?: string[];
+  /** Overrides `options.denyWrite` for this call. */
+  denyWrite?: string[];
   /** Overrides `options.maxReadBytes` for this call. */
   maxReadBytes?: number;
   /** Overrides `options.maxWriteBytes` for this call. */
@@ -138,6 +157,7 @@ function cacheKey(
   allowRead: FileAllowRead | undefined,
   denyRead: readonly string[] | undefined,
   allowWrite: readonly string[] | undefined,
+  denyWrite: readonly string[] | undefined,
 ): string {
   const read =
     allowRead === undefined
@@ -147,18 +167,17 @@ function cacheKey(
         : allowRead === null
           ? "none"
           : allowRead.join("\0");
-  // Omitted allowWrite (root-only) must not share a cache slot with [] (no writes).
+  // Omitted allowWrite ([root]) must not share a cache slot with [] (no writes).
   const write = allowWrite === undefined ? "omit" : `list:${allowWrite.join("\0")}`;
-  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}`;
+  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}::${(denyWrite ?? []).join("\0")}`;
 }
 
 /**
  * `ToolProvider` wrapping `createFileTools` so `root`/`allowRead`/`maxReadBytes`/`maxWriteBytes`
  * can be set per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not
  * the model) instead of being fixed at construction time. Caches the constructed `FileTools`
- * (and its `FileJail`'s cached `realpath` promise) per distinct resolved
- * `(root, allowRead, denyRead, maxReadBytes, maxWriteBytes)` combination, since the common
- * case is the same combination recurring across many calls in one run.
+ * (and its `FileJail`'s cached `realpath` promise) per distinct resolved policy combination,
+ * since the common case is the same combination recurring across many calls in one run.
  */
 export function createFileToolProvider(
   options: FileToolProviderOptions,
@@ -172,6 +191,7 @@ export function createFileToolProvider(
         allowRead: fileAllowReadSchema,
         allowWrite: z.array(z.string()),
         denyRead: z.array(z.string()),
+        denyWrite: z.array(z.string()),
         maxReadBytes: z.number(),
         maxWriteBytes: z.number(),
       })
@@ -202,6 +222,7 @@ export function createFileToolProvider(
         context && Object.hasOwn(context, "allowRead") ? context.allowRead : options.allowRead;
       const allowWrite = ctx.toolProviderContext?.allowWrite ?? options.allowWrite;
       const denyRead = ctx.toolProviderContext?.denyRead ?? options.denyRead;
+      const denyWrite = ctx.toolProviderContext?.denyWrite ?? options.denyWrite;
 
       const resolvedRoot = path.resolve(root);
       const key = cacheKey(
@@ -211,6 +232,7 @@ export function createFileToolProvider(
         allowRead,
         denyRead,
         allowWrite,
+        denyWrite,
       );
       let fileTools = cache.get(key);
       if (!fileTools) {
@@ -219,6 +241,7 @@ export function createFileToolProvider(
           allowRead,
           allowWrite,
           denyRead,
+          denyWrite,
           maxReadBytes,
           maxWriteBytes,
         });
@@ -235,6 +258,8 @@ export function createFileToolProvider(
             maxWriteBytes,
             allowRead,
             denyRead,
+            allowWrite,
+            denyWrite,
           ),
         }),
       });

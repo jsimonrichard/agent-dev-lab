@@ -83,7 +83,7 @@ import { createFileTools } from "@agent-dev-lab/tools";
 const files = createFileTools({ root: cwd });
 ```
 
-Every path is confined to `root` after symlink resolution — writes always, and reads by default (`allowRead` omitted means `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). The jail is a userland check, not a kernel boundary.
+Every path is checked against allow/deny lists after symlink resolution. `root` is the relative-path base and the omit-default for allow lists (`allowRead` / `allowWrite` omitted → `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). `denyRead` / `denyWrite` win over allow. The jail is a userland check, not a kernel boundary.
 
 `writeFile` requires the parent directory to already exist. `editFile` replaces exactly one occurrence of `find` and fails if the string is missing or not unique.
 

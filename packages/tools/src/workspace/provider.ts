@@ -55,16 +55,22 @@ function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
 }
 
 /**
- * File-tool read bound implied by the bash executor actually in effect. Bash reports
+ * File-tool path policy implied by the bash executor actually in effect. Bash reports
  * {@link UNBOUNDED_ALLOW_READ} for host-wide reads; file factories use the same sentinel
- * and omit → `[cwd]`. The list is passed through as-is — `cwd` is not inserted.
+ * and omit → `[cwd]`. Lists are passed through as-is — `cwd` is not inserted.
  */
-function fileReadPolicyFromExecutor(described: BashExecutorDescription): {
+function filePolicyFromExecutor(described: BashExecutorDescription): {
   allowRead: FileAllowRead | undefined;
   denyRead: string[];
+  allowWrite: string[];
+  denyWrite: string[];
 } {
-  const denyRead = described.denyRead ?? [];
-  return { allowRead: described.allowRead, denyRead };
+  return {
+    allowRead: described.allowRead,
+    denyRead: described.denyRead ?? [],
+    allowWrite: described.allowWrite,
+    denyWrite: described.denyWrite ?? [],
+  };
 }
 
 const describeWorkspaceEnvInputSchema = z.object({});
@@ -370,9 +376,12 @@ export function createWorkspaceToolProvider(
       });
 
       const described = executor.describe();
-      const { allowRead: fileAllowRead, denyRead: fileDenyRead } =
-        fileReadPolicyFromExecutor(described);
-      const fileAllowWrite = described.allowWrite;
+      const {
+        allowRead: fileAllowRead,
+        denyRead: fileDenyRead,
+        allowWrite: fileAllowWrite,
+        denyWrite: fileDenyWrite,
+      } = filePolicyFromExecutor(described);
 
       const [fileTools, bashTools, webTools] = await Promise.all([
         fileProvider.getTools({
@@ -382,6 +391,7 @@ export function createWorkspaceToolProvider(
             allowRead: fileAllowRead,
             allowWrite: fileAllowWrite,
             denyRead: fileDenyRead,
+            denyWrite: fileDenyWrite,
             maxReadBytes,
             maxWriteBytes,
           },
@@ -421,6 +431,8 @@ export function createWorkspaceToolProvider(
             maxWriteBytes,
             fileAllowRead,
             fileDenyRead,
+            fileAllowWrite,
+            fileDenyWrite,
           ),
           bashAccess: describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
           ...(webTools

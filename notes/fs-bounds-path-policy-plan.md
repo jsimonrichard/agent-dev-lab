@@ -1,3 +1,7 @@
+**Status:** implemented — PathBound / allow/deny-only jail / file `denyWrite` wiring
+landed (see jj stack: `PathBound and checkPathAccess`, `allow/deny-only file jail`,
+`wire file denyWrite through provider and workspace`).
+
 # Plan: PathBound + allow/deny-only file jail + `denyWrite`
 
 ## Goal

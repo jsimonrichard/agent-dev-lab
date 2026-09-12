@@ -164,6 +164,8 @@ describe("createWorkspaceToolProvider", () => {
         root: path.resolve(root),
         allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
+        allowWrite: ["/allowed"],
+        denyWrite: [],
         maxReadBytes: 1_000_000,
         maxWriteBytes: 1_000_000,
       },
@@ -194,7 +196,12 @@ describe("createWorkspaceToolProvider", () => {
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
     const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({
-      fileAccess: { allowRead: ["/only-this"], denyRead: [] },
+      fileAccess: {
+        allowRead: ["/only-this"],
+        denyRead: [],
+        allowWrite: ["/allowed"],
+        denyWrite: [],
+      },
       bashAccess: { allowRead: ["/only-this"] },
     });
   });
@@ -283,6 +290,8 @@ describe("createWorkspaceToolProvider", () => {
         root: path.resolve(root),
         allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
+        allowWrite: ["/allowed"],
+        denyWrite: [],
         maxReadBytes: 1_000_000,
         maxWriteBytes: 1_000_000,
       },
