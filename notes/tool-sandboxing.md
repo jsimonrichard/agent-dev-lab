@@ -236,8 +236,10 @@ these are `ToolProvider` wrappers on top of them, for projects that want `cwd`/`
 `timeoutMs`/byte caps set per `agent.run()` call instead of fixed when the agent is built.
 
 - **Per-call config via `ToolProviderContext`, not a runtime flag.** Each provider's context
-  (`{ cwd?, timeoutMs? }` for bash; `{ root?, maxReadBytes?, maxWriteBytes? }` for file; the
-  union of both, sharing one `cwd`, for workspace) overrides the matching constructor option,
+  (`{ cwd?, timeoutMs? }` for bash; `{ root?, maxReadBytes?, maxWriteBytes? }` for file;
+  fetch options for web; the union of those for workspace, sharing one `cwd` and using
+  `bashTimeoutMs` / `fetchTimeoutMs` so bash and fetch timeouts cannot collide) overrides
+  the matching constructor option,
   independently per field. **This is a trust boundary, not a restriction**:
   `toolProviderContext` is set by the workflow/host calling `agent.run()` — never by the model
   directly (a model can only reach it if a workflow author deliberately routes model output
@@ -251,13 +253,17 @@ these are `ToolProvider` wrappers on top of them, for projects that want `cwd`/`
   silently ignored (see `asrt-executor.ts`'s doc comment) — so pointing `cwd` outside the
   executor's `allowWrite` still fails at the OS level regardless of what context says.
 - **`createWorkspaceToolProvider` composes the atomic providers rather than reimplementing
-  jail/bash construction**, translating its one shared `cwd` into each one's own field name.
-  Deliberately not `combineToolProviders` (`packages/core`): that namespaces context per
-  source, which would let the file root and bash cwd drift apart on the exact thing meant to
-  be shared. This is the structural answer to "differentiate command-only sandboxes from
-  workspace tools that have everything for working on a codebase in a folder" —
-  `createBashToolProvider` alone for the former, `createWorkspaceToolProvider` for the latter
-  (the Mastra-style combined surface) — not a runtime flag on one implementation.
+  jail/bash/fetch construction**, translating its one shared `cwd` into the file and bash
+  field names, `bashTimeoutMs` into bash's `timeoutMs`, and `fetchTimeoutMs` into
+  `createWebToolProvider`'s `timeoutMs` so bash and fetch timeouts cannot collide.
+  `fetchUrl: false` omits the tool (empty `allowedUrls` does not — public http(s) still
+  works). Deliberately not `combineToolProviders` (`packages/core`):
+  that namespaces context per source, which would let the file root and bash cwd drift apart
+  on the exact thing meant to be shared. This is the structural answer to "differentiate
+  command-only sandboxes from workspace tools that have everything for working on a codebase
+  in a folder" — `createBashToolProvider` alone for the former,
+  `createWorkspaceToolProvider` for the latter (the Mastra-style combined surface, now
+  including `fetchUrl`) — not a runtime flag on one implementation.
 - **A real TypeScript gotcha found building this**: `Tools` in `ToolProvider<Tools extends
 ToolSet>` requires an implicit index signature, and only a plain `type X = { ... }`
   object-literal type alias gets one — an `interface`, even only _indirectly_ involved (via
@@ -274,16 +280,18 @@ ToolSet>` requires an implicit index signature, and only a plain `type X = { ...
   `.data/sandbox` relative to `projectRoot` (or `process.cwd()`). Matches the SQLite store's
   own `.data/` convention.
 - **Describe-env tools, named for their actual scope** — `describeBashEnv`
-  (`createBashToolProvider`), `describeFileEnv` (`createFileToolProvider`), and
-  `describeWorkspaceEnv` (`createWorkspaceToolProvider`, merging both) so the model can
-  proactively learn its own constraints (cwd, writable/denied paths, network access, byte caps)
-  instead of discovering them only by hitting a denial — and can then tell the user precisely
-  what permission it would need. **Deliberately not called `describeEnvironment`**: each one
-  only covers what `@agent-dev-lab/tools`' own bash/file sandbox manages, not the agent's whole
-  environment — a project may attach other tools with their own network access (a web-search
-  tool, say) that these know nothing about. A generic name would imply a completeness the tool
-  can't back up; each description string says so explicitly too. Backed by a new **required**
-  `BashExecutor.describe(): BashExecutorDescription` method — both `createAsrtBashExecutor` and
+  (`createBashToolProvider`), `describeFileEnv` (`createFileToolProvider`),
+  `describeWebEnv` (`createWebToolProvider`), and `describeWorkspaceEnv`
+  (`createWorkspaceToolProvider`, merging file, bash, and fetch) so the model can
+  proactively learn its own constraints (cwd, writable/denied paths, network access, byte caps,
+  `fetchUrl` allowlists) instead of discovering them only by hitting a denial — and can then
+  tell the user precisely what permission it would need. **Deliberately not called
+  `describeEnvironment`**: each one only covers what `@agent-dev-lab/tools`' own tools manage,
+  not the agent's whole environment — a project may attach other tools with their own network
+  access (a web-search tool, say) that these know nothing about. A generic name would imply a
+  completeness the tool can't back up; each description string says so explicitly too. Backed
+  by a new **required** `BashExecutor.describe(): BashExecutorDescription` method — both
+  `createAsrtBashExecutor` and
   `createNativeBashExecutor` already hold their resolved config in closure, so `describe()` just
   returns it, no new computation. (One honest caveat: `describe()` reports the instance's _own_
   configured options, which is the config actually enforced _unless_ a different

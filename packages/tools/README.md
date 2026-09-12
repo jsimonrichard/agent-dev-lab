@@ -17,7 +17,7 @@ bun add @agent-dev-lab/tools
 
 ## Quick start
 
-The usual surface is `createWorkspaceToolProvider`: file tools, `grep` / `glob`, and `bash` sharing one working directory.
+The usual surface is `createWorkspaceToolProvider`: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`.
 
 ```ts
 import { mkdirSync } from "node:fs";
@@ -58,19 +58,19 @@ await coder.run({
 
 ## What's in this package
 
-| Factory                                        | Tools                                                                               | When to use it                                 |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `createWorkspaceToolProvider`                  | `readFile`, `writeFile`, `editFile`, `grep`, `glob`, `bash`, `describeWorkspaceEnv` | Work on one folder                             |
-| `createFileTools` / `createFileToolProvider`   | `readFile`, `writeFile`, `editFile`                                                 | File access only                               |
-| `createSearchTools`                            | `grep`, `glob`                                                                      | Filesystem search only (`rg` via the executor) |
-| `createBashTool` / `createBashToolProvider`    | `bash`                                                                              | Shell only                                     |
-| `createFetchUrlTool` / `createWebToolProvider` | `fetchUrl`                                                                          | Read one http(s) URL as text or markdown       |
+| Factory                                        | Tools                                                                                           | When to use it                                 |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `createWorkspaceToolProvider`                  | `readFile`, `writeFile`, `editFile`, `grep`, `glob`, `bash`, `fetchUrl`, `describeWorkspaceEnv` | Work on one folder                             |
+| `createFileTools` / `createFileToolProvider`   | `readFile`, `writeFile`, `editFile`                                                             | File access only                               |
+| `createSearchTools`                            | `grep`, `glob`                                                                                  | Filesystem search only (`rg` via the executor) |
+| `createBashTool` / `createBashToolProvider`    | `bash`                                                                                          | Shell only                                     |
+| `createFetchUrlTool` / `createWebToolProvider` | `fetchUrl`                                                                                      | Read one http(s) URL as text or markdown       |
 
-Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, and bash permissions before it hits a denial.
+Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, bash permissions, and `fetchUrl` allowlist before it hits a denial.
 
 Pass a provider as `AgentDefinition.tools` (or `agent.run({ tools })`) when `cwd` / `root` / timeouts should come from `toolProviderContext` on each call. Pass the plain tool objects when the sandbox is fixed at construction.
 
-`fetchUrl` is not part of the workspace provider — it has no working directory. Combine it with `combineToolProviders` from `@agent-dev-lab/core` when an agent needs both.
+`fetchUrl` is included in the workspace provider by default. Pass `fetchUrl: false` to omit it. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool.
 
 This package does not search the web. Use your model provider's native search tool (for example `openai.tools.webSearch()`) when you want discovery; use `fetchUrl` when you already have an address.
 

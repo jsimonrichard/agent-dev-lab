@@ -20,7 +20,7 @@ bun add @agent-dev-lab/tools
 
 ## Quick start
 
-`createWorkspaceToolProvider` is the usual surface: file tools, `grep` / `glob`, and `bash` sharing one working directory.
+`createWorkspaceToolProvider` is the usual surface: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`.
 
 ```ts
 import { mkdirSync } from "node:fs";
@@ -61,19 +61,19 @@ await coder.run({
 
 ## Factories
 
-| Factory                                        | Tools                                                                               | When to use it                            |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
-| `createWorkspaceToolProvider`                  | `readFile`, `writeFile`, `editFile`, `grep`, `glob`, `bash`, `describeWorkspaceEnv` | Work on one folder                        |
-| `createFileTools` / `createFileToolProvider`   | `readFile`, `writeFile`, `editFile`                                                 | File access only                          |
-| `createSearchTools`                            | `grep`, `glob`                                                                      | Filesystem search (`rg` via the executor) |
-| `createBashTool` / `createBashToolProvider`    | `bash`                                                                              | Shell only                                |
-| `createFetchUrlTool` / `createWebToolProvider` | `fetchUrl`                                                                          | Read one http(s) URL as text or markdown  |
+| Factory                                        | Tools                                                                                           | When to use it                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `createWorkspaceToolProvider`                  | `readFile`, `writeFile`, `editFile`, `grep`, `glob`, `bash`, `fetchUrl`, `describeWorkspaceEnv` | Work on one folder                        |
+| `createFileTools` / `createFileToolProvider`   | `readFile`, `writeFile`, `editFile`                                                             | File access only                          |
+| `createSearchTools`                            | `grep`, `glob`                                                                                  | Filesystem search (`rg` via the executor) |
+| `createBashTool` / `createBashToolProvider`    | `bash`                                                                                          | Shell only                                |
+| `createFetchUrlTool` / `createWebToolProvider` | `fetchUrl`                                                                                      | Read one http(s) URL as text or markdown  |
 
-Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, and bash permissions.
+Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, bash permissions, and `fetchUrl` allowlist.
 
 Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `toolProviderContext`. Pass the plain tool objects when the sandbox is fixed at construction.
 
-`fetchUrl` is not part of the workspace provider. Combine it with [`combineToolProviders`](/core/tool-provider/#combinetoolproviders) when an agent needs both.
+`fetchUrl` is included in the workspace provider by default. Pass `fetchUrl: false` to omit it. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool.
 
 This package does not search the web. Use your model provider's native search tool (for example `openai.tools.webSearch()`) for discovery; use `fetchUrl` when you already have an address.
 

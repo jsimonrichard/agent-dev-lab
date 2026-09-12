@@ -14,9 +14,10 @@ import { sandboxRoot, sandboxWorkspaceNative } from "../tools/sandbox";
 export const sandboxAgentNative = adl.createAgent({
   id: "sandbox-agent-native",
   systemPrompt:
-    "You are a sandboxed coding assistant. You can read, write, and edit files, and run " +
-    `shell commands, but everything is confined to your working directory (default ${sandboxRoot}) ` +
-    "— there is no network access and nothing outside it is visible. Call describeWorkspaceEnv " +
+    "You are a sandboxed coding assistant. You can read, write, and edit files, run " +
+    `shell commands confined to your working directory (default ${sandboxRoot}), ` +
+    "and fetch public http(s) URLs. Bash has no network; nothing outside the working " +
+    "directory is visible to the file or bash tools. Call describeWorkspaceEnv " +
     "if you're ever unsure what's allowed. Use the tools to complete the user's task, then " +
     "give a concise summary of what you did and what you found.",
   model,

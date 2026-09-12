@@ -77,7 +77,7 @@ export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAcces
  * of it, since a caller building `toolProviderContext` programmatically should get the same
  * schema-level guarantee this provider actually enforces at runtime.
  */
-const webToolProviderContextSchema = z
+export const webToolProviderContextSchema = z
   .object({
     allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])).readonly(),
     allowPrivateNetwork: z.boolean(),
@@ -119,9 +119,8 @@ export type WebProviderTools = {
 
 /**
  * `ToolProvider` wrapping `createFetchUrlTool` so its options can be set per `agent.run()` call
- * via `toolProviderContext`. Deliberately **not** folded into `createWorkspaceToolProvider` (the
- * file+bash-sharing-one-`cwd` surface) — `fetchUrl` has no `cwd`; combine both via
- * `combineToolProviders` when a project wants them together.
+ * via `toolProviderContext`. Also composed into `createWorkspaceToolProvider` (the
+ * file+bash+fetch surface). Use this provider directly when an agent only needs `fetchUrl`.
  */
 export function createWebToolProvider(
   options: WebToolProviderOptions = {},

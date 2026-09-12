@@ -11,14 +11,14 @@ code, as the place that grows when a decision needs more explaining.
 
 ## Files
 
-| File                | Owns                                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------- |
-| `address-policy.ts` | The address guard: is this URL's destination safe to connect to?                             |
-| `url-pattern.ts`    | The glob/`RegExp` matcher behind `allowedUrls` — pure string matching, no URLs or addresses. |
-| `extract.ts`        | Reduces a response body to text/markdown; untrusted-content handling.                        |
-| `fetch.ts`          | Transport: manual redirect loop, byte cap, timeout, `http:` IP pinning.                      |
-| `tools.ts`          | The `fetchUrl` tool itself — wires the above together, owns the model-facing description.    |
-| `provider.ts`       | `createWebToolProvider` — per-call config via `toolProviderContext`, `describeWebEnv`.       |
+| File                | Owns                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `address-policy.ts` | The address guard: is this URL's destination safe to connect to?                                                                         |
+| `url-pattern.ts`    | The glob/`RegExp` matcher behind `allowedUrls` — pure string matching, no URLs or addresses.                                             |
+| `extract.ts`        | Reduces a response body to text/markdown; untrusted-content handling.                                                                    |
+| `fetch.ts`          | Transport: manual redirect loop, byte cap, timeout, `http:` IP pinning.                                                                  |
+| `tools.ts`          | The `fetchUrl` tool itself — wires the above together, owns the model-facing description.                                                |
+| `provider.ts`       | `createWebToolProvider` — per-call config via `toolProviderContext`, `describeWebEnv`. Also composed into `createWorkspaceToolProvider`. |
 
 Tests: `url-pattern.test.ts` and `address-policy.test.ts` are `node:test` (deliberately split —
 see "Testing" below); `fetch.test.ts` and `fetch-url.test.ts` are `node:test` too (the former unit

@@ -8,6 +8,12 @@ import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 
+import {
+  DEFAULT_FETCH_TIMEOUT_MS,
+  DEFAULT_MAX_REDIRECTS,
+  DEFAULT_MAX_RESPONSE_BYTES,
+} from "../web/tools";
+
 import { createWorkspaceToolProvider, type WorkspaceToolProviderContext } from "./provider";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
@@ -111,7 +117,21 @@ describe("createWorkspaceToolProvider", () => {
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
-  it("describeWorkspaceEnv reports both fileAccess and bashAccess together", async () => {
+  it("lists fetchUrl and the combined describe tool, not the atomic describe-env tools", () => {
+    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    expect(provider.listTools?.().map((summary) => summary.name)).toEqual([
+      "readFile",
+      "writeFile",
+      "editFile",
+      "grep",
+      "glob",
+      "bash",
+      "fetchUrl",
+      "describeWorkspaceEnv",
+    ]);
+  });
+
+  it("describeWorkspaceEnv reports fileAccess, bashAccess, and webAccess together", async () => {
     const executor = stubExecutor();
     const provider = createWorkspaceToolProvider({ executor, cwd: root });
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
@@ -132,6 +152,168 @@ describe("createWorkspaceToolProvider", () => {
         denyWrite: [],
         network: { allowNetwork: false },
       },
+      webAccess: {
+        allowedSchemes: ["http", "https"],
+        allowedUrls: [],
+        allowPrivateNetwork: false,
+        timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+        maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
+        maxRedirects: DEFAULT_MAX_REDIRECTS,
+      },
+    });
+  });
+
+  it("keeps bashTimeoutMs and fetchTimeoutMs as independent knobs", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      bashTimeoutMs: 111,
+      fetchTimeoutMs: 222,
+    });
+    const { describeWorkspaceEnv } = await provider.getTools(ctx());
+    const constructed = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(constructed).toMatchObject({
+      bashAccess: { timeoutMs: 111 },
+      webAccess: { timeoutMs: 222 },
+    });
+
+    const { describeWorkspaceEnv: fromContext } = await provider.getTools(
+      ctx({ bashTimeoutMs: 333, fetchTimeoutMs: 444 }),
+    );
+    const overridden = await fromContext.execute?.({}, toolCallOptions);
+    expect(overridden).toMatchObject({
+      bashAccess: { timeoutMs: 333 },
+      webAccess: { timeoutMs: 444 },
+    });
+  });
+
+  it("overrides fetchUrl options via toolProviderContext without touching bashTimeoutMs", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      allowedUrls: ["https://docs.internal:443/**"],
+      bashTimeoutMs: 111,
+    });
+    const { describeWorkspaceEnv } = await provider.getTools(
+      ctx({
+        allowedUrls: ["https://other.internal:8080/**"],
+        allowPrivateNetwork: true,
+        maxResponseBytes: 888,
+        maxRedirects: 7,
+      }),
+    );
+    const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(result).toMatchObject({
+      bashAccess: { timeoutMs: 111 },
+      webAccess: {
+        allowedUrls: ["https://other.internal:8080/**"],
+        allowPrivateNetwork: true,
+        maxResponseBytes: 888,
+        maxRedirects: 7,
+      },
+    });
+  });
+
+  it("omits fetchUrl and webAccess when constructed with fetchUrl: false", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      fetchUrl: false,
+    });
+    expect(provider.listTools?.().map((summary) => summary.name)).toEqual([
+      "readFile",
+      "writeFile",
+      "editFile",
+      "grep",
+      "glob",
+      "bash",
+      "describeWorkspaceEnv",
+    ]);
+    const tools = await provider.getTools(ctx());
+    expect(tools.fetchUrl).toBeUndefined();
+    const result = await tools.describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(result).toEqual({
+      fileAccess: {
+        root: path.resolve(root),
+        maxReadBytes: 1_000_000,
+        maxWriteBytes: 1_000_000,
+      },
+      bashAccess: {
+        cwd: root,
+        timeoutMs: 30_000,
+        backend: "stub",
+        allowWrite: ["/allowed"],
+        allowRead: null,
+        denyRead: [],
+        denyWrite: [],
+        network: { allowNetwork: false },
+      },
+    });
+    expect(result).not.toHaveProperty("webAccess");
+  });
+
+  it("does not treat empty allowedUrls as a deny that removes fetchUrl", () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      allowedUrls: [],
+    });
+    expect(provider.listTools?.().map((summary) => summary.name)).toContain("fetchUrl");
+  });
+
+  it("throws when fetch options are set and fetchUrl is disabled", () => {
+    expect(() =>
+      createWorkspaceToolProvider({
+        executor: stubExecutor(),
+        cwd: root,
+        fetchUrl: false,
+        allowedUrls: ["https://docs.example.com/**"],
+      }),
+    ).toThrow(/fetchUrl is disabled but allowedUrls was set on options/);
+  });
+
+  it("throws when fetch toolProviderContext is set and fetchUrl is disabled", () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      fetchUrl: false,
+    });
+    expect(() => provider.getTools(ctx({ fetchTimeoutMs: 1_000 }))).toThrow(
+      /fetchUrl is disabled but fetchTimeoutMs was set on toolProviderContext/,
+    );
+  });
+
+  it("carries allowedUrls from workspace context into the fetchUrl tool", async () => {
+    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const tools = await provider.getTools(ctx({ allowedUrls: ["http://127.0.0.1:9/**"] }));
+    expect(tools.fetchUrl).toBeDefined();
+    const fetchUrl = tools.fetchUrl!;
+
+    let message = "";
+    try {
+      await fetchUrl.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).not.toMatch(/not a public address/);
+
+    await expect(
+      fetchUrl.execute?.({ url: "http://127.0.0.1:10/x" }, toolCallOptions),
+    ).rejects.toThrow(/not a public address/);
+  });
+
+  it("declares a contextSchema that accepts glob strings and RegExp allowedUrls entries", () => {
+    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const pattern = /^https:\/\/docs\.internal:443\/wiki\/[\w-]+$/;
+    const parsed = provider.contextSchema?.parse({
+      allowedUrls: ["https://docs.internal:443/**", pattern],
+      fetchTimeoutMs: 1_000,
+      bashTimeoutMs: 2_000,
+    });
+    expect(parsed).toEqual({
+      allowedUrls: ["https://docs.internal:443/**", pattern],
+      fetchTimeoutMs: 1_000,
+      bashTimeoutMs: 2_000,
     });
   });
 });

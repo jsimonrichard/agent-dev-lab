@@ -107,7 +107,7 @@ await agent.run({
 
 A source that needs no context still needs a key; its `toolProviderContext` slot is unused.
 
-`createWorkspaceToolProvider` from `@agent-dev-lab/tools` is **not** implemented with `combineToolProviders` — file tools and bash must share one `cwd`. Combine a workspace provider with `createWebToolProvider` (or any other source) when an agent also needs `fetchUrl`.
+`createWorkspaceToolProvider` from `@agent-dev-lab/tools` is **not** implemented with `combineToolProviders` — file tools and bash must share one `cwd`. It already includes `fetchUrl`; combine a workspace provider with another source when an agent needs something beyond that surface.
 
 ## Related
 

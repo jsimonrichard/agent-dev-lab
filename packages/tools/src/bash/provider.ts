@@ -125,7 +125,7 @@ export type BashProviderTools = {
  * `ToolProvider` wrapping `createBashTool` so `cwd`/`timeoutMs` can be set per `agent.run()`
  * call via `toolProviderContext` (set by the workflow/host, not the model) instead of being
  * fixed at construction time. The "command-only sandbox" primitive — no file jail attached; see
- * `createWorkspaceToolProvider` for the combined file+bash surface.
+ * `createWorkspaceToolProvider` for the combined file+bash+fetch surface.
  */
 export function createBashToolProvider(
   options: BashToolProviderOptions,
