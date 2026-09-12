@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-11**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
+**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-12**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor lifecycle / `ToolProvider.dispose?()` / per-policy pool: designed only in [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — **not implemented**. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -337,8 +337,9 @@ Two things only surfaced by actually running this under `node --test` (which —
   `dispose()` in `after()` so each supervisor `reset()`s and exits; a host that forgets
   `dispose()` still kills supervisors when it itself exits (stdin EOF). `bun test` still
   force-ends the suite process — the orphan test checks the stdin-EOF path under a real
-  child `process.exit(0)`. There is still no framework-level run-scoped shutdown hook (see
-  near-term roadmap / `notes/future-extensions.md`).
+  child `process.exit(0)`. There is still no framework-level shutdown hook and no executor
+  pool (**2026-09-12** design: [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md);
+  that plan is `dispose?()` on the provider, not a run-scoped hook).
 - **Node's ESM resolver is stricter than Bun's**: relative imports need explicit `.ts`
   extensions (`allowImportingTsExtensions` added to `packages/tools/tsconfig.json`), and
   `@agent-dev-lab/core` must already be built (`dist/`, via the `default` export condition) for

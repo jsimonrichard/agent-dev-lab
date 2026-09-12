@@ -143,7 +143,14 @@ stateless factories called fresh each time; nothing in `@agent-dev-lab/core` cur
 provider a "run started" / "run ended" hook to hang kernel start/stop off of). Building this
 properly is a **core API addition** — some notion of run-scoped resource lifecycle, not just a new
 sandboxed tool — so it belongs in this file alongside the other core-surface extensions rather
-than being scoped as more `packages/tools` work. Concretely still open:
+than being scoped as more `packages/tools` work.
+
+**2026-09-12:** sandbox _process_ lifecycle (ASRT supervisor / per-policy pool, project reload)
+is designed in [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — not implemented.
+That plan adds optional `ToolProvider.dispose?()` only; it does **not** add a run-ended hook.
+A kernel that must die when `agent.run` finishes still needs the run-scoped question below.
+
+Concretely still open:
 
 - Where the kernel process itself is sandboxed (reuse `BashExecutor`'s tiers, or a dedicated
   primitive — a long-lived process is a different isolation problem than a one-shot command).
