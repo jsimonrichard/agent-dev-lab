@@ -145,9 +145,9 @@ properly is a **core API addition** — some notion of run-scoped resource lifec
 sandboxed tool — so it belongs in this file alongside the other core-surface extensions rather
 than being scoped as more `packages/tools` work.
 
-**2026-09-12 (updated):** sandbox _process_ lifecycle and the run-scoped hook are implemented
-— see [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md). Core now has
-`ToolProvider.dispose?()` (reload/unload) and `ToolProvider.onRunEnd?()` (per `agentCallId`).
+**2026-09-12 (updated):** sandbox _process_ lifecycle and the run-scoped hook are shipped.
+Core now has `ToolProvider.dispose?()` (reload/unload) and `ToolProvider.onRunEnd?()`
+(per `agentCallId`).
 A Python/Jupyter **kernel tool** is still not built; authors can hang one off a class that
 implements `ToolProvider` and stops the kernel in `onRunEnd`. Still open for that tool:
 
