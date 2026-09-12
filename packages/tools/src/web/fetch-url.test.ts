@@ -388,6 +388,30 @@ describe("fetchUrl", () => {
     it("allowPrivateNetwork off by default — the same URL is still refused without it", async () => {
       await assert.rejects(fetchRaw(`${main.origin}/page`), /not a public address/);
     });
+
+    it("allowedUrls ['**'] alone does not fetch a private address", async () => {
+      await assert.rejects(
+        fetchRaw(`${main.origin}/page`, { allowedUrls: ["**"] }),
+        /not a public address/,
+      );
+    });
+
+    it("a concrete-host allowedUrls entry still reaches the private fixture", async () => {
+      const result = await fetchRaw(`${main.origin}/page`, {
+        allowedUrls: [`${main.origin}/**`],
+      });
+      assert.equal(result.status, 200);
+      assert.match(result.content, /^# Install$/m);
+    });
+
+    it("allowedUrls ['**'] plus allowPrivateNetwork reaches the private fixture", async () => {
+      const result = await fetchRaw(`${main.origin}/page`, {
+        allowedUrls: ["**"],
+        allowPrivateNetwork: true,
+      });
+      assert.equal(result.status, 200);
+      assert.match(result.content, /^# Install$/m);
+    });
   });
 
   describe("response byte cap", () => {

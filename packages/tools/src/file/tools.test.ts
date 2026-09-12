@@ -135,6 +135,27 @@ describe("createFileTools", () => {
         await rm(outsideDir, { recursive: true, force: true });
       }
     });
+
+    it("allows writing through an inbound leaf symlink", async () => {
+      await writeFile(path.join(root, "target.txt"), "orig", "utf8");
+      await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
+      const { writeFile: writeFileTool } = createFileTools({ root });
+      await writeFileTool.execute?.({ path: "link.txt", content: "via-link" }, toolCallOptions);
+      expect(await readFile(path.join(root, "target.txt"), "utf8")).toBe("via-link");
+    });
+
+    it("rejects a write whose resolved path is outside allowWrite", async () => {
+      await mkdir(path.join(root, "allowed"), { recursive: true });
+      const { writeFile: writeFileTool } = createFileTools({
+        root,
+        allowWrite: [path.join(root, "allowed")],
+      });
+      await expect(
+        writeFileTool.execute?.({ path: "elsewhere.txt", content: "nope" }, toolCallOptions),
+      ).rejects.toThrow(/outside the allowed write roots/);
+      await writeFileTool.execute?.({ path: "allowed/ok.txt", content: "yes" }, toolCallOptions);
+      expect(await readFile(path.join(root, "allowed", "ok.txt"), "utf8")).toBe("yes");
+    });
   });
 
   describe("editFile", () => {

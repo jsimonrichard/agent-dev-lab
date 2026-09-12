@@ -4,8 +4,8 @@ import path from "node:path";
 import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
-import { createFileJail } from "./jail";
+import { UNBOUNDED_ALLOW_READ } from "../bash/provider.ts";
+import { createFileJail } from "./jail.ts";
 
 export const DEFAULT_MAX_BYTES = 1_000_000;
 

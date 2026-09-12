@@ -128,29 +128,25 @@ describe("createNativeBashExecutor", () => {
       }
     });
 
-    it(
-      "defaults allowRead to allowWrite when omitted",
-      { timeout: 15_000 },
-      async () => {
-        const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
-        const outside = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-out-"));
-        try {
-          await writeFile(path.join(outside, "secret.txt"), "classified\n", "utf8");
-          const executor = createNativeBashExecutor({ allowWrite: [root] });
-          assert.deepEqual(executor.describe().allowRead, [root]);
-          const result = await finalResult(
-            executor.run(sh(`cat ${path.join(outside, "secret.txt")}`), {
-              cwd: root,
-              timeoutMs: 10_000,
-            }),
-          );
-          assert.notEqual(result.exitCode, 0);
-        } finally {
-          await rm(root, { recursive: true, force: true });
-          await rm(outside, { recursive: true, force: true });
-        }
-      },
-    );
+    it("defaults allowRead to allowWrite when omitted", { timeout: 15_000 }, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+      const outside = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-out-"));
+      try {
+        await writeFile(path.join(outside, "secret.txt"), "classified\n", "utf8");
+        const executor = createNativeBashExecutor({ allowWrite: [root] });
+        assert.deepEqual(executor.describe().allowRead, [root]);
+        const result = await finalResult(
+          executor.run(sh(`cat ${path.join(outside, "secret.txt")}`), {
+            cwd: root,
+            timeoutMs: 10_000,
+          }),
+        );
+        assert.notEqual(result.exitCode, 0);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
 
     it(
       "leaves reads unbounded when allowRead is explicitly null",
@@ -201,11 +197,11 @@ describe("createNativeBashExecutor", () => {
   );
 
   describe("allowEnv", () => {
-    it("hides host secrets from printenv by default", { timeout: 15_000 }, async () => {
+    it("hides OPENAI_API_KEY from printenv by default", { timeout: 15_000 }, async () => {
       const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowenv-"));
-      const secret = "ADL_NATIVE_ENV_SECRET_VALUE";
-      const prev = process.env.ADL_NATIVE_ENV_SECRET;
-      process.env.ADL_NATIVE_ENV_SECRET = secret;
+      const secret = "sk-should-not-appear-in-sandbox";
+      const prev = process.env.OPENAI_API_KEY;
+      process.env.OPENAI_API_KEY = secret;
       try {
         const executor = createNativeBashExecutor({ allowWrite: [root] });
         const result = await finalResult(
@@ -213,12 +209,12 @@ describe("createNativeBashExecutor", () => {
         );
         assert.equal(result.exitCode, 0);
         assert.ok(!result.stdout.includes(secret), result.stdout);
-        assert.ok(!result.stdout.includes("ADL_NATIVE_ENV_SECRET"), result.stdout);
+        assert.ok(!result.stdout.includes("OPENAI_API_KEY"), result.stdout);
       } finally {
         if (prev === undefined) {
-          delete process.env.ADL_NATIVE_ENV_SECRET;
+          delete process.env.OPENAI_API_KEY;
         } else {
-          process.env.ADL_NATIVE_ENV_SECRET = prev;
+          process.env.OPENAI_API_KEY = prev;
         }
         await rm(root, { recursive: true, force: true });
       }
@@ -234,7 +230,7 @@ describe("createNativeBashExecutor", () => {
           allowEnv: ["ADL_NATIVE_ENV_FOO"],
         });
         const result = await finalResult(
-          executor.run(sh('printenv ADL_NATIVE_ENV_FOO'), { cwd: root, timeoutMs: 10_000 }),
+          executor.run(sh("printenv ADL_NATIVE_ENV_FOO"), { cwd: root, timeoutMs: 10_000 }),
         );
         assert.equal(result.exitCode, 0);
         assert.equal(result.stdout.trim(), "bar");
@@ -247,6 +243,77 @@ describe("createNativeBashExecutor", () => {
         await rm(root, { recursive: true, force: true });
       }
     });
+
+    it("passes allowEnv: true (full host env) into the sandbox", { timeout: 15_000 }, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowenv-"));
+      const prev = process.env.OPENAI_API_KEY;
+      process.env.OPENAI_API_KEY = "sk-test-boundary";
+      try {
+        const executor = createNativeBashExecutor({
+          allowWrite: [root],
+          allowEnv: true,
+        });
+        const result = await finalResult(
+          executor.run(sh("printenv OPENAI_API_KEY"), { cwd: root, timeoutMs: 10_000 }),
+        );
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.stdout.trim(), "sk-test-boundary");
+      } finally {
+        if (prev === undefined) {
+          delete process.env.OPENAI_API_KEY;
+        } else {
+          process.env.OPENAI_API_KEY = prev;
+        }
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    it(
+      "matches allowEnv RegExp / glob against the variable name",
+      { timeout: 15_000 },
+      async () => {
+        const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowenv-"));
+        const prevFoo = process.env.ADL_NATIVE_ENV_GLOB_FOO;
+        const prevBar = process.env.ADL_NATIVE_ENV_RE_BAR;
+        const prevSecret = process.env.OPENAI_API_KEY;
+        process.env.ADL_NATIVE_ENV_GLOB_FOO = "globbed";
+        process.env.ADL_NATIVE_ENV_RE_BAR = "regexed";
+        process.env.OPENAI_API_KEY = "must-not-leak";
+        try {
+          const executor = createNativeBashExecutor({
+            allowWrite: [root],
+            allowEnv: ["ADL_NATIVE_ENV_GLOB_*", /^ADL_NATIVE_ENV_RE_.*$/],
+          });
+          const result = await finalResult(
+            executor.run(
+              sh(
+                'echo "G=${ADL_NATIVE_ENV_GLOB_FOO:-missing};R=${ADL_NATIVE_ENV_RE_BAR:-missing};S=${OPENAI_API_KEY:-missing}"',
+              ),
+              { cwd: root, timeoutMs: 10_000 },
+            ),
+          );
+          assert.equal(result.exitCode, 0);
+          assert.equal(result.stdout.trim(), "G=globbed;R=regexed;S=missing");
+        } finally {
+          if (prevFoo === undefined) {
+            delete process.env.ADL_NATIVE_ENV_GLOB_FOO;
+          } else {
+            process.env.ADL_NATIVE_ENV_GLOB_FOO = prevFoo;
+          }
+          if (prevBar === undefined) {
+            delete process.env.ADL_NATIVE_ENV_RE_BAR;
+          } else {
+            process.env.ADL_NATIVE_ENV_RE_BAR = prevBar;
+          }
+          if (prevSecret === undefined) {
+            delete process.env.OPENAI_API_KEY;
+          } else {
+            process.env.OPENAI_API_KEY = prevSecret;
+          }
+          await rm(root, { recursive: true, force: true });
+        }
+      },
+    );
   });
 
   it("allows writing under an allowWrite path", { timeout: 15_000 }, async () => {

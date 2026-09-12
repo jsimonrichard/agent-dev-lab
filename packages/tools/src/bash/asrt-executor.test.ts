@@ -159,22 +159,22 @@ describe("createAsrtBashExecutor", () => {
     },
   );
 
-  it("hides host secrets from printenv by default", { timeout: 15_000 }, async () => {
-    const secret = "ADL_ASRT_ENV_SECRET_VALUE";
-    const prev = process.env.ADL_ASRT_ENV_SECRET;
-    process.env.ADL_ASRT_ENV_SECRET = secret;
+  it("hides OPENAI_API_KEY from printenv by default", { timeout: 15_000 }, async () => {
+    const secret = "sk-should-not-appear-in-sandbox";
+    const prev = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = secret;
     try {
       const result = await finalResult(
         executor.run(sh("printenv"), { cwd: allowedDir, timeoutMs: 10_000 }),
       );
       assert.equal(result.exitCode, 0);
       assert.ok(!result.stdout.includes(secret), result.stdout);
-      assert.ok(!result.stdout.includes("ADL_ASRT_ENV_SECRET"), result.stdout);
+      assert.ok(!result.stdout.includes("OPENAI_API_KEY"), result.stdout);
     } finally {
       if (prev === undefined) {
-        delete process.env.ADL_ASRT_ENV_SECRET;
+        delete process.env.OPENAI_API_KEY;
       } else {
-        process.env.ADL_ASRT_ENV_SECRET = prev;
+        process.env.OPENAI_API_KEY = prev;
       }
     }
   });
@@ -194,6 +194,25 @@ describe("createAsrtBashExecutor", () => {
         delete process.env.ADL_ASRT_ENV_FOO;
       } else {
         process.env.ADL_ASRT_ENV_FOO = prev;
+      }
+    }
+  });
+
+  it("passes allowEnv: true into the sandbox", { timeout: 15_000 }, async () => {
+    const prev = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "sk-asrt-full-env";
+    try {
+      const withEnv = asrt({ allowWrite: [allowedDir], allowEnv: true });
+      const result = await finalResult(
+        withEnv.run(sh("printenv OPENAI_API_KEY"), { cwd: allowedDir, timeoutMs: 10_000 }),
+      );
+      assert.equal(result.exitCode, 0);
+      assert.equal(result.stdout.trim(), "sk-asrt-full-env");
+    } finally {
+      if (prev === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = prev;
       }
     }
   });

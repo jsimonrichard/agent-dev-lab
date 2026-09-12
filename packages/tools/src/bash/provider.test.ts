@@ -108,6 +108,12 @@ describe("mergePolicy", () => {
     ).toEqual(["/sandbox"]);
   });
 
+  it("defaults omitted allowRead to the new cwd while keeping explicit allowWrite", () => {
+    const merged = mergePolicy("/new-cwd", { allowWrite: ["/sandbox"] }, undefined);
+    expect(merged.allowWrite).toEqual(["/sandbox"]);
+    expect(merged.allowRead).toEqual(["/new-cwd"]);
+  });
+
   it("treats null / UNBOUNDED_ALLOW_READ as unbounded", () => {
     expect(mergePolicy("/sandbox", { allowRead: null }, undefined).allowRead).toBeNull();
     expect(
