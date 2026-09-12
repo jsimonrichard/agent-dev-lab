@@ -47,10 +47,9 @@ import { releaseBashExecutor } from "../bash/executor-pool.ts";
 
 function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
   return (
-    "Reports this workspace's working directory, file read/write byte caps, and the bash " +
-    "sandbox's writable/denied paths and network access" +
-    (includeFetchUrl ? ", and what fetchUrl is allowed to retrieve" : "") +
-    ". Call before an operation you're unsure is allowed, or after one fails unexpectedly."
+    "Report this workspace's working directory, file byte caps, and bash permissions" +
+    (includeFetchUrl ? ", plus what fetchUrl is allowed to retrieve" : "") +
+    "."
   );
 }
 

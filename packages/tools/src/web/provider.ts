@@ -57,11 +57,7 @@ export function describeWebAccess(
   };
 }
 
-const describeWebEnvDescription =
-  "Reports what fetchUrl is allowed to retrieve: the permitted URL schemes, any URL patterns " +
-  "exempt from the private-address block, whether that block is disabled entirely, the " +
-  "response byte cap, the timeout, and the redirect limit. Call before a fetch you're unsure " +
-  "is allowed, or after one fails unexpectedly.";
+const describeWebEnvDescription = "Report what fetchUrl is allowed to retrieve.";
 
 const describeWebEnvInputSchema = z.object({});
 type DescribeWebEnvInput = z.infer<typeof describeWebEnvInputSchema>;

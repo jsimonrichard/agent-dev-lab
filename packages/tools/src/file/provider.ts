@@ -34,9 +34,7 @@ export function describeFileAccess(
   return { root, maxReadBytes, maxWriteBytes };
 }
 
-const describeFileEnvDescription =
-  "Reports the file sandbox's root directory and read/write byte caps. Call before a file " +
-  "operation you're unsure is allowed, or after one fails unexpectedly.";
+const describeFileEnvDescription = "Report the file sandbox root and read/write byte caps.";
 
 const describeFileEnvInputSchema = z.object({});
 type DescribeFileEnvInput = z.infer<typeof describeFileEnvInputSchema>;

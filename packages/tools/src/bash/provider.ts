@@ -81,10 +81,7 @@ export function describeBashAccess(
 }
 
 const describeBashEnvDescription =
-  "Reports the bash sandbox's working directory, readable/writable/denied paths, and network " +
-  "access. `allowRead` lists the only paths reads are confined to, or is null when reads are " +
-  "not bounded at all. Call before a command you're unsure is allowed, or after one fails " +
-  "unexpectedly.";
+  "Report the bash sandbox working directory, path permissions, and network access.";
 
 const describeBashEnvInputSchema = z.object({});
 type DescribeBashEnvInput = z.infer<typeof describeBashEnvInputSchema>;

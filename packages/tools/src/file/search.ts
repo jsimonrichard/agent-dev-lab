@@ -7,19 +7,9 @@ import { createFileJail } from "./jail.ts";
 
 /** Also used by `createWorkspaceToolProvider`'s `listTools`. */
 export const GREP_DESCRIPTION =
-  "Search file contents for a literal pattern using ripgrep (`--fixed-strings`). The " +
-  "pattern is one argv element — shell metacharacters are matched literally and execute " +
-  "nothing. You cannot pass flags; only `pattern`, an optional in-root `path`, and an " +
-  "optional `glob` filter. " +
-  "The path argument is confined by createFileJail (a check-then-use validator, not " +
-  "kernel-enforced). Read bounding of the subprocess is the executor's allowRead, when " +
-  "configured. ripgrep does not follow symlinks unless a flag we never pass is set.";
+  "Search file contents for a literal string. Optional in-root `path` and `glob` filter; no flags.";
 
-export const GLOB_DESCRIPTION =
-  "List files whose paths match a glob, using ripgrep's `--files` + `--glob`. The pattern " +
-  "is one argv element — you cannot pass flags. Search is rooted at the jail root. The " +
-  "path boundary is createFileJail plus the executor's allowRead, not a kernel guarantee " +
-  "from this tool itself.";
+export const GLOB_DESCRIPTION = "List files whose paths match a glob. No flags.";
 
 export interface SearchToolsOptions {
   /**
