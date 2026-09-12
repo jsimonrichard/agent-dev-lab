@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { AdlError } from "@agent-dev-lab/core";
 
-import { resolveAllowReadList } from "../fs-bounds.ts";
+import { resolveAllowReadList, type ResolvedAllowRead } from "../fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 /**
@@ -13,19 +13,17 @@ import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 export type FileAllowRead = string[] | null | typeof UNBOUNDED_ALLOW_READ;
 
 /**
- * Resolve `allowRead` into the jail's internal form: a root list, `[]` for nothing, or
- * `undefined` for unbounded ({@link UNBOUNDED_ALLOW_READ}). Omitted → `[root]`.
+ * Resolve `allowRead` the same way factories and the jail do: a root list, `[]` for
+ * nothing, or {@link UNBOUNDED_ALLOW_READ} for host-wide. Omitted → `[root]`.
  */
 export function resolveFileAllowRead(
   root: string,
   allowRead: FileAllowRead | undefined,
-): string[] | null | undefined {
-  const resolved = resolveAllowReadList({
+): ResolvedAllowRead {
+  return resolveAllowReadList({
     anchor: root,
     allowRead,
   });
-  // Jail uses `undefined` for unbounded; `null`/`[]` both mean nothing readable.
-  return resolved === UNBOUNDED_ALLOW_READ ? undefined : resolved;
 }
 
 /**
@@ -137,10 +135,10 @@ function isWithinAny(candidate: string, roots: readonly string[]): boolean {
 
 function assertAllowedRead(
   candidate: string,
-  allowRoots: string[] | undefined,
+  allowRoots: ResolvedAllowRead,
   requestedPath: string,
 ): void {
-  if (allowRoots === undefined || isWithinAny(candidate, allowRoots)) {
+  if (allowRoots === UNBOUNDED_ALLOW_READ || isWithinAny(candidate, allowRoots)) {
     return;
   }
   throw new AdlError("INVALID_INPUT", `Path "${requestedPath}" is outside the allowed read roots`);
@@ -187,22 +185,10 @@ async function realpathOrResolve(p: string): Promise<string> {
   }
 }
 
-/** Normalize factory/`FileJailOptions.allowRead` into bound roots (`undefined` = unbounded). */
-function resolveAllowRead(
-  root: string,
-  allowRead: FileAllowRead | undefined,
-): string[] | undefined {
-  const resolved = resolveFileAllowRead(root, allowRead);
-  if (resolved === undefined) {
-    return undefined;
-  }
-  return [...new Set((resolved ?? []).map((p) => path.resolve(p)))];
-}
-
 export function createFileJail(root: string, options?: FileJailOptions): FileJail {
   const rawRoot = path.resolve(root);
   const denyRead = (options?.denyRead ?? []).map((p) => path.resolve(p));
-  const bound = resolveAllowRead(rawRoot, options?.allowRead);
+  const bound = resolveFileAllowRead(rawRoot, options?.allowRead);
   const allowWriteBound =
     options?.allowWrite === undefined
       ? undefined
@@ -213,10 +199,12 @@ export function createFileJail(root: string, options?: FileJailOptions): FileJai
     realRootPromise ??= realpath(rawRoot);
     return realRootPromise;
   };
-  let allowRootsPromise: Promise<string[] | undefined> | undefined;
-  const getAllowRoots = (): Promise<string[] | undefined> => {
+  let allowRootsPromise: Promise<ResolvedAllowRead> | undefined;
+  const getAllowRoots = (): Promise<ResolvedAllowRead> => {
     allowRootsPromise ??=
-      bound === undefined ? Promise.resolve(undefined) : Promise.all(bound.map(realpathOrResolve));
+      bound === UNBOUNDED_ALLOW_READ
+        ? Promise.resolve(UNBOUNDED_ALLOW_READ)
+        : Promise.all(bound.map(realpathOrResolve));
     return allowRootsPromise;
   };
   let denyRootsPromise: Promise<string[]> | undefined;

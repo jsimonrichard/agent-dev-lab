@@ -52,7 +52,7 @@ export function describeFileAccess(
   const resolved = resolveFileAllowRead(root, allowRead);
   return {
     root,
-    allowRead: resolved === undefined ? UNBOUNDED_ALLOW_READ : (resolved ?? []),
+    allowRead: resolved,
     denyRead: denyRead == null ? [] : [...denyRead],
     maxReadBytes,
     maxWriteBytes,
