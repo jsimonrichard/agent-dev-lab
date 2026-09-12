@@ -21,9 +21,11 @@ export interface NativeBashExecutorOptions {
    * everything else this executor gives by default. */
   denyRead?: string[];
   /**
-   * Confine **reads** to these paths (plus system paths below). Omitted — the default —
-   * confines reads to `allowWrite`. Pass `null` for the historical ro-bind of all of `/`
-   * (unbounded reads). A list is bound into the mount namespace.
+   * Confine **reads** to these paths (plus system paths below). Omitted — escape-hatch
+   * default — confines reads to `allowWrite` (executors have no cwd). Providers fill
+   * omitted reads with `[cwd]` via `mergePolicy` before pooling. Pass `null` for the
+   * historical ro-bind of all of `/` (unbounded reads). A list is bound into the mount
+   * namespace.
    *
    * Unlike `denyRead`, which is a deny-list and therefore only ever as complete as its
    * author, a list is an **allow**-list enforced by the kernel: a path outside it is not
@@ -192,6 +194,8 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   }
 
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
+  // Omitted allowRead → allowWrite. Providers always pass a concrete list (`[cwd]` by
+  // default) via mergePolicy; this fallback is for escape-hatch construction only (no cwd).
   const allowRead =
     options.allowRead === undefined
       ? allowWrite

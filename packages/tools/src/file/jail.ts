@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { AdlError } from "@agent-dev-lab/core";
 
+import { resolveAllowReadList } from "../fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 /**
@@ -19,13 +20,13 @@ export function resolveFileAllowRead(
   root: string,
   allowRead: FileAllowRead | undefined,
 ): string[] | null | undefined {
-  if (allowRead === undefined) {
-    return [path.resolve(root)];
-  }
-  if (allowRead === UNBOUNDED_ALLOW_READ) {
-    return undefined;
-  }
-  return allowRead;
+  const resolved = resolveAllowReadList({
+    anchor: root,
+    allowRead,
+    nullMeans: "deny-all",
+  });
+  // Jail uses `undefined` for unbounded; `null`/`[]` both mean nothing readable.
+  return resolved === null ? undefined : resolved;
 }
 
 /**

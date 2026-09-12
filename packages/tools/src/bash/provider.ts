@@ -10,6 +10,8 @@ import {
 import path from "node:path";
 import { z } from "zod";
 
+import { resolveAllowReadList, resolveAllowWriteList } from "../fs-bounds.ts";
+import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
 import type { BashExecutor, BashExecutorResult } from "./executor.ts";
 import {
   acquireBashExecutor,
@@ -24,7 +26,6 @@ import {
   DEFAULT_TIMEOUT_MS,
   type BashTools,
 } from "./tools.ts";
-import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
 
 export { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 export type { ModelAllowRead } from "../unbounded-allow-read.ts";
@@ -205,8 +206,9 @@ function policyFieldsSet(
 
 /**
  * Merge construct-time defaults with per-call context. Omitted `allowWrite` / `allowRead`
- * become `[cwd]` — explicit lists (and an explicit `null`/`UNBOUNDED_ALLOW_READ` for
- * unbounded reads) do not follow a later cwd change.
+ * become `[cwd]` via {@link resolveAllowWriteList} / {@link resolveAllowReadList} — explicit
+ * lists (and an explicit `null`/`UNBOUNDED_ALLOW_READ` for unbounded reads) do not follow a
+ * later cwd change. `allowRead` is not unioned with `allowWrite`.
  */
 export function mergePolicy(
   cwd: string,
@@ -214,20 +216,21 @@ export function mergePolicy(
   context: Partial<BashSandboxPolicy> | undefined,
 ): BashSandboxPolicy {
   const resolvedCwd = path.resolve(cwd);
-  const allowWrite = context?.allowWrite ?? defaults.allowWrite ?? [resolvedCwd];
+  const allowWrite = resolveAllowWriteList({
+    anchor: resolvedCwd,
+    allowWrite: context?.allowWrite ?? defaults.allowWrite,
+    whenOmitted: "anchor",
+  })!;
   const rawAllowRead = Object.hasOwn(context ?? {}, "allowRead")
     ? context!.allowRead
     : Object.hasOwn(defaults, "allowRead")
       ? defaults.allowRead
       : undefined;
-  let allowRead: string[] | null;
-  if (rawAllowRead === undefined) {
-    allowRead = [resolvedCwd];
-  } else if (rawAllowRead === null || rawAllowRead === UNBOUNDED_ALLOW_READ) {
-    allowRead = null;
-  } else {
-    allowRead = rawAllowRead;
-  }
+  const allowRead = resolveAllowReadList({
+    anchor: resolvedCwd,
+    allowRead: rawAllowRead === "unbounded" ? UNBOUNDED_ALLOW_READ : rawAllowRead,
+    nullMeans: "unbounded",
+  });
   return {
     allowWrite,
     allowRead,

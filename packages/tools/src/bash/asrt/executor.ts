@@ -28,9 +28,10 @@ export interface AsrtBashExecutorOptions {
   /** Paths to deny read, on top of whatever ASRT denies by default (e.g. `~/.ssh`). */
   denyRead?: string[];
   /**
-   * Confine **reads** to these paths. Omitted — the default — confines reads to
-   * `allowWrite`. Pass `null` for host-wide reads (ASRT's read-everywhere posture).
-   * A list is exactly those roots (plus system/vendor paths required to execute).
+   * Confine **reads** to these paths. Omitted — escape-hatch default — confines reads to
+   * `allowWrite` (executors have no cwd). Providers fill omitted reads with `[cwd]` via
+   * `mergePolicy` before pooling. Pass `null` for host-wide reads (ASRT's read-everywhere
+   * posture). A list is exactly those roots (plus system/vendor paths required to execute).
    *
    * ASRT expresses a bound list as deny-then-allow, where `allowRead` re-allows within a
    * denied region and takes precedence over `denyRead` (the opposite of write). This
@@ -292,7 +293,8 @@ class AsrtSupervisorClient {
  */
 export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashExecutor {
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
-  // undefined → allowWrite; null → unbounded; list → that list.
+  // Omitted allowRead → allowWrite. Providers pass a concrete list (`[cwd]` by default)
+  // via mergePolicy; this fallback is for escape-hatch construction only (no cwd).
   const allowRead =
     options.allowRead === undefined
       ? allowWrite

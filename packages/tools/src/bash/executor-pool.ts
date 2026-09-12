@@ -92,7 +92,8 @@ export function canonicalizeBashSandboxPolicy(
   if (policy.allowRead === null || policy.allowRead === "unbounded") {
     allowRead = null;
   } else if (policy.allowRead === undefined) {
-    // Match escape-hatch executors: omitted reads default to the write roots, not host-wide.
+    // Escape hatch / incomplete policy: no cwd here. Providers fill omitted reads with
+    // `[cwd]` in mergePolicy before acquire — this branch is for direct pool/executor use.
     allowRead = allowWrite;
   } else {
     allowRead = sortedUniqueResolved(root, policy.allowRead);

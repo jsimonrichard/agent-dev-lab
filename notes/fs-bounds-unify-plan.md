@@ -32,13 +32,13 @@ not invent one.
 
 ## Desired resolved contract
 
-| Input `allowRead` | Result (after resolve) |
-|---|---|
-| omitted (`undefined`) | `[path.resolve(anchor)]` |
-| explicit list | that list (resolved/deduped); **not** unioned with `allowWrite` |
-| `[]` | `[]` — deny all reads |
-| `UNBOUNDED_ALLOW_READ` | unbounded |
-| `null` | bash: unbounded; file: deny-all (`nullMeans`) |
+| Input `allowRead`      | Result (after resolve)                                          |
+| ---------------------- | --------------------------------------------------------------- |
+| omitted (`undefined`)  | `[path.resolve(anchor)]`                                        |
+| explicit list          | that list (resolved/deduped); **not** unioned with `allowWrite` |
+| `[]`                   | `[]` — deny all reads                                           |
+| `UNBOUNDED_ALLOW_READ` | unbounded                                                       |
+| `null`                 | bash: unbounded; file: deny-all (`nullMeans`)                   |
 
 ## Module
 
