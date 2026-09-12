@@ -4,6 +4,7 @@ import type { AdlCliContext } from "../../context";
 import { importProjectCore } from "../../resolve-packages";
 import {
   adlProjectWatchEnvValue,
+  resolveInspectionPort,
   resolveUiLaunchMode,
   shouldForwardUiChildSignals,
   spawnInspectionUi,
@@ -14,6 +15,7 @@ interface DashboardFlags {
   port: number;
   serve: boolean;
   prebuilt: boolean;
+  strictPort: boolean;
 }
 
 export default async function dashboard(this: AdlCliContext, flags: DashboardFlags): Promise<void> {
@@ -23,6 +25,10 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
   );
   const loaded = await core.loadAdlProject({ root: projectRoot });
   const mode = resolveUiLaunchMode({ prebuilt: flags.prebuilt, frameworkDev: false });
+  const port = await resolveInspectionPort(flags.port, { strictPort: flags.strictPort });
+  if (port !== flags.port) {
+    this.process.stdout.write(`Port ${flags.port} is already in use; using ${port} instead.\n`);
+  }
 
   this.process.stdout.write(
     `Starting inspection UI (${mode}) for "${loaded.config.name}" (${loaded.root})\n`,
@@ -30,7 +36,7 @@ export default async function dashboard(this: AdlCliContext, flags: DashboardFla
 
   const child = spawnInspectionUi({
     mode,
-    port: flags.port,
+    port,
     env: {
       ...this.process.env,
       [core.ADL_PROJECT_ROOT_ENV]: loaded.root,

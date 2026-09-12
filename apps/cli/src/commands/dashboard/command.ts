@@ -26,6 +26,11 @@ export const dashboardCommand = buildCommand({
         brief: "Use the shipped UI build instead of the live UI source",
         default: false,
       },
+      strictPort: {
+        kind: "boolean",
+        brief: "Fail if --port is already bound instead of using the next free port",
+        default: false,
+      },
     },
     aliases: {
       p: "project",

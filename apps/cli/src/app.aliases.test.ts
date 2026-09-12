@@ -57,6 +57,7 @@ describe("adl command aliases", () => {
     expect(help).toMatch(/-P\s+\[--port\]/);
     expect(help).toMatch(/-s\s+\[--serve\]/);
     expect(help).toMatch(/-b\s+\[--prebuilt\]/);
+    expect(help).toMatch(/--strictPort/);
   });
 
   it("parses -p as --project", async () => {

@@ -32,6 +32,7 @@ bunx adl dashboard      # inspection UI
 | `adl dashboard` (`adl d`, `adl dash`) | Inspection UI for the nearest `adl.config.*`                            |
 | `adl dashboard --serve` (`-s`)        | Do not reload agents, workflows, or templates from disk                 |
 | `adl dashboard --project <path>`      | Explicit ADL project root (`-p`; `-P` is `--port`, since `-p` is taken) |
+| `adl dashboard --strictPort`          | Fail if `--port` is already bound instead of using the next free port   |
 
 ## Development
 
