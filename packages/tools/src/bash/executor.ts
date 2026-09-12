@@ -33,6 +33,13 @@ export interface BashExecutor {
    * it, no new computation.
    */
   describe(): BashExecutorDescription;
+
+  /**
+   * Releases long-lived resources this executor holds (the ASRT supervisor child,
+   * for example). Optional: executors with nothing to release omit it. Safe to call
+   * more than once. After dispose, a later `run()` may start fresh resources.
+   */
+  dispose?(): Promise<void>;
 }
 
 /** {@link BashExecutor.describe}'s return shape — the sandbox config actually in effect. */
@@ -43,9 +50,11 @@ export interface BashExecutorDescription {
   allowWrite: string[];
   /**
    * Absolute paths reads are confined to, or `null` when this executor is not bounding reads
-   * at all (the whole host filesystem is visible read-only). `null` is the honest answer for
-   * a backend that *cannot* bound reads — `createAsrtBashExecutor` — rather than reporting an
-   * empty list that would read as "nothing is readable."
+   * at all (the whole host filesystem is visible read-only). `null` rather than `[]` so it
+   * cannot be read as "nothing is readable."
+   *
+   * `createAsrtBashExecutor` reports `null` when `allowRead` was omitted (ASRT's
+   * read-everywhere default) and the caller's roots when it was set.
    *
    * Even when non-`null`, the sandbox still contains the system paths any program needs to
    * execute (`/usr`, `/etc`, the lib directories), so `/etc/passwd` stays readable. The

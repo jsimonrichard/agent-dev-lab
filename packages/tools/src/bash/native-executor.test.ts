@@ -11,8 +11,9 @@ import type { BashExecutorResult, BashExecutorUpdate } from "./executor.ts";
 
 /**
  * These tests exercise the real `bwrap` on this machine — no mocking. Unlike
- * `createAsrtBashExecutor`, `createNativeBashExecutor` carries no shared process-global state,
- * so each test is free to use its own root and config.
+ * `createAsrtBashExecutor` (each instance isolated in a supervisor child),
+ * `createNativeBashExecutor` carries no shared process-global state, so each
+ * test is free to use its own root and config.
  *
  * `node:test` + `node:assert`, not `bun:test` — this is process/spawn-heavy code, exactly
  * where Bun and Node have been found to disagree (see `notes/tool-sandboxing.md`'s note on the

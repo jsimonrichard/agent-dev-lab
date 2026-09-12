@@ -134,21 +134,19 @@ Uses `SandboxManager.wrapWithSandboxArgv()` (not `wrapWithSandbox()`'s string fo
 result is spawned directly (`spawn(argv[0], argv.slice(1), { env })`) with no extra shell
 layer. Two things learned only by implementing this, beyond what evaluation below found:
 
-- `SandboxManager` is a **single process-wide singleton** — module-scoped state in ASRT's own
-  implementation (not a class), so there's no way to run two independently-configured sandboxes
-  in one process, and its `initialize()` is itself idempotent: once it has succeeded once,
-  every later call — including one with a _different_ `{ allowWrite, denyRead, denyWrite,
-allowedDomains, deniedDomains }` from a second `createAsrtBashExecutor` — just awaits the same
-  already-resolved initialization and silently keeps the first config. `createAsrtBashExecutor`
-  doesn't fight this; whichever instance's `run()` executes first wins the process-wide config,
-  and every other instance transparently shares it. `maxOutputBytes` (this package's own
-  truncation cap, not part of ASRT's config) is the one thing that can safely differ between
-  instances sharing the same underlying sandbox. Construct one instance per distinct config
-  actually needed, and prefer one shared instance per process when configs would otherwise
-  match, since a "second" config never really takes effect.
+- `SandboxManager` is a **single process-wide singleton** inside one Node/Bun process —
+  module-scoped state in ASRT's own implementation, and `initialize()` is idempotent (later
+  calls keep the first `{ allowWrite, denyRead, denyWrite, allowedDomains, deniedDomains }`).
+  `createAsrtBashExecutor` therefore does **not** import or initialize it in the host: each
+  instance spawns `asrt-supervisor.ts` (same `process.execPath`), and that child is the only
+  place `SandboxManager` lives. Two executors can have different filesystem and domain
+  policies in one host. IPC is NDJSON on stdin/stdout; stdin is also the keepalive — the
+  supervisor calls `SandboxManager.reset()` and exits when the host closes the pipe
+  (including parent death). `dispose()` does that explicitly. We do not call ASRT's
+  `updateConfig()`. `maxOutputBytes` is this package's truncation cap, sent per run.
 - `SandboxManager.checkDependencies()` returns a structured `{ errors, warnings }` _before_
   `initialize()` is ever called — no need to catch-and-parse `initialize()`'s own thrown
-  error; `createAsrtBashExecutor` calls it proactively and appends per-platform install hints
+  error; the supervisor calls it proactively and appends per-platform install hints
   (`apt`/`dnf`/`pacman`/`brew`) to whichever of `bwrap`/`socat`/`ripgrep` it names as missing.
 
 **Streams progress, not just a final result.** `BashExecutor.run()` is an `AsyncGenerator` —
@@ -248,9 +246,8 @@ these are `ToolProvider` wrappers on top of them, for projects that want `cwd`/`
   jail (pure userland path-checking, per `jail.ts`'s own doc comment) fully re-scopes to it,
   no artificial "must be under some default" limit. Bash is asymmetric for a real, inherent
   reason, not a restriction this layer imposes: the `BashExecutor`'s own OS-level permissions
-  (`allowWrite`/`denyRead`/network) are fixed at executor-construction time — confirmed
-  `SandboxManager.initialize()` is idempotent, so a later call with a different config is
-  silently ignored (see `asrt-executor.ts`'s doc comment) — so pointing `cwd` outside the
+  (`allowWrite`/`denyRead`/network) are fixed at executor-construction time (each ASRT
+  executor enforces its own policy in its supervisor) — so pointing `cwd` outside the
   executor's `allowWrite` still fails at the OS level regardless of what context says.
 - **`createWorkspaceToolProvider` composes the atomic providers rather than reimplementing
   jail/bash/fetch construction**, translating its one shared `cwd` into the file and bash
@@ -293,10 +290,8 @@ ToolSet>` requires an implicit index signature, and only a plain `type X = { ...
   by a new **required** `BashExecutor.describe(): BashExecutorDescription` method — both
   `createAsrtBashExecutor` and
   `createNativeBashExecutor` already hold their resolved config in closure, so `describe()` just
-  returns it, no new computation. (One honest caveat: `describe()` reports the instance's _own_
-  configured options, which is the config actually enforced _unless_ a different
-  `createAsrtBashExecutor` already initialized the process-wide `SandboxManager` first — already
-  called out above as an anti-pattern to avoid, not worth extra complexity here to detect.)
+  returns it, no new computation. Each ASRT executor enforces the policy `describe()` reports
+  in its own supervisor, so two instances no longer share one process-wide config.
 - **Agent-based bash safety check, via a `Workflow`** — `createBashToolProvider`'s optional
   `safetyCheck` option is itself a `Workflow<{ command, cwd }, { safe, reason }>`
   (`BashSafetyCheckWorkflow`), layered on top of the OS-level sandbox specifically because a
@@ -334,21 +329,16 @@ instead of trusting that Bun's behavior matches it.
 Two things only surfaced by actually running this under `node --test` (which — unlike
 `bun test` — waits for a natural process exit instead of force-ending the run):
 
-- **`SandboxManager` (ASRT) never lets a process exit on its own without an explicit
-  `SandboxManager.reset()` call.** ASRT's own docs describe `reset()` as optional, "happens
-  automatically on process exit" — that did not hold up: a plain Node script that finishes all
-  its own work and calls nothing else hangs indefinitely, most likely because `SandboxManager`'s
-  proxy bridge processes/sockets are never unref'd. `bun test` masked this completely — it
-  force-ends the whole process at suite completion regardless of open handles, so no hang was
-  ever visible under it, but every one of `SandboxManager`'s child processes leaked silently
-  instead (confirmed: dozens of orphaned `socat` bridges accumulated across a session's worth of
-  `bun test` runs). `asrt-executor.test.ts` now calls `SandboxManager.reset()` in its `after()`
-  hook to fix this for the test process itself. **This is not just a test artifact** — any real
-  host application (a long-running CLI command, a server process) that constructs a
-  `createAsrtBashExecutor` needs to call `SandboxManager.reset()` on its own shutdown path too,
-  or it will neither exit cleanly nor release these processes. `asrt-executor.ts`'s doc comment
-  now says so explicitly; there's no framework-level shutdown hook for this yet (open question —
-  see near-term roadmap).
+- **`SandboxManager` (ASRT) never lets the process that initialized it exit on its own
+  without an explicit `SandboxManager.reset()` call.** ASRT's own docs describe `reset()` as
+  optional, "happens automatically on process exit" — that did not hold up under plain Node
+  (proxy bridge processes/sockets are never unref'd). That hang is now confined to the
+  supervisor child: the host never imports `SandboxManager`. `asrt-executor.test.ts` calls
+  `dispose()` in `after()` so each supervisor `reset()`s and exits; a host that forgets
+  `dispose()` still kills supervisors when it itself exits (stdin EOF). `bun test` still
+  force-ends the suite process — the orphan test checks the stdin-EOF path under a real
+  child `process.exit(0)`. There is still no framework-level run-scoped shutdown hook (see
+  near-term roadmap / `notes/future-extensions.md`).
 - **Node's ESM resolver is stricter than Bun's**: relative imports need explicit `.ts`
   extensions (`allowImportingTsExtensions` added to `packages/tools/tsconfig.json`), and
   `@agent-dev-lab/core` must already be built (`dist/`, via the `default` export condition) for

@@ -9,17 +9,15 @@ import { after, describe, it } from "node:test";
 import { SandboxManager } from "@anthropic-ai/sandbox-runtime";
 
 import { createAsrtBashExecutor } from "./asrt-executor.ts";
-import type { BashExecutorResult, BashExecutorUpdate } from "./executor.ts";
+import type { AsrtBashExecutorOptions } from "./asrt-executor.ts";
+import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "./executor.ts";
 
 /**
  * These tests exercise the real `@anthropic-ai/sandbox-runtime` library against the actual
- * `bwrap`/`socat`/`rg` on this machine — no mocking. `SandboxManager` is a process-wide
- * singleton (see `asrt-executor.ts`'s doc comment): the first executor built anywhere in this
- * file to actually run a command wins its `{ allowWrite, denyRead, denyWrite, allowedDomains,
- * deniedDomains }` config for the rest of the process — later executors' configs are silently
- * ignored (ASRT's own `initialize()` is idempotent). So every test but the one that verifies
- * this directly shares one root directory and only varies `maxOutputBytes` (a purely local,
- * non-ASRT option) between executors, matching the one config actually in effect.
+ * `bwrap`/`socat`/`rg` on this machine — no mocking. Each `createAsrtBashExecutor` owns a
+ * supervisor child that holds that instance's `SandboxManager`, so tests may use different
+ * filesystem and domain policies in one process. The host process must never initialize
+ * ASRT itself; `dispose()` ends the supervisor (stdin keepalive / parent-death also kill it).
  *
  * `node:test` + `node:assert`, not `bun:test` — this is process/spawn-heavy code, exactly
  * where Bun and Node have been found to disagree (see `notes/tool-sandboxing.md`'s note on the
@@ -33,27 +31,35 @@ const deniedDir = path.join(root, "denied");
 await mkdir(allowedDir, { recursive: true });
 await mkdir(deniedDir, { recursive: true });
 
-const executor = createAsrtBashExecutor({ allowWrite: [allowedDir] });
+const live: BashExecutor[] = [];
+
+function asrt(options: AsrtBashExecutorOptions): BashExecutor {
+  const executor = createAsrtBashExecutor(options);
+  live.push(executor);
+  return executor;
+}
+
+const executor = asrt({ allowWrite: [allowedDir] });
 
 after(async () => {
-  // `asrt-executor.ts` deliberately never calls this itself (see its doc comment — tearing
-  // down between individual commands in a long-lived process would kill the shared proxy for
-  // every other in-flight command). A short-lived *test process* is a different lifecycle
-  // point: verified directly that without this, the process never exits on its own — ASRT's
-  // own "(optional, happens automatically on process exit)" claim did not hold up under plain
-  // Node (see `notes/tool-sandboxing.md`). `bun test` masked this: it forcibly ends the whole
-  // process at suite completion regardless of open handles, which stops the hang but silently
-  // leaks every one of `SandboxManager`'s child processes (confirmed: dozens of orphaned
-  // `socat` bridges accumulated across this file's *own* `bun test` runs). `node --test` does
-  // not force anything — it waits for a natural exit — so this file hung indefinitely under
-  // it until this line was added.
-  await SandboxManager.reset();
+  for (const item of live) {
+    await item.dispose?.();
+  }
   await rm(root, { recursive: true, force: true });
 });
 
 /** The bash tool's own wrap — existing tests that need a shell keep going through it. */
 function sh(command: string): string[] {
   return ["/bin/bash", "-c", command];
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Drains a `BashExecutor.run()` generator, returning every update it yielded, in order. */
@@ -78,16 +84,12 @@ async function finalResult(gen: AsyncGenerator<BashExecutorUpdate>): Promise<Bas
 
 describe("createAsrtBashExecutor", () => {
   describe("allowRead", () => {
-    // A second executor with a *different* config cannot be exercised here: SandboxManager is
-    // a process-wide singleton and this file's shared `executor` already won the config (see
-    // the header). So this suite asserts the config an executor reports, and the enforcement
-    // itself is covered end-to-end by native-executor.test.ts, which has no such constraint.
     it("reports null when allowRead is omitted, matching ASRT's read-everywhere default", () => {
       assert.equal(executor.describe().allowRead, null);
     });
 
     it("reports the caller's roots, not the widened set handed to ASRT", () => {
-      const bounded = createAsrtBashExecutor({
+      const bounded = asrt({
         allowWrite: [allowedDir],
         allowRead: [allowedDir],
       });
@@ -100,13 +102,30 @@ describe("createAsrtBashExecutor", () => {
     });
 
     it("keeps a caller-supplied denyRead on top of the synthesized one", () => {
-      const bounded = createAsrtBashExecutor({
+      const bounded = asrt({
         allowWrite: [allowedDir],
         allowRead: [allowedDir],
         denyRead: [deniedDir],
       });
       assert.deepEqual(bounded.describe().denyRead, ["/", deniedDir]);
     });
+
+    it(
+      "enforces allowRead in its own supervisor, independent of the shared executor",
+      { timeout: 15_000 },
+      async () => {
+        const secret = path.join(deniedDir, "secret.txt");
+        await writeFile(secret, "classified\n", "utf8");
+        const bounded = asrt({
+          allowWrite: [allowedDir],
+          allowRead: [allowedDir],
+        });
+        const result = await finalResult(
+          bounded.run(sh(`cat ${secret}`), { cwd: allowedDir, timeoutMs: 10_000 }),
+        );
+        assert.notEqual(result.exitCode, 0);
+      },
+    );
   });
 
   it(
@@ -189,11 +208,7 @@ describe("createAsrtBashExecutor", () => {
   );
 
   it("truncates stdout at the configured byte cap", { timeout: 15_000 }, async () => {
-    // Same ASRT config (`allowWrite: [allowedDir]`) as the shared `executor` above —
-    // `maxOutputBytes` is a local option, not part of `SandboxRuntimeConfig`, so this
-    // doesn't trip the "different config" guard; it reuses the already-initialized
-    // `SandboxManager` singleton with its own smaller truncation cap.
-    const smallCap = createAsrtBashExecutor({ allowWrite: [allowedDir], maxOutputBytes: 10 });
+    const smallCap = asrt({ allowWrite: [allowedDir], maxOutputBytes: 10 });
     const result = await finalResult(
       smallCap.run(sh("printf '0123456789ABCDEF'"), { cwd: allowedDir, timeoutMs: 10_000 }),
     );
@@ -240,40 +255,105 @@ describe("createAsrtBashExecutor", () => {
     assert.notEqual(result.exitCode, 0);
   });
 
+  it("isolates two executors with different allowWrite policies", { timeout: 20_000 }, async () => {
+    const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-asrt-isolated-"));
+    try {
+      const other = asrt({ allowWrite: [otherRoot] });
+      const wroteHere = await finalResult(
+        executor.run(sh("echo shared > isolated-a.txt"), {
+          cwd: allowedDir,
+          timeoutMs: 10_000,
+        }),
+      );
+      const wroteThere = await finalResult(
+        other.run(sh("echo other > isolated-b.txt"), {
+          cwd: otherRoot,
+          timeoutMs: 10_000,
+        }),
+      );
+      assert.equal(wroteHere.exitCode, 0);
+      assert.equal(wroteThere.exitCode, 0);
+      assert.equal(
+        (await readFile(path.join(allowedDir, "isolated-a.txt"), "utf8")).trim(),
+        "shared",
+      );
+      assert.equal(
+        (await readFile(path.join(otherRoot, "isolated-b.txt"), "utf8")).trim(),
+        "other",
+      );
+
+      const cross = await finalResult(
+        executor.run(sh(`echo nope > ${path.join(otherRoot, "crossed.txt")}`), {
+          cwd: allowedDir,
+          timeoutMs: 10_000,
+        }),
+      );
+      assert.notEqual(cross.exitCode, 0);
+      await assert.rejects(readFile(path.join(otherRoot, "crossed.txt"), "utf8"));
+
+      // Isolation proof: ASRT never ran in this host process.
+      assert.equal(SandboxManager.getConfig(), undefined);
+    } finally {
+      await rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
   it(
-    "silently reuses the already-active config for a second executor built with a different one",
+    "leaves the host SandboxManager uninitialized after a successful run",
     { timeout: 15_000 },
     async () => {
-      // Self-contained: don't rely on an earlier test in this file having already
-      // initialized the shared singleton — initialize it here first, via `executor`.
       await finalResult(executor.run(sh("true"), { cwd: allowedDir, timeoutMs: 5_000 }));
+      assert.equal(SandboxManager.getConfig(), undefined);
+    },
+  );
 
-      const differentRoot = await mkdtemp(path.join(tmpdir(), "adl-asrt-conflict-"));
+  it(
+    "supervisor dies when the host process exits without dispose",
+    { timeout: 20_000 },
+    async () => {
+      const fixtureDir = path.join(import.meta.dirname, ".orphan-supervisor-fixture");
+      await mkdir(fixtureDir, { recursive: true });
       try {
-        // ASRT's own `SandboxManager.initialize()` is idempotent — a second call, no matter
-        // its config, just awaits the already-resolved initialization from `executor` above.
-        // So `other` transparently shares `executor`'s `allowWrite: [allowedDir]`; its own
-        // `allowWrite: [differentRoot]` never takes effect.
-        const other = createAsrtBashExecutor({ allowWrite: [differentRoot] });
+        const scriptPath = path.join(fixtureDir, "check.mjs");
+        await writeFile(
+          scriptPath,
+          `
+          import { execSync } from "node:child_process";
+          import { createAsrtBashExecutor } from "../asrt-executor.ts";
+          const executor = createAsrtBashExecutor({ allowWrite: ${JSON.stringify([allowedDir])} });
+          for await (const _update of executor.run(["/bin/true"], {
+            cwd: ${JSON.stringify(allowedDir)},
+            timeoutMs: 5000,
+          })) {
+            // drain
+          }
+          const kids = execSync("pgrep -P " + String(process.pid), { encoding: "utf8" })
+            .trim()
+            .split("\\n")
+            .filter(Boolean);
+          console.log("SUPERVISOR_PIDS:" + kids.join(","));
+          process.exit(0);
+          `,
+          "utf8",
+        );
 
-        const deniedInOwnRoot = await finalResult(
-          other.run(sh(`echo nope > ${path.join(differentRoot, "nope.txt")}`), {
-            cwd: differentRoot,
-            timeoutMs: 5_000,
-          }),
-        );
-        assert.notEqual(deniedInOwnRoot.exitCode, 0);
-
-        const allowedInSharedRoot = await finalResult(
-          other.run(sh("echo shared > shared.txt"), { cwd: allowedDir, timeoutMs: 5_000 }),
-        );
-        assert.equal(allowedInSharedRoot.exitCode, 0);
-        assert.equal(
-          (await readFile(path.join(allowedDir, "shared.txt"), "utf8")).trim(),
-          "shared",
-        );
+        const result = spawnSync(process.execPath, [scriptPath], {
+          encoding: "utf8",
+          timeout: 15_000,
+        });
+        assert.equal(result.status, 0, result.stderr);
+        const match = /SUPERVISOR_PIDS:([0-9,]+)/.exec(result.stdout);
+        assert.ok(match?.[1], result.stdout);
+        const pids = match[1].split(",").map((value) => Number(value));
+        const deadline = Date.now() + 8_000;
+        for (const pid of pids) {
+          while (isAlive(pid) && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          assert.equal(isAlive(pid), false, `supervisor pid ${String(pid)} still alive`);
+        }
       } finally {
-        await rm(differentRoot, { recursive: true, force: true });
+        await rm(fixtureDir, { recursive: true, force: true });
       }
     },
   );

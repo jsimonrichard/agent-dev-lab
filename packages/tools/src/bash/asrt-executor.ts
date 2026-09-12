@@ -1,16 +1,19 @@
-import { randomUUID } from "node:crypto";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
-import {
-  SandboxManager,
-  type SandboxDependencyCheck,
-  type SandboxRuntimeConfig,
-} from "@anthropic-ai/sandbox-runtime";
+import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 
+import {
+  attachNdjsonReader,
+  writeNdjson,
+  type AsrtSupervisorEvent,
+  type AsrtSupervisorRequest,
+} from "./asrt-protocol.ts";
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
-import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
+import { DEFAULT_MAX_OUTPUT_BYTES } from "./process-channel.ts";
 import { existingSystemReadPaths } from "./read-bounds.ts";
 
 export interface AsrtBashExecutorOptions {
@@ -49,54 +52,6 @@ export interface AsrtBashExecutorOptions {
 }
 
 /**
- * Per-platform substring → "how to install this" hint, appended to ASRT's own
- * `checkDependencies()` error text. Matched by substring since ASRT's error strings (e.g.
- * `"bubblewrap (bwrap) not installed"`) are free text, not a structured code per missing tool.
- */
-const LINUX_INSTALL_HINTS: Array<{ match: string; hint: string }> = [
-  {
-    match: "bwrap",
-    hint: "bubblewrap: `apt-get install bubblewrap` / `dnf install bubblewrap` / `pacman -S bubblewrap`",
-  },
-  {
-    match: "socat",
-    hint: "socat: `apt-get install socat` / `dnf install socat` / `pacman -S socat`",
-  },
-  {
-    match: "ripgrep",
-    hint: "ripgrep: `apt-get install ripgrep` / `dnf install ripgrep` / `pacman -S ripgrep`",
-  },
-];
-
-const MACOS_INSTALL_HINTS: Array<{ match: string; hint: string }> = [
-  { match: "ripgrep", hint: "ripgrep: `brew install ripgrep`" },
-];
-
-function installHints(errors: string[]): string[] {
-  const table = process.platform === "darwin" ? MACOS_INSTALL_HINTS : LINUX_INSTALL_HINTS;
-  const hints = new Set<string>();
-  for (const error of errors) {
-    for (const { match, hint } of table) {
-      if (error.toLowerCase().includes(match)) {
-        hints.add(hint);
-      }
-    }
-  }
-  return [...hints];
-}
-
-function dependencyError(check: SandboxDependencyCheck): AdlError {
-  const hints = installHints(check.errors);
-  const hintText = hints.length > 0 ? ` Install: ${hints.join("; ")}.` : "";
-  return new AdlError(
-    "INIT_FAILED",
-    `ASRT sandbox dependencies missing: ${check.errors.join("; ")}.${hintText} ` +
-      `No automatic fallback to an unsandboxed executor is used; install the missing ` +
-      `dependencies or configure a different BashExecutor.`,
-  );
-}
-
-/**
  * ASRT's own installed package directory, which must stay readable for its vendored
  * `apply-seccomp` helper to run inside a read-bounded sandbox. Resolved once via the package's
  * `package.json` rather than assumed to sit under any particular `node_modules` layout.
@@ -107,6 +62,224 @@ function asrtPackageDir(): string {
   );
 }
 
+function supervisorPath(): string {
+  const ext = path.extname(fileURLToPath(import.meta.url));
+  return fileURLToPath(new URL(`./asrt-supervisor${ext}`, import.meta.url));
+}
+
+/** Bun runs `.ts` natively; Node 22 needs type-stripping for the source supervisor. Dist is `.js`. */
+function supervisorArgv(): string[] {
+  const file = supervisorPath();
+  if (path.extname(file) === ".ts" && !("bun" in process.versions)) {
+    return ["--experimental-strip-types", file];
+  }
+  return [file];
+}
+
+function isSupervisorEvent(value: unknown): value is AsrtSupervisorEvent {
+  if (typeof value !== "object" || value === null || !("type" in value) || !("id" in value)) {
+    return false;
+  }
+  const type = (value as { type: unknown }).type;
+  return type === "ready" || type === "update" || type === "error" || type === "bye";
+}
+
+type Pending =
+  | { kind: "init"; resolve: () => void; reject: (error: unknown) => void }
+  | {
+      kind: "run";
+      push: (update: BashExecutorUpdate) => void;
+      close: () => void;
+      fail: (error: unknown) => void;
+      cleanup: () => void;
+    };
+
+/**
+ * One supervisor child that owns this executor's `SandboxManager`. Isolated from every
+ * other `createAsrtBashExecutor` in the host process. Dies when stdin closes — including
+ * when the host process is gone (the kernel closes the pipe).
+ */
+class AsrtSupervisorClient {
+  private readonly child: ChildProcess;
+  private readonly pending = new Map<string, Pending>();
+  private nextId = 0;
+  private closed = false;
+
+  private constructor(child: ChildProcess) {
+    this.child = child;
+    if (!child.stdout || !child.stdin) {
+      throw new AdlError("INIT_FAILED", "asrt-supervisor: expected piped stdin and stdout");
+    }
+    attachNdjsonReader(
+      child.stdout,
+      (value) => this.onEvent(value),
+      (error) => this.failAll(error),
+    );
+    child.on("exit", (code, signal) => {
+      if (this.closed) {
+        return;
+      }
+      this.failAll(
+        new AdlError(
+          "INIT_FAILED",
+          `asrt-supervisor exited unexpectedly (code=${code}, signal=${signal})`,
+        ),
+      );
+    });
+    child.on("error", (error) => this.failAll(error));
+  }
+
+  static async start(config: SandboxRuntimeConfig): Promise<AsrtSupervisorClient> {
+    const child = spawn(process.execPath, supervisorArgv(), {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    const client = new AsrtSupervisorClient(child);
+    try {
+      const id = client.allocId();
+      await new Promise<void>((resolve, reject) => {
+        client.pending.set(id, { kind: "init", resolve, reject });
+        client.send({ id, type: "init", config });
+      });
+      return client;
+    } catch (error) {
+      await client.dispose();
+      throw error;
+    }
+  }
+
+  run(
+    argv: readonly string[],
+    cwd: string,
+    timeoutMs: number,
+    maxOutputBytes: number,
+    signal: AbortSignal | undefined,
+    channel: {
+      push: (update: BashExecutorUpdate) => void;
+      close: () => void;
+      fail: (error: unknown) => void;
+    },
+  ): void {
+    const id = this.allocId();
+    const onAbort = () => {
+      try {
+        this.send({ id, type: "abort" });
+      } catch {
+        // supervisor already gone
+      }
+    };
+    const cleanup = () => signal?.removeEventListener("abort", onAbort);
+    this.pending.set(id, { kind: "run", ...channel, cleanup });
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener("abort", onAbort);
+      }
+    }
+    this.send({ id, type: "run", argv, cwd, timeoutMs, maxOutputBytes });
+  }
+
+  async dispose(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    try {
+      this.send({ id: this.allocId(), type: "shutdown" });
+    } catch {
+      // stdin already closed
+    }
+    this.child.stdin?.end();
+    if (this.child.exitCode !== null || this.child.signalCode !== null) {
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        this.child.kill("SIGKILL");
+        resolve();
+      }, 5_000);
+      timer.unref();
+      this.child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+
+  private allocId(): string {
+    this.nextId += 1;
+    return String(this.nextId);
+  }
+
+  private send(request: AsrtSupervisorRequest): void {
+    if (!this.child.stdin || this.child.stdin.destroyed) {
+      throw new AdlError("INIT_FAILED", "asrt-supervisor: stdin is closed");
+    }
+    writeNdjson(this.child.stdin, request);
+  }
+
+  private onEvent(value: unknown): void {
+    if (!isSupervisorEvent(value)) {
+      this.failAll(new AdlError("INIT_FAILED", "asrt-supervisor: malformed event"));
+      return;
+    }
+    if (value.type === "bye") {
+      return;
+    }
+    const waiter = this.pending.get(value.id);
+    if (!waiter) {
+      return;
+    }
+    if (value.type === "error") {
+      this.pending.delete(value.id);
+      const error = value.code
+        ? new AdlError(value.code, value.message)
+        : new AdlError("INIT_FAILED", value.message);
+      if (waiter.kind === "init") {
+        waiter.reject(error);
+      } else {
+        waiter.cleanup();
+        waiter.fail(error);
+      }
+      return;
+    }
+    if (value.type === "ready") {
+      this.pending.delete(value.id);
+      if (waiter.kind === "init") {
+        waiter.resolve();
+      }
+      return;
+    }
+    if (waiter.kind !== "run") {
+      return;
+    }
+    waiter.push(value.update);
+    if (value.update.done) {
+      this.pending.delete(value.id);
+      waiter.cleanup();
+      waiter.close();
+    }
+  }
+
+  private failAll(error: unknown): void {
+    for (const [id, waiter] of this.pending) {
+      this.pending.delete(id);
+      if (waiter.kind === "init") {
+        waiter.reject(error);
+      } else {
+        waiter.cleanup();
+        waiter.fail(error);
+      }
+    }
+  }
+}
+
+/**
+ * ASRT-backed `BashExecutor`. Each instance spawns a supervisor child that owns its own
+ * `SandboxManager`, so two executors can have different filesystem and domain policies in
+ * one host process. The supervisor exits when this executor is disposed or the host process
+ * dies (stdin keepalive). `SandboxManager.reset()` in the host process does not affect it.
+ */
 export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashExecutor {
   const allowRead = options.allowRead?.map((p) => path.resolve(p)) ?? null;
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
@@ -129,70 +302,33 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
   };
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
 
-  let initPromise: Promise<void> | undefined;
-  const ensureInitialized = (): Promise<void> => {
-    initPromise ??= (async () => {
-      const check = SandboxManager.checkDependencies();
-      if (check.errors.length > 0) {
-        throw dependencyError(check);
-      }
-      // A no-op if some other createAsrtBashExecutor's run() already initialized
-      // SandboxManager first — see this function's doc comment.
-      await SandboxManager.initialize(config);
-    })();
-    return initPromise;
+  let clientPromise: Promise<AsrtSupervisorClient> | undefined;
+
+  const ensureClient = (): Promise<AsrtSupervisorClient> => {
+    clientPromise ??= AsrtSupervisorClient.start(config).catch((error: unknown) => {
+      clientPromise = undefined;
+      throw error;
+    });
+    return clientPromise;
   };
 
   return {
     run(argv, run) {
       const channel = createAsyncChannel<BashExecutorUpdate>();
-
       void (async () => {
         try {
           if (argv.length === 0) {
             throw new AdlError("INIT_FAILED", "Empty argv for the command to run.");
           }
-          await ensureInitialized();
-          const commandId = randomUUID();
-          // wrapWithSandboxArgv takes a command *string* (the "Argv" in the name is its
-          // return shape). Putting each element in the spawn env and exec'ing the
-          // `$ADL_ARGV_*` refs means the values never appear in that string — they are
-          // not shell-parsed. Named because there is no upstream argv-in API.
-          const extraEnv: Record<string, string> = {};
-          const refs: string[] = [];
-          for (const [i, arg] of argv.entries()) {
-            const key = `ADL_ARGV_${String(i)}`;
-            extraEnv[key] = arg;
-            refs.push(`"$${key}"`);
-          }
-          const { argv: sandboxArgv, env } = await SandboxManager.wrapWithSandboxArgv(
-            `exec ${refs.join(" ")}`,
-            undefined,
-            undefined,
-            run.signal,
-            run.cwd,
-            { commandId },
-          );
-          runArgvIntoChannel(
-            sandboxArgv,
-            { ...env, ...extraEnv },
-            run,
-            maxOutputBytes,
-            channel,
-            (rawStderr) => SandboxManager.annotateStderrWithSandboxFailures(commandId, rawStderr),
-          );
+          const client = await ensureClient();
+          client.run(argv, run.cwd, run.timeoutMs, maxOutputBytes, run.signal, channel);
         } catch (error) {
           channel.fail(error);
         }
       })();
-
       return channel[Symbol.asyncIterator]();
     },
 
-    // Reports this instance's own configured `config` — the one actually enforced *unless*
-    // another createAsrtBashExecutor already initialized SandboxManager first with a
-    // different config (see this function's doc comment); that's already called out as an
-    // anti-pattern to avoid, not something worth extra complexity here to detect.
     describe() {
       return {
         backend: "asrt",
@@ -208,6 +344,23 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
           deniedDomains: config.network.deniedDomains,
         },
       };
+    },
+
+    async dispose() {
+      const pending = clientPromise;
+      if (!pending) {
+        return;
+      }
+      try {
+        const client = await pending;
+        await client.dispose();
+      } catch {
+        // `start()` already disposed the child when init failed.
+      } finally {
+        if (clientPromise === pending) {
+          clientPromise = undefined;
+        }
+      }
     },
   };
 }

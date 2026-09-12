@@ -148,8 +148,8 @@ than being scoped as more `packages/tools` work. Concretely still open:
 - Where the kernel process itself is sandboxed (reuse `BashExecutor`'s tiers, or a dedicated
   primitive — a long-lived process is a different isolation problem than a one-shot command).
 - What "run ended" means precisely for cleanup purposes — ties into the same open shutdown-hook
-  gap `tool-sandboxing.md` flags for `SandboxManager.reset()` (no framework-level shutdown hook
-  exists today for _any_ per-run resource, not just this one).
+  gap `tool-sandboxing.md` flags (ASRT supervisors now die on `dispose()` / host exit, but
+  there is still no framework-level run-scoped shutdown hook for _any_ per-run resource).
 - One kernel per run vs. per conversation vs. pooled/shared — affects both isolation and cost.
 
 **v1 for this item:** design notes only, same as everything else in this file — no

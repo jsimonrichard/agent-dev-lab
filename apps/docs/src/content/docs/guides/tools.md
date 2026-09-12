@@ -89,12 +89,12 @@ You choose the executor. The tool never picks one.
 
 | Executor                   | Platform     | Host packages                                             | Notes                                                                                         |
 | -------------------------- | ------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `createAsrtBashExecutor`   | Linux, macOS | Linux: `bubblewrap`, `socat`, `ripgrep`. macOS: `ripgrep` | Preferred default. Per-domain network allowlist. Process-wide sandbox config.                 |
+| `createAsrtBashExecutor`   | Linux, macOS | Linux: `bubblewrap`, `socat`, `ripgrep`. macOS: `ripgrep` | Preferred default. Per-domain network allowlist. One supervisor process per executor.         |
 | `createNativeBashExecutor` | Linux only   | `bubblewrap`                                              | No extra npm sandbox runtime. Network is all-or-nothing. Throws on macOS instead of no-oping. |
 
 `allowWrite` is required — pass `[]` for a sandbox that can run commands but write nowhere.
 
-ASRT's `SandboxManager` is process-global: the first executor that runs wins if you construct more than one with different policies. On process shutdown, call `SandboxManager.reset()` from `@anthropic-ai/sandbox-runtime` or the ASRT child processes keep the process alive.
+Each `createAsrtBashExecutor` spawns a supervisor child that owns that instance's `SandboxManager`, so two executors can have different filesystem and domain policies in one host process. Call `dispose()` to end the supervisor; it also exits if the host process dies (stdin keepalive).
 
 A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a thrown tool error.
 
