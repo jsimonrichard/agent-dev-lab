@@ -31,8 +31,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
-  "framework-dev": "Framework dev",
-  "project-dev": "Project dev",
+  "framework-dev": "Framework Dev",
+  "project-dev": "Project Dev",
   serve: "Serve",
 } as const;
 
@@ -94,11 +94,11 @@ export function WorkflowRunsSidebar() {
                 variant="ghost"
                 size="icon"
                 className="size-6"
-                title="Start workflow"
+                title="Start Workflow"
                 workflowId={selectedWorkflowId}
               >
                 <Plus className="size-3.5" />
-                <span className="sr-only">New run</span>
+                <span className="sr-only">New Run</span>
               </StartWorkflowButton>
             </SidebarGroupLabel>
             <SidebarGroupContent>

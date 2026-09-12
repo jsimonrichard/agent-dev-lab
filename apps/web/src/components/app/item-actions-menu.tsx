@@ -172,7 +172,7 @@ export function ItemActionsMenu({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete failed</DialogTitle>
+            <DialogTitle>Delete Failed</DialogTitle>
             <DialogDescription>{deleteError}</DialogDescription>
           </DialogHeader>
           <DialogFooter>

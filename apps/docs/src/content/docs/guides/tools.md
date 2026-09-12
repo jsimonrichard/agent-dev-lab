@@ -1,5 +1,5 @@
 ---
-title: Sandboxed tools
+title: Sandboxed Tools
 description: Optional @agent-dev-lab/tools package — file, bash, search, and fetchUrl.
 ---
 
@@ -18,7 +18,7 @@ bun add @agent-dev-lab/tools
 # or: npm install @agent-dev-lab/tools
 ```
 
-## Quick start
+## Quick Start
 
 `createWorkspaceToolProvider` is the usual surface: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`. Pass policy (not a constructed executor). Prefer `loadAdlProject` so `projectRoot` is on the tool-provider envelope for pooling (or pass `projectRoot` to `createAdlRuntime` in tests).
 
@@ -62,7 +62,7 @@ Call `dispose()` on the tool provider (project reload does this for outgoing pro
 
 ## Factories
 
-| Factory                                        | Tools                                                                                           | When to use it                            |
+| Factory                                        | Tools                                                                                           | When to Use It                            |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `createWorkspaceToolProvider`                  | `readFile`, `writeFile`, `editFile`, `grep`, `glob`, `bash`, `fetchUrl`, `describeWorkspaceEnv` | Work on one folder                        |
 | `createFileTools` / `createFileToolProvider`   | `readFile`, `writeFile`, `editFile`                                                             | File access only                          |
@@ -78,7 +78,7 @@ Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `tool
 
 This package does not search the web. Use your model provider's native search tool (for example `openai.tools.webSearch()`) for discovery; use `fetchUrl` when you already have an address.
 
-## File tools
+## File Tools
 
 Every path is checked against allow/deny lists after symlink resolution. `root` is the relative-path base and the omit-default for allow lists (`allowRead` / `allowWrite` omitted → `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). `denyRead` / `denyWrite` win over allow. The jail is a userland check, not a kernel boundary.
 
@@ -88,7 +88,7 @@ Every path is checked against allow/deny lists after symlink resolution. `root` 
 
 Prefer policy on `createBashToolProvider` / `createWorkspaceToolProvider` (pooled). For a one-off tool without a provider, pass an executor explicitly. The tool never picks an unsandboxed fallback.
 
-| Backend / factory          | Platform     | Host packages                                             | Notes                                                                          |
+| Backend / Factory          | Platform     | Host Packages                                             | Notes                                                                          |
 | -------------------------- | ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | pooled `backend: "asrt"`   | Linux, macOS | Linux: `bubblewrap`, `socat`, `ripgrep`. macOS: `ripgrep` | Preferred default. Per-domain network allowlist. Shared supervisor per policy. |
 | pooled `backend: "native"` | Linux only   | `bubblewrap`                                              | No extra npm sandbox runtime. Network is all-or-nothing. Throws on macOS.      |
@@ -115,7 +115,7 @@ const fetchUrl = createFetchUrlTool({
 });
 ```
 
-## Platform support
+## Platform Support
 
 | Platform | File tools  | Bash / search          | `fetchUrl` |
 | -------- | ----------- | ---------------------- | ---------- |
@@ -126,5 +126,5 @@ const fetchUrl = createFetchUrlTool({
 ## Related
 
 - [Tools API](/api/tools/readme/) — TypeDoc for this package
-- [Tool providers](/core/tool-provider/) — `ToolProvider` in core
+- [Tool Providers](/core/tool-provider/) — `ToolProvider` in core
 - [createWorkspaceToolProvider](/api/tools/functions/createworkspacetoolprovider/), [createFetchUrlTool](/api/tools/functions/createfetchurltool/)

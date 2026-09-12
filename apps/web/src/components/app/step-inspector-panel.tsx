@@ -110,12 +110,12 @@ function StepOutputInspector({ step, runError }: { step: StepNode; runError?: un
           <Layers className="size-3.5 shrink-0 text-muted-foreground" />
           {stepLabel}
         </p>
-        <p className="text-[10px] text-muted-foreground">Step output</p>
+        <p className="text-[10px] text-muted-foreground">Step Output</p>
       </div>
       <div className="min-h-0 flex-1 p-2">
         {step.output !== undefined || !stepError ? (
           <JsonPreview
-            title="Step output"
+            title="Step Output"
             value={step.output}
             empty={outputEmpty}
             fill
@@ -359,7 +359,7 @@ function EpisodeConversation({
                     className="flex-none gap-2 p-0"
                   />
                 ) : null}
-                {prior.length > 0 ? <TranscriptMarker>This agent call</TranscriptMarker> : null}
+                {prior.length > 0 ? <TranscriptMarker>This Agent Call</TranscriptMarker> : null}
                 {current.length > 0 || liveStreaming ? (
                   <ChatMessageList
                     messages={current}
@@ -371,7 +371,7 @@ function EpisodeConversation({
                 ) : null}
                 {later.length > 0 ? (
                   <section aria-label="Later turns on this scope" className="flex flex-col gap-2">
-                    <TranscriptMarker>Later on this scope</TranscriptMarker>
+                    <TranscriptMarker>Later on This Scope</TranscriptMarker>
                     <ChatMessageList
                       messages={later}
                       compact
@@ -506,13 +506,13 @@ function WorkflowInspector({
       </div>
       {hasOutput ? (
         <InspectorStack id="workflow-inspector-sections">
-          <InspectorStackSection id="workflow-input" title="Workflow input" defaultSize="35%">
+          <InspectorStackSection id="workflow-input" title="Workflow Input" defaultSize="35%">
             <WorkflowInputPane input={input} />
           </InspectorStackSection>
           <InspectorStackHandle />
-          <InspectorStackSection id="workflow-output" title="Workflow output" defaultSize="65%">
+          <InspectorStackSection id="workflow-output" title="Workflow Output" defaultSize="65%">
             <div className="h-full min-h-0 p-2">
-              <JsonPreview title="Workflow output" value={output} fill className="bg-card/80">
+              <JsonPreview title="Workflow Output" value={output} fill className="bg-card/80">
                 {outputError}
               </JsonPreview>
             </div>
@@ -534,7 +534,7 @@ function WorkflowInputPane({ input }: { input: unknown }) {
   return (
     <div className="h-full min-h-0 p-2">
       <JsonPreview
-        title="Workflow input"
+        title="Workflow Input"
         value={input}
         empty="No input recorded."
         fill

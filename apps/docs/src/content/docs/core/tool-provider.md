@@ -1,5 +1,5 @@
 ---
-title: Tool providers
+title: Tool Providers
 description: ToolProvider, createToolProvider, combineToolProviders, and per-call toolProviderContext.
 ---
 
@@ -25,7 +25,7 @@ interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderContext = un
 
 `getTools` is the only method required for a turn. Optional hooks:
 
-| Hook       | When                                                                                         | Typical use                                      |
+| Hook       | When                                                                                         | Typical Use                                      |
 | ---------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `onRunEnd` | End of this `agent.run` / `agent.stream` (`agentCallId`), including failure and abort        | Run-scoped resources (e.g. a future kernel)      |
 | `dispose`  | Outgoing providers after a successful project reload, or `LoadedAdlProject.dispose` / unload | Process/project-scoped resources (executor pool) |
@@ -81,7 +81,7 @@ await agent.run({
 
 Pass `ToolProviderContext` as the type parameter; `Tools` is inferred from `getTools`. Narrowing the type is a trust boundary, not a runtime check — a caller can still pass a differently shaped value.
 
-## Resolution order
+## Resolution Order
 
 Each turn merges three sources, later winning on the same tool name:
 
@@ -127,5 +127,5 @@ Pass sandbox **policy** (`allowWrite`, …) to [`createWorkspaceToolProvider`](/
 ## Related
 
 - [ToolProvider](/api/interfaces/toolprovider/), [createToolProvider](/api/functions/createtoolprovider/), [combineToolProviders](/api/functions/combinetoolproviders/)
-- [Sandboxed tools](/guides/tools/) — `@agent-dev-lab/tools`
+- [Sandboxed Tools](/guides/tools/) — `@agent-dev-lab/tools`
 - [Agents](/core/agents/) — `adl.createAgent`, `stopWhen`, memory

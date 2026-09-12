@@ -334,7 +334,7 @@ export function EventLogWorkspace({ initialEvents }: { initialEvents: EventLogSn
   return (
     <div className="flex h-svh min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
-        <h1 className="text-sm font-semibold">Event log</h1>
+        <h1 className="text-sm font-semibold">Event Log</h1>
         <Badge variant={paused ? "outline" : "default"} className="capitalize">
           {paused ? "paused" : "live"}
         </Badge>
@@ -400,7 +400,7 @@ export function EventLogWorkspace({ initialEvents }: { initialEvents: EventLogSn
                   <>
                     <SelectSeparator />
                     <SelectGroup>
-                      <SelectLabel>Other fields</SelectLabel>
+                      <SelectLabel>Other Fields</SelectLabel>
                       {filterFields.extra.map((field) => (
                         <SelectItem key={field} value={field} className="font-mono text-xs">
                           {field}

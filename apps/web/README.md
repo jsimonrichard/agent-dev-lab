@@ -4,7 +4,7 @@
 
 TanStack Start inspection UI for [Agent Dev Lab](https://agent-dev-lab.com). End users don't run this package directly — `adl init` adds it as a project dependency, and `adl dashboard` (from [`@agent-dev-lab/cli`](https://www.npmjs.com/package/@agent-dev-lab/cli)) starts it against the nearest `adl.config.*`.
 
-## What it shows
+## What It Shows
 
 <img src="https://raw.githubusercontent.com/jsimonrichard/agent-dev-lab/main/assets/screenshots/dashboard.png" alt="A workflow run's waterfall of steps, with a step's output selected in the inspector panel" width="100%" />
 

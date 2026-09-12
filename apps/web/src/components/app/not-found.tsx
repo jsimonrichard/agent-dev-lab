@@ -12,7 +12,7 @@ type NotFoundPageProps = {
 
 export function NotFoundPage({
   inAppShell = false,
-  title = "Page not found",
+  title = "Page Not Found",
   description = "This URL does not match any route or resource in the loaded ADL project.",
 }: NotFoundPageProps) {
   const body = (
@@ -46,7 +46,7 @@ export function NotFoundPage({
   return (
     <div className="flex h-svh min-h-0 flex-col">
       <header className="flex h-14 shrink-0 items-center border-b border-border px-4">
-        <h1 className="text-sm font-semibold">Not found</h1>
+        <h1 className="text-sm font-semibold">Not Found</h1>
       </header>
       {body}
     </div>

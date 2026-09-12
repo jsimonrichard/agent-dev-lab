@@ -246,7 +246,7 @@ export function EventLogColumnToggle({
           type="button"
           variant="outline"
           size="sm"
-          aria-label={hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Toggle columns"}
+          aria-label={hiddenCount > 0 ? `Columns, ${hiddenCount} hidden` : "Toggle Columns"}
         >
           <Settings2 />
           Columns
@@ -258,7 +258,7 @@ export function EventLogColumnToggle({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <EventLogColumnVisibilityChoices
           table={table}
@@ -391,7 +391,7 @@ export function EventLogDataTable({
             </TableHeader>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-48">
-            <ContextMenuLabel>Toggle columns</ContextMenuLabel>
+            <ContextMenuLabel>Toggle Columns</ContextMenuLabel>
             <ContextMenuSeparator />
             <EventLogColumnVisibilityChoices
               table={table}
@@ -500,10 +500,10 @@ function EventLogViewAllFieldsHeader() {
       <TooltipTrigger asChild>
         <span className="inline-flex cursor-help text-muted-foreground">
           <MoreHorizontal className="size-3" />
-          <span className="sr-only">View all fields</span>
+          <span className="sr-only">View All Fields</span>
         </span>
       </TooltipTrigger>
-      <TooltipContent>View all fields</TooltipContent>
+      <TooltipContent>View All Fields</TooltipContent>
     </Tooltip>
   );
 }
@@ -542,7 +542,7 @@ function EventLogRowActions({
           ) : null}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>View all fields</TooltipContent>
+      <TooltipContent>View All Fields</TooltipContent>
     </Tooltip>
   );
 }

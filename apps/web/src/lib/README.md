@@ -1,4 +1,4 @@
-# Inspection UI helpers (`src/lib`)
+# Inspection UI Helpers (`src/lib`)
 
 Pure helpers and server modules for the dashboard. Components stay thin; behavior is tested here with `bun test`.
 

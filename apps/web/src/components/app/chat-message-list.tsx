@@ -223,7 +223,7 @@ function AgentCallHighlight({ children }: { children: ReactNode }) {
   return (
     <div
       role="group"
-      aria-label="This agent call"
+      aria-label="This Agent Call"
       data-agent-call-highlight=""
       className="-mx-1 flex flex-col gap-4 rounded-2xl bg-primary/10 px-3 py-3 ring-1 ring-inset ring-primary/20"
     >
@@ -318,7 +318,7 @@ function SystemPromptFrame({ children, compact }: { children: ReactNode; compact
       )}
     >
       <p className="mb-1 text-center text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-        System prompt
+        System Prompt
       </p>
       <div className="text-left">{children}</div>
     </div>

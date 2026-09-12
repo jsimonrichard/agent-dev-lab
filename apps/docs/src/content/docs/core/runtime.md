@@ -31,7 +31,7 @@ const adl = createAdlRuntime({
 
 `version` controls the automatic provenance tag on every `workflow.run()` and `agent.run()` (`version:<value>` when set, otherwise `commit:<id>` from jj then git). Pass `false` to disable the lookup — `createTestRuntime` does. Caller `tags` are recorded as well; the inspector shows them in a footer. See [Run tags](/core/workflows/#run-tags).
 
-### Per-definition overrides
+### Per-Definition Overrides
 
 Second argument on `adl.createAgent` / `adl.createWorkflow`:
 
@@ -81,7 +81,7 @@ The inspection UI attaches its own process singleton this way and hydrates an em
 
 Observer lists are **not** pinned across [`watchAdlProject`](/core/project/) reloads — late-attached observers (including the inspector log) must be pushed again onto the new arrays.
 
-### Functional factories (tests only)
+### Functional Factories (Tests Only)
 
 Project code should use **`adl.createAgent`**, **`adl.createWorkflow`**, and **`adl.createTemplate`**. The package also exports `createAgent(runtime, …)`, `createWorkflow(runtime, …)`, and `createTemplate(runtime, …)` for unit tests and libraries that need an explicit runtime handle without a project `adl` module. Same behavior — prefer the bound methods in application code.
 
@@ -94,7 +94,7 @@ ALS **is** used for:
 - **Workflow context:** when `agent.run` / `agent.stream` is called inside a workflow body or step, the active `WorkflowContext` is available so agents attach to the correct `workflowRunId` / `stepId` without manual wiring. Callers can still pass `workflow: { workflowRunId, stepId }` explicitly — that takes priority over ALS.
 - **Conversation title re-entrancy:** while `titleWorkflow` runs, a flag prevents a nested `agent.run` from starting another auto-title.
 
-### Workflow context host
+### Workflow Context Host
 
 `WorkflowContext` is a **host object**. `step` and `emit` close over parent services, `workflowRunId`, and step registry.
 
@@ -122,7 +122,7 @@ await handle.result;
 ```
 
 - **Public API:** `run(input)` for root runs (CLI, UI).
-- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (shared `workflowRunId`). Pass `{ isolated: true }` for a separate persisted run that is not included in the parent's tree — see [Isolated runs](/core/workflows/#isolated-runs).
+- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (shared `workflowRunId`). Pass `{ isolated: true }` for a separate persisted run that is not included in the parent's tree — see [Isolated Runs](/core/workflows/#isolated-runs).
 - **No `{ project }`** on the execution path.
 
 Nested runs can pass `parentCtx` explicitly:

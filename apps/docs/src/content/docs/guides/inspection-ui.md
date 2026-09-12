@@ -7,7 +7,7 @@ The inspection UI (`@agent-dev-lab/web`) is how you **start, watch, and replay**
 
 ![A workflow run's waterfall of steps, with a step's output selected in the inspector panel](../../../assets/dashboard.png)
 
-## Open the inspector
+## Open the Inspector
 
 From a project with `adl.config.*`:
 
@@ -43,9 +43,9 @@ Registered `agents` can be opened as **conversations** (standalone `memoryScope`
 - Shared scopes show history **up to** the selected episode; later turns are muted so you can see what the model had at that call.
 - The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `stopWhen` (`default` / `custom`), and title workflow id.
 
-## Event log
+## Event Log
 
-The **Event log** page (`/events`) is a process-wide tail of every `RunEvent` the inspector has seen — workflow runs and standalone agent conversations — not one run at a time.
+The **Event Log** page (`/events`) is a process-wide tail of every `RunEvent` the inspector has seen — workflow runs and standalone agent conversations — not one run at a time.
 
 - Open it from the home sidebar or the rail. The context sidebar is hidden so the table can use the full width.
 - Live updates use **SSE** (`GET /api/events?afterSeq=`). The stream id is the process `logSeq`, not per-run `runSeq`. Reconnects replay from the last applied `logSeq`.
@@ -55,7 +55,7 @@ The **Event log** page (`/events`) is a process-wide tail of every `RunEvent` th
 
 The log is a ring buffer (default 10_000 events). It is not a durable store of its own — durability is still `WorkflowStore`.
 
-## What is not in the inspector yet
+## What Is Not in the Inspector Yet
 
 - A template playground (edit/render `createTemplate` markdown in the UI)
 - A dedicated raw token-debug pane (assistant text already streams via `agent_text_delta` in chat/run views)

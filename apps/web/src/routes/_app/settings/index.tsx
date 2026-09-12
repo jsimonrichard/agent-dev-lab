@@ -6,8 +6,8 @@ import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { fetchRuntimeInfo } from "#/lib/inspector/inspector-server";
 
 const devModeLabel = {
-  "framework-dev": "Framework dev",
-  "project-dev": "Project dev",
+  "framework-dev": "Framework Dev",
+  "project-dev": "Project Dev",
   serve: "Serve",
 } as const;
 
@@ -45,7 +45,7 @@ function SettingsPage() {
           <p className="break-all font-mono text-xs">{project.configPath}</p>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground">Dev mode</p>
+          <p className="text-xs font-medium text-muted-foreground">Dev Mode</p>
           <Badge variant="secondary">{devModeLabel[project.devMode]}</Badge>
         </div>
         <div>
@@ -61,7 +61,7 @@ function SettingsPage() {
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground">Hot reload</p>
+          <p className="text-xs font-medium text-muted-foreground">Hot Reload</p>
           <p className="font-mono text-xs">
             generation {project.generation}
             {project.lastReloadError ? (
@@ -74,7 +74,7 @@ function SettingsPage() {
           <p className="font-mono text-xs">{runtime.name}</p>
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground">ADL version</p>
+          <p className="text-xs font-medium text-muted-foreground">ADL Version</p>
           <p className="font-mono text-xs">{runtime.version}</p>
         </div>
         <p className="text-muted-foreground">

@@ -22,7 +22,7 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
-        <h2 className="text-sm font-semibold">Agent settings</h2>
+        <h2 className="text-sm font-semibold">Agent Settings</h2>
         <p className="text-xs text-muted-foreground">Configuration for this agent</p>
       </div>
 
@@ -72,7 +72,7 @@ export function AgentConfigBody({
 
       <SettingsSection icon={Wrench} title="Tools">
         <dl className="mb-3 space-y-2 text-xs">
-          <SettingRow label="Stop when" value={settings.stopWhen} mono />
+          <SettingRow label="Stop When" value={settings.stopWhen} mono />
         </dl>
         {settings.tools.length === 0 ? (
           <p className="text-xs text-muted-foreground">No tools registered for this agent.</p>
@@ -108,7 +108,7 @@ export function AgentConfigBody({
       {settings.titleWorkflowId ? (
         <>
           <Separator className="bg-border/40" />
-          <SettingsSection icon={GitBranch} title="Title workflow">
+          <SettingsSection icon={GitBranch} title="Title Workflow">
             <p className="font-mono text-[11px] break-all">{settings.titleWorkflowId}</p>
           </SettingsSection>
         </>
@@ -117,7 +117,7 @@ export function AgentConfigBody({
       {showPromptSection ? (
         <>
           <Separator className="bg-border/40" />
-          <SettingsSection icon={FileText} title="System prompt">
+          <SettingsSection icon={FileText} title="System Prompt">
             {settings.systemPromptPath ? (
               <p className="mb-2 font-mono text-[11px] text-muted-foreground">
                 {settings.systemPromptPath}
@@ -150,7 +150,7 @@ export function AgentConfigBody({
           <Separator className="bg-border/40" />
           <dl className="text-xs">
             <SettingRow
-              label="Forked from"
+              label="Forked From"
               value={
                 <Link
                   to="/agent/$agentId/run/$runId"

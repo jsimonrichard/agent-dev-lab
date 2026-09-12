@@ -5,7 +5,7 @@ description: adl.config.ts shape, loadAdlProject, and execution entrypoints.
 
 The project config module is the **discovery surface** for CLI, inspection UI, and `loadAdlProject()`. Implementations can live at arbitrary paths; only `adl.config.*` at the project root is required.
 
-## Design decisions
+## Design Decisions
 
 - **Registry arrays** at load time — agents, workflows, and templates are indexed when `loadAdlProject()` runs (and again on `reload()`).
 - **Arrays** of definitions; each carries its own **`id`** (agents/workflows) or **`name`** (templates from filename).
@@ -63,7 +63,7 @@ Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`)
 
 Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-style `.env*` files from that project root to `process.env` (existing values win). See [Project Setup](/guides/project-setup/#environment-variables).
 
-## Reloading a project
+## Reloading a Project
 
 `loadAdlProject()` evaluates `adl.config.*` once, with no reload of its own. `adl dashboard` layers `watchAdlProject()` on top and calls `reload()` on registry/template changes as soon as the inspector process starts — a browser session is not required. `--serve` turns that off — restart after any registry change. `.env*` edits need a restart either way — see "Not reloaded" below. When watching is on, the process prints `[adl] watching <root>` once the watcher is armed, then a Vite-shaped `[adl] reload src/workflows/foo.ts` (or `[adl] reload failed`) on each change.
 
@@ -89,7 +89,7 @@ For custom tooling, `LoadedAdlProject.reload()` re-imports the config, and `watc
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
 
-| Entry                       | What it does                                                              |
+| Entry                       | What It Does                                                              |
 | --------------------------- | ------------------------------------------------------------------------- |
 | **`workflow.run(input)`**   | The execution primitive                                                   |
 | **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)`                                 |
@@ -133,7 +133,7 @@ bunx adl agent run assistant --input "What is Agent Dev Lab?"
 bunx adl dashboard
 ```
 
-## Why registries stay static
+## Why Registries Stay Static
 
 | Scenario                         | Approach                                               |
 | -------------------------------- | ------------------------------------------------------ |

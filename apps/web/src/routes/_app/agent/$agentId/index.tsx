@@ -16,7 +16,7 @@ function AgentDetailPage() {
     return (
       <NotFoundPage
         inAppShell
-        title="Unknown agent"
+        title="Unknown Agent"
         description={`No agent named ${agentId} is registered in this project.`}
       />
     );

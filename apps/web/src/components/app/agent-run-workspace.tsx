@@ -205,7 +205,7 @@ export function AgentRunWorkspace({
             {workflowLink ? (
               <Badge variant="secondary" className="gap-1 text-[10px]">
                 <GitBranch className="size-3" />
-                Workflow run
+                Workflow Run
               </Badge>
             ) : null}
           </div>

@@ -5,7 +5,7 @@ description: Adding ADL to an existing project by hand, and exactly what the fra
 
 Most projects should start with [`adl init`](/guides/project-setup/) — it scaffolds the recommended layout for you. This page is for adding ADL to an existing TypeScript project instead, or for understanding exactly what's required versus just convention.
 
-## What is required
+## What Is Required
 
 | Requirement                         | Notes                                                                 |
 | ----------------------------------- | --------------------------------------------------------------------- |
@@ -15,7 +15,7 @@ Most projects should start with [`adl init`](/guides/project-setup/) — it scaf
 
 Everything else on this page — folder layout, the `#adl` alias, `src/adl.ts` — is a recommendation that `adl init` follows, not a framework requirement. The runtime instance itself is also not required at a fixed path (only `config.adl` matters), but **`src/adl.ts`** is the recommended place to construct and export it.
 
-## How tooling accesses the runtime
+## How Tooling Accesses the Runtime
 
 The inspection UI, CLI, and `loadAdlProject()` **never import a project runtime file directly** (e.g. they do not reach into `src/adl.ts` by path). They:
 
@@ -31,9 +31,9 @@ const adl = project.getAdl(); // same as project.config.adl
 const workflow = project.getWorkflow("literature-review");
 ```
 
-Your `adl.config.ts` just needs to **reference** the runtime (and can optionally re-export it) — see [Recommended layout](#recommended-layout) below for where that reference typically comes from.
+Your `adl.config.ts` just needs to **reference** the runtime (and can optionally re-export it) — see [Recommended Layout](#recommended-layout) below for where that reference typically comes from.
 
-## `#adl` import alias (recommended)
+## `#adl` Import Alias (Recommended)
 
 Registry modules import the runtime often. Set a **TypeScript path alias** and a matching
 `package.json` `"imports"` entry so every file can use the same stable import — no
@@ -78,7 +78,7 @@ export const researcher = adl.createAgent({
 
 The `#adl` prefix is the recommended convention (short, unlikely to clash with npm scopes). You may choose another alias name; keep one alias per project.
 
-## Recommended layout
+## Recommended Layout
 
 This structure matches `adl init` (agents and workflows under `src/`):
 
@@ -149,7 +149,7 @@ export default {
 
 **Avoid** heavy store construction inline in `adl.config.ts` when registry modules also import from config — that pattern tends to create cycles. Keep runtime wiring in **`src/adl.ts`** and reference it from config.
 
-## Loading a project
+## Loading a Project
 
 ```ts
 import { loadAdlProject } from "@agent-dev-lab/core";

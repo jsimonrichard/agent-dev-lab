@@ -194,12 +194,12 @@ export function StartWorkflowForm({
   const heading =
     variant === "dialog" ? (
       <DialogHeader>
-        <DialogTitle>Start workflow</DialogTitle>
+        <DialogTitle>Start Workflow</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
     ) : (
       <div className="space-y-1">
-        <h2 className="text-base font-semibold">Start workflow</h2>
+        <h2 className="text-base font-semibold">Start Workflow</h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     );
@@ -255,7 +255,7 @@ export function StartWorkflowForm({
       )}
 
       <div className="grid gap-2">
-        <Label htmlFor={nameId}>Name (optional)</Label>
+        <Label htmlFor={nameId}>Name (Optional)</Label>
         <Input
           id={nameId}
           autoFocus={autoFocus && fields.length === 0}

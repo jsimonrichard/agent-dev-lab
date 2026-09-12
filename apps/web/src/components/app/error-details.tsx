@@ -42,7 +42,7 @@ export function ErrorDetails({
       </p>
       {formatted.extra ? (
         <JsonPreview
-          title="Error details"
+          title="Error Details"
           value={formatted.extra}
           className="mt-2 max-h-40 border-destructive/20 bg-background/60 text-foreground"
         />

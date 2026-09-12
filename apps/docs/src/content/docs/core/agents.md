@@ -54,7 +54,7 @@ export const researcher = adl.createAgent({
 
 Install a model provider package (e.g. `@ai-sdk/openai`) in your project for `model`.
 
-### Conversation titles
+### Conversation Titles
 
 Optional **`titleWorkflow`** is a workflow that names the conversation after the first successful episode on a new `memoryScope`. It does not run on follow-up turns. The workflow is typed: it receives the transcript and must return `{ title: string }`. Title generation is best-effort — failures do not fail the conversation turn.
 
@@ -95,7 +95,7 @@ Keep the title workflow out of the `adl.config` `workflows` array if you do not 
 
 Title generation uses a re-entrancy guard so a `titleWorkflow` that itself calls `agent.run` does not start another auto-title.
 
-### System prompt
+### System Prompt
 
 Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`system`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
 
@@ -122,7 +122,7 @@ The inspection UI shows the pinned stored prompt when one exists, and overlays t
 
 Volatile turn context belongs in **user** messages, not in the system prompt.
 
-### Structured output
+### Structured Output
 
 | Level         | Field                               | Behavior                                                        |
 | ------------- | ----------------------------------- | --------------------------------------------------------------- |
@@ -131,20 +131,20 @@ Volatile turn context belongs in **user** messages, not in the system prompt.
 
 Implementation uses **`streamText`** with `experimental_output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
 
-### What agents do not carry
+### What Agents Do Not Carry
 
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.
 
-## Calling an agent
+## Calling an Agent
 
 `agent.run` and `agent.stream` share one input shape (`AgentRunInput`) and one `streamText` path. Each call is **one episode**: load a conversation (if any), append this turn, then `streamText` with AI SDK `stopWhen` (default `stepCountIs(20)`).
 
-| API                | Caller sees                           | Runner behavior                                                  |
+| API                | Caller Sees                           | Runner Behavior                                                  |
 | ------------------ | ------------------------------------- | ---------------------------------------------------------------- |
 | **`agent.run`**    | `AgentRunHandle` (`result`, `cancel`) | Drains stream internally; observers still get `agent_text_delta` |
 | **`agent.stream`** | `AgentStreamHandle` with SDK streams  | Exposes `textStream` / `fullStream`; same persistence on finish  |
 
-The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`).
+The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System Prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`).
 
 ```ts
 import type { ModelMessage, ToolProvider, ToolSet } from "@agent-dev-lab/core";
@@ -172,7 +172,7 @@ Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active
 
 `tags` labels this episode. The inspection UI shows them in a **Tags** footer (no run-list filter). Every `agent.run` also records automatic `version:` / `commit:` provenance unless you pass a tag with the same prefix or set `createAdlRuntime({ version: false })`. See [Run tags](/core/workflows/#run-tags).
 
-### Turn input
+### Turn Input
 
 This episode’s new turns come from **`user`** and/or **`messages`**. Both are optional. Together they append onto whatever is already stored for the scope (empty when the scope is new or omitted):
 
@@ -218,7 +218,7 @@ Stray `system` messages in `messages` are dropped before the model call (the age
 
 This is **conversation memory**, not workflow resume. The runner `load`s, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
 
-### Run context
+### Run Context
 
 Optional **`context`** on `agent.run()` forwards to tool `execute` via AI SDK `experimental_context`:
 
@@ -235,7 +235,7 @@ await researcher.run({
 
 `context` is **not** stored in `MessageStore` and is **not** sent to the model unless a tool or workflow copies it into a message.
 
-### Per-run flow
+### Per-Run Flow
 
 1. Resolve `memoryScope` (caller value, or a random id)
 2. `store.load(memoryScope)` (leading pin extracted; stray `system` messages dropped)
@@ -244,7 +244,7 @@ await researcher.run({
 5. **`streamText`** with AI SDK `stopWhen` — forward text deltas and tool call/result events; persist after each step
 6. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the SDK step count)
 
-## Tool calls and persistence
+## Tool Calls and Persistence
 
 ADL persists **only** AI SDK `ModelMessage` lists. `CoreMessage` is still re-exported as the deprecated AI SDK alias. Tool usage round-trips through SDK message shape:
 
@@ -263,7 +263,7 @@ const { text, turns } = await result;
 
 Default `stopWhen` is `stepCountIs(20)`: the SDK continues after tool results until a non-tool finish or the step cap. Override on the agent or the call (`stopWhen: stepCountIs(1)`) when a workflow should drive each model request as its own `ctx.step`. Custom conditions receive `{ steps }` — see [AI SDK loop control](https://ai-sdk.dev/docs/agents/loop-control).
 
-## Agents and workflows as tools
+## Agents and Workflows as Tools
 
 ```ts
 // agents/orchestrator.ts — register tools on an agent that runs inside a workflow

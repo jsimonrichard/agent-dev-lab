@@ -12,8 +12,8 @@ import { formatRunTimestamp, workflowRunLabel } from "@/lib/workflow/workflow-lo
 const RECENT_LIMIT = 6;
 
 const devModeLabel = {
-  "framework-dev": "Framework dev",
-  "project-dev": "Project dev",
+  "framework-dev": "Framework Dev",
+  "project-dev": "Project Dev",
   serve: "Serve",
 } as const;
 
@@ -50,7 +50,7 @@ export function InspectorDashboard() {
               <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <GitBranch className="size-4" />
               </div>
-              <CardTitle className="text-base">Workflow runs</CardTitle>
+              <CardTitle className="text-base">Workflow Runs</CardTitle>
               <CardDescription>
                 Waterfall traces, step output, and per-step agent transcripts.
               </CardDescription>
@@ -114,7 +114,7 @@ export function InspectorDashboard() {
               <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <MessageSquare className="size-4" />
               </div>
-              <CardTitle className="text-base">Agent conversations</CardTitle>
+              <CardTitle className="text-base">Agent Conversations</CardTitle>
               <CardDescription>Recent chats with registered agents.</CardDescription>
             </CardHeader>
             <div className="flex flex-col gap-3 px-6 pb-6">
@@ -178,7 +178,7 @@ export function InspectorDashboard() {
               to="/settings"
               className="rounded-sm text-sm font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
             >
-              Project settings →
+              Project Settings →
             </Link>
           </div>
         </Card>

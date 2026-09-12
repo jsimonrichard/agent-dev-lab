@@ -5,7 +5,7 @@ description: adl.createWorkflow, ctx.step, nesting, keys, step caching, and run 
 
 Workflows are pure TypeScript orchestration: `if` / `for` / `try` / `await` / `Promise.all` — no graph DSL. **Steps** mark observable, retryable units whose outputs are cached on [`WorkflowStore`](/api/interfaces/workflowstore/); nested workflows provide typed, reusable modules.
 
-## Two composition primitives
+## Two Composition Primitives
 
 |              | **`ctx.step`**                                                   | **Nested workflow**                         |
 | ------------ | ---------------------------------------------------------------- | ------------------------------------------- |
@@ -45,7 +45,7 @@ Calling `searchPapers.run` **without** `step` is valid when you do not need an e
 
 To expose an agent as a workflow that takes a **string** user message, use `adl.createWorkflowFromAgent(agent)` (optional `{ id }`; default `${agent.id}-as-workflow`). That is the workflow-shaped counterpart of `adl agent run`.
 
-## Isolated runs
+## Isolated Runs
 
 By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), shares that `workflowRunId`, and records inner steps on the parent's event stream — they show up in that run's inspector tree.
 
@@ -67,7 +67,7 @@ await helper.run(input, { isolated: true }).result;
 
 Conversation [`titleWorkflow`](/core/agents/#conversation-titles) uses this so naming a chat does not inject steps into another workflow's tree.
 
-## Input and output types
+## Input and Output Types
 
 Zod `inputSchema` / `outputSchema` on `createWorkflow` both **validate at runtime** and **infer TypeScript types**. Zod is optional. Pin types with generics (or by annotating `run`) when you do not want a runtime schema:
 
@@ -85,7 +85,7 @@ export const searchPapers = adl.createWorkflow<SearchInput, SearchOutput>({
 
 `workflow.run` then type-checks callers against `SearchInput` and `handle.result` is `Promise<SearchOutput>`. Add Zod later if you want parse/defaults without changing those types.
 
-## Step callback shape
+## Step Callback Shape
 
 ```ts
 await ctx.step("outline", async ({ ctx }) => {
@@ -97,7 +97,7 @@ await ctx.step("outline", async ({ ctx }) => {
 
 Nested workflow `run(input)` accepts the same child `ctx` via ALS when called from inside a parent.
 
-## Step identity
+## Step Identity
 
 | Field              | Meaning                                         |
 | ------------------ | ----------------------------------------------- |
@@ -109,7 +109,7 @@ Nested workflow `run(input)` accepts the same child `ctx` via ALS when called fr
 
 Path segments: `name` when `key` is omitted, or `` `${name}:${key}` `` when keyed.
 
-## Step keys
+## Step Keys
 
 Under a given parent, **`(name, key)`** identifies a logical step slot for the whole run:
 
@@ -136,9 +136,9 @@ for (const topic of topics) {
 
 **Resume** here means **re-entering a workflow run**: skip completed steps via cached output, re-run the rest. That uses [`WorkflowStore`](/api/interfaces/workflowstore/). Inspection replay also reads this store; it does not re-execute the workflow.
 
-[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
+[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
 
-### Steps are atomic retry units
+### Steps Are Atomic Retry Units
 
 A **`ctx.step` callback is one atomic unit** from the framework’s point of view. On retry, ADL can only:
 
@@ -159,7 +159,7 @@ await ctx.step("search", async ({ ctx }) => {
 
 Code **between** steps (top-level `run` body, loops, variables in closure) is **not** persisted. Only step **return values** are stored. Design workflows so retry-relevant state flows through step outputs or explicit inputs, not mutable closure variables alone.
 
-### Step output cache (skip-on-retry)
+### Step Output Cache (Skip-on-Retry)
 
 Return value from the callback is persisted as step **output** on `WorkflowStore` and mirrored in `step_finished` events.
 
@@ -179,7 +179,7 @@ await retry.result;
 
 You can also start a **new** run with the same input (new `workflowRunId`) — that is a fresh execution with no step skip unless you implement your own policy.
 
-### Force a step to re-run
+### Force a Step to Re-Run
 
 Pass `{ force: true }` to ignore cached output for one step:
 
@@ -195,7 +195,7 @@ await ctx.step(
 
 Use this when inputs changed, you need to invalidate a prior success, or you are debugging.
 
-### Agents on retry
+### Agents on Retry
 
 Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). That is **memory** (model sees prior turns), not skipping the model and not restoring the workflow.
 
@@ -243,7 +243,7 @@ handle.cancel();
 
 `workflow.stream(input)` yields live `RunEvent`s via an async iterator while the run executes.
 
-### Run titles
+### Run Titles
 
 `ctx.setTitle(title)` sets the inspector display name for this workflow run. Call it at the start of `run`, after a first step, or just before returning — blank titles are ignored.
 
@@ -258,7 +258,7 @@ export const literatureReview = adl.createWorkflow({
 });
 ```
 
-### Run tags
+### Run Tags
 
 Pass a second argument on `workflow.run` (or `tags` on `agent.run`) to label that invocation. The CLI has no `--tags` flag; the inspection UI start dialog does not collect tags either. The UI still shows whatever was recorded — caller tags plus automatic provenance — in a **Tags** footer on the workflow-run and agent-conversation inspectors. There is no run-list filter.
 
@@ -288,7 +288,7 @@ Every run also records which project code produced it, unless you already passed
 
 OpenTelemetry: one span per `stepId`; parent link = `parentStepId`.
 
-## Templates in workflows
+## Templates in Workflows
 
 Templates are standalone — no `ctx.render`. They use **Handlebars** (`{{var}}`, `{{#each}}`, …) after Zod parse. Define with `adl.createTemplate` in your prompts module:
 

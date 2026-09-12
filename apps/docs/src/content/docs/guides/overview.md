@@ -5,7 +5,7 @@ description: High-level orientation for the Agent Dev Lab docs site.
 
 **Agent Dev Lab** is a TypeScript-first toolkit for authoring AI agents and workflows: a headless core (`@agent-dev-lab/core`), optional sandboxed tools (`@agent-dev-lab/tools`), an inspection UI (`@agent-dev-lab/web`), and a CLI (`adl`).
 
-## What you get
+## What You Get
 
 - **Agents and workflows as plain TypeScript** on top of the [Vercel AI SDK](https://ai-sdk.dev/) (`streamText`, `tool`, `ModelMessage`)
 - **Persisted run events** for waterfalls, SSE tails, and replay (`WorkflowStore` / SQLite)
@@ -19,22 +19,22 @@ description: High-level orientation for the Agent Dev Lab docs site.
 - **AI SDK native** — `ModelMessage`, `streamText`, `tool()` without parallel abstractions.
 - **Colocated prompts** — markdown beside code; templates via Handlebars + Zod (`createTemplate`).
 
-## Documentation map
+## Documentation Map
 
 ### Guides
 
 - [Project Setup](/guides/project-setup/) — the recommended way to start a project (`adl init`)
 - [Manual Setup](/guides/manual-setup/) — adding ADL to an existing project by hand
 - [Inspection UI](/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations, event log
-- [Sandboxed tools](/guides/tools/) — optional `@agent-dev-lab/tools` (file, bash, search, `fetchUrl`)
+- [Sandboxed Tools](/guides/tools/) — optional `@agent-dev-lab/tools` (file, bash, search, `fetchUrl`)
 - [Gotchas](/guides/gotchas/) — sharp edges worth knowing about before they surprise you
 - [Runtime](/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
 - [Agents](/core/agents/) — `adl.createAgent`, [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), memory, `adl agent run`
-- [Tool providers](/core/tool-provider/) — `ToolProvider`, `createToolProvider`, `combineToolProviders`
+- [Tool Providers](/core/tool-provider/) — `ToolProvider`, `createToolProvider`, `combineToolProviders`
 - [Workflows](/core/workflows/) — `adl.createWorkflow`, `ctx.emit`, `createWorkflowFromAgent`
 - [Project Config](/core/project/) — registry, `loadAdlProject`
 
-### API reference
+### API Reference
 
 Generated from `@agent-dev-lab/core`'s own code comments — covers focused APIs that aren't duplicated as guide pages:
 

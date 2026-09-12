@@ -14,7 +14,7 @@ export function MasterSidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className="flex h-svh w-14 shrink-0 flex-col items-center border-r border-border bg-sidebar py-3"
-        aria-label="Inspector mode"
+        aria-label="Inspector Mode"
       >
         <MasterNavItem
           label="Overview"
@@ -32,13 +32,13 @@ export function MasterSidebar() {
             icon={GitBranch}
           />
           <MasterNavItem
-            label="Agent conversations"
+            label="Agent Conversations"
             active={mode === "agents"}
             to="/agent"
             icon={MessageSquare}
           />
           <MasterNavItem
-            label="Event log"
+            label="Event Log"
             active={mode === "events"}
             to="/events"
             icon={ScrollText}
@@ -47,7 +47,7 @@ export function MasterSidebar() {
 
         <div className="mt-auto flex flex-col items-center gap-2">
           <MasterNavItem
-            label="Project settings"
+            label="Project Settings"
             active={mode === "settings"}
             to="/settings"
             icon={Settings2}

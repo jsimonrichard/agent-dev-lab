@@ -7,7 +7,7 @@ An ADL **project** is any directory with `adl.config.*` at its root — that's t
 
 Adding ADL to an _existing_ project instead, or want to know exactly what's required versus just conventional? See [Manual Setup](/guides/manual-setup/).
 
-## Quick start
+## Quick Start
 
 ```bash
 bunx @agent-dev-lab/cli@latest init my-research
@@ -31,7 +31,7 @@ bunx adl dashboard
 - **`adl agent run`** (`adl a r`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` / `-i` is a string, not JSON)
 - **`adl dashboard`** (`adl d`) — [inspection UI](/guides/inspection-ui/). Agent, workflow, and template edits update the live catalog as soon as the process starts (it prints `[adl] watching <root>`); `--serve` / `-s` turns that off. Restart after `.env*` edits.
 
-## What `adl init` gives you
+## What `adl init` Gives You
 
 ```
 my-research/
@@ -57,7 +57,7 @@ my-research/
 
 That's the recommended layout, not a requirement — see [Manual Setup](/guides/manual-setup/) for the minimum ADL actually needs and how the pieces wire together, useful if you're restructuring or adding ADL to an existing project.
 
-### Environment variables
+### Environment Variables
 
 `loadAdlProject()` (and the inspection UI / CLI, which all go through it) loads `.env*` files from the **ADL project root** — the directory that contains `adl.config.*`, not the process cwd.
 
@@ -65,7 +65,7 @@ Direct `#adl` imports (for example `bun run start`) should call `loadAdlEnv()` b
 
 Precedence matches [Next.js](https://nextjs.org/docs/pages/guides/environment-variables) (highest first). Values already set in the process environment are never overwritten:
 
-| File                | When it loads                          |
+| File                | When It Loads                          |
 | ------------------- | -------------------------------------- |
 | `.env.[mode].local` | Always, for that mode                  |
 | `.env.local`        | All modes except `test`                |
@@ -97,6 +97,6 @@ See [Project Config](/core/project/) and [Runtime](/core/runtime/) for API detai
 `adl.createTemplate` renders markdown with **[Handlebars](https://handlebarsjs.com/)** after Zod validates the input.
 Use `{{var}}`, `{{#each}}`, and friends. File templates need `from: import.meta.url` so relative paths resolve.
 
-## Next steps
+## Next Steps
 
 See [Gotchas](/guides/gotchas/) for sharp edges worth knowing about before they surprise you.

@@ -12,13 +12,13 @@ export function RunWorkspaceError({ error, workflowId }: { error: unknown; workf
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
-        <h1 className="text-sm font-semibold">Workflow run</h1>
+        <h1 className="text-sm font-semibold">Workflow Run</h1>
       </header>
       <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto p-6">
         <div className="flex w-full max-w-xl flex-col items-stretch gap-4 pt-8">
           <div className="flex items-center gap-2 text-destructive">
             <CircleAlert className="size-5" />
-            <h2 className="text-base font-semibold">Run failed to load</h2>
+            <h2 className="text-base font-semibold">Run Failed to Load</h2>
           </div>
           <ErrorDetails error={error} />
           <div className="flex flex-wrap gap-2">

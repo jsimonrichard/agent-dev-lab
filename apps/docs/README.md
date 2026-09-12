@@ -11,13 +11,13 @@ bun run dev:docs    # localhost:4321
 bun run build       # includes docs build via Turbo
 ```
 
-## Content split
+## Content Split
 
 | Layer               | Path                                | Role                                                |
 | ------------------- | ----------------------------------- | --------------------------------------------------- |
 | **Guides**          | `src/content/docs/guides/`          | Project setup, inspection UI, orientation           |
-| **Conceptual core** | `src/content/docs/core/`            | Runtime, agents, workflows, project (cross-cutting) |
-| **API reference**   | `src/content/docs/api/` (generated) | TypeDoc from `packages/core` and `packages/tools`   |
+| **Conceptual Core** | `src/content/docs/core/`            | Runtime, agents, workflows, project (cross-cutting) |
+| **API Reference**   | `src/content/docs/api/` (generated) | TypeDoc from `packages/core` and `packages/tools`   |
 
 Smaller single-API docs live as JSDoc on `packages/core` exports to avoid duplicating Starlight pages.
 

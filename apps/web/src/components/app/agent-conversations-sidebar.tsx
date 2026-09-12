@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
-  "framework-dev": "Framework dev",
-  "project-dev": "Project dev",
+  "framework-dev": "Framework Dev",
+  "project-dev": "Project Dev",
   serve: "Serve",
 } as const;
 
@@ -85,11 +85,11 @@ export function AgentConversationsSidebar() {
                 variant="ghost"
                 size="icon"
                 className="size-6"
-                title="New conversation"
+                title="New Conversation"
                 agentId={selectedAgentId}
               >
                 <Plus className="size-3.5" />
-                <span className="sr-only">New conversation</span>
+                <span className="sr-only">New Conversation</span>
               </NewConversationButton>
             </SidebarGroupLabel>
             <SidebarGroupContent>

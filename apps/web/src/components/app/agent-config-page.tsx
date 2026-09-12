@@ -22,13 +22,13 @@ export function AgentDefinitionPage({ agentId }: { agentId: string }) {
       subtitle="No conversation selected. Start a chat or pick one from the sidebar."
       actions={
         <NewConversationButton size="sm" agentId={agent.id}>
-          New conversation
+          New Conversation
         </NewConversationButton>
       }
     >
       <Card className="border-border/40">
         <CardHeader>
-          <CardTitle className="text-base">Agent settings</CardTitle>
+          <CardTitle className="text-base">Agent Settings</CardTitle>
           <CardDescription>Configuration for this agent</CardDescription>
         </CardHeader>
         <CardContent>

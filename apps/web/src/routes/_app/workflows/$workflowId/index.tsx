@@ -16,7 +16,7 @@ function WorkflowDetailPage() {
     return (
       <NotFoundPage
         inAppShell
-        title="Unknown workflow"
+        title="Unknown Workflow"
         description={`No workflow named ${workflowId} is registered in this project.`}
       />
     );

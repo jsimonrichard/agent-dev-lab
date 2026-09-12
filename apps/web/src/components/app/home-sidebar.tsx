@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const devModeLabel = {
-  "framework-dev": "Framework dev",
-  "project-dev": "Project dev",
+  "framework-dev": "Framework Dev",
+  "project-dev": "Project Dev",
   serve: "Serve",
 } as const;
 
@@ -59,18 +59,18 @@ export function HomeSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Agent conversations">
+                <SidebarMenuButton asChild tooltip="Agent Conversations">
                   <Link to="/agent">
                     <MessageSquare className="size-4" />
-                    <span>Agent conversations</span>
+                    <span>Agent Conversations</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Event log">
+                <SidebarMenuButton asChild tooltip="Event Log">
                   <Link to="/events">
                     <ScrollText className="size-4" />
-                    <span>Event log</span>
+                    <span>Event Log</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

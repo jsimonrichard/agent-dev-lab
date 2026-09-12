@@ -46,7 +46,7 @@ export default defineConfig({
             { label: "Project Setup", slug: "guides/project-setup" },
             { label: "Manual Setup", slug: "guides/manual-setup" },
             { label: "Inspection UI", slug: "guides/inspection-ui" },
-            { label: "Sandboxed tools", slug: "guides/tools" },
+            { label: "Sandboxed Tools", slug: "guides/tools" },
             { label: "Gotchas", slug: "guides/gotchas" },
           ],
         },
