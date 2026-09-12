@@ -5,9 +5,13 @@ import { AdlError } from "@agent-dev-lab/core";
 
 /**
  * Read-side bounds for {@link createFileJail}. Writes stay confined to `root`, and when
- * `allowWrite` is set must also land under one of those roots.
+ * `allowWrite` is set must also land under one of those roots (`[]` → nowhere).
  *
- * `allowRead` omitted (`undefined`) is unbounded — any existing path is readable.
+ * **This is the primitive contract**, not the package default. Factories
+ * (`createFileTools`, search, providers) resolve omitted `allowRead` to `[root]` via
+ * {@link import("./tools.ts").resolveFileAllowRead} before calling the jail. Here,
+ * `allowRead` omitted (`undefined`) means unbounded — that is only how
+ * {@link import("../unbounded-allow-read.ts").UNBOUNDED_ALLOW_READ} is encoded.
  * `null` (or `[]`) means nothing can be read. A list is exactly those roots; `root` is
  * not inserted. `denyRead` wins over any allow, including unbounded.
  */
@@ -15,9 +19,10 @@ export interface FileJailOptions {
   allowRead?: string[] | null;
   denyRead?: string[];
   /**
-   * Extra write roots the resolved path must sit under. Omitted — writes only need to
-   * stay inside `root`. When set (e.g. the bash executor's `allowWrite`), a write whose
-   * parent/`realpath` leaf escapes every entry is rejected even if it stays under `root`.
+   * Extra write roots the resolved path must sit under (intersection with `root`).
+   * - Omitted (`undefined`) — writes only need to stay inside `root`.
+   * - `[]` — no writes allowed (fail closed; not the same as omitted).
+   * - A non-empty list — write must land under one of those roots as well as `root`.
    */
   allowWrite?: string[];
 }
@@ -139,7 +144,11 @@ function assertAllowedWrite(
   allowWriteRoots: readonly string[] | undefined,
   requestedPath: string,
 ): void {
-  if (allowWriteRoots === undefined || isWithinAny(candidate, allowWriteRoots)) {
+  // Omitted → no extra bound (root already checked). Empty list → deny every write.
+  if (allowWriteRoots === undefined) {
+    return;
+  }
+  if (isWithinAny(candidate, allowWriteRoots)) {
     return;
   }
   throw new AdlError("INVALID_INPUT", `Path "${requestedPath}" is outside the allowed write roots`);

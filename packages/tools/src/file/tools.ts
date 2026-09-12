@@ -53,12 +53,12 @@ export interface FileToolsOptions {
    * {@link UNBOUNDED_ALLOW_READ} is host-wide. `null` (or `[]`) means nothing can be read.
    * A list is exactly those roots — `root` is not inserted. `denyRead` still wins.
    * Writes (`writeFile` / `editFile`) stay in `root`, and when `allowWrite` is set must
-   * also land under one of those roots.
+   * also land under one of those roots (`[]` denies every write).
    */
   allowRead?: FileAllowRead;
   /**
    * Extra write roots (e.g. the bash executor's `allowWrite`). Omitted — writes only need
-   * to stay inside `root`.
+   * to stay inside `root`. `[]` — no writes allowed. A list — intersection with `root`.
    */
   allowWrite?: string[];
   /** Paths hidden from `readFile`, even when they sit inside `root` or `allowRead`. */

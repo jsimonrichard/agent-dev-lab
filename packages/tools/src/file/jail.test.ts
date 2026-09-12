@@ -213,6 +213,11 @@ describe("createFileJail", () => {
       await expectInvalidInput(jail.resolveForWrite("outside-allow.txt"));
     });
 
+    it("rejects every write when allowWrite is an empty list", async () => {
+      const jail = createFileJail(root, { allowWrite: [] });
+      await expectInvalidInput(jail.resolveForWrite("anywhere.txt"));
+    });
+
     it("allows a write under both root and allowWrite", async () => {
       await mkdir(path.join(root, "only-here"), { recursive: true });
       const jail = createFileJail(root, { allowWrite: [path.join(root, "only-here")] });

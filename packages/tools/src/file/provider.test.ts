@@ -119,6 +119,18 @@ describe("createFileToolProvider", () => {
     expect(first.readFile).not.toBe(second.readFile);
   });
 
+  it("does not treat allowWrite [] as omitted (cache and enforcement)", async () => {
+    const provider = createFileToolProvider({ root });
+    const omitted = await provider.getTools(ctx());
+    const empty = await provider.getTools(ctx({ allowWrite: [] }));
+    expect(omitted.writeFile).not.toBe(empty.writeFile);
+    await expect(
+      empty.writeFile.execute?.({ path: "nope.txt", content: "x" }, toolCallOptions),
+    ).rejects.toThrow(/outside the allowed write roots/);
+    await omitted.writeFile.execute?.({ path: "ok.txt", content: "yes" }, toolCallOptions);
+    expect(await Bun.file(path.join(root, "ok.txt")).text()).toBe("yes");
+  });
+
   it("treats toolProviderContext.allowRead null as nothing-readable, not as omitted", async () => {
     const provider = createFileToolProvider({ root });
     const { describeFileEnv, readFile: readFileTool } = await provider.getTools(

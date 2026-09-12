@@ -82,7 +82,10 @@ export interface FileToolProviderOptions {
    * {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
    */
   allowRead?: FileAllowRead;
-  /** Default extra write roots when a call's context doesn't specify any. */
+  /**
+   * Default extra write roots when a call's context doesn't specify any. Omitted — writes
+   * stay inside `root` only. `[]` — no writes. A list — intersection with `root`.
+   */
   allowWrite?: string[];
   /** Default deny-read paths when a call's context doesn't specify any. */
   denyRead?: string[];
@@ -100,7 +103,10 @@ export interface FileToolProviderContext {
    * omit it). {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
    */
   allowRead?: FileAllowRead;
-  /** Overrides `options.allowWrite` for this call. */
+  /**
+   * Overrides `options.allowWrite` for this call. Omitted keeps the options default
+   * (root-only when both omit). `[]` — no writes.
+   */
   allowWrite?: string[];
   /** Overrides `options.denyRead` for this call. */
   denyRead?: string[];
@@ -141,7 +147,9 @@ function cacheKey(
         : allowRead === null
           ? "none"
           : allowRead.join("\0");
-  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${(allowWrite ?? []).join("\0")}`;
+  // Omitted allowWrite (root-only) must not share a cache slot with [] (no writes).
+  const write = allowWrite === undefined ? "omit" : `list:${allowWrite.join("\0")}`;
+  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}`;
 }
 
 /**

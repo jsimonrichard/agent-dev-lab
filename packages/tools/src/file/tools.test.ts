@@ -156,6 +156,13 @@ describe("createFileTools", () => {
       await writeFileTool.execute?.({ path: "allowed/ok.txt", content: "yes" }, toolCallOptions);
       expect(await readFile(path.join(root, "allowed", "ok.txt"), "utf8")).toBe("yes");
     });
+
+    it("rejects every write when allowWrite is an empty list", async () => {
+      const { writeFile: writeFileTool } = createFileTools({ root, allowWrite: [] });
+      await expect(
+        writeFileTool.execute?.({ path: "nope.txt", content: "x" }, toolCallOptions),
+      ).rejects.toThrow(/outside the allowed write roots/);
+    });
   });
 
   describe("editFile", () => {
