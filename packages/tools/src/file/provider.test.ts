@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
+import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
 import { createFileToolProvider, type FileToolProviderContext } from "./provider";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
@@ -78,18 +79,27 @@ describe("createFileToolProvider", () => {
     expect(first.readFile).not.toBe(second.readFile);
   });
 
-  it("describeFileEnv reports the resolved root/maxReadBytes/maxWriteBytes", async () => {
+  it("describeFileEnv reports the resolved root as allowRead when omitted", async () => {
     const provider = createFileToolProvider({ root, maxReadBytes: 111, maxWriteBytes: 222 });
     const { describeFileEnv } = await provider.getTools(ctx());
     const result = await describeFileEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
       fileAccess: {
         root: path.resolve(root),
-        allowRead: "unbounded",
+        allowRead: [path.resolve(root)],
         denyRead: [],
         maxReadBytes: 111,
         maxWriteBytes: 222,
       },
+    });
+  });
+
+  it("describeFileEnv reports unbounded when constructed with UNBOUNDED_ALLOW_READ", async () => {
+    const provider = createFileToolProvider({ root, allowRead: UNBOUNDED_ALLOW_READ });
+    const { describeFileEnv } = await provider.getTools(ctx());
+    const result = await describeFileEnv.execute?.({}, toolCallOptions);
+    expect(result).toMatchObject({
+      fileAccess: { allowRead: UNBOUNDED_ALLOW_READ, denyRead: [] },
     });
   });
 

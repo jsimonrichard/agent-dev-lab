@@ -17,6 +17,8 @@ import {
   EDIT_FILE_DESCRIPTION,
   READ_FILE_DESCRIPTION,
   WRITE_FILE_DESCRIPTION,
+  resolveFileAllowRead,
+  type FileAllowRead,
   type FileTools,
 } from "./tools";
 
@@ -26,7 +28,7 @@ export interface FileAccessInfo {
   root: string;
   /**
    * Paths `readFile` may read, or {@link UNBOUNDED_ALLOW_READ} when reads are not confined.
-   * Always the resolved default — omitted `allowRead` reports unbounded; `null` reports `[]`.
+   * Always the resolved default — omitted `allowRead` reports `[root]`; `null` reports `[]`.
    */
   allowRead: ModelAllowRead;
   /** Paths hidden from `readFile`. Empty when the caller set none. */
@@ -35,16 +37,22 @@ export interface FileAccessInfo {
   maxWriteBytes: number;
 }
 
+/**
+ * Report the read bound actually in effect after factory resolution.
+ * Pass the factory-level value (including omitted / {@link UNBOUNDED_ALLOW_READ}); this
+ * applies the same `[root]` default `createFileTools` does.
+ */
 export function describeFileAccess(
   root: string,
   maxReadBytes: number,
   maxWriteBytes: number,
-  allowRead?: string[] | null,
+  allowRead?: FileAllowRead,
   denyRead?: readonly string[] | null,
 ): FileAccessInfo {
+  const resolved = resolveFileAllowRead(root, allowRead);
   return {
     root,
-    allowRead: allowRead === undefined ? UNBOUNDED_ALLOW_READ : (allowRead ?? []),
+    allowRead: resolved === undefined ? UNBOUNDED_ALLOW_READ : (resolved ?? []),
     denyRead: denyRead == null ? [] : [...denyRead],
     maxReadBytes,
     maxWriteBytes,
@@ -60,11 +68,20 @@ type DescribeFileEnvInput = z.infer<typeof describeFileEnvInputSchema>;
 /** Reported by `createFileToolProvider`'s `describeFileEnv` tool. */
 export type DescribeFileEnvTool = Tool<DescribeFileEnvInput, { fileAccess: FileAccessInfo }>;
 
+const fileAllowReadSchema = z.union([
+  z.array(z.string()),
+  z.null(),
+  z.literal(UNBOUNDED_ALLOW_READ),
+]);
+
 export interface FileToolProviderOptions {
   /** Default sandbox root when a call's context doesn't specify one. */
   root?: string;
-  /** Default read bound when a call's context doesn't specify one. Omitted means unbounded, `null` means nothing can be read. */
-  allowRead?: string[] | null;
+  /**
+   * Default read bound when a call's context doesn't specify one. Omitted means `[root]`.
+   * {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
+   */
+  allowRead?: FileAllowRead;
   /** Default deny-read paths when a call's context doesn't specify any. */
   denyRead?: string[];
   /** Default read byte cap when a call's context doesn't specify one. */
@@ -76,8 +93,11 @@ export interface FileToolProviderOptions {
 export interface FileToolProviderContext {
   /** Overrides `options.root` for this call. */
   root?: string;
-  /** Overrides `options.allowRead` for this call. Omitted means unbounded, `null` means nothing can be read. */
-  allowRead?: string[] | null;
+  /**
+   * Overrides `options.allowRead` for this call. Omitted means `[root]` (when options also
+   * omit it). {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
+   */
+  allowRead?: FileAllowRead;
   /** Overrides `options.denyRead` for this call. */
   denyRead?: string[];
   /** Overrides `options.maxReadBytes` for this call. */
@@ -105,11 +125,17 @@ function cacheKey(
   root: string,
   maxReadBytes: number,
   maxWriteBytes: number,
-  allowRead: string[] | null | undefined,
+  allowRead: FileAllowRead | undefined,
   denyRead: readonly string[] | undefined,
 ): string {
   const read =
-    allowRead === undefined ? "unbounded" : allowRead === null ? "none" : allowRead.join("\0");
+    allowRead === undefined
+      ? "default-root"
+      : allowRead === UNBOUNDED_ALLOW_READ
+        ? "unbounded"
+        : allowRead === null
+          ? "none"
+          : allowRead.join("\0");
   return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}`;
 }
 
@@ -130,7 +156,7 @@ export function createFileToolProvider(
     contextSchema: z
       .object({
         root: z.string(),
-        allowRead: z.array(z.string()).nullable(),
+        allowRead: fileAllowReadSchema,
         denyRead: z.array(z.string()),
         maxReadBytes: z.number(),
         maxWriteBytes: z.number(),

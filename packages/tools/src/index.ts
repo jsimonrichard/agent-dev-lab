@@ -12,10 +12,12 @@ export {
   createSearchTools,
   DEFAULT_MAX_BYTES,
   describeFileAccess,
+  resolveFileAllowRead,
 } from "./file";
 export type {
   DescribeFileEnvTool,
   FileAccessInfo,
+  FileAllowRead,
   FileJail,
   FileJailOptions,
   FileProviderTools,

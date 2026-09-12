@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { BashExecutor, BashExecutorUpdate } from "../bash/executor.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools.ts";
 import { createFileJail } from "./jail.ts";
+import { resolveFileAllowRead, type FileAllowRead } from "./tools.ts";
 
 /** Also used by `createWorkspaceToolProvider`'s `listTools`. */
 export const GREP_DESCRIPTION =
@@ -20,11 +21,12 @@ export interface SearchToolsOptions {
   /** Directory relative search paths resolve against. */
   root: string;
   /**
-   * Directories `grep`'s `path` may target. Omitted (`undefined`) is unbounded. `null`
+   * Directories `grep`'s `path` may target. Omitted defaults to `[root]`.
+   * {@link import("../bash/provider").UNBOUNDED_ALLOW_READ} is host-wide. `null`
    * (or `[]`) means nothing can be searched. A list is exactly those roots — `root` is
    * not inserted. The executor's own `allowRead` is still the subprocess read boundary.
    */
-  allowRead?: string[] | null;
+  allowRead?: FileAllowRead;
   /** Paths rejected as a `grep` `path`, even when they sit inside `root` or `allowRead`. */
   denyRead?: string[];
   /** Wall-clock timeout per search, in milliseconds. Default 30,000 (30s). */
@@ -69,7 +71,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
     );
   }
   const jail = createFileJail(options.root, {
-    allowRead: options.allowRead,
+    allowRead: resolveFileAllowRead(options.root, options.allowRead),
     denyRead: options.denyRead,
   });
 

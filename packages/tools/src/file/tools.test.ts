@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
+import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
 import { createFileTools } from "./tools";
 
 const toolCallOptions = {
@@ -49,19 +50,36 @@ describe("createFileTools", () => {
       await expect(readFileTool.execute?.({ path: "big.txt" }, toolCallOptions)).rejects.toThrow();
     });
 
-    it("rejects a path that escapes the root when allowRead is the write root", async () => {
-      const { readFile: readFileTool } = createFileTools({ root, allowRead: [root] });
+    it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
+      const { readFile: readFileTool } = createFileTools({ root });
       await expect(
         readFileTool.execute?.({ path: "../outside.txt" }, toolCallOptions),
       ).rejects.toThrow();
     });
 
-    it("reads an absolute path outside the root when allowRead is omitted", async () => {
+    it("rejects an absolute path outside the root when allowRead is omitted", async () => {
       const outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-tools-out-"));
       try {
         const outsideFile = path.join(outsideDir, "out.txt");
         await Bun.write(outsideFile, "out");
         const { readFile: readFileTool } = createFileTools({ root });
+        await expect(
+          readFileTool.execute?.({ path: outsideFile }, toolCallOptions),
+        ).rejects.toThrow();
+      } finally {
+        await rm(outsideDir, { recursive: true, force: true });
+      }
+    });
+
+    it("reads an absolute path outside the root when allowRead is UNBOUNDED_ALLOW_READ", async () => {
+      const outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-tools-out-"));
+      try {
+        const outsideFile = path.join(outsideDir, "out.txt");
+        await Bun.write(outsideFile, "out");
+        const { readFile: readFileTool } = createFileTools({
+          root,
+          allowRead: UNBOUNDED_ALLOW_READ,
+        });
         const result = await readFileTool.execute?.({ path: outsideFile }, toolCallOptions);
         expect(result).toEqual({ content: "out" });
       } finally {

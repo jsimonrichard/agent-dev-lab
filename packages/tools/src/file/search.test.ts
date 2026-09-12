@@ -147,26 +147,26 @@ describe("createSearchTools", () => {
       expect(executor.calls[0]?.argv.join(" ").includes(`rg ${pattern}`)).toBe(false);
     });
 
-    it("rejects a path that escapes the root when allowRead is the write root", async () => {
-      const { grep } = createSearchTools({ executor: stubExecutor(), root, allowRead: [root] });
+    it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
+      const { grep } = createSearchTools({ executor: stubExecutor(), root });
       const result = grep.execute?.({ pattern: "x", path: "../outside" }, toolCallOptions);
       await expectInvalidInput(
         Promise.resolve(result).then((iter) => drain(iter as AsyncIterable<unknown>)),
       );
     });
 
-    it("rejects an absolute path outside allowRead", async () => {
-      const { grep } = createSearchTools({ executor: stubExecutor(), root, allowRead: [root] });
+    it("rejects an absolute path outside the root when allowRead is omitted", async () => {
+      const { grep } = createSearchTools({ executor: stubExecutor(), root });
       const result = grep.execute?.({ pattern: "x", path: "/etc/passwd" }, toolCallOptions);
       await expectInvalidInput(
         Promise.resolve(result).then((iter) => drain(iter as AsyncIterable<unknown>)),
       );
     });
 
-    it("rejects a symlink that points outside the root when allowRead is the write root", async () => {
+    it("rejects a symlink that points outside the root when allowRead is omitted", async () => {
       await writeFile(path.join(outside, "secret.txt"), "needle secret\n");
       await symlink(outside, path.join(root, "link"));
-      const { grep } = createSearchTools({ executor: stubExecutor(), root, allowRead: [root] });
+      const { grep } = createSearchTools({ executor: stubExecutor(), root });
       const result = grep.execute?.(
         { pattern: "needle", path: "link/secret.txt" },
         toolCallOptions,

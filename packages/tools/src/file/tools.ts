@@ -1,8 +1,10 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
 import { createFileJail } from "./jail";
 
 export const DEFAULT_MAX_BYTES = 1_000_000;
@@ -15,6 +17,31 @@ export const EDIT_FILE_DESCRIPTION =
   "Replace one exact occurrence of `find` with `replace` in a text file. Fails if `find` " +
   "isn't unique — add more context.";
 
+/**
+ * Read bound for file/search factories. Omitted at the factory → the write `root`.
+ * {@link UNBOUNDED_ALLOW_READ} opts into host-wide reads. `null` / `[]` allow nothing.
+ * The jail primitive still uses `undefined` for unbounded — factories translate.
+ */
+export type FileAllowRead = string[] | null | typeof UNBOUNDED_ALLOW_READ;
+
+/**
+ * Resolve a factory-level `allowRead` into the jail's sentinel form.
+ * Omitted → `[root]`. {@link UNBOUNDED_ALLOW_READ} → `undefined` (jail unbounded).
+ * `null` / a list pass through.
+ */
+export function resolveFileAllowRead(
+  root: string,
+  allowRead: FileAllowRead | undefined,
+): string[] | null | undefined {
+  if (allowRead === undefined) {
+    return [path.resolve(root)];
+  }
+  if (allowRead === UNBOUNDED_ALLOW_READ) {
+    return undefined;
+  }
+  return allowRead;
+}
+
 export interface FileToolsOptions {
   /**
    * Directory write paths are confined to, and the base for relative read paths.
@@ -22,11 +49,12 @@ export interface FileToolsOptions {
    */
   root: string;
   /**
-   * Directories `readFile` may read. Omitted (`undefined`) is unbounded. `null` (or `[]`)
-   * means nothing can be read. A list is exactly those roots — `root` is not inserted.
-   * `denyRead` still wins. Writes (`writeFile` / `editFile`) stay in `root`.
+   * Directories `readFile` may read. Omitted defaults to `[root]`.
+   * {@link UNBOUNDED_ALLOW_READ} is host-wide. `null` (or `[]`) means nothing can be read.
+   * A list is exactly those roots — `root` is not inserted. `denyRead` still wins.
+   * Writes (`writeFile` / `editFile`) stay in `root`.
    */
-  allowRead?: string[] | null;
+  allowRead?: FileAllowRead;
   /** Paths hidden from `readFile`, even when they sit inside `root` or `allowRead`. */
   denyRead?: string[];
   /** Refuse to read a file over this many bytes. Default 1,000,000 (1 MB). */
@@ -50,8 +78,8 @@ function countOccurrences(haystack: string, needle: string): number {
 
 /**
  * `readFile`/`writeFile`/`editFile` tools jailed to `options.root` for writes, and to
- * `options.allowRead` (omitted = unbounded) for reads. There is **no zero-config unsafe
- * default**: `root` is required.
+ * `options.allowRead` (omitted = `[root]`) for reads. There is **no zero-config unsafe
+ * default**: `root` is required. Pass {@link UNBOUNDED_ALLOW_READ} for host-wide reads.
  *
  * `editFile` is a find/replace, not a diff format: it fails unless `find` appears exactly
  * once in the file, so an ambiguous edit is rejected rather than guessed at.
@@ -70,7 +98,7 @@ export interface FileTools {
 
 export function createFileTools(options: FileToolsOptions): FileTools {
   const jail = createFileJail(options.root, {
-    allowRead: options.allowRead,
+    allowRead: resolveFileAllowRead(options.root, options.allowRead),
     denyRead: options.denyRead,
   });
   const maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_BYTES;

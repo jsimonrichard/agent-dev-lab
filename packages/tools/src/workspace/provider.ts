@@ -16,6 +16,7 @@ import {
   createBashToolProvider,
   describeBashAccess,
   resolveBashExecutorForCall,
+  UNBOUNDED_ALLOW_READ,
   type BashAccessInfo,
   type BashSafetyCheckWorkflow,
   type BashToolProviderContext,
@@ -28,7 +29,7 @@ import {
   GREP_DESCRIPTION,
   type SearchTools,
 } from "../file/search";
-import { DEFAULT_MAX_BYTES, type FileTools } from "../file/tools";
+import { DEFAULT_MAX_BYTES, type FileAllowRead, type FileTools } from "../file/tools";
 import {
   createWebToolProvider,
   describeWebAccess,
@@ -55,16 +56,16 @@ function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
 
 /**
  * File-tool read bound implied by the bash executor actually in effect. Bash reports
- * `null` for unbounded reads; the file jail uses `undefined` for that and `null`/`[]`
- * for nothing. The list is passed through as-is — `cwd` is not inserted.
+ * `null` for unbounded reads; file factories use {@link UNBOUNDED_ALLOW_READ} for that and
+ * omit → `[cwd]`. The list is passed through as-is — `cwd` is not inserted.
  */
 function fileReadPolicyFromExecutor(described: BashExecutorDescription): {
-  allowRead: string[] | null | undefined;
+  allowRead: FileAllowRead | undefined;
   denyRead: string[];
 } {
   const denyRead = described.denyRead ?? [];
   if (described.allowRead === null) {
-    return { allowRead: undefined, denyRead };
+    return { allowRead: UNBOUNDED_ALLOW_READ, denyRead };
   }
   return { allowRead: described.allowRead, denyRead };
 }
