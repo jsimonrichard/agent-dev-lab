@@ -10,7 +10,7 @@ import {
 import path from "node:path";
 import { z } from "zod";
 
-import type { BashExecutor, BashExecutorResult } from "./executor";
+import type { BashExecutor, BashExecutorResult } from "./executor.ts";
 import {
   acquireBashExecutor,
   bashExecutorPoolKeyFor,
@@ -18,7 +18,16 @@ import {
   type BashSandboxBackend,
   type BashSandboxPolicy,
 } from "./executor-pool.ts";
-import { BASH_TOOL_DESCRIPTION, createBashTool, DEFAULT_TIMEOUT_MS, type BashTools } from "./tools";
+import {
+  BASH_TOOL_DESCRIPTION,
+  createBashTool,
+  DEFAULT_TIMEOUT_MS,
+  type BashTools,
+} from "./tools.ts";
+import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
+
+export { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
+export type { ModelAllowRead } from "../unbounded-allow-read.ts";
 
 export const bashSafetyCheckInputSchema = z.object({
   command: z.string(),
@@ -64,16 +73,6 @@ async function runSafetyCheck(
     };
   }
 }
-
-/**
- * Model-facing stand-in for `BashExecutorDescription.allowRead === null` (reads not confined).
- * A string, not `null` or `[]` — those are how the executor contract encodes "omitted" vs
- * "bounded to nothing", which the model should not have to know.
- */
-export const UNBOUNDED_ALLOW_READ = "unbounded" as const;
-
-/** Resolved `allowRead` as `describeBashEnv` reports it. */
-export type ModelAllowRead = string[] | typeof UNBOUNDED_ALLOW_READ;
 
 /** The `describeBashEnv` tool's payload — see `createBashToolProvider`. */
 export interface BashAccessInfo {

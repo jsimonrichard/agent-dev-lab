@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
-import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createFileToolProvider, type FileToolProviderContext } from "./provider";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };

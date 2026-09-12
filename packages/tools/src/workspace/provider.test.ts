@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
-import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 import {
   DEFAULT_FETCH_TIMEOUT_MS,

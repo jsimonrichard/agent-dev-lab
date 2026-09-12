@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createFileTools } from "./tools";
 
 const toolCallOptions = {

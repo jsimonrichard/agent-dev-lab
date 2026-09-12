@@ -23,7 +23,7 @@ export interface SearchToolsOptions {
   root: string;
   /**
    * Directories `grep`'s `path` may target. Omitted defaults to `[root]`.
-   * {@link import("../bash/provider").UNBOUNDED_ALLOW_READ} is host-wide. `null`
+   * {@link import("../unbounded-allow-read").UNBOUNDED_ALLOW_READ} is host-wide. `null`
    * (or `[]`) means nothing can be searched. A list is exactly those roots — `root` is
    * not inserted. The executor's own `allowRead` is still the subprocess read boundary.
    */

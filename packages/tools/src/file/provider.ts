@@ -9,7 +9,7 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../bash/provider";
+import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
 
 import {
   createFileTools,
@@ -20,7 +20,7 @@ import {
   resolveFileAllowRead,
   type FileAllowRead,
   type FileTools,
-} from "./tools";
+} from "./tools.ts";
 
 /** The `describeFileEnv` tool's payload — see `createFileToolProvider`. */
 export interface FileAccessInfo {
