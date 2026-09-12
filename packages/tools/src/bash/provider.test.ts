@@ -7,6 +7,7 @@ import type { BashExecutorDescription } from "./executor";
 import {
   createBashToolProvider,
   describeBashAccess,
+  mergePolicy,
   UNBOUNDED_ALLOW_READ,
   type BashSafetyCheckInput,
   type BashSafetyCheckVerdict,
@@ -84,6 +85,36 @@ async function drain<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   return values;
 }
 
+describe("mergePolicy", () => {
+  it("defaults omitted allowWrite and allowRead to [cwd]", () => {
+    expect(mergePolicy("/sandbox", {}, undefined)).toEqual({
+      allowWrite: ["/sandbox"],
+      allowRead: ["/sandbox"],
+      denyRead: undefined,
+      denyWrite: undefined,
+      allowedDomains: undefined,
+      deniedDomains: undefined,
+      allowNetwork: undefined,
+    });
+  });
+
+  it("keeps an explicit allowWrite when cwd would differ", () => {
+    expect(mergePolicy("/other", { allowWrite: ["/sandbox"] }, undefined).allowWrite).toEqual([
+      "/sandbox",
+    ]);
+    expect(
+      mergePolicy("/other", { allowWrite: ["/sandbox"] }, { allowRead: ["/sandbox"] }).allowWrite,
+    ).toEqual(["/sandbox"]);
+  });
+
+  it("treats null / UNBOUNDED_ALLOW_READ as unbounded", () => {
+    expect(mergePolicy("/sandbox", { allowRead: null }, undefined).allowRead).toBeNull();
+    expect(
+      mergePolicy("/sandbox", { allowRead: UNBOUNDED_ALLOW_READ }, undefined).allowRead,
+    ).toBeNull();
+  });
+});
+
 describe("createBashToolProvider", () => {
   it("uses options.cwd as the default when context sets none", async () => {
     const executor = stubExecutor();
@@ -158,7 +189,7 @@ describe("createBashToolProvider", () => {
       };
     }
 
-    it("maps omitted allowRead (null) to the unbounded default", () => {
+    it("maps executor allowRead null to the unbounded sentinel", () => {
       const access = describeBashAccess(
         executorWith({
           backend: "stub",

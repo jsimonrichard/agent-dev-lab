@@ -52,9 +52,15 @@ export interface FileToolsOptions {
    * Directories `readFile` may read. Omitted defaults to `[root]`.
    * {@link UNBOUNDED_ALLOW_READ} is host-wide. `null` (or `[]`) means nothing can be read.
    * A list is exactly those roots — `root` is not inserted. `denyRead` still wins.
-   * Writes (`writeFile` / `editFile`) stay in `root`.
+   * Writes (`writeFile` / `editFile`) stay in `root`, and when `allowWrite` is set must
+   * also land under one of those roots.
    */
   allowRead?: FileAllowRead;
+  /**
+   * Extra write roots (e.g. the bash executor's `allowWrite`). Omitted — writes only need
+   * to stay inside `root`.
+   */
+  allowWrite?: string[];
   /** Paths hidden from `readFile`, even when they sit inside `root` or `allowRead`. */
   denyRead?: string[];
   /** Refuse to read a file over this many bytes. Default 1,000,000 (1 MB). */
@@ -100,6 +106,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
   const jail = createFileJail(options.root, {
     allowRead: resolveFileAllowRead(options.root, options.allowRead),
     denyRead: options.denyRead,
+    allowWrite: options.allowWrite,
   });
   const maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_BYTES;
   const maxWriteBytes = options.maxWriteBytes ?? DEFAULT_MAX_BYTES;

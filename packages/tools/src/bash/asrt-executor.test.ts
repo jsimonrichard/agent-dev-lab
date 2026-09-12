@@ -84,8 +84,13 @@ async function finalResult(gen: AsyncGenerator<BashExecutorUpdate>): Promise<Bas
 
 describe("createAsrtBashExecutor", () => {
   describe("allowRead", () => {
-    it("reports null when allowRead is omitted, matching ASRT's read-everywhere default", () => {
-      assert.equal(executor.describe().allowRead, null);
+    it("reports allowWrite when allowRead is omitted", () => {
+      assert.deepEqual(executor.describe().allowRead, [allowedDir]);
+    });
+
+    it("reports null when allowRead is explicitly null (unbounded)", () => {
+      const unbounded = asrt({ allowWrite: [allowedDir], allowRead: null });
+      assert.equal(unbounded.describe().allowRead, null);
     });
 
     it("reports the caller's roots, not the widened set handed to ASRT", () => {
@@ -122,6 +127,19 @@ describe("createAsrtBashExecutor", () => {
         });
         const result = await finalResult(
           bounded.run(sh(`cat ${secret}`), { cwd: allowedDir, timeoutMs: 10_000 }),
+        );
+        assert.notEqual(result.exitCode, 0);
+      },
+    );
+
+    it(
+      "defaults omitted allowRead to allowWrite (shared executor cannot read deniedDir)",
+      { timeout: 15_000 },
+      async () => {
+        const secret = path.join(deniedDir, "secret.txt");
+        await writeFile(secret, "classified\n", "utf8");
+        const result = await finalResult(
+          executor.run(sh(`cat ${secret}`), { cwd: allowedDir, timeoutMs: 10_000 }),
         );
         assert.notEqual(result.exitCode, 0);
       },

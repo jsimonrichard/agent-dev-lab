@@ -129,12 +129,36 @@ describe("createNativeBashExecutor", () => {
     });
 
     it(
-      "leaves reads unbounded, and reports null, when allowRead is omitted",
+      "defaults allowRead to allowWrite when omitted",
+      { timeout: 15_000 },
+      async () => {
+        const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
+        const outside = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-out-"));
+        try {
+          await writeFile(path.join(outside, "secret.txt"), "classified\n", "utf8");
+          const executor = createNativeBashExecutor({ allowWrite: [root] });
+          assert.deepEqual(executor.describe().allowRead, [root]);
+          const result = await finalResult(
+            executor.run(sh(`cat ${path.join(outside, "secret.txt")}`), {
+              cwd: root,
+              timeoutMs: 10_000,
+            }),
+          );
+          assert.notEqual(result.exitCode, 0);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+          await rm(outside, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it(
+      "leaves reads unbounded when allowRead is explicitly null",
       { timeout: 15_000 },
       async () => {
         const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
         try {
-          const executor = createNativeBashExecutor({ allowWrite: [root] });
+          const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: null });
           assert.equal(executor.describe().allowRead, null);
           const result = await finalResult(
             executor.run(sh("head -1 /etc/passwd"), { cwd: root, timeoutMs: 10_000 }),

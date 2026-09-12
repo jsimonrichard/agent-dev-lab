@@ -26,6 +26,15 @@ describe("canonicalizeBashSandboxPolicy", () => {
     expect(canonical.allowWrite).toEqual(["/proj/a", "/proj/b"]);
     expect(canonical.denyRead).toEqual(["/proj/y", "/proj/z"]);
     expect(canonical.allowedDomains).toEqual(["a.com", "b.com"]);
+    // Omitted allowRead defaults to the write roots (not host-wide).
+    expect(canonical.allowRead).toEqual(["/proj/a", "/proj/b"]);
+  });
+
+  it("keeps allowRead null when explicitly unbounded", () => {
+    const canonical = canonicalizeBashSandboxPolicy("/proj", {
+      allowWrite: ["sandbox"],
+      allowRead: null,
+    });
     expect(canonical.allowRead).toBeNull();
   });
 });

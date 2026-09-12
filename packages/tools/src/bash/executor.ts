@@ -53,8 +53,9 @@ export interface BashExecutorDescription {
    * at all (the whole host filesystem is visible read-only). `null` rather than `[]` so it
    * cannot be read as "nothing is readable."
    *
-   * `createAsrtBashExecutor` reports `null` when `allowRead` was omitted (ASRT's
-   * read-everywhere default) and the caller's roots when it was set.
+   * Escape-hatch executors report `allowWrite` when `allowRead` was omitted, and `null` only
+   * when the caller passed `null` (host-wide reads). Pooled policy maps omitted
+   * `allowRead` to `[cwd]` before construction.
    *
    * Even when non-`null`, the sandbox still contains the system paths any program needs to
    * execute (`/usr`, `/etc`, the lib directories), so `/etc/passwd` stays readable. The

@@ -58,8 +58,10 @@ describe("pooled createBashToolProvider (ASRT)", () => {
     { timeout: 30_000 },
     async () => {
       await resetBashExecutorPoolForTests();
+      // Explicit allowRead so a cwd change does not rewrite omitted → [cwd] into a new policy.
       const provider = createBashToolProvider({
         allowWrite: [sandboxA],
+        allowRead: [sandboxA],
         cwd: sandboxA,
       });
       const first = await runBash(provider, "echo one", sandboxA, root);
@@ -71,6 +73,28 @@ describe("pooled createBashToolProvider (ASRT)", () => {
       const second = await runBash(provider, "echo two", otherCwd, root);
       assert.equal(second.exitCode, 0);
       assert.equal(bashExecutorPoolSizeForTests(), 1);
+
+      await provider.dispose?.();
+      assert.equal(bashExecutorPoolSizeForTests(), 0);
+    },
+  );
+
+  it(
+    "acquires a second executor when omitted allowRead follows a different cwd",
+    { timeout: 30_000 },
+    async () => {
+      await resetBashExecutorPoolForTests();
+      const provider = createBashToolProvider({
+        allowWrite: [sandboxA],
+        cwd: sandboxA,
+      });
+      await runBash(provider, "echo one", sandboxA, root);
+      assert.equal(bashExecutorPoolSizeForTests(), 1);
+
+      const otherCwd = path.join(sandboxA, "subdir");
+      await mkdir(otherCwd, { recursive: true });
+      await runBash(provider, "echo two", otherCwd, root);
+      assert.equal(bashExecutorPoolSizeForTests(), 2);
 
       await provider.dispose?.();
       assert.equal(bashExecutorPoolSizeForTests(), 0);

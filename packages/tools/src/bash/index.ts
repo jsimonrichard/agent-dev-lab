@@ -31,6 +31,7 @@ export {
   bashSafetyVerdictSchema,
   createBashToolProvider,
   describeBashAccess,
+  mergePolicy,
   resolveBashExecutorForCall,
   UNBOUNDED_ALLOW_READ,
 } from "./provider";

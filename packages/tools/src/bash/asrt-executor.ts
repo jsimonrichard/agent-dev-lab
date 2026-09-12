@@ -26,23 +26,21 @@ export interface AsrtBashExecutorOptions {
   /** Paths to deny read, on top of whatever ASRT denies by default (e.g. `~/.ssh`). */
   denyRead?: string[];
   /**
-   * Confine **reads** to these paths. Omitted — the default — leaves reads unbounded, which
-   * is ASRT's own default ("read access is allowed everywhere").
+   * Confine **reads** to these paths. Omitted — the default — confines reads to
+   * `allowWrite`. Pass `null` for host-wide reads (ASRT's read-everywhere posture).
+   * A list is exactly those roots (plus system/vendor paths required to execute).
    *
-   * ASRT expresses this as deny-then-allow, where `allowRead` re-allows within a denied
-   * region and takes precedence over `denyRead` (the opposite of write). This executor
-   * supplies the broad denial for you — `denyRead: ["/"]` — so the option means the same
-   * thing here as on `createNativeBashExecutor`: reads are confined to these roots, rather
-   * than being a modifier whose effect depends on a `denyRead` the caller had to think to
-   * write. Any `denyRead` you pass is still applied on top, and stays denied even inside an
-   * allowed root when it is the more specific path.
+   * ASRT expresses a bound list as deny-then-allow, where `allowRead` re-allows within a
+   * denied region and takes precedence over `denyRead` (the opposite of write). This
+   * executor supplies the broad denial for you — `denyRead: ["/"]` — when a list is set.
+   * Any `denyRead` you pass is still applied on top.
    *
    * `existingSystemReadPaths()` and ASRT's own package directory are re-allowed
-   * automatically: without the former nothing can execute, and without the latter ASRT's
-   * vendored `apply-seccomp` helper is hidden from the sandbox it is setting up (verified —
-   * the command dies with exit 127 before it starts).
+   * automatically when reads are bounded: without the former nothing can execute, and
+   * without the latter ASRT's vendored `apply-seccomp` helper is hidden from the sandbox
+   * it is setting up (verified — the command dies with exit 127 before it starts).
    */
-  allowRead?: string[];
+  allowRead?: string[] | null;
   denyWrite?: string[];
   /** Domains allowed for network access. Omit/empty (the default) means no network access. */
   allowedDomains?: string[];
@@ -281,7 +279,14 @@ class AsrtSupervisorClient {
  * dies (stdin keepalive). `SandboxManager.reset()` in the host process does not affect it.
  */
 export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashExecutor {
-  const allowRead = options.allowRead?.map((p) => path.resolve(p)) ?? null;
+  const allowWrite = options.allowWrite.map((p) => path.resolve(p));
+  // undefined → allowWrite; null → unbounded; list → that list.
+  const allowRead =
+    options.allowRead === undefined
+      ? allowWrite
+      : options.allowRead === null
+        ? null
+        : options.allowRead.map((p) => path.resolve(p));
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
 
   const config: SandboxRuntimeConfig = {
@@ -290,9 +295,7 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
       deniedDomains: options.deniedDomains ?? [],
     },
     filesystem: {
-      allowWrite: options.allowWrite.map((p) => path.resolve(p)),
-      // Reads are allowed everywhere until something denies them, so bounding them means
-      // denying "/" and carving the roots back out — see `allowRead`'s doc comment.
+      allowWrite,
       denyRead: allowRead === null ? denyRead : ["/", ...denyRead],
       ...(allowRead === null
         ? {}

@@ -239,6 +239,7 @@ export function createWorkspaceToolProvider(
       backend: options.backend,
       defaults: options,
       context: undefined,
+      cwd: options.cwd,
       projectRoot: undefined,
     });
   }
@@ -268,7 +269,7 @@ export function createWorkspaceToolProvider(
       maxReadBytes: z.number(),
       maxWriteBytes: z.number(),
       allowWrite: z.array(z.string()),
-      allowRead: z.array(z.string()),
+      allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]),
       denyRead: z.array(z.string()),
       denyWrite: z.array(z.string()),
       allowedDomains: z.array(z.string()),
@@ -353,6 +354,7 @@ export function createWorkspaceToolProvider(
         backend: options.backend,
         defaults,
         context: bashContext,
+        cwd: options.cwd,
         projectRoot: ctx.projectRoot,
         heldKeys,
       });
@@ -370,6 +372,7 @@ export function createWorkspaceToolProvider(
       const described = executor.describe();
       const { allowRead: fileAllowRead, denyRead: fileDenyRead } =
         fileReadPolicyFromExecutor(described);
+      const fileAllowWrite = described.allowWrite;
 
       const [fileTools, bashTools, webTools] = await Promise.all([
         fileProvider.getTools({
@@ -377,6 +380,7 @@ export function createWorkspaceToolProvider(
           toolProviderContext: {
             root: cwd,
             allowRead: fileAllowRead,
+            allowWrite: fileAllowWrite,
             denyRead: fileDenyRead,
             maxReadBytes,
             maxWriteBytes,

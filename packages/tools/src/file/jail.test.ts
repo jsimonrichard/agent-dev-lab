@@ -199,12 +199,17 @@ describe("createFileJail", () => {
       await expectInvalidInput(jail.resolveForWrite("link.txt"));
     });
 
-    it("resolves an existing leaf symlink that stays inside the root", async () => {
-      await writeFile(path.join(root, "target.txt"), "inside", "utf8");
-      await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveForWrite("link.txt");
-      expect(resolved).toBe(await realpath(path.join(root, "target.txt")));
+    it("rejects a write outside allowWrite even when the path stays under root", async () => {
+      const jail = createFileJail(root, { allowWrite: [path.join(root, "only-here")] });
+      await mkdir(path.join(root, "only-here"), { recursive: true });
+      await expectInvalidInput(jail.resolveForWrite("outside-allow.txt"));
+    });
+
+    it("allows a write under both root and allowWrite", async () => {
+      await mkdir(path.join(root, "only-here"), { recursive: true });
+      const jail = createFileJail(root, { allowWrite: [path.join(root, "only-here")] });
+      const resolved = await jail.resolveForWrite("only-here/ok.txt");
+      expect(resolved).toBe(path.join(await realpath(path.join(root, "only-here")), "ok.txt"));
     });
   });
 });

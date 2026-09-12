@@ -4,7 +4,8 @@ import path from "node:path";
 import { AdlError } from "@agent-dev-lab/core";
 
 /**
- * Read-side bounds for {@link createFileJail}. Writes stay confined to `root` regardless.
+ * Read-side bounds for {@link createFileJail}. Writes stay confined to `root`, and when
+ * `allowWrite` is set must also land under one of those roots.
  *
  * `allowRead` omitted (`undefined`) is unbounded — any existing path is readable.
  * `null` (or `[]`) means nothing can be read. A list is exactly those roots; `root` is
@@ -13,6 +14,12 @@ import { AdlError } from "@agent-dev-lab/core";
 export interface FileJailOptions {
   allowRead?: string[] | null;
   denyRead?: string[];
+  /**
+   * Extra write roots the resolved path must sit under. Omitted — writes only need to
+   * stay inside `root`. When set (e.g. the bash executor's `allowWrite`), a write whose
+   * parent/`realpath` leaf escapes every entry is rejected even if it stays under `root`.
+   */
+  allowWrite?: string[];
 }
 
 /**
@@ -127,6 +134,17 @@ function assertNotDenied(
   }
 }
 
+function assertAllowedWrite(
+  candidate: string,
+  allowWriteRoots: readonly string[] | undefined,
+  requestedPath: string,
+): void {
+  if (allowWriteRoots === undefined || isWithinAny(candidate, allowWriteRoots)) {
+    return;
+  }
+  throw new AdlError("INVALID_INPUT", `Path "${requestedPath}" is outside the allowed write roots`);
+}
+
 async function realpathOrResolve(p: string): Promise<string> {
   try {
     return await realpath(p);
@@ -150,6 +168,10 @@ export function createFileJail(root: string, options?: FileJailOptions): FileJai
   const rawRoot = path.resolve(root);
   const denyRead = (options?.denyRead ?? []).map((p) => path.resolve(p));
   const bound = resolveAllowRead(options?.allowRead);
+  const allowWriteBound =
+    options?.allowWrite === undefined
+      ? undefined
+      : [...new Set(options.allowWrite.map((p) => path.resolve(p)))];
   // Resolved once, lazily, and cached — every call after the first reuses the same promise.
   let realRootPromise: Promise<string> | undefined;
   const getRealRoot = (): Promise<string> => {
@@ -167,11 +189,24 @@ export function createFileJail(root: string, options?: FileJailOptions): FileJai
     denyRootsPromise ??= Promise.all(denyRead.map(realpathOrResolve));
     return denyRootsPromise;
   };
+  let allowWriteRootsPromise: Promise<string[] | undefined> | undefined;
+  const getAllowWriteRoots = (): Promise<string[] | undefined> => {
+    allowWriteRootsPromise ??=
+      allowWriteBound === undefined
+        ? Promise.resolve(undefined)
+        : Promise.all(allowWriteBound.map(realpathOrResolve));
+    return allowWriteRootsPromise;
+  };
 
   async function assertReadableBound(candidate: string, requestedPath: string): Promise<void> {
     const [allowRoots, denyRoots] = await Promise.all([getAllowRoots(), getDenyRoots()]);
     assertNotDenied(candidate, denyRoots, requestedPath);
     assertAllowedRead(candidate, allowRoots, requestedPath);
+  }
+
+  async function assertWritableBound(candidate: string, requestedPath: string): Promise<void> {
+    const allowWriteRoots = await getAllowWriteRoots();
+    assertAllowedWrite(candidate, allowWriteRoots, requestedPath);
   }
 
   return {
@@ -219,9 +254,11 @@ export function createFileJail(root: string, options?: FileJailOptions): FileJai
       try {
         const realLeaf = await realpath(joined);
         assertWithinRoot(realLeaf, realRoot, requestedPath);
+        await assertWritableBound(realLeaf, requestedPath);
         return realLeaf;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          await assertWritableBound(joined, requestedPath);
           return joined;
         }
         throw error;

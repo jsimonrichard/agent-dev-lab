@@ -49,7 +49,7 @@ const coder = adl.createAgent({
 
 `resolveDefaultSandboxRoot()` is `.data/sandbox` under the current working directory, or `ADL_SANDBOX_ROOT` when set. It only resolves a path — create the directory yourself.
 
-Override the working directory per call (host- or workflow-set, never by the model). `cwd` does not spawn a new sandbox process — only policy changes do:
+Override the working directory per call (host- or workflow-set, never by the model). Changing `cwd` relocates relative file paths and the bash working directory; it does **not** replace an explicit `allowWrite` / `allowRead` list. Omitted bash bounds default to `[cwd]` and therefore follow it. File writes must also land under `allowWrite`:
 
 ```ts
 await coder.run({
@@ -95,7 +95,7 @@ Prefer policy on `createBashToolProvider` / `createWorkspaceToolProvider` (poole
 | `createAsrtBashExecutor`   | (same)       | (same)                                                    | Escape hatch when you must own the executor instance.                          |
 | `createNativeBashExecutor` | (same)       | (same)                                                    | Escape hatch for a dedicated native executor.                                  |
 
-`allowWrite` is required — pass `[]` for a sandbox that can run commands but write nowhere. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
+On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`; pass `[]` for a sandbox that can run commands but write nowhere, or `UNBOUNDED_ALLOW_READ` / `null` for host-wide reads. Escape-hatch executors still require `allowWrite` at construction (they have no cwd yet); omitted `allowRead` defaults to `allowWrite`. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
 
 Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
 

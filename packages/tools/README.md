@@ -112,7 +112,7 @@ The tool never picks an unsandboxed fallback. Providers default to the ASRT pool
 | `createAsrtBashExecutor`   | (same)       | (same)                                                    | Escape hatch when you must own the executor instance.                          |
 | `createNativeBashExecutor` | (same)       | (same)                                                    | Escape hatch for a dedicated native executor.                                  |
 
-`allowWrite` is required — pass `[]` for a sandbox that can run commands but write nowhere.
+On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`; pass `[]` for a sandbox that can run commands but write nowhere, or `UNBOUNDED_ALLOW_READ` / `null` for host-wide reads. Escape-hatch executors still require `allowWrite` at construction; omitted `allowRead` defaults to `allowWrite`.
 
 Pooled ASRT supervisors are keyed by project root + policy; call provider `dispose()` (project reload does this for outgoing providers) to release. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
 

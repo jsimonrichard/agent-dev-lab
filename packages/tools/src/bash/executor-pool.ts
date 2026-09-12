@@ -11,7 +11,12 @@ export type BashSandboxBackend = "asrt" | "native";
 /** Isolation policy fields — not `cwd` / timeouts / output caps. */
 export interface BashSandboxPolicy {
   allowWrite: string[];
-  allowRead?: string[];
+  /**
+   * Paths reads are confined to. After provider merge: a list, or `null` for unbounded.
+   * On options/context before merge, omit to default to `[cwd]`; pass `null` or
+   * `"unbounded"` for host-wide reads.
+   */
+  allowRead?: string[] | null | "unbounded";
   denyRead?: string[];
   denyWrite?: string[];
   allowedDomains?: string[];
@@ -76,9 +81,19 @@ export function canonicalizeBashSandboxPolicy(
   policy: BashSandboxPolicy,
 ): CanonicalBashSandboxPolicy {
   const root = path.resolve(projectRoot);
+  const allowWrite = sortedUniqueResolved(root, policy.allowWrite);
+  let allowRead: string[] | null;
+  if (policy.allowRead === null || policy.allowRead === "unbounded") {
+    allowRead = null;
+  } else if (policy.allowRead === undefined) {
+    // Match escape-hatch executors: omitted reads default to the write roots, not host-wide.
+    allowRead = allowWrite;
+  } else {
+    allowRead = sortedUniqueResolved(root, policy.allowRead);
+  }
   return {
-    allowWrite: sortedUniqueResolved(root, policy.allowWrite),
-    allowRead: policy.allowRead === undefined ? null : sortedUniqueResolved(root, policy.allowRead),
+    allowWrite,
+    allowRead,
     denyRead: sortedUniqueResolved(root, policy.denyRead ?? []),
     denyWrite: sortedUniqueResolved(root, policy.denyWrite ?? []),
     allowedDomains: sortedUniqueStrings(policy.allowedDomains ?? []),
@@ -108,7 +123,7 @@ function createPooledExecutor(
     }
     return createAsrtBashExecutor({
       allowWrite: policy.allowWrite,
-      ...(policy.allowRead === null ? {} : { allowRead: policy.allowRead }),
+      allowRead: policy.allowRead,
       denyRead: policy.denyRead,
       denyWrite: policy.denyWrite,
       allowedDomains: policy.allowedDomains,
@@ -130,7 +145,7 @@ function createPooledExecutor(
   }
   return createNativeBashExecutor({
     allowWrite: policy.allowWrite,
-    ...(policy.allowRead === null ? {} : { allowRead: policy.allowRead }),
+    allowRead: policy.allowRead,
     denyRead: policy.denyRead,
     allowNetwork: policy.allowNetwork,
   });

@@ -82,6 +82,8 @@ export interface FileToolProviderOptions {
    * {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
    */
   allowRead?: FileAllowRead;
+  /** Default extra write roots when a call's context doesn't specify any. */
+  allowWrite?: string[];
   /** Default deny-read paths when a call's context doesn't specify any. */
   denyRead?: string[];
   /** Default read byte cap when a call's context doesn't specify one. */
@@ -98,6 +100,8 @@ export interface FileToolProviderContext {
    * omit it). {@link UNBOUNDED_ALLOW_READ} is host-wide; `null` means nothing can be read.
    */
   allowRead?: FileAllowRead;
+  /** Overrides `options.allowWrite` for this call. */
+  allowWrite?: string[];
   /** Overrides `options.denyRead` for this call. */
   denyRead?: string[];
   /** Overrides `options.maxReadBytes` for this call. */
@@ -127,6 +131,7 @@ function cacheKey(
   maxWriteBytes: number,
   allowRead: FileAllowRead | undefined,
   denyRead: readonly string[] | undefined,
+  allowWrite: readonly string[] | undefined,
 ): string {
   const read =
     allowRead === undefined
@@ -136,7 +141,7 @@ function cacheKey(
         : allowRead === null
           ? "none"
           : allowRead.join("\0");
-  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}`;
+  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${(allowWrite ?? []).join("\0")}`;
 }
 
 /**
@@ -157,6 +162,7 @@ export function createFileToolProvider(
       .object({
         root: z.string(),
         allowRead: fileAllowReadSchema,
+        allowWrite: z.array(z.string()),
         denyRead: z.array(z.string()),
         maxReadBytes: z.number(),
         maxWriteBytes: z.number(),
@@ -186,15 +192,24 @@ export function createFileToolProvider(
       const context = ctx.toolProviderContext;
       const allowRead =
         context && Object.hasOwn(context, "allowRead") ? context.allowRead : options.allowRead;
+      const allowWrite = ctx.toolProviderContext?.allowWrite ?? options.allowWrite;
       const denyRead = ctx.toolProviderContext?.denyRead ?? options.denyRead;
 
       const resolvedRoot = path.resolve(root);
-      const key = cacheKey(resolvedRoot, maxReadBytes, maxWriteBytes, allowRead, denyRead);
+      const key = cacheKey(
+        resolvedRoot,
+        maxReadBytes,
+        maxWriteBytes,
+        allowRead,
+        denyRead,
+        allowWrite,
+      );
       let fileTools = cache.get(key);
       if (!fileTools) {
         fileTools = createFileTools({
           root: resolvedRoot,
           allowRead,
+          allowWrite,
           denyRead,
           maxReadBytes,
           maxWriteBytes,

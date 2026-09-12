@@ -19,21 +19,21 @@ export interface NativeBashExecutorOptions {
    * everything else this executor gives by default. */
   denyRead?: string[];
   /**
-   * Confine **reads** to these paths (plus `allowWrite`, plus the system paths below).
-   * Omitted — the default — keeps this executor's historical behaviour of ro-binding all of
-   * `/`, i.e. reads are not bounded at all.
+   * Confine **reads** to these paths (plus system paths below). Omitted — the default —
+   * confines reads to `allowWrite`. Pass `null` for the historical ro-bind of all of `/`
+   * (unbounded reads). A list is bound into the mount namespace.
    *
    * Unlike `denyRead`, which is a deny-list and therefore only ever as complete as its
-   * author, this is an **allow**-list enforced by the kernel: a path outside it is not
+   * author, a list is an **allow**-list enforced by the kernel: a path outside it is not
    * "permission denied" but genuinely *absent* from the mount namespace — `ls` reports
    * `No such file or directory`. That is what makes it suitable as the read boundary for a
    * recursive reader like `rg`, where enumerating everything to deny is hopeless.
    *
-   * {@link SYSTEM_READ_PATHS} stay bound regardless, since nothing can execute without
-   * them; see {@link BashExecutorDescription.allowRead} for what that means for the
-   * guarantee.
+   * {@link SYSTEM_READ_PATHS} stay bound whenever reads are bounded, since nothing can
+   * execute without them; see {@link BashExecutorDescription.allowRead} for what that
+   * means for the guarantee.
    */
-  allowRead?: string[];
+  allowRead?: string[] | null;
   /**
    * Allow network access. Default `false` (matches ASRT's "no network unless explicitly
    * allowed" posture) — but unlike ASRT, this executor can't filter by domain: it's all
@@ -127,7 +127,8 @@ function denyReadArgsFor(resolvedPath: string): string[] {
  * last-one-wins-at-a-path semantics:
  *
  * 1. The read base — either `--ro-bind / /` (the whole host filesystem, read-only, so
- *    ordinary commands just work) when `allowRead` is omitted, or, when it is given, only
+ *    ordinary commands just work) when `allowRead` is `null` (explicit unbounded), or, when
+ *    it is a list (including the omitted-default-to-`allowWrite` case), only
  *    {@link SYSTEM_READ_PATHS}, so everything else is absent from the namespace until a
  *    later bind puts it back.
  * 2. `--dev`/`--proc`/`--tmpfs /tmp` — a fresh `/dev`, `/proc`, and an empty, ephemeral,
@@ -210,7 +211,12 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   }
 
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
-  const allowRead = options.allowRead?.map((p) => path.resolve(p)) ?? null;
+  const allowRead =
+    options.allowRead === undefined
+      ? allowWrite
+      : options.allowRead === null
+        ? null
+        : options.allowRead.map((p) => path.resolve(p));
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
   const allowNetwork = options.allowNetwork ?? false;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;

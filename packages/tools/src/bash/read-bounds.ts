@@ -11,7 +11,18 @@ import { existsSync } from "node:fs";
  * distribution (where `/bin` is a symlink to `usr/bin`) and on one where these are real
  * directories.
  */
-export const SYSTEM_READ_PATHS = ["/usr", "/etc", "/bin", "/sbin", "/lib", "/lib64", "/opt"];
+export const SYSTEM_READ_PATHS = [
+  "/usr",
+  "/etc",
+  "/bin",
+  "/sbin",
+  "/lib",
+  "/lib64",
+  "/opt",
+  // systemd-resolved (and similar) make `/etc/resolv.conf` a symlink into `/run`; without
+  // this bind, a read-bounded sandbox cannot resolve DNS even with network enabled.
+  "/run",
+];
 
 /** {@link SYSTEM_READ_PATHS} filtered to those actually present on this host. */
 export function existingSystemReadPaths(): string[] {

@@ -7,6 +7,7 @@ import {
   type ToolProviderToolSummary,
   type Workflow,
 } from "@agent-dev-lab/core";
+import path from "node:path";
 import { z } from "zod";
 
 import type { BashExecutor, BashExecutorResult } from "./executor";
@@ -108,7 +109,7 @@ function resolvedAllowRead(value: string[] | null | undefined): ModelAllowRead {
 
 /**
  * Resolve {@link BashExecutor.describe} into the values actually in effect, filling omitted
- * policy fields with the same defaults the executors apply (`allowRead` omitted → unbounded
+ * policy fields with the same defaults the executors apply (`allowRead` null → unbounded
  * reads; empty deny/domain lists). The model sees this object — it should not have to apply
  * this package's `null`/`[]`/omitted rules itself.
  */
@@ -202,21 +203,34 @@ function policyFieldsSet(
   return POLICY_KEYS.filter((key) => values[key] !== undefined);
 }
 
-function mergePolicy(
+/**
+ * Merge construct-time defaults with per-call context. Omitted `allowWrite` / `allowRead`
+ * become `[cwd]` — explicit lists (and an explicit `null`/`UNBOUNDED_ALLOW_READ` for
+ * unbounded reads) do not follow a later cwd change.
+ */
+export function mergePolicy(
+  cwd: string,
   defaults: Partial<BashSandboxPolicy>,
   context: Partial<BashSandboxPolicy> | undefined,
 ): BashSandboxPolicy {
-  const allowWrite = context?.allowWrite ?? defaults.allowWrite;
-  if (!allowWrite) {
-    throw new AdlError(
-      "INVALID_INPUT",
-      "createBashToolProvider: no allowWrite given — pass options.allowWrite as a default, or " +
-        "toolProviderContext.allowWrite per call (or pass a pre-built executor).",
-    );
+  const resolvedCwd = path.resolve(cwd);
+  const allowWrite = context?.allowWrite ?? defaults.allowWrite ?? [resolvedCwd];
+  const rawAllowRead = Object.hasOwn(context ?? {}, "allowRead")
+    ? context!.allowRead
+    : Object.hasOwn(defaults, "allowRead")
+      ? defaults.allowRead
+      : undefined;
+  let allowRead: string[] | null;
+  if (rawAllowRead === undefined) {
+    allowRead = [resolvedCwd];
+  } else if (rawAllowRead === null || rawAllowRead === UNBOUNDED_ALLOW_READ) {
+    allowRead = null;
+  } else {
+    allowRead = rawAllowRead;
   }
   return {
     allowWrite,
-    allowRead: context?.allowRead ?? defaults.allowRead,
+    allowRead,
     denyRead: context?.denyRead ?? defaults.denyRead,
     denyWrite: context?.denyWrite ?? defaults.denyWrite,
     allowedDomains: context?.allowedDomains ?? defaults.allowedDomains,
@@ -229,15 +243,13 @@ function mergePolicy(
  * Resolve the {@link BashExecutor} for a bash/workspace getTools call.
  * Escape-hatch `executor` wins only when no policy fields are set on options or context.
  */
-/**
- * Resolve the {@link BashExecutor} for a bash/workspace getTools call.
- * Escape-hatch `executor` wins only when no policy fields are set on options or context.
- */
 export function resolveBashExecutorForCall(options: {
   executor?: BashExecutor;
   backend?: BashSandboxBackend;
   defaults: Partial<BashSandboxPolicy> & Pick<BashToolProviderOptions, "allowWrite">;
-  context: Partial<BashSandboxPolicy> | undefined;
+  context: (Partial<BashSandboxPolicy> & { cwd?: string }) | undefined;
+  /** Working directory used to fill omitted allowWrite/allowRead. Required when pooling. */
+  cwd: string | undefined;
   projectRoot: string | undefined;
   /** Keys this provider instance already holds (dispose will release once each). */
   heldKeys?: ReadonlySet<string>;
@@ -263,7 +275,15 @@ export function resolveBashExecutorForCall(options: {
     return { executor: options.executor };
   }
 
-  const policy = mergePolicy(options.defaults, options.context);
+  const cwd = options.context?.cwd ?? options.cwd;
+  if (!cwd) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      "createBashToolProvider: no cwd given — pass options.cwd as a default, or " +
+        "toolProviderContext.cwd per call (needed to default allowWrite/allowRead).",
+    );
+  }
+  const policy = mergePolicy(cwd, options.defaults, options.context);
   const backend = options.backend ?? "asrt";
   if (!options.projectRoot) {
     throw new AdlError(
@@ -304,6 +324,7 @@ export function createBashToolProvider(
       backend: options.backend,
       defaults: options,
       context: undefined,
+      cwd: options.cwd,
       projectRoot: undefined,
     });
   }
@@ -316,7 +337,7 @@ export function createBashToolProvider(
         cwd: z.string(),
         timeoutMs: z.number(),
         allowWrite: z.array(z.string()),
-        allowRead: z.array(z.string()),
+        allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]),
         denyRead: z.array(z.string()),
         denyWrite: z.array(z.string()),
         allowedDomains: z.array(z.string()),
@@ -347,6 +368,7 @@ export function createBashToolProvider(
         backend: options.backend,
         defaults: options,
         context: ctx.toolProviderContext,
+        cwd: options.cwd,
         projectRoot: ctx.projectRoot,
         heldKeys,
       });

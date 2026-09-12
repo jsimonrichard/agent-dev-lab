@@ -83,7 +83,7 @@ afterEach(async () => {
 
 describe("createWorkspaceToolProvider", () => {
   it("uses one shared cwd for both the file jail root and the bash cwd", async () => {
-    const executor = stubExecutor();
+    const executor = stubExecutor({ allowWrite: [root] });
     const provider = createWorkspaceToolProvider({ executor, cwd: root });
     const { writeFile, bash } = await provider.getTools(ctx());
 
@@ -102,7 +102,7 @@ describe("createWorkspaceToolProvider", () => {
   it("overrides the shared cwd via toolProviderContext for both file and bash tools", async () => {
     const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-workspace-provider-other-"));
     try {
-      const executor = stubExecutor();
+      const executor = stubExecutor({ allowWrite: [otherRoot] });
       const provider = createWorkspaceToolProvider({ executor, cwd: root });
       const { writeFile, bash } = await provider.getTools(ctx({ cwd: otherRoot }));
 
@@ -116,6 +116,20 @@ describe("createWorkspaceToolProvider", () => {
         )) as AsyncIterable<BashExecutorUpdate>,
       );
       expect(executor.calls[0]?.opts.cwd).toBe(otherRoot);
+    } finally {
+      await rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("denies writeFile when cwd changes but allowWrite stays elsewhere", async () => {
+    const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-workspace-provider-other-"));
+    try {
+      const executor = stubExecutor({ allowWrite: [root] });
+      const provider = createWorkspaceToolProvider({ executor, cwd: root });
+      const { writeFile } = await provider.getTools(ctx({ cwd: otherRoot }));
+      await expect(
+        writeFile.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions),
+      ).rejects.toThrow(/outside the allowed write roots/);
     } finally {
       await rm(otherRoot, { recursive: true, force: true });
     }
