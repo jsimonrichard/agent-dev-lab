@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import assert from "node:assert/strict";
+
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { describe, it } from "node:test";
 
 import { createNativeBashExecutor } from "./native-executor.ts";
@@ -149,13 +151,16 @@ describe("createNativeBashExecutor", () => {
     });
 
     it(
-      "leaves reads unbounded when allowRead is explicitly null",
+      "leaves reads unbounded when allowRead is UNBOUNDED_ALLOW_READ",
       { timeout: 15_000 },
       async () => {
         const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowread-"));
         try {
-          const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: null });
-          assert.equal(executor.describe().allowRead, null);
+          const executor = createNativeBashExecutor({
+            allowWrite: [root],
+            allowRead: UNBOUNDED_ALLOW_READ,
+          });
+          assert.equal(executor.describe().allowRead, UNBOUNDED_ALLOW_READ);
           const result = await finalResult(
             executor.run(sh("head -1 /etc/passwd"), { cwd: root, timeoutMs: 10_000 }),
           );

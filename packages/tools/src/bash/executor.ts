@@ -4,6 +4,8 @@
  * A project picks one executor explicitly; a missing prerequisite is a thrown error,
  * never a silent downgrade to a weaker one.
  */
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
+
 export interface BashExecutor {
   /**
    * Yields zero or more `{ done: false, ... }` progress updates while the command is still
@@ -49,19 +51,20 @@ export interface BashExecutorDescription {
   /** Absolute paths writable inside the sandbox. */
   allowWrite: string[];
   /**
-   * Absolute paths reads are confined to, or `null` when this executor is not bounding reads
-   * at all (the whole host filesystem is visible read-only). `null` rather than `[]` so it
-   * cannot be read as "nothing is readable."
+   * Absolute paths reads are confined to, or {@link UNBOUNDED_ALLOW_READ} when this
+   * executor is not bounding reads (host filesystem visible read-only). `[]` means
+   * nothing user-facing is readable (system paths may still be mounted so commands can
+   * execute).
    *
-   * Escape-hatch executors report `allowWrite` when `allowRead` was omitted, and `null` only
-   * when the caller passed `null` (host-wide reads). Pooled policy maps omitted
-   * `allowRead` to `[cwd]` before construction.
+   * Escape-hatch executors report `allowWrite` when `allowRead` was omitted, and
+   * {@link UNBOUNDED_ALLOW_READ} when the caller opted into host-wide reads. Pooled
+   * policy maps omitted `allowRead` to `[cwd]` before construction.
    *
-   * Even when non-`null`, the sandbox still contains the system paths any program needs to
-   * execute (`/usr`, `/etc`, the lib directories), so `/etc/passwd` stays readable. The
-   * guarantee is "no *user* data outside these roots," not "only these roots."
+   * Even when a list is set, the sandbox still contains the system paths any program
+   * needs to execute (`/usr`, `/etc`, the lib directories), so `/etc/passwd` stays readable.
+   * The guarantee is "no *user* data outside these roots," not "only these roots."
    */
-  allowRead: string[] | null;
+  allowRead: string[] | typeof UNBOUNDED_ALLOW_READ;
   /** Absolute paths hidden from reads, on top of the executor's own defaults. */
   denyRead: string[];
   /** Absolute paths denied write access, on top of `allowWrite` not already covering them. */

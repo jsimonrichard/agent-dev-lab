@@ -83,7 +83,7 @@ import { createFileTools } from "@agent-dev-lab/tools";
 const files = createFileTools({ root: cwd });
 ```
 
-Every path is confined to `root` after symlink resolution — writes always, and reads by default (`allowRead` omitted means `[root]`; pass `UNBOUNDED_ALLOW_READ` for host-wide reads). The jail is a userland check, not a kernel boundary.
+Every path is confined to `root` after symlink resolution — writes always, and reads by default (`allowRead` omitted means `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). The jail is a userland check, not a kernel boundary.
 
 `writeFile` requires the parent directory to already exist. `editFile` replaces exactly one occurrence of `find` and fails if the string is missing or not unique.
 
@@ -112,7 +112,7 @@ The tool never picks an unsandboxed fallback. Providers default to the ASRT pool
 | `createAsrtBashExecutor`   | (same)       | (same)                                                    | Escape hatch when you must own the executor instance.                          |
 | `createNativeBashExecutor` | (same)       | (same)                                                    | Escape hatch for a dedicated native executor.                                  |
 
-On providers, omitted `allowWrite` / `allowRead` default to `[cwd]` (not unioned with each other). Pass `allowWrite: []` for a sandbox that can run commands but write nowhere; `allowRead: []` (or `null` on the file jail) allows no reads. Pass `UNBOUNDED_ALLOW_READ` / bash `null` for host-wide reads. Escape-hatch executors still require `allowWrite` at construction and have no cwd — omitted `allowRead` there defaults to `allowWrite`. Sandboxed commands inherit no host environment by default — pass `allowEnv: true` or a name/glob/`RegExp` allowlist.
+On providers, omitted `allowWrite` / `allowRead` default to `[cwd]` (not unioned with each other). Pass `allowWrite: []` for a sandbox that can run commands but write nowhere; `allowRead: []` or `null` allows no reads. Pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads. Escape-hatch executors still require `allowWrite` at construction and have no cwd — omitted `allowRead` there defaults to `allowWrite`. Sandboxed commands inherit no host environment by default — pass `allowEnv: true` or a name/glob/`RegExp` allowlist.
 
 Pooled ASRT supervisors are keyed by project root + policy; call provider `dispose()` (project reload does this for outgoing providers) to release. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
 

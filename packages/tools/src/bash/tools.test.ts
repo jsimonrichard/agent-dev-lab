@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import type {
   BashExecutor,
   BashExecutorResult,
@@ -33,7 +34,7 @@ function stubExecutor(
       return {
         backend: "stub",
         allowWrite: [],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },

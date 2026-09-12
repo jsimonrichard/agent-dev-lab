@@ -8,7 +8,7 @@ import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 /**
  * Read bound for the file jail and file/search factories. Omitted → `[root]`.
- * {@link UNBOUNDED_ALLOW_READ} opts into host-wide reads. `null` / `[]` allow nothing.
+ * {@link UNBOUNDED_ALLOW_READ} (`"**"`) opts into host-wide reads. `null` / `[]` allow nothing.
  */
 export type FileAllowRead = string[] | null | typeof UNBOUNDED_ALLOW_READ;
 
@@ -23,10 +23,9 @@ export function resolveFileAllowRead(
   const resolved = resolveAllowReadList({
     anchor: root,
     allowRead,
-    nullMeans: "deny-all",
   });
   // Jail uses `undefined` for unbounded; `null`/`[]` both mean nothing readable.
-  return resolved === null ? undefined : resolved;
+  return resolved === UNBOUNDED_ALLOW_READ ? undefined : resolved;
 }
 
 /**

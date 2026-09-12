@@ -46,37 +46,24 @@ describe("resolveAllowWriteList", () => {
 
 describe("resolveAllowReadList", () => {
   it("defaults omitted to [anchor]", () => {
-    expect(
-      resolveAllowReadList({ anchor: "/cwd", allowRead: undefined, nullMeans: "unbounded" }),
-    ).toEqual(["/cwd"]);
+    expect(resolveAllowReadList({ anchor: "/cwd", allowRead: undefined })).toEqual(["/cwd"]);
   });
 
   it("keeps [] as deny-all", () => {
-    expect(resolveAllowReadList({ anchor: "/cwd", allowRead: [], nullMeans: "unbounded" })).toEqual(
-      [],
-    );
+    expect(resolveAllowReadList({ anchor: "/cwd", allowRead: [] })).toEqual([]);
   });
 
-  it("treats UNBOUNDED_ALLOW_READ as unbounded", () => {
+  it("treats null as deny-all", () => {
+    expect(resolveAllowReadList({ anchor: "/cwd", allowRead: null })).toEqual([]);
+  });
+
+  it("treats UNBOUNDED_ALLOW_READ (**) as unbounded", () => {
     expect(
       resolveAllowReadList({
         anchor: "/cwd",
         allowRead: UNBOUNDED_ALLOW_READ,
-        nullMeans: "deny-all",
       }),
-    ).toBeNull();
-  });
-
-  it("treats null as unbounded when nullMeans is unbounded", () => {
-    expect(
-      resolveAllowReadList({ anchor: "/cwd", allowRead: null, nullMeans: "unbounded" }),
-    ).toBeNull();
-  });
-
-  it("treats null as deny-all when nullMeans is deny-all", () => {
-    expect(
-      resolveAllowReadList({ anchor: "/cwd", allowRead: null, nullMeans: "deny-all" }),
-    ).toEqual([]);
+    ).toBe(UNBOUNDED_ALLOW_READ);
   });
 
   it("does not union an explicit list with anything else", () => {
@@ -84,7 +71,6 @@ describe("resolveAllowReadList", () => {
       resolveAllowReadList({
         anchor: "/cwd",
         allowRead: ["/only"],
-        nullMeans: "unbounded",
       }),
     ).toEqual(["/only"]);
   });

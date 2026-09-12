@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
 
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { resolveAllowEnv, type AllowEnv } from "./allow-env.ts";
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
@@ -23,9 +24,9 @@ export interface NativeBashExecutorOptions {
   /**
    * Confine **reads** to these paths (plus system paths below). Omitted — escape-hatch
    * default — confines reads to `allowWrite` (executors have no cwd). Providers fill
-   * omitted reads with `[cwd]` via `mergePolicy` before pooling. Pass `null` for the
-   * historical ro-bind of all of `/` (unbounded reads). A list is bound into the mount
-   * namespace.
+   * omitted reads with `[cwd]` via `mergePolicy` before pooling. Pass
+   * {@link UNBOUNDED_ALLOW_READ} for host-wide reads (`--ro-bind / /`). `null` / `[]`
+   * mean no user read roots (system paths still mounted so commands can run).
    *
    * Unlike `denyRead`, which is a deny-list and therefore only ever as complete as its
    * author, a list is an **allow**-list enforced by the kernel: a path outside it is not
@@ -37,7 +38,7 @@ export interface NativeBashExecutorOptions {
    * execute without them; see {@link BashExecutorDescription.allowRead} for what that
    * means for the guarantee.
    */
-  allowRead?: string[] | null;
+  allowRead?: string[] | null | typeof UNBOUNDED_ALLOW_READ;
   /**
    * Allow network access. Default `false` (matches ASRT's "no network unless explicitly
    * allowed" posture) — but unlike ASRT, this executor can't filter by domain: it's all
@@ -87,7 +88,7 @@ function denyReadArgsFor(resolvedPath: string): string[] {
  * last-one-wins-at-a-path semantics:
  *
  * 1. The read base — either `--ro-bind / /` (the whole host filesystem, read-only, so
- *    ordinary commands just work) when `allowRead` is `null` (explicit unbounded), or, when
+ *    ordinary commands just work) when `allowRead` is {@link UNBOUNDED_ALLOW_READ}, or, when
  *    it is a list (including the omitted-default-to-`allowWrite` case), only
  *    {@link SYSTEM_READ_PATHS}, so everything else is absent from the namespace until a
  *    later bind puts it back.
@@ -112,13 +113,13 @@ function buildBwrapArgv(
   commandArgv: readonly string[],
   cwd: string,
   allowWrite: string[],
-  allowRead: string[] | null,
+  allowRead: string[] | typeof UNBOUNDED_ALLOW_READ,
   denyRead: string[],
   allowNetwork: boolean,
   sandboxEnv: Readonly<Record<string, string>>,
 ): string[] {
   const argv = [bwrapPath];
-  if (allowRead === null) {
+  if (allowRead === UNBOUNDED_ALLOW_READ) {
     argv.push("--ro-bind", "/", "/");
   } else {
     for (const p of existingSystemReadPaths()) {
@@ -126,8 +127,10 @@ function buildBwrapArgv(
     }
   }
   argv.push("--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp");
-  for (const p of allowRead ?? []) {
-    argv.push("--ro-bind", p, p);
+  if (allowRead !== UNBOUNDED_ALLOW_READ) {
+    for (const p of allowRead) {
+      argv.push("--ro-bind", p, p);
+    }
   }
   for (const p of allowWrite) {
     argv.push("--bind", p, p);
@@ -196,12 +199,15 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
   // Omitted allowRead → allowWrite. Providers always pass a concrete list (`[cwd]` by
   // default) via mergePolicy; this fallback is for escape-hatch construction only (no cwd).
-  const allowRead =
+  // null → deny-all ([]). UNBOUNDED_ALLOW_READ → host-wide.
+  const allowRead: string[] | typeof UNBOUNDED_ALLOW_READ =
     options.allowRead === undefined
       ? allowWrite
-      : options.allowRead === null
-        ? null
-        : options.allowRead.map((p) => path.resolve(p));
+      : options.allowRead === UNBOUNDED_ALLOW_READ
+        ? UNBOUNDED_ALLOW_READ
+        : options.allowRead === null
+          ? []
+          : options.allowRead.map((p) => path.resolve(p));
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
   const allowNetwork = options.allowNetwork ?? false;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;

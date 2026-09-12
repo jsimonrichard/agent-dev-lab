@@ -11,6 +11,7 @@ import type { BashExecutor, BashExecutorUpdate } from "../executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES } from "../process-channel.ts";
 import { existingSystemReadPaths } from "../read-bounds.ts";
 import { resolveCommandOnPath } from "../resolve-command.ts";
+import { UNBOUNDED_ALLOW_READ } from "../../unbounded-allow-read.ts";
 import {
   attachNdjsonReader,
   writeNdjson,
@@ -30,8 +31,8 @@ export interface AsrtBashExecutorOptions {
   /**
    * Confine **reads** to these paths. Omitted — escape-hatch default — confines reads to
    * `allowWrite` (executors have no cwd). Providers fill omitted reads with `[cwd]` via
-   * `mergePolicy` before pooling. Pass `null` for host-wide reads (ASRT's read-everywhere
-   * posture). A list is exactly those roots (plus system/vendor paths required to execute).
+   * `mergePolicy` before pooling. Pass {@link UNBOUNDED_ALLOW_READ} for host-wide reads
+   * (ASRT's read-everywhere posture). `null` / `[]` mean no user read roots.
    *
    * ASRT expresses a bound list as deny-then-allow, where `allowRead` re-allows within a
    * denied region and takes precedence over `denyRead` (the opposite of write). This
@@ -43,7 +44,7 @@ export interface AsrtBashExecutorOptions {
    * without the latter ASRT's vendored `apply-seccomp` helper is hidden from the sandbox
    * it is setting up (verified — the command dies with exit 127 before it starts).
    */
-  allowRead?: string[] | null;
+  allowRead?: string[] | null | typeof UNBOUNDED_ALLOW_READ;
   denyWrite?: string[];
   /** Domains allowed for network access. Omit/empty (the default) means no network access. */
   allowedDomains?: string[];
@@ -295,12 +296,15 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
   // Omitted allowRead → allowWrite. Providers pass a concrete list (`[cwd]` by default)
   // via mergePolicy; this fallback is for escape-hatch construction only (no cwd).
-  const allowRead =
+  // null → deny-all ([]). UNBOUNDED_ALLOW_READ → host-wide.
+  const allowRead: string[] | typeof UNBOUNDED_ALLOW_READ =
     options.allowRead === undefined
       ? allowWrite
-      : options.allowRead === null
-        ? null
-        : options.allowRead.map((p) => path.resolve(p));
+      : options.allowRead === UNBOUNDED_ALLOW_READ
+        ? UNBOUNDED_ALLOW_READ
+        : options.allowRead === null
+          ? []
+          : options.allowRead.map((p) => path.resolve(p));
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
 
   const config: SandboxRuntimeConfig = {
@@ -310,8 +314,8 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     },
     filesystem: {
       allowWrite,
-      denyRead: allowRead === null ? denyRead : ["/", ...denyRead],
-      ...(allowRead === null
+      denyRead: allowRead === UNBOUNDED_ALLOW_READ ? denyRead : ["/", ...denyRead],
+      ...(allowRead === UNBOUNDED_ALLOW_READ
         ? {}
         : { allowRead: [...allowRead, asrtPackageDir(), ...existingSystemReadPaths()] }),
       denyWrite: (options.denyWrite ?? []).map((p) => path.resolve(p)),

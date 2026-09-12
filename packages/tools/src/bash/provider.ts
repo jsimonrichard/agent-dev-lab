@@ -103,15 +103,15 @@ function resolvedPathList(value: readonly string[] | null | undefined): string[]
   return value == null ? [] : [...value];
 }
 
-function resolvedAllowRead(value: string[] | null | undefined): ModelAllowRead {
-  return value == null ? UNBOUNDED_ALLOW_READ : value;
+function resolvedAllowRead(value: string[] | typeof UNBOUNDED_ALLOW_READ): ModelAllowRead {
+  return value;
 }
 
 /**
  * Resolve {@link BashExecutor.describe} into the values actually in effect, filling omitted
- * policy fields with the same defaults the executors apply (`allowRead` null → unbounded
- * reads; empty deny/domain lists). The model sees this object — it should not have to apply
- * this package's `null`/`[]`/omitted rules itself.
+ * policy fields with the same defaults the executors apply. {@link UNBOUNDED_ALLOW_READ}
+ * means host-wide reads; `[]` means nothing readable. The model sees this object — it
+ * should not have to apply this package's `null`/`[]`/omitted rules itself.
  */
 export function describeBashAccess(
   executor: BashExecutor,
@@ -207,8 +207,8 @@ function policyFieldsSet(
 /**
  * Merge construct-time defaults with per-call context. Omitted `allowWrite` / `allowRead`
  * become `[cwd]` via {@link resolveAllowWriteList} / {@link resolveAllowReadList} — explicit
- * lists (and an explicit `null`/`UNBOUNDED_ALLOW_READ` for unbounded reads) do not follow a
- * later cwd change. `allowRead` is not unioned with `allowWrite`.
+ * lists (and {@link UNBOUNDED_ALLOW_READ} for host-wide reads) do not follow a later cwd
+ * change. `null` / `[]` mean no reads. `allowRead` is not unioned with `allowWrite`.
  */
 export function mergePolicy(
   cwd: string,
@@ -228,8 +228,7 @@ export function mergePolicy(
       : undefined;
   const allowRead = resolveAllowReadList({
     anchor: resolvedCwd,
-    allowRead: rawAllowRead === "unbounded" ? UNBOUNDED_ALLOW_READ : rawAllowRead,
-    nullMeans: "unbounded",
+    allowRead: rawAllowRead,
   });
   return {
     allowWrite,

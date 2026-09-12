@@ -56,17 +56,14 @@ function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
 
 /**
  * File-tool read bound implied by the bash executor actually in effect. Bash reports
- * `null` for unbounded reads; file factories use {@link UNBOUNDED_ALLOW_READ} for that and
- * omit → `[cwd]`. The list is passed through as-is — `cwd` is not inserted.
+ * {@link UNBOUNDED_ALLOW_READ} for host-wide reads; file factories use the same sentinel
+ * and omit → `[cwd]`. The list is passed through as-is — `cwd` is not inserted.
  */
 function fileReadPolicyFromExecutor(described: BashExecutorDescription): {
   allowRead: FileAllowRead | undefined;
   denyRead: string[];
 } {
   const denyRead = described.denyRead ?? [];
-  if (described.allowRead === null) {
-    return { allowRead: UNBOUNDED_ALLOW_READ, denyRead };
-  }
   return { allowRead: described.allowRead, denyRead };
 }
 

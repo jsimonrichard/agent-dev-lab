@@ -8,6 +8,7 @@ import { after, describe, it } from "node:test";
 
 import { SandboxManager } from "@anthropic-ai/sandbox-runtime";
 
+import { UNBOUNDED_ALLOW_READ } from "../../unbounded-allow-read.ts";
 import { createAsrtBashExecutor } from "./executor.ts";
 import type { AsrtBashExecutorOptions } from "./executor.ts";
 import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "../executor.ts";
@@ -88,9 +89,9 @@ describe("createAsrtBashExecutor", () => {
       assert.deepEqual(executor.describe().allowRead, [allowedDir]);
     });
 
-    it("reports null when allowRead is explicitly null (unbounded)", () => {
-      const unbounded = asrt({ allowWrite: [allowedDir], allowRead: null });
-      assert.equal(unbounded.describe().allowRead, null);
+    it("reports UNBOUNDED_ALLOW_READ when allowRead is host-wide", () => {
+      const unbounded = asrt({ allowWrite: [allowedDir], allowRead: UNBOUNDED_ALLOW_READ });
+      assert.equal(unbounded.describe().allowRead, UNBOUNDED_ALLOW_READ);
     });
 
     it("reports the caller's roots, not the widened set handed to ASRT", () => {

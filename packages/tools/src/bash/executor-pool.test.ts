@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import { AdlError } from "@agent-dev-lab/core";
 
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import {
   acquireBashExecutor,
   bashExecutorPoolMapForTests,
@@ -31,12 +32,20 @@ describe("canonicalizeBashSandboxPolicy", () => {
     expect(canonical.allowEnv).toEqual([]);
   });
 
-  it("keeps allowRead null when explicitly unbounded", () => {
+  it("keeps UNBOUNDED_ALLOW_READ when explicitly unbounded", () => {
+    const canonical = canonicalizeBashSandboxPolicy("/proj", {
+      allowWrite: ["sandbox"],
+      allowRead: UNBOUNDED_ALLOW_READ,
+    });
+    expect(canonical.allowRead).toBe(UNBOUNDED_ALLOW_READ);
+  });
+
+  it("maps allowRead null to deny-all", () => {
     const canonical = canonicalizeBashSandboxPolicy("/proj", {
       allowWrite: ["sandbox"],
       allowRead: null,
     });
-    expect(canonical.allowRead).toBeNull();
+    expect(canonical.allowRead).toEqual([]);
   });
 
   it("canonicalizes allowEnv for the pool key", () => {
@@ -115,7 +124,7 @@ describe("createBashToolProvider pooled vs executor", () => {
           describe: () => ({
             backend: "stub",
             allowWrite: [],
-            allowRead: null,
+            allowRead: UNBOUNDED_ALLOW_READ,
             denyRead: [],
             denyWrite: [],
             network: { allowNetwork: false },

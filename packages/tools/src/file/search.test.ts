@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { isAdlError } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createSearchTools, globArgv, grepArgv } from "./search";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
@@ -31,7 +32,7 @@ function stubExecutor(): BashExecutor & {
       return {
         backend: "stub",
         allowWrite: [],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },

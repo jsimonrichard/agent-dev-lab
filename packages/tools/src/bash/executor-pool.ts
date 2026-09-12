@@ -6,6 +6,7 @@ import { createAsrtBashExecutor } from "./asrt/executor.ts";
 import { canonicalizeAllowEnv, type AllowEnv, type CanonicalAllowEnv } from "./allow-env.ts";
 import type { BashExecutor } from "./executor.ts";
 import { createNativeBashExecutor } from "./native-executor.ts";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 export type BashSandboxBackend = "asrt" | "native";
 
@@ -13,11 +14,11 @@ export type BashSandboxBackend = "asrt" | "native";
 export interface BashSandboxPolicy {
   allowWrite: string[];
   /**
-   * Paths reads are confined to. After provider merge: a list, or `null` for unbounded.
-   * On options/context before merge, omit to default to `[cwd]`; pass `null` or
-   * `"unbounded"` for host-wide reads.
+   * Paths reads are confined to. After provider merge: a list, {@link UNBOUNDED_ALLOW_READ}
+   * for host-wide, or `null`/`[]` for nothing readable. On options/context before merge,
+   * omit to default to `[cwd]`.
    */
-  allowRead?: string[] | null | "unbounded";
+  allowRead?: string[] | null | typeof UNBOUNDED_ALLOW_READ;
   denyRead?: string[];
   denyWrite?: string[];
   allowedDomains?: string[];
@@ -32,7 +33,7 @@ export interface BashSandboxPolicy {
 
 export interface CanonicalBashSandboxPolicy {
   allowWrite: string[];
-  allowRead: string[] | null;
+  allowRead: string[] | typeof UNBOUNDED_ALLOW_READ;
   denyRead: string[];
   denyWrite: string[];
   allowedDomains: string[];
@@ -88,13 +89,15 @@ export function canonicalizeBashSandboxPolicy(
 ): CanonicalBashSandboxPolicy {
   const root = path.resolve(projectRoot);
   const allowWrite = sortedUniqueResolved(root, policy.allowWrite);
-  let allowRead: string[] | null;
-  if (policy.allowRead === null || policy.allowRead === "unbounded") {
-    allowRead = null;
+  let allowRead: string[] | typeof UNBOUNDED_ALLOW_READ;
+  if (policy.allowRead === UNBOUNDED_ALLOW_READ) {
+    allowRead = UNBOUNDED_ALLOW_READ;
   } else if (policy.allowRead === undefined) {
     // Escape hatch / incomplete policy: no cwd here. Providers fill omitted reads with
     // `[cwd]` in mergePolicy before acquire — this branch is for direct pool/executor use.
     allowRead = allowWrite;
+  } else if (policy.allowRead === null) {
+    allowRead = [];
   } else {
     allowRead = sortedUniqueResolved(root, policy.allowRead);
   }

@@ -5,10 +5,13 @@ import { AdlError } from "@agent-dev-lab/core";
 import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
 
 /**
- * Raw `allowRead` before resolution. `"unbounded"` / {@link UNBOUNDED_ALLOW_READ} and
- * bash `null` mean host-wide once `nullMeans` is `"unbounded"`.
+ * Raw `allowRead` before resolution. {@link UNBOUNDED_ALLOW_READ} (`"**"`) is host-wide.
+ * `null` / `[]` mean nothing readable. Omitted defaults to `[anchor]`.
  */
 export type AllowReadInput = string[] | null | typeof UNBOUNDED_ALLOW_READ | undefined;
+
+/** Resolved read bound: a root list (`[]` = deny all) or {@link UNBOUNDED_ALLOW_READ}. */
+export type ResolvedAllowRead = string[] | typeof UNBOUNDED_ALLOW_READ;
 
 function uniqueResolved(paths: readonly string[]): string[] {
   return [...new Set(paths.map((p) => path.resolve(p)))];
@@ -44,10 +47,8 @@ export function resolveAllowWriteList(options: {
  * Resolve `allowRead` against an anchor (bash cwd / file jail root).
  *
  * - Omitted → `[anchor]`
- * - `[]` → deny all reads
- * - `UNBOUNDED_ALLOW_READ` → unbounded (`null`)
- * - `null` → unbounded when `nullMeans: "unbounded"` (bash); deny-all when
- *   `nullMeans: "deny-all"` (file jail)
+ * - `null` / `[]` → `[]` (deny all)
+ * - {@link UNBOUNDED_ALLOW_READ} → host-wide
  * - Explicit list → that list only (not unioned with `allowWrite`)
  *
  * Escape-hatch bash executors have no anchor at construct time and do **not** call this
@@ -57,17 +58,16 @@ export function resolveAllowWriteList(options: {
 export function resolveAllowReadList(options: {
   anchor: string;
   allowRead: AllowReadInput;
-  nullMeans: "unbounded" | "deny-all";
-}): string[] | null {
-  const { anchor, allowRead, nullMeans } = options;
+}): ResolvedAllowRead {
+  const { anchor, allowRead } = options;
   if (allowRead === UNBOUNDED_ALLOW_READ) {
-    return null;
-  }
-  if (allowRead === null) {
-    return nullMeans === "unbounded" ? null : [];
+    return UNBOUNDED_ALLOW_READ;
   }
   if (allowRead === undefined) {
     return [path.resolve(anchor)];
+  }
+  if (allowRead === null) {
+    return [];
   }
   return uniqueResolved(allowRead);
 }

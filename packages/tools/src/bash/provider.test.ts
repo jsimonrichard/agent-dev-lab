@@ -51,7 +51,7 @@ function stubExecutor(
       return {
         backend: "stub",
         allowWrite: ["/allowed"],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: ["/denied"],
         denyWrite: [],
         network: { allowNetwork: false },
@@ -114,11 +114,11 @@ describe("mergePolicy", () => {
     expect(merged.allowRead).toEqual(["/new-cwd"]);
   });
 
-  it("treats null / UNBOUNDED_ALLOW_READ as unbounded", () => {
-    expect(mergePolicy("/sandbox", { allowRead: null }, undefined).allowRead).toBeNull();
-    expect(
-      mergePolicy("/sandbox", { allowRead: UNBOUNDED_ALLOW_READ }, undefined).allowRead,
-    ).toBeNull();
+  it("treats null as deny-all and UNBOUNDED_ALLOW_READ as unbounded", () => {
+    expect(mergePolicy("/sandbox", { allowRead: null }, undefined).allowRead).toEqual([]);
+    expect(mergePolicy("/sandbox", { allowRead: UNBOUNDED_ALLOW_READ }, undefined).allowRead).toBe(
+      UNBOUNDED_ALLOW_READ,
+    );
   });
 });
 
@@ -196,12 +196,12 @@ describe("createBashToolProvider", () => {
       };
     }
 
-    it("maps executor allowRead null to the unbounded sentinel", () => {
+    it("passes through executor UNBOUNDED_ALLOW_READ", () => {
       const access = describeBashAccess(
         executorWith({
           backend: "stub",
           allowWrite: ["/w"],
-          allowRead: null,
+          allowRead: UNBOUNDED_ALLOW_READ,
           denyRead: [],
           denyWrite: [],
           network: { allowNetwork: false },

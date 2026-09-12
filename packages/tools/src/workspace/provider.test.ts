@@ -52,7 +52,7 @@ function stubExecutor(
       return {
         backend: "stub",
         allowWrite: ["/allowed"],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },
