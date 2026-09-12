@@ -221,6 +221,68 @@ describe("AgentImpl titleWorkflow", () => {
   });
 });
 
+describe("AgentImpl first-turn persist", () => {
+  it("stores the user row before the model is invoked so a refresh cannot see an empty scope", async () => {
+    let storedWhenModelStarted: ModelMessage[] | undefined;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            storedWhenModelStarted = await adl.services.stores.message.load("notes");
+            return {
+              stream: convertArrayToReadableStream([
+                { type: "stream-start", warnings: [] },
+                { type: "text-start", id: "text-1" },
+                { type: "text-delta", id: "text-1", delta: "briefing" },
+                { type: "text-end", id: "text-1" },
+                {
+                  type: "finish",
+                  finishReason: "stop",
+                  usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                },
+              ]),
+            };
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    await agent.run({ memoryScope: "notes", user: "Hello" }).result;
+
+    expect(storedWhenModelStarted?.some((message) => flattenText(message) === "Hello")).toBe(true);
+    const stored = await adl.services.stores.message.load("notes");
+    expect(
+      stored.some((message) => message.role === "user" && flattenText(message) === "Hello"),
+    ).toBe(true);
+  });
+
+  it("keeps the stored user row after title generation", async () => {
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const titleWorkflow = adl.createWorkflow<ConversationTitleInput, ConversationTitleOutput>({
+      id: "conversation-title",
+      run: async () => ({ title: "Hello thread" }),
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+      titleWorkflow,
+    });
+
+    await agent.run({ memoryScope: "notes", user: "Hello" }).result;
+
+    const stored = await adl.services.stores.message.load("notes");
+    expect(
+      stored.some((message) => message.role === "user" && flattenText(message) === "Hello"),
+    ).toBe(true);
+  });
+});
+
 describe("AgentImpl shared memoryScope commits", () => {
   it("records transcript length after each episode so inspectors can slice history", async () => {
     const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });

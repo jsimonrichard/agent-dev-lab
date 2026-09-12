@@ -104,4 +104,18 @@ describe("reconcileFetchedMessages", () => {
 
     expect(reconcileFetchedMessages(fetched, local)[0]?.id).toBe("pending-1");
   });
+
+  it("keeps the first optimistic user row when the refresh snapshot is still empty", async () => {
+    const { reconcileFetchedMessages } = await import("./chat-messages");
+    const local = [
+      {
+        id: "pending-1",
+        role: "user" as const,
+        content: "Hi",
+        parts: [{ type: "text" as const, text: "Hi" }],
+      },
+    ];
+
+    expect(reconcileFetchedMessages([], local)).toEqual(local);
+  });
 });

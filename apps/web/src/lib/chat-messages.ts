@@ -102,6 +102,9 @@ export function reconcileFetchedMessages(
   fetched: InspectorMessage[],
   local: InspectorMessage[],
 ): InspectorMessage[] {
+  if (fetched.length < local.length) {
+    return local;
+  }
   const pendingUsers = local.filter(
     (message) => message.role === "user" && message.id.startsWith("pending-"),
   );

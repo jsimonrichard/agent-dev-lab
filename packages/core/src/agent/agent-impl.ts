@@ -276,6 +276,23 @@ export class AgentImpl<
             storedSystemPrompt ??
             (isNewConversation && currentSystemPrompt.trim() ? currentSystemPrompt : null);
 
+          const persistTranscript = async (conversationMessages: ModelMessage[]) => {
+            const persistedMessages = pinnedSystem
+              ? withStoredSystemPrompt(pinnedSystem, conversationMessages, {
+                  agentId: storedAgentId ?? this.definition.id,
+                })
+              : conversationMessages;
+            await messageStore.save(memoryScope, persistedMessages);
+            lastPersisted = persistedMessages;
+            return persistedMessages;
+          };
+
+          // Persist the user turn before the model runs so a title/SSE refresh
+          // cannot observe an empty scope and wipe the first transcript row.
+          if (turnMessages.length > 0) {
+            await persistTranscript(messages);
+          }
+
           const persistResponseMessages = async (responseMessages: ModelMessage[]) => {
             const stepMessages = responseMessages.slice(committedFromResponse);
             committedFromResponse = responseMessages.length;
@@ -283,16 +300,10 @@ export class AgentImpl<
               responseMessages.length > 0 ? [...initialMessages, ...responseMessages] : messages;
             const persistedMessages =
               responseMessages.length > 0
-                ? pinnedSystem
-                  ? withStoredSystemPrompt(pinnedSystem, conversationMessages, {
-                      agentId: storedAgentId ?? this.definition.id,
-                    })
-                  : conversationMessages
+                ? await persistTranscript(conversationMessages)
                 : lastPersisted;
 
             if (responseMessages.length > 0) {
-              await messageStore.save(memoryScope, persistedMessages);
-              lastPersisted = persistedMessages;
               allNewMessages = responseMessages;
               messages = conversationMessages;
             }
