@@ -1,5 +1,21 @@
 # @agent-dev-lab/core
 
+## 0.0.4
+
+### Patch Changes
+
+- 801309c: Conversation metadata and agent episodes are now first-class store types. **Breaking:** `adl_inspector_sessions` → `adl_conversation_metadata`, `adl_workflow_events` → `adl_run_events` (existing DBs renamed on open). Adds `adl_agent_episodes`, `conversation_forked`, and `listEvents({ memoryScope })`.
+- bcf5603: `LoadedAdlProject.getAgent()` is typed as `AnyAgent`, matching `AdlProjectConfig.agents`.
+- 76c6bde: Add run tags: `workflow.run(input, { tags })` and `agent.run({ tags })` record them, `WorkflowStore.listRuns({ tags })` filters by any-of match, and `setRunTags` replaces a workflow run's tags. The inspection UI shows them in inspector footers.
+- 801309c: `workflow.run()` and `agent.run()` now tag provenance as `version:<value>` from `AdlRuntimeConfig.version`, or `commit:<id>` from jj/git (`+dirty` when the tree is dirty). A matching call-site tag wins; `version: false` skips tagging (`createTestRuntime` defaults to that).
+- e01a47f: Streaming tools now emit `preliminary: true` on intermediate `AgentToolResultEvent`s. `createAsyncChannel` is a public export for bridging push sources into an `AsyncIterable`.
+- 84247b6: Add optional `ToolProvider.dispose?()` (project reload/unload) and `onRunEnd?()` (per agent episode), plus `agentCallId` and `projectRoot` on the tool-provider envelope. `LoadedAdlProject` attaches `project.root` and disposes outgoing registry providers after a successful reload.
+- bcf5603: Add `ToolProvider` (`{ getTools(ctx) }`) so tools can depend on runtime context. `AgentDefinition.tools` and `AgentRunInput.tools` accept a `ToolSet` or provider; `createToolProvider` wraps a function and `combineToolProviders` merges named sources with namespaced context. Optional `listTools()` and `contextSchema` are introspection-only.
+- 801309c: `watchAdlProject` now uses chokidar and returns `{ ready, close }` instead of a dispose function (**breaking**). The inspection UI watches in the same process as `/api`; the Vite reload plugin and `/api/project/reload` are gone.
+- 851f524: `adl dashboard` now watches the project registry. `--serve` disables watching (`ADL_PROJECT_WATCH=0`); `--prebuilt` forces the Nitro UI in the monorepo.
+- bcf5603: Rename workflow `input`/`output` to `inputSchema`/`outputSchema` (**breaking**). Update `adl.createWorkflow({ input, output })` to `{ inputSchema, outputSchema }`.
+- 8d85d21: Bump `zod` to `^4.1.8`. Projects still on Zod 3 for their own schemas need to upgrade alongside this release.
+
 ## 0.0.3
 
 ### Patch Changes
