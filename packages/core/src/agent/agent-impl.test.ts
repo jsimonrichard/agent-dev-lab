@@ -983,6 +983,132 @@ describe("ToolProvider-owned context validation", () => {
   });
 });
 
+describe("AgentImpl onRunEnd", () => {
+  it("calls onRunEnd after a successful turn with the same agentCallId getTools saw", async () => {
+    const ends: string[] = [];
+    let getToolsCallId: string | undefined;
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("ok") },
+      projectRoot: "/tmp/adl-project",
+    });
+    const agent = adl.createAgent({
+      id: "on-run-end-ok",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider({
+        getTools: (ctx) => {
+          getToolsCallId = ctx.agentCallId;
+          expect(ctx.projectRoot).toBe("/tmp/adl-project");
+          return {};
+        },
+        onRunEnd: (ctx) => {
+          ends.push(ctx.agentCallId);
+        },
+      }),
+    });
+
+    const handle = agent.run({ memoryScope: "notes", user: "hi" });
+    await handle.result;
+    expect(ends).toEqual([handle.agentCallId]);
+    expect(getToolsCallId).toBe(handle.agentCallId);
+  });
+
+  it("calls onRunEnd after a failed turn and prefers the turn error", async () => {
+    const ends: string[] = [];
+    // No model → turn fails before streamText; onRunEnd must still run.
+    const adl = createTestRuntime({});
+    const agent = adl.createAgent({
+      id: "on-run-end-fail",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider({
+        getTools: () => ({}),
+        onRunEnd: () => {
+          ends.push("ended");
+        },
+      }),
+    });
+
+    await expect(agent.run({ memoryScope: "notes", user: "hi" }).result).rejects.toMatchObject({
+      code: "MISSING_MODEL",
+    });
+    expect(ends).toEqual(["ended"]);
+  });
+
+  it("calls onRunEnd on both definition and per-call input tools", async () => {
+    const ends: string[] = [];
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "on-run-end-both",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider({
+        getTools: () => ({}),
+        onRunEnd: () => {
+          ends.push("definition");
+        },
+      }),
+    });
+
+    await agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      tools: createToolProvider({
+        getTools: () => ({}),
+        onRunEnd: () => {
+          ends.push("input");
+        },
+      }),
+    }).result;
+    expect(ends).toEqual(["definition", "input"]);
+  });
+
+  it("rejects the run when onRunEnd fails after a successful turn", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "on-run-end-throws",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider({
+        getTools: () => ({}),
+        onRunEnd: () => {
+          throw new Error("cleanup failed");
+        },
+      }),
+    });
+
+    await expect(agent.run({ memoryScope: "notes", user: "hi" }).result).rejects.toThrow(
+      "cleanup failed",
+    );
+  });
+
+  it("still runs sibling onRunEnd when one throws after success", async () => {
+    const ends: string[] = [];
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "on-run-end-siblings",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider({
+        getTools: () => ({}),
+        onRunEnd: () => {
+          ends.push("definition");
+          throw new Error("definition cleanup failed");
+        },
+      }),
+    });
+
+    await expect(
+      agent.run({
+        memoryScope: "notes",
+        user: "hi",
+        tools: createToolProvider({
+          getTools: () => ({}),
+          onRunEnd: () => {
+            ends.push("input");
+          },
+        }),
+      }).result,
+    ).rejects.toThrow("definition cleanup failed");
+    expect(ends.sort()).toEqual(["definition", "input"]);
+  });
+});
+
 describe("AgentImpl run tags", () => {
   it("records caller tags plus the configured version on agent_started", async () => {
     const adl = createTestRuntime({

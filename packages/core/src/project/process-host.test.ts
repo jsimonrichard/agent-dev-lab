@@ -96,8 +96,8 @@ export default {
   return { root, writeAgent };
 }
 
-afterEach(() => {
-  resetAdlProjectProcessHost();
+afterEach(async () => {
+  await resetAdlProjectProcessHost();
 });
 
 describe("adl project process host", () => {

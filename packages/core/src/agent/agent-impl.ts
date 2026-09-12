@@ -13,7 +13,8 @@ import type { RuntimeServices } from "../runtime/types";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import type { ToolProvider } from "../tools/provider";
-import { resolveAgentTools } from "../tools/resolve-agent-tools";
+import { invokeToolProviderOnRunEnd } from "../tools/provider";
+import { buildToolProviderContext, resolveAgentTools } from "../tools/resolve-agent-tools";
 import {
   formatSystemPromptConflictWarning,
   inspectSystemPrompt,
@@ -179,6 +180,17 @@ export class AgentImpl<
           tags: withProjectVersionTag(input.tags, this.services.version),
         });
 
+        const toolCtx = buildToolProviderContext({
+          agentId: this.definition.id,
+          agentCallId,
+          memoryScope,
+          projectRoot: this.services.projectRoot,
+          toolProviderContext: input.toolProviderContext,
+          ...(workflowRunId ? { workflow: { workflowRunId, stepId } } : {}),
+        });
+
+        let turnError: unknown;
+        let turnResult: AgentRunResult<Tools, TOutput> | undefined;
         try {
           throwIfAborted(abortSignal);
           const storedMessages = await messageStore.load(memoryScope);
@@ -246,8 +258,10 @@ export class AgentImpl<
 
           const { tools, toolProviderContext } = await resolveAgentTools({
             agentId: this.definition.id,
+            agentCallId,
             definitionTools: this.definition.tools,
             memoryScope,
+            projectRoot: this.services.projectRoot,
             runtimeTools: this.services.tools,
             inputTools: input.tools,
             toolProviderContext: input.toolProviderContext,
@@ -414,7 +428,7 @@ export class AgentImpl<
             agentId: this.definition.id,
           });
 
-          return {
+          turnResult = {
             text: lastText,
             output: lastOutput,
             messages,
@@ -424,6 +438,7 @@ export class AgentImpl<
             sdk: lastSdk,
           };
         } catch (error) {
+          turnError = abortSignal.aborted ? abortError(abortSignal) : error;
           await runRecorder.emit({
             type: "agent_failed",
             agentCallId,
@@ -432,11 +447,25 @@ export class AgentImpl<
             agentId: this.definition.id,
             error: serializeError(error),
           });
-          if (abortSignal.aborted) {
-            throw abortError(abortSignal);
+        } finally {
+          try {
+            await invokeToolProviderOnRunEnd([this.definition.tools, input.tools], toolCtx);
+          } catch (onRunEndError) {
+            // Prefer the turn's own failure; surface onRunEnd only when the turn succeeded.
+            if (turnError === undefined) {
+              turnError = onRunEndError;
+            }
           }
-          throw error;
         }
+        if (turnError !== undefined) {
+          throw turnError;
+        }
+        if (turnResult === undefined) {
+          throw new Error(
+            `Agent "${this.id}" finished without a result or error (invariant broken).`,
+          );
+        }
+        return turnResult;
       },
     );
   }

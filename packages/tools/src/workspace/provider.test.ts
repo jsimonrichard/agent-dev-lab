@@ -21,7 +21,12 @@ const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 function ctx(
   toolProviderContext?: WorkspaceToolProviderContext,
 ): ExtendedToolProviderContext<WorkspaceToolProviderContext | undefined> {
-  return { agentId: "test-agent", memoryScope: "test-scope", toolProviderContext };
+  return {
+    agentId: "test-agent",
+    agentCallId: "call-1",
+    memoryScope: "test-scope",
+    toolProviderContext,
+  };
 }
 
 function stubExecutor(): BashExecutor & {

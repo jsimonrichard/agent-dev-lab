@@ -7,6 +7,7 @@ import type { ExtendedToolProviderContext } from "./provider";
 
 const ctx: ExtendedToolProviderContext = {
   agentId: "researcher",
+  agentCallId: "call-1",
   memoryScope: "notes",
 };
 
@@ -99,6 +100,7 @@ describe("combineToolProviders", () => {
     // check it contextually against the combined provider's namespaced context type.
     const resolved = await resolveToolSource(combined, {
       agentId: "researcher",
+      agentCallId: "call-1",
       memoryScope: "notes",
       toolProviderContext: {},
     });
@@ -121,6 +123,7 @@ describe("combineToolProviders", () => {
 
     await resolveToolSource(combined, {
       agentId: "researcher",
+      agentCallId: "call-1",
       memoryScope: "notes",
       toolProviderContext: {},
     });
@@ -265,6 +268,7 @@ describe("createToolProvider", () => {
     // TS can check it contextually against `ExtendedToolProviderContext<SandboxContext | undefined>`.
     const resolved = await resolveToolSource(provider, {
       agentId: "researcher",
+      agentCallId: "call-1",
       memoryScope: "notes",
     });
 
@@ -297,5 +301,92 @@ describe("createToolProvider", () => {
       // @ts-expect-error -- wrongSchema's input ({ apiKey }) doesn't match SandboxContext ({ root })
       contextSchema: wrongSchema,
     });
+  });
+});
+
+describe("ToolProvider.dispose and onRunEnd", () => {
+  it("forwards dispose and onRunEnd from createToolProvider", async () => {
+    const ends: string[] = [];
+    const provider = createToolProvider({
+      getTools: () => ({ lookup }),
+      onRunEnd: (providerCtx) => {
+        ends.push(`end:${providerCtx.agentCallId}`);
+      },
+      dispose: () => {
+        ends.push("dispose");
+      },
+    });
+
+    await provider.onRunEnd?.(ctx);
+    await provider.dispose?.();
+    expect(ends).toEqual(["end:call-1", "dispose"]);
+  });
+
+  it("forwards dispose and onRunEnd through combineToolProviders", async () => {
+    const ends: string[] = [];
+    const a = createToolProvider({
+      getTools: () => ({ lookup }),
+      onRunEnd: () => {
+        ends.push("a-end");
+      },
+      dispose: () => {
+        ends.push("a-dispose");
+      },
+    });
+    const b = createToolProvider({
+      getTools: () => ({
+        other: tool({
+          description: "other",
+          inputSchema: z.object({}),
+          execute: async () => "ok",
+        }),
+      }),
+      onRunEnd: () => {
+        ends.push("b-end");
+      },
+      dispose: () => {
+        ends.push("b-dispose");
+      },
+    });
+    const combined = combineToolProviders({ a, b });
+
+    await combined.onRunEnd?.({ ...ctx, toolProviderContext: {} });
+    await combined.dispose?.();
+    expect(ends.slice(0, 2).sort()).toEqual(["a-end", "b-end"]);
+    expect(ends.slice(2).sort()).toEqual(["a-dispose", "b-dispose"]);
+  });
+
+  it("still runs sibling dispose/onRunEnd when one throws", async () => {
+    const ends: string[] = [];
+    const combined = combineToolProviders({
+      a: createToolProvider({
+        getTools: () => ({ lookup }),
+        onRunEnd: () => {
+          ends.push("a");
+          throw new Error("a failed");
+        },
+        dispose: () => {
+          ends.push("a-dispose");
+          throw new Error("a dispose failed");
+        },
+      }),
+      b: createToolProvider({
+        getTools: () => ({ lookup }),
+        onRunEnd: () => {
+          ends.push("b");
+        },
+        dispose: () => {
+          ends.push("b-dispose");
+        },
+      }),
+    });
+
+    await expect(combined.onRunEnd?.({ ...ctx, toolProviderContext: {} })).rejects.toThrow(
+      "a failed",
+    );
+    expect(ends.sort()).toEqual(["a", "b"]);
+    ends.length = 0;
+    await expect(combined.dispose?.()).rejects.toThrow("a dispose failed");
+    expect(ends.sort()).toEqual(["a-dispose", "b-dispose"]);
   });
 });

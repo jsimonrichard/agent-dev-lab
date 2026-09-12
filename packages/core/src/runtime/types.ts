@@ -75,6 +75,12 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
    */
   version?: string | false;
   /**
+   * Absolute ADL project root attached to {@link RuntimeServices.projectRoot} and forwarded
+   * on the tool-provider envelope. Prefer letting {@link LoadedAdlProject} overwrite this
+   * from `project.root`. Set explicitly only for tests that never load a project.
+   */
+  projectRoot?: string;
+  /**
    * Load `.env*` into `process.env` when constructing the runtime.
    * Defaults to `true` (project root = `process.cwd()`). Pass `false` to skip,
    * or `{ root }` when the ADL project is not the cwd.
@@ -100,6 +106,12 @@ export type RuntimeServices = {
   telemetry?: AdlOpenTelemetrySettings;
   /** See {@link AdlRuntimeConfig.version}. */
   version?: string | false;
+  /**
+   * Absolute ADL project root when known. Copied onto {@link ExtendedToolProviderContext}
+   * for every `getTools` / `onRunEnd` call. {@link LoadedAdlProject} overwrites this with
+   * `project.root` on load and after a successful reload.
+   */
+  projectRoot?: string;
 };
 
 /**

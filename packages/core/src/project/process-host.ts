@@ -58,6 +58,7 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   if (host.project && path.resolve(host.project.root) === resolved) {
     return host.project;
   }
+  const previous = host.project;
   host.watchDispose?.();
   host.watchDispose = undefined;
   host.watchedRoot = undefined;
@@ -66,6 +67,9 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   host.inspectorListedAgentIds = new Set();
   host.inspectorEventLog = undefined;
   host.inspectorEventLogHydrated = false;
+  if (previous) {
+    await previous.dispose();
+  }
   host.project = await loadAdlProject({ root: resolved });
   return host.project;
 }
@@ -227,12 +231,13 @@ export function markInspectorEventLogHydrated(): boolean {
 }
 
 /** Drop watchers and the cached project. For tests only. */
-export function resetAdlProjectProcessHost(): void {
+export async function resetAdlProjectProcessHost(): Promise<void> {
   const host = getHost();
   host.watchDispose?.();
   host.watchDispose = undefined;
   host.watchedRoot = undefined;
   host.watchReady = undefined;
+  const previous = host.project;
   host.project = undefined;
   host.listeners = {};
   host.reloadSubscribers.clear();
@@ -240,4 +245,7 @@ export function resetAdlProjectProcessHost(): void {
   host.inspectorListedAgentIds = new Set();
   host.inspectorEventLog = undefined;
   host.inspectorEventLogHydrated = false;
+  if (previous) {
+    await previous.dispose();
+  }
 }

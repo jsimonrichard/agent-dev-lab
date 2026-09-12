@@ -43,6 +43,7 @@ export {
 } from "./agent";
 export { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from "./result";
 export type { Err, Ok, Result } from "./result";
+export type { MaybePromise } from "./maybe-promise";
 export type {
   Agent,
   AnyAgent,
@@ -178,7 +179,11 @@ export {
   createToolFromAgent,
   createToolFromWorkflow,
   createToolProvider,
+  disposeToolProviders,
+  invokeToolProviderOnRunEnd,
+  isToolProvider,
   resolveToolSource,
+  settleProviderHooks,
 } from "./tools";
 export type {
   CreateToolFromAgentOptions,

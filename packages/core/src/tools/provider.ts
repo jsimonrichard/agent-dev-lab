@@ -2,6 +2,7 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 
 import type { AgentWorkflowScope } from "../agent/types";
+import type { MaybePromise } from "../maybe-promise";
 
 /**
  * `{ toolProviderContext?: T }` when `undefined` is a valid `T` (including the default
@@ -28,10 +29,19 @@ export type ToolProviderContextField<ToolProviderContext> = undefined extends To
  * framework never parses or validates it. A provider that wants Zod validation/defaults calls
  * `.parse()` itself as the first line of `getTools` (see {@link createToolProvider}'s doc
  * comment for the recipe).
+ *
+ * `agentCallId` is the id of this `agent.run` / `agent.stream` episode (not the conversation).
+ * `projectRoot` is the ADL project directory when the runtime was loaded via
+ * {@link LoadedAdlProject} (or set explicitly on `createAdlRuntime`); omitted for bare
+ * runtimes that never attached one.
  */
 export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
   agentId: string;
+  /** Stable id for this agent episode — one per `agent.run` / `agent.stream` call. */
+  agentCallId: string;
   memoryScope: string;
+  /** Absolute ADL project root when known; see {@link RuntimeServices.projectRoot}. */
+  projectRoot?: string;
   workflow?: AgentWorkflowScope;
 } & ToolProviderContextField<ToolProviderContext>;
 
@@ -45,14 +55,29 @@ export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
  * implement other interfaces alongside this one — not just an inline closure:
  *
  * ```ts
- * class SandboxToolProvider implements ToolProvider<ToolSet, SandboxContext> {
- *   constructor(private readonly pool: SandboxPool) {}
- *   async getTools(ctx: ExtendedToolProviderContext<SandboxContext>) {
- *     const sandbox = await this.pool.acquire(ctx.toolProviderContext?.root);
- *     return { bash: createBashTool({ sandbox }) };
+ * class KernelToolProvider implements ToolProvider {
+ *   #byRun = new Map<string, Kernel>();
+ *   async getTools(ctx) {
+ *     const kernel = this.#byRun.get(ctx.agentCallId) ?? startKernel();
+ *     this.#byRun.set(ctx.agentCallId, kernel);
+ *     return { exec: createExecTool({ kernel }) };
+ *   }
+ *   async onRunEnd(ctx) {
+ *     await this.#byRun.get(ctx.agentCallId)?.stop();
+ *     this.#byRun.delete(ctx.agentCallId);
+ *   }
+ *   async dispose() {
+ *     await Promise.all([...this.#byRun.values()].map((k) => k.stop()));
+ *     this.#byRun.clear();
  *   }
  * }
  * ```
+ *
+ * Two lifetimes:
+ * - {@link ToolProvider.onRunEnd} — this *agent episode* finished (`agentCallId`).
+ * - {@link ToolProvider.dispose} — this *provider instance* is going away (project reload /
+ *   unload). Process-scoped resources (e.g. a bash executor pool) release here, not in
+ *   `onRunEnd`.
  *
  * Use {@link createToolProvider} to wrap a plain function into this shape instead, or
  * {@link combineToolProviders} to merge several sources into one.
@@ -101,7 +126,21 @@ export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderConte
    * calling `getTools` with a made-up context.
    */
   listTools?(): ToolProviderToolSummary[];
-  getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): Tools | Promise<Tools>;
+  getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): MaybePromise<Tools>;
+  /**
+   * Optional — called when this *agent episode* finishes (success, failure, or abort).
+   * `ctx` is the same envelope {@link ToolProvider.getTools} received, including
+   * {@link ExtendedToolProviderContext.agentCallId}. Safe to call when nothing was
+   * acquired (no-op). Not called on project reload — use {@link ToolProvider.dispose}.
+   */
+  onRunEnd?(ctx: ExtendedToolProviderContext<ToolProviderContext>): MaybePromise<void>;
+  /**
+   * Optional — called when this *provider instance* is going away (outgoing registry after
+   * a successful project reload, or {@link LoadedAdlProject.dispose} / host unload).
+   * Safe to call more than once. Not called at the end of an agent episode — use
+   * {@link ToolProvider.onRunEnd}.
+   */
+  dispose?(): MaybePromise<void>;
 }
 
 /**
@@ -151,14 +190,18 @@ export function createToolProvider<
   ToolProviderContext = unknown,
   Tools extends ToolSet = ToolSet,
 >(config: {
-  getTools: (ctx: ExtendedToolProviderContext<ToolProviderContext>) => Tools | Promise<Tools>;
+  getTools: (ctx: ExtendedToolProviderContext<ToolProviderContext>) => MaybePromise<Tools>;
   contextSchema?: z.ZodType<unknown, ToolProviderContext>;
   listTools?(): ToolProviderToolSummary[];
+  onRunEnd?(ctx: ExtendedToolProviderContext<ToolProviderContext>): MaybePromise<void>;
+  dispose?(): MaybePromise<void>;
 }): ToolProvider<Tools, ToolProviderContext> {
   return {
     getTools: config.getTools,
     contextSchema: config.contextSchema,
     listTools: config.listTools,
+    onRunEnd: config.onRunEnd,
+    dispose: config.dispose,
   };
 }
 
@@ -273,6 +316,88 @@ function toolSourceSummaries(
   }));
 }
 
+/** Whether `value` is a {@link ToolProvider} (has a callable `getTools`). */
+export function isToolProvider(value: unknown): value is ToolProvider {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { getTools?: unknown }).getTools === "function"
+  );
+}
+
+/**
+ * Runs every async/sync callback **in parallel**, collecting failures so one throw does not
+ * skip siblings. Zero errors → resolves. One → rethrows it. Several → {@link AggregateError}.
+ * Completion order is not part of the contract — only that every runner is attempted.
+ */
+export async function settleProviderHooks(
+  runners: Array<() => MaybePromise<void>>,
+  message: string,
+): Promise<void> {
+  const results = await Promise.allSettled(
+    runners.map(async (run) => {
+      await run();
+    }),
+  );
+  const errors = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
+  if (errors.length === 0) {
+    return;
+  }
+  if (errors.length === 1) {
+    throw errors[0];
+  }
+  throw new AggregateError(errors, message);
+}
+
+/**
+ * Calls {@link ToolProvider.onRunEnd} on each distinct provider in `sources` (identity-deduped).
+ * Plain {@link ToolSet}s are skipped. Errors are collected — one failure does not skip siblings.
+ */
+export async function invokeToolProviderOnRunEnd(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- providers carry arbitrary context
+  sources: ReadonlyArray<ToolSet | ToolProvider<ToolSet, any> | undefined>,
+  ctx: ExtendedToolProviderContext,
+): Promise<void> {
+  const seen = new Set<object>();
+  const runners: Array<() => MaybePromise<void>> = [];
+  for (const source of sources) {
+    if (!isToolProvider(source) || !source.onRunEnd) {
+      continue;
+    }
+    if (seen.has(source)) {
+      continue;
+    }
+    seen.add(source);
+    const provider = source;
+    runners.push(() => provider.onRunEnd!(ctx));
+  }
+  await settleProviderHooks(runners, "ToolProvider.onRunEnd failed");
+}
+
+/**
+ * Calls {@link ToolProvider.dispose} on each distinct provider in `sources` (identity-deduped).
+ * Plain {@link ToolSet}s are skipped. Errors are collected — one failure does not skip siblings.
+ */
+export async function disposeToolProviders(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- providers carry arbitrary context
+  sources: ReadonlyArray<ToolSet | ToolProvider<ToolSet, any> | undefined>,
+): Promise<void> {
+  const seen = new Set<object>();
+  const runners: Array<() => MaybePromise<void>> = [];
+  for (const source of sources) {
+    if (!isToolProvider(source) || !source.dispose) {
+      continue;
+    }
+    if (seen.has(source)) {
+      continue;
+    }
+    seen.add(source);
+    const provider = source;
+    runners.push(() => provider.dispose!());
+  }
+  await settleProviderHooks(runners, "ToolProvider.dispose failed");
+}
+
 export function combineToolProviders<
   const Sources extends Record<
     string,
@@ -308,6 +433,28 @@ export function combineToolProviders<
         ),
       );
       return Object.assign({}, ...resolved);
+    },
+    async onRunEnd(ctx) {
+      const raw = ctx.toolProviderContext;
+      await settleProviderHooks(
+        Object.entries(sources).flatMap(([key, source]) => {
+          if (!isToolProvider(source) || !source.onRunEnd) {
+            return [];
+          }
+          const provider = source;
+          return [
+            () =>
+              provider.onRunEnd!({
+                ...ctx,
+                toolProviderContext: raw?.[key],
+              }),
+          ];
+        }),
+        "ToolProvider.onRunEnd failed",
+      );
+    },
+    async dispose() {
+      await disposeToolProviders(Object.values(sources));
     },
   };
 }

@@ -23,6 +23,7 @@ export function resolveDefinitionServices(
     defaults: services.defaults,
     tools: services.tools,
     telemetry: services.telemetry,
+    projectRoot: services.projectRoot,
   };
 }
 
@@ -42,6 +43,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     tools: config.tools ?? {},
     telemetry: config.telemetry,
     version: config.version,
+    projectRoot: config.projectRoot,
   };
 }
 
@@ -69,5 +71,6 @@ export function resolveRuntimeOverrides(
     tools: base.tools,
     telemetry: base.telemetry,
     version: base.version,
+    projectRoot: base.projectRoot,
   };
 }

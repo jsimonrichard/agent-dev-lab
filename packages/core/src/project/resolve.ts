@@ -10,6 +10,7 @@ import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } f
 import { importAdlConfigModule, invalidateAdlConfigCache } from "./load-config";
 import { loadAdlProjectEnv } from "./load-env";
 import { pinRuntimeStores } from "./pin-stores";
+import { disposeRegistryProviders } from "./dispose-providers";
 
 export const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
 
@@ -67,8 +68,15 @@ export interface LoadedAdlProject {
   /**
    * Re-import `adl.config.*` and swap agents/workflows/templates while pinning stores.
    * On failure the previous registry is kept and {@link lastReloadError} is set.
+   * On success, {@link ToolProvider.dispose} is called on outgoing registry providers.
    */
   reload(): Promise<void>;
+
+  /**
+   * Release resources held by the *current* registry's tool providers. Idempotent.
+   * Used by process-host reset / project unload; also safe for tests.
+   */
+  dispose(): Promise<void>;
 
   /**
    * Process runtime from `adl.config` (`config.adl`).
@@ -194,12 +202,20 @@ function buildIndexes(config: AdlProjectConfig, configPath: string): ProjectInde
   };
 }
 
+function attachProjectRoot(config: AdlProjectConfig, root: string): void {
+  if (config.adl) {
+    config.adl.services.projectRoot = root;
+  }
+}
+
 function buildLoadedProject(parts: {
   root: string;
   configPath: string;
   config: AdlProjectConfig;
   configFilename: AdlConfigFilename;
 }): LoadedAdlProject {
+  attachProjectRoot(parts.config, parts.root);
+
   const state: ProjectState = {
     config: parts.config,
     configFilename: parts.configFilename,
@@ -209,6 +225,7 @@ function buildLoadedProject(parts: {
   };
 
   let reloadPromise: Promise<void> | null = null;
+  let disposed = false;
 
   const project: LoadedAdlProject = {
     root: parts.root,
@@ -258,16 +275,25 @@ function buildLoadedProject(parts: {
       });
       return reloadPromise;
     },
+    async dispose() {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      await disposeRegistryProviders(state.config);
+    },
   };
 
   async function performReload(): Promise<void> {
     invalidateAdlConfigCache(parts.root);
+    let previousConfig: AdlProjectConfig | null = null;
     try {
       const nextConfig = await loadConfigModule(parts.configPath, state.configFilename, {
         bustCache: true,
       });
-      const previousConfig = state.config;
+      previousConfig = state.config;
       pinRuntimeStores(previousConfig, nextConfig);
+      attachProjectRoot(nextConfig, parts.root);
       const indexes = buildIndexes(nextConfig, parts.configPath);
       state.config = nextConfig;
       state.workflowById = indexes.workflowById;
@@ -275,10 +301,13 @@ function buildLoadedProject(parts: {
       state.templateByName = indexes.templateByName;
       state.generation += 1;
       state.lastReloadError = null;
+      disposed = false;
     } catch (error) {
       state.lastReloadError = error instanceof Error ? error.message : String(error);
       throw error;
     }
+    // After a successful swap only — a failed dispose must not keep the old registry live.
+    await disposeRegistryProviders(previousConfig);
   }
 
   return project;

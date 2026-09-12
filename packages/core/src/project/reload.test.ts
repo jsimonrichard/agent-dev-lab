@@ -501,3 +501,150 @@ export const testAgent = adl.createAgent({
     { timeout: 10_000 },
   );
 });
+
+describe("LoadedAdlProject.dispose and provider teardown", () => {
+  async function createDisposableProviderProject(): Promise<{
+    root: string;
+    writeAgentPrompt: (prompt: string) => Promise<void>;
+    writeBrokenAgent: () => Promise<void>;
+  }> {
+    const root = await mkdtemp(path.join(tmpdir(), "adl-dispose-"));
+    const srcDir = path.join(root, "src");
+    await mkdir(srcDir, { recursive: true });
+
+    await writeFile(
+      path.join(srcDir, "adl.ts"),
+      `import { createAdlRuntime, inMemoryMessageStore, inMemoryWorkflowStore } from "${coreImport}";
+
+export const adl = createAdlRuntime({
+  stores: {
+    message: inMemoryMessageStore(),
+    workflow: inMemoryWorkflowStore(),
+  },
+});
+`,
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(srcDir, "tools.ts"),
+      `import { createToolProvider } from "${coreImport}";
+
+const g = globalThis as { __adlDisposeLog?: string[] };
+g.__adlDisposeLog = g.__adlDisposeLog ?? [];
+
+export const sharedTools = createToolProvider({
+  getTools: () => ({}),
+  dispose: () => {
+    g.__adlDisposeLog!.push("shared");
+  },
+});
+`,
+      "utf8",
+    );
+
+    const writeAgentPrompt = async (prompt: string) => {
+      await writeFile(
+        path.join(srcDir, "agent-a.ts"),
+        `import { adl } from "./adl";
+import { sharedTools } from "./tools";
+
+export const agentA = adl.createAgent({
+  id: "agent-a",
+  systemPrompt: ${JSON.stringify(prompt)},
+  tools: sharedTools,
+});
+`,
+        "utf8",
+      );
+      await writeFile(
+        path.join(srcDir, "agent-b.ts"),
+        `import { adl } from "./adl";
+import { sharedTools } from "./tools";
+
+export const agentB = adl.createAgent({
+  id: "agent-b",
+  systemPrompt: ${JSON.stringify(prompt)},
+  tools: sharedTools,
+});
+`,
+        "utf8",
+      );
+    };
+
+    await writeAgentPrompt("VERSION_A");
+
+    await writeFile(
+      path.join(root, "adl.config.ts"),
+      `import { adl } from "./src/adl";
+import { agentA } from "./src/agent-a";
+import { agentB } from "./src/agent-b";
+
+export default {
+  name: "dispose-test",
+  adl,
+  agents: [agentA, agentB],
+};
+`,
+      "utf8",
+    );
+
+    const writeBrokenAgent = async () => {
+      await writeFile(
+        path.join(srcDir, "agent-a.ts"),
+        `throw new Error("broken agent");
+`,
+        "utf8",
+      );
+    };
+
+    return { root, writeAgentPrompt, writeBrokenAgent };
+  }
+
+  it(
+    "attaches projectRoot on the runtime and disposes outgoing providers once on reload",
+    async () => {
+      const fixture = await createDisposableProviderProject();
+      const log = ((globalThis as { __adlDisposeLog?: string[] }).__adlDisposeLog = [] as string[]);
+      const project = await loadAdlProject({ root: fixture.root });
+      expect(project.getAdl().services.projectRoot).toBe(fixture.root);
+
+      await fixture.writeAgentPrompt("VERSION_B");
+      await project.reload();
+
+      expect(log).toEqual(["shared"]);
+      expect(project.getAdl().services.projectRoot).toBe(fixture.root);
+      expect(project.generation).toBe(1);
+    },
+    { timeout: 20_000 },
+  );
+
+  it(
+    "does not dispose outgoing providers when reload fails",
+    async () => {
+      const fixture = await createDisposableProviderProject();
+      const log = ((globalThis as { __adlDisposeLog?: string[] }).__adlDisposeLog = [] as string[]);
+      const project = await loadAdlProject({ root: fixture.root });
+
+      await fixture.writeBrokenAgent();
+      await expect(project.reload()).rejects.toThrow();
+      expect(log).toEqual([]);
+      expect(project.generation).toBe(0);
+    },
+    { timeout: 20_000 },
+  );
+
+  it(
+    "project.dispose is idempotent and disposes current providers",
+    async () => {
+      const fixture = await createDisposableProviderProject();
+      const log = ((globalThis as { __adlDisposeLog?: string[] }).__adlDisposeLog = [] as string[]);
+      const project = await loadAdlProject({ root: fixture.root });
+
+      await project.dispose();
+      await project.dispose();
+      expect(log).toEqual(["shared"]);
+    },
+    { timeout: 20_000 },
+  );
+});

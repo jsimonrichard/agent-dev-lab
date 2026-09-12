@@ -33,6 +33,7 @@ export {
   resolveProjectRoot,
   type LoadedAdlProject,
 } from "./resolve";
+export { disposeRegistryProviders } from "./dispose-providers";
 export { shouldReloadAdlProjectPath, isIgnoredAdlProjectSegment } from "./watch-path";
 export {
   watchAdlProject,

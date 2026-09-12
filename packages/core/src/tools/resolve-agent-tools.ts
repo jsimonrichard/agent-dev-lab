@@ -13,26 +13,52 @@ import { resolveToolSource, type ExtendedToolProviderContext, type ToolProvider 
  * `toolProviderContext` is passed through raw, unparsed and unvalidated — that's each
  * `ToolProvider`'s own job (see `createToolProvider`'s doc comment).
  */
-export async function resolveAgentTools<ToolProviderContext, Tools extends ToolSet>(options: {
+export function buildToolProviderContext<ToolProviderContext>(options: {
   agentId: string;
+  agentCallId: string;
   memoryScope: string;
-  runtimeTools: ToolSet;
-  definitionTools: Tools | ToolProvider<Tools, ToolProviderContext> | undefined;
-  inputTools: ToolSet | ToolProvider<ToolSet> | undefined;
+  projectRoot?: string;
   toolProviderContext?: ToolProviderContext;
   workflow?: AgentWorkflowScope;
-}): Promise<{ tools: ToolSet; toolProviderContext: ToolProviderContext | undefined }> {
+}): ExtendedToolProviderContext<ToolProviderContext> {
   // Cast: `ToolProviderContext` is unresolved here, so TS can't evaluate
   // `ToolProviderContextField<ToolProviderContext>`'s conditional (required vs. optional key)
   // against this literal — a deferred conditional type checked inside a generic function body,
   // not resolvable without a concrete `ToolProviderContext`. See `ToolProviderContextField`'s
   // doc comment in `./provider`.
-  const ctx = {
+  return {
     agentId: options.agentId,
+    agentCallId: options.agentCallId,
     memoryScope: options.memoryScope,
+    ...(options.projectRoot !== undefined ? { projectRoot: options.projectRoot } : {}),
     toolProviderContext: options.toolProviderContext,
     ...(options.workflow ? { workflow: options.workflow } : {}),
   } as ExtendedToolProviderContext<ToolProviderContext>;
+}
+
+export async function resolveAgentTools<ToolProviderContext, Tools extends ToolSet>(options: {
+  agentId: string;
+  agentCallId: string;
+  memoryScope: string;
+  projectRoot?: string;
+  runtimeTools: ToolSet;
+  definitionTools: Tools | ToolProvider<Tools, ToolProviderContext> | undefined;
+  inputTools: ToolSet | ToolProvider<ToolSet> | undefined;
+  toolProviderContext?: ToolProviderContext;
+  workflow?: AgentWorkflowScope;
+}): Promise<{
+  tools: ToolSet;
+  toolProviderContext: ToolProviderContext | undefined;
+  ctx: ExtendedToolProviderContext<ToolProviderContext>;
+}> {
+  const ctx = buildToolProviderContext({
+    agentId: options.agentId,
+    agentCallId: options.agentCallId,
+    memoryScope: options.memoryScope,
+    projectRoot: options.projectRoot,
+    toolProviderContext: options.toolProviderContext,
+    workflow: options.workflow,
+  });
 
   const [definitionTools, inputTools] = await Promise.all([
     resolveToolSource(options.definitionTools, ctx),
@@ -42,5 +68,6 @@ export async function resolveAgentTools<ToolProviderContext, Tools extends ToolS
   return {
     tools: { ...options.runtimeTools, ...definitionTools, ...inputTools },
     toolProviderContext: options.toolProviderContext,
+    ctx,
   };
 }
