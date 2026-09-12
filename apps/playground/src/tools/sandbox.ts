@@ -2,12 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  createAsrtBashExecutor,
-  createNativeBashExecutor,
-  createWorkspaceToolProvider,
-  resolveDefaultSandboxRoot,
-} from "@agent-dev-lab/tools";
+import { createWorkspaceToolProvider, resolveDefaultSandboxRoot } from "@agent-dev-lab/tools";
 
 import { bashSafetyCheck } from "../workflows/bash-safety-check";
 
@@ -24,27 +19,28 @@ export const sandboxRoot = resolveDefaultSandboxRoot(playgroundRoot);
 mkdirSync(sandboxRoot, { recursive: true });
 
 /**
- * Workspace tools (file + bash + `fetchUrl`, sharing one `cwd` for file/bash) backed by the
- * ASRT executor — the preferred default per `notes/tool-sandboxing.md`. Needs `bwrap`,
- * `socat`, and `ripgrep` on `PATH`; throws a clear `AdlError` (surfaced as a failed tool
- * call) if any are missing rather than silently running unsandboxed. Layers the
- * `bash-safety-check` workflow on top as an AI-based check for non-filesystem dangerous
- * intent the sandbox itself can't catch.
+ * Workspace tools (file + bash + `fetchUrl`, sharing one `cwd` for file/bash) via the
+ * process-scoped ASRT executor pool (default `backend`). Needs `bwrap`, `socat`, and
+ * `ripgrep` on `PATH`; throws a clear `AdlError` (surfaced as a failed tool call) if any
+ * are missing rather than silently running unsandboxed. Layers the `bash-safety-check`
+ * workflow on top as an AI-based check for non-filesystem dangerous intent the sandbox
+ * itself can't catch. `LoadedAdlProject` supplies `projectRoot` for pool keying.
  */
 export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
-  executor: createAsrtBashExecutor({ allowWrite: [sandboxRoot] }),
+  allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
   safetyCheck: bashSafetyCheck,
 });
 
 /**
- * Same workspace tools (file + bash + `fetchUrl`), backed by the direct-`bwrap` executor
- * instead (Linux only — throws a clear "not implemented" error elsewhere). No
+ * Same workspace tools (file + bash + `fetchUrl`), backed by the pooled native/`bwrap`
+ * backend instead (Linux only — throws a clear "not implemented" error elsewhere). No
  * `socat`/`ripgrep` dependency, but network access is all-or-nothing and there's no
- * violation logging, unlike the ASRT executor above. No safety check wired in, so both
- * configurations (with and without one) stay exercised.
+ * violation logging, unlike ASRT. No safety check wired in, so both configurations
+ * (with and without one) stay exercised.
  */
 export const sandboxWorkspaceNative = createWorkspaceToolProvider({
-  executor: createNativeBashExecutor({ allowWrite: [sandboxRoot] }),
+  allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
+  backend: "native",
 });

@@ -32,15 +32,15 @@ Last reconciled: **2026-09-12**.
 
 Shipped in `@agent-dev-lab/tools`: file, bash (Linux native + ASRT), grep/glob, `fetchUrl`. Core still only has adapters + `ToolProvider`. Provider-native web search (`openai.tools.webSearch`) is the search path — do not build a second one. Details: [`tool-sandboxing.md`](./tool-sandboxing.md), [`packages/tools/README.md`](../packages/tools/README.md).
 
-| Item                                        | Notes                                                                                                                                                                                             |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🚧 Approval dispatcher                      | File/bash without a gate is always-allow or always-deny. Pull [`future-extensions.md`](./future-extensions.md)'s `approvals.dispatcher` forward; scoped to tool calls, not `ctx.requestApproval`. |
-| 🔲 Todo / plan-tracking tool                | `writeTodos` / `readTodos` — per-run state, no sandbox. **Open:** `packages/core` vs `packages/tools` (it does not share the trust-boundary rationale of file/bash/network).                      |
-| 🔲 MCP client `ToolProvider`                | `@ai-sdk/mcp` `createMCPClient` → `ToolSet`; wrap as a `ToolProvider` in `@agent-dev-lab/tools` with the same no-unsafe-default posture as bash.                                                  |
-| 🔲 `createNativeBashExecutor` macOS backend | `sandbox-exec`; needs a Mac. Default ASRT path is already cross-platform.                                                                                                                         |
-| 🔲 `writeFile` parent-directory creation    | Known jail gap — `mkdir -p` needs a level-by-level check.                                                                                                                                         |
-| 🔲 LSP diagnostics / find-references        | Heavier than shipped grep/glob; per-language server process.                                                                                                                                      |
-| 🔲 Tool-provider lifecycle (core+pool done) | [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — `dispose?()` / `onRunEnd?()` + per-policy pool shipped. Playground still construct-once.                                           |
+| Item                                         | Notes                                                                                                                                                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🚧 Approval dispatcher                       | File/bash without a gate is always-allow or always-deny. Pull [`future-extensions.md`](./future-extensions.md)'s `approvals.dispatcher` forward; scoped to tool calls, not `ctx.requestApproval`. |
+| 🔲 Todo / plan-tracking tool                 | `writeTodos` / `readTodos` — per-run state, no sandbox. **Open:** `packages/core` vs `packages/tools` (it does not share the trust-boundary rationale of file/bash/network).                      |
+| 🔲 MCP client `ToolProvider`                 | `@ai-sdk/mcp` `createMCPClient` → `ToolSet`; wrap as a `ToolProvider` in `@agent-dev-lab/tools` with the same no-unsafe-default posture as bash.                                                  |
+| 🔲 `createNativeBashExecutor` macOS backend  | `sandbox-exec`; needs a Mac. Default ASRT path is already cross-platform.                                                                                                                         |
+| 🔲 `writeFile` parent-directory creation     | Known jail gap — `mkdir -p` needs a level-by-level check.                                                                                                                                         |
+| 🔲 LSP diagnostics / find-references         | Heavier than shipped grep/glob; per-language server process.                                                                                                                                      |
+| 🔲 Tool-provider lifecycle (playground done) | [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — sections 1–3 shipped. Section 4 (`globalThis` pin) + `apps/docs` refresh remain.                                                   |
 
 ---
 

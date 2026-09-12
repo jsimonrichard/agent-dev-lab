@@ -4,12 +4,11 @@ import { model } from "../model";
 import { sandboxRoot, sandboxWorkspaceNative } from "../tools/sandbox";
 
 /**
- * Same demo as `sandbox-agent`, but with the `bash` tool backed by the direct-`bwrap`
- * executor (`createNativeBashExecutor`, Linux only) instead of ASRT, and no safety check
- * wired in — no `socat`/`ripgrep` dependency, but network access (if ever enabled) would be
- * all-or-nothing and there's no violation logging. Kept as a separate agent so both executors
- * (and both with/without a safety check) can be smoke-tested from the same registry. See
- * `notes/tool-sandboxing.md`.
+ * Same demo as `sandbox-agent`, but with the pooled native/`bwrap` backend (Linux only)
+ * instead of ASRT, and no safety check wired in — no `socat`/`ripgrep` dependency, but
+ * network access (if ever enabled) would be all-or-nothing and there's no violation logging.
+ * Kept as a separate agent so both backends (and both with/without a safety check) can be
+ * smoke-tested from the same registry. See `notes/tool-sandboxing.md`.
  */
 export const sandboxAgentNative = adl.createAgent({
   id: "sandbox-agent-native",

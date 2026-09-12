@@ -5,11 +5,11 @@ import { sandboxRoot, sandboxWorkspaceAsrt } from "../tools/sandbox";
 
 /**
  * Demonstrates `@agent-dev-lab/tools`' `createWorkspaceToolProvider` end-to-end, with the
- * `bash` tool backed by the ASRT executor (`createAsrtBashExecutor` — the preferred default per
- * `notes/tool-sandboxing.md`) and an AI-based safety check (`bash-safety-check` workflow)
- * layered on top. `tools` is a `ToolProvider`, not a fixed `ToolSet` — so `sandbox-demo` can
- * point this agent at a different working directory per run via `toolProviderContext.cwd`,
- * instead of it being fixed here at agent-construction time.
+ * `bash` tool on the pooled ASRT backend (preferred default per `notes/tool-sandboxing.md`)
+ * and an AI-based safety check (`bash-safety-check` workflow) layered on top. `tools` is a
+ * `ToolProvider`, not a fixed `ToolSet` — so `sandbox-demo` can point this agent at a
+ * different working directory per run via `toolProviderContext.cwd`, instead of it being
+ * fixed here at agent-construction time.
  */
 export const sandboxAgent = adl.createAgent({
   id: "sandbox-agent",

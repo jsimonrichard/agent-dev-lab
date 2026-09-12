@@ -1,6 +1,6 @@
 # Tool-provider lifecycle (sandbox executor pool)
 
-**Status:** Sections 1–2 + `onRunEnd` **implemented** (2026-09-12). Playground still construct-once (section 3). No kernel shipped. Do not treat deferred sections as done.
+**Status:** Sections 1–3 + `onRunEnd` **implemented** (2026-09-12). Playground uses the pool (no construct-once executors). Section 4 (`globalThis` pool pin) still open. No kernel shipped. `apps/docs` refresh is a follow-up.
 
 Parent notes (pointers only): [`future-extensions.md`](./future-extensions.md) (kernel still future; run-scoped hook now exists), [`tool-sandboxing.md`](./tool-sandboxing.md) (ASRT supervisor isolation).
 
@@ -30,7 +30,7 @@ Verified here — not restated from the reporter workspace.
 | `packages/core/src/tools/resolve-agent-tools.ts`                         | Called from `AgentImpl` once per turn. Builds `ExtendedToolProviderContext` (`agentId`, `memoryScope`, optional `workflow`, raw `toolProviderContext`).                                                                                        | No run-end hook. Acquire stays inside `getTools`.                                         |
 | `packages/core/src/project/resolve.ts` `LoadedAdlProject.reload`         | Re-imports config (jiti cache bust — **entire project module graph**, including files `adl.config` imports). Pins stores via `pinRuntimeStores`. Drops the old registry. Nothing disposes providers. This is the leak that motivated the lane. | After a successful swap, call `dispose?()` on outgoing registry providers.                |
 | `packages/core/src/project/process-host.ts` `resetAdlProjectProcessHost` | Drops the cached project. No provider teardown.                                                                                                                                                                                                | Call the same dispose walk (or `LoadedAdlProject.dispose`) before drop.                   |
-| `apps/playground/src/tools/sandbox.ts`                                   | One `createAsrtBashExecutor` / `createNativeBashExecutor` at module load; passed into `createWorkspaceToolProvider`.                                                                                                                           | Later slice: policy only; no author-held executor.                                        |
+| `apps/playground/src/tools/sandbox.ts`                                   | Policy + `cwd` on `createWorkspaceToolProvider` (pooled ASRT / native). No author-held executor.                                                                                                                                               | Done (section 3).                                                                         |
 | `notes/future-extensions.md` / `notes/tool-sandboxing.md`                | Flag the missing hook.                                                                                                                                                                                                                         | Status pointer only — this file is the decision.                                          |
 
 `AdlRuntimeConfig.tools` is a plain `ToolSet`, not a `ToolProvider`. `AdlProjectConfig.tools` is registry-only `ToolSet`. The dispose walk is `config.agents[].tools` (and any nested providers a parent `dispose` forwards to).
@@ -39,7 +39,7 @@ Verified here — not restated from the reporter workspace.
 
 ### 1. What `getTools` constructs today
 
-Still true on this checkout: `createBashToolProvider` / `createWorkspaceToolProvider` take a required `executor` and reuse it. `getTools` rebuilds tool wrappers only. Playground constructs one executor at module load. The supervisor is spawned on that instance’s first `run()`, then reused.
+**Implemented:** `createBashToolProvider` / `createWorkspaceToolProvider` take optional `executor` **or** policy (`allowWrite`, …). Pooled path acquires in `getTools`; wrappers are still rebuilt per call. Playground passes policy only. Escape-hatch `executor` remains for tests / custom backends.
 
 ### 2. When a new supervisor is justified
 
@@ -52,7 +52,7 @@ A new `createAsrtBashExecutor` is a new process. `cwd` in `toolProviderContext` 
 - **Not (a)** — construct-once next to the provider leaves the leak and the author burden.
 - **Not (b)** — an optional cache in front of today’s required `executor` still makes the author build the first one.
 
-Default authoring shape (target, not today’s API):
+Default authoring shape:
 
 ```ts
 createWorkspaceToolProvider({
@@ -156,14 +156,13 @@ Pin the pool map on `globalThis` with `Symbol.for`, matching `load-config.ts`. O
 
 ## Out of scope (remaining)
 
-- Playground dropping `createAsrtBashExecutor` (section 3).
 - `globalThis` pool pin for tools HMR (section 4).
 - Changing ASRT isolation (supervisor subprocess, NDJSON, stdin keepalive).
 - Per-domain `fetchUrl` allowlists, a positive deny-all for fetch, or `updateConfig()`.
 - Implementing a Python/Jupyter kernel (the hook is the system; the tool is still future).
 - Conversation-scoped kernel lifetime (`onRunEnd` is per `agentCallId`).
 - Idle eviction of pool entries; Mastra-style long-running bash.
-- Editing `apps/docs` except to fix a claim that is already false today.
+- Editing `apps/docs` except to fix a claim that is already false today (planned follow-up after section 4).
 
 ## Decisions that were open (now closed)
 
