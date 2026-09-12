@@ -219,7 +219,6 @@ export function mergePolicy(
   const allowWrite = resolveAllowWriteList({
     anchor: resolvedCwd,
     allowWrite: context?.allowWrite ?? defaults.allowWrite,
-    whenOmitted: "anchor",
   });
   const rawAllowRead = Object.hasOwn(context ?? {}, "allowRead")
     ? context!.allowRead

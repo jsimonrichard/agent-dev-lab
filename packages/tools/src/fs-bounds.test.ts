@@ -4,22 +4,12 @@ import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
 import { resolveAllowReadList, resolveAllowWriteList } from "./fs-bounds.ts";
 
 describe("resolveAllowWriteList", () => {
-  it("defaults omitted to [anchor] when whenOmitted is anchor", () => {
-    expect(
-      resolveAllowWriteList({ anchor: "/proj", allowWrite: undefined, whenOmitted: "anchor" }),
-    ).toEqual(["/proj"]);
-  });
-
-  it("returns undefined when omitted and whenOmitted is omit", () => {
-    expect(
-      resolveAllowWriteList({ anchor: "/proj", allowWrite: undefined, whenOmitted: "omit" }),
-    ).toBeUndefined();
+  it("defaults omitted to [anchor]", () => {
+    expect(resolveAllowWriteList({ anchor: "/proj", allowWrite: undefined })).toEqual(["/proj"]);
   });
 
   it("keeps an empty list as deny-all writes", () => {
-    expect(
-      resolveAllowWriteList({ anchor: "/proj", allowWrite: [], whenOmitted: "anchor" }),
-    ).toEqual([]);
+    expect(resolveAllowWriteList({ anchor: "/proj", allowWrite: [] })).toEqual([]);
   });
 
   it("resolves and dedupes an explicit list", () => {
@@ -27,7 +17,6 @@ describe("resolveAllowWriteList", () => {
       resolveAllowWriteList({
         anchor: "/proj",
         allowWrite: ["/proj/b", "/proj/a", "/proj/a"],
-        whenOmitted: "anchor",
       }),
     ).toEqual(["/proj/b", "/proj/a"]);
   });

@@ -16,33 +16,17 @@ function uniqueResolved(paths: readonly string[]): string[] {
 }
 
 /**
- * Resolve `allowWrite`.
- *
- * - `whenOmitted: "anchor"` — omitted → `[anchor]`; always returns a list.
- * - `whenOmitted: "omit"` — omitted → `undefined` (file jail: no extra write bound).
- *
- * `[]` is always an empty allow list (no writes) — never treated as omitted.
- * Callers that need a required `allowWrite` (escape-hatch executors) declare it on their
- * own options type; there is no runtime `"required"` mode here.
+ * Resolve `allowWrite`. Omitted → `[anchor]`. `[]` is an empty allow list (no writes) —
+ * never treated as omitted. The file jail's optional extra write bound (omitted vs `[]`)
+ * stays local to the jail; it does not go through this helper.
  */
 export function resolveAllowWriteList(options: {
   anchor: string;
   allowWrite: string[] | undefined;
-  whenOmitted: "anchor";
-}): string[];
-export function resolveAllowWriteList(options: {
-  anchor: string;
-  allowWrite: string[] | undefined;
-  whenOmitted: "omit";
-}): string[] | undefined;
-export function resolveAllowWriteList(options: {
-  anchor: string;
-  allowWrite: string[] | undefined;
-  whenOmitted: "anchor" | "omit";
-}): string[] | undefined {
-  const { anchor, allowWrite, whenOmitted } = options;
+}): string[] {
+  const { anchor, allowWrite } = options;
   if (allowWrite === undefined) {
-    return whenOmitted === "anchor" ? [path.resolve(anchor)] : undefined;
+    return [path.resolve(anchor)];
   }
   return uniqueResolved(allowWrite);
 }
