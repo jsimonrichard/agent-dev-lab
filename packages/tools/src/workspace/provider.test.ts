@@ -171,7 +171,7 @@ describe("createWorkspaceToolProvider", () => {
       },
       bashAccess: {
         cwd: root,
-        timeoutMs: 30_000,
+        bashTimeoutMs: 30_000,
         backend: "stub",
         allowWrite: ["/allowed"],
         allowRead: UNBOUNDED_ALLOW_READ,
@@ -183,7 +183,7 @@ describe("createWorkspaceToolProvider", () => {
         allowedSchemes: ["http", "https"],
         allowedUrls: [],
         allowPrivateNetwork: false,
-        timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+        fetchTimeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
         maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
         maxRedirects: DEFAULT_MAX_REDIRECTS,
       },
@@ -226,8 +226,8 @@ describe("createWorkspaceToolProvider", () => {
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
     const constructed = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(constructed).toMatchObject({
-      bashAccess: { timeoutMs: 111 },
-      webAccess: { timeoutMs: 222 },
+      bashAccess: { bashTimeoutMs: 111 },
+      webAccess: { fetchTimeoutMs: 222 },
     });
 
     const { describeWorkspaceEnv: fromContext } = await provider.getTools(
@@ -235,8 +235,8 @@ describe("createWorkspaceToolProvider", () => {
     );
     const overridden = await fromContext.execute?.({}, toolCallOptions);
     expect(overridden).toMatchObject({
-      bashAccess: { timeoutMs: 333 },
-      webAccess: { timeoutMs: 444 },
+      bashAccess: { bashTimeoutMs: 333 },
+      webAccess: { fetchTimeoutMs: 444 },
     });
   });
 
@@ -257,7 +257,7 @@ describe("createWorkspaceToolProvider", () => {
     );
     const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({
-      bashAccess: { timeoutMs: 111 },
+      bashAccess: { bashTimeoutMs: 111 },
       webAccess: {
         allowedUrls: ["https://other.internal:8080/**"],
         allowPrivateNetwork: true,
@@ -297,7 +297,7 @@ describe("createWorkspaceToolProvider", () => {
       },
       bashAccess: {
         cwd: root,
-        timeoutMs: 30_000,
+        bashTimeoutMs: 30_000,
         backend: "stub",
         allowWrite: ["/allowed"],
         allowRead: UNBOUNDED_ALLOW_READ,

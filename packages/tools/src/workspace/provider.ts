@@ -76,12 +76,45 @@ function filePolicyFromExecutor(described: BashExecutorDescription): {
 const describeWorkspaceEnvInputSchema = z.object({});
 type DescribeWorkspaceEnvInput = z.infer<typeof describeWorkspaceEnvInputSchema>;
 
+/**
+ * {@link BashAccessInfo} as `describeWorkspaceEnv` reports it. The timeout is
+ * {@link WorkspaceToolProviderContext.bashTimeoutMs}, not the atomic bash provider's
+ * `timeoutMs`.
+ */
+export type WorkspaceBashAccessInfo = Omit<BashAccessInfo, "timeoutMs"> & {
+  bashTimeoutMs: number;
+};
+
+/**
+ * {@link WebAccessInfo} as `describeWorkspaceEnv` reports it. The timeout is
+ * {@link WorkspaceToolProviderContext.fetchTimeoutMs}, not the atomic web provider's
+ * `timeoutMs`.
+ */
+export type WorkspaceWebAccessInfo = Omit<WebAccessInfo, "timeoutMs"> & {
+  fetchTimeoutMs: number;
+};
+
+function workspaceBashAccess(info: BashAccessInfo): WorkspaceBashAccessInfo {
+  const { timeoutMs, ...rest } = info;
+  return { ...rest, bashTimeoutMs: timeoutMs };
+}
+
+function workspaceWebAccess(info: WebAccessInfo): WorkspaceWebAccessInfo {
+  const { timeoutMs, ...rest } = info;
+  return { ...rest, fetchTimeoutMs: timeoutMs };
+}
+
 /** Reported by `createWorkspaceToolProvider`'s `describeWorkspaceEnv` tool — the merge of the
  * file, bash, and (when enabled) fetch sides' own info. File and bash share one `cwd`; fetch
- * has none. `webAccess` is omitted when `options.fetchUrl` is `false`. */
+ * has none. `webAccess` is omitted when `options.fetchUrl` is `false`. Timeouts use the
+ * workspace knob names (`bashTimeoutMs` / `fetchTimeoutMs`), not the atomic `timeoutMs`. */
 export type DescribeWorkspaceEnvTool = Tool<
   DescribeWorkspaceEnvInput,
-  { fileAccess: FileAccessInfo; bashAccess: BashAccessInfo; webAccess?: WebAccessInfo }
+  {
+    fileAccess: FileAccessInfo;
+    bashAccess: WorkspaceBashAccessInfo;
+    webAccess?: WorkspaceWebAccessInfo;
+  }
 >;
 
 /**
@@ -434,15 +467,19 @@ export function createWorkspaceToolProvider(
             fileAllowWrite,
             fileDenyWrite,
           ),
-          bashAccess: describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
+          bashAccess: workspaceBashAccess(
+            describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
+          ),
           ...(webTools
             ? {
-                webAccess: describeWebAccess(
-                  allowedUrls,
-                  allowPrivateNetwork,
-                  fetchTimeoutMs,
-                  maxResponseBytes,
-                  maxRedirects,
+                webAccess: workspaceWebAccess(
+                  describeWebAccess(
+                    allowedUrls,
+                    allowPrivateNetwork,
+                    fetchTimeoutMs,
+                    maxResponseBytes,
+                    maxRedirects,
+                  ),
                 ),
               }
             : {}),

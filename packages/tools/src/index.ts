@@ -70,9 +70,11 @@ export type {
 export { createWorkspaceToolProvider } from "./workspace";
 export type {
   DescribeWorkspaceEnvTool,
+  WorkspaceBashAccessInfo,
   WorkspaceTools,
   WorkspaceToolProviderContext,
   WorkspaceToolProviderOptions,
+  WorkspaceWebAccessInfo,
 } from "./workspace";
 export { DEFAULT_SANDBOX_RELATIVE_PATH, resolveDefaultSandboxRoot } from "./paths";
 export {
