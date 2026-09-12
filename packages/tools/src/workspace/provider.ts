@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   AdlError,
   tool,
+  type ExtendedToolProviderContext,
   type Tool,
   type ToolProvider,
   type ToolProviderToolSummary,
@@ -10,11 +11,14 @@ import {
 import { z } from "zod";
 
 import type { BashExecutor } from "../bash/executor";
+import type { BashSandboxBackend, BashSandboxPolicy } from "../bash/executor-pool";
 import {
   createBashToolProvider,
   describeBashAccess,
+  resolveBashExecutorForCall,
   type BashAccessInfo,
   type BashSafetyCheckWorkflow,
+  type BashToolProviderContext,
 } from "../bash/provider";
 import { DEFAULT_TIMEOUT_MS, type BashTools } from "../bash/tools";
 import { createFileToolProvider, describeFileAccess, type FileAccessInfo } from "../file/provider";
@@ -39,6 +43,7 @@ import {
   DEFAULT_MAX_RESPONSE_BYTES,
   type FetchUrlTool,
 } from "../web/tools";
+import { releaseBashExecutor } from "../bash/executor-pool.ts";
 
 function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
   return (
@@ -82,7 +87,8 @@ export type WorkspaceTools = {
   describeWorkspaceEnv: DescribeWorkspaceEnvTool;
 };
 
-export interface WorkspaceToolProviderContext {
+export interface WorkspaceToolProviderContext
+  extends Partial<BashSandboxPolicy>, Omit<WebToolProviderContext, "timeoutMs"> {
   /** Overrides `options.cwd` for this call — drives both the file jail root and the bash cwd. */
   cwd?: string;
   /** Overrides `options.bashTimeoutMs` for this call — bash (and search) only, never `fetchUrl`. */
@@ -91,22 +97,20 @@ export interface WorkspaceToolProviderContext {
   maxReadBytes?: number;
   /** Overrides `options.maxWriteBytes` for this call. */
   maxWriteBytes?: number;
-  /** Overrides `options.allowedUrls` for this call — see `WebToolProviderContext.allowedUrls`. */
-  allowedUrls?: WebToolProviderContext["allowedUrls"];
-  /** Overrides `options.allowPrivateNetwork` for this call. */
-  allowPrivateNetwork?: WebToolProviderContext["allowPrivateNetwork"];
   /** Overrides `options.fetchTimeoutMs` for this call — `fetchUrl` only, never bash.
    * Named apart from `bashTimeoutMs` so the two independent knobs cannot collide. */
   fetchTimeoutMs?: WebToolProviderContext["timeoutMs"];
-  /** Overrides `options.maxResponseBytes` for this call. */
-  maxResponseBytes?: WebToolProviderContext["maxResponseBytes"];
-  /** Overrides `options.maxRedirects` for this call. */
-  maxRedirects?: WebToolProviderContext["maxRedirects"];
 }
 
 export interface WorkspaceToolProviderOptions extends WorkspaceToolProviderContext {
-  /** Isolation strategy for the `bash` tool. Required — there is no unsandboxed default. */
-  executor: BashExecutor;
+  /**
+   * Isolation strategy for the `bash` / search tools. Optional when policy (`allowWrite`, …)
+   * is provided — acquires from the process pool. Escape hatch; mutually exclusive with
+   * policy fields and `backend`.
+   */
+  executor?: BashExecutor;
+  /** Sandbox backend when using the pool. Default `"asrt"`. Invalid with `executor`. */
+  backend?: BashSandboxBackend;
   /** Optional AI-based safety check layered on top of the bash sandbox — see
    * `BashSafetyCheckWorkflow`'s doc comment. */
   safetyCheck?: BashSafetyCheckWorkflow;
@@ -158,6 +162,39 @@ function assertFetchConfigAllowed(
   );
 }
 
+function bashPolicyFromWorkspace(
+  options: WorkspaceToolProviderOptions,
+  context: WorkspaceToolProviderContext | undefined,
+): {
+  defaults: Partial<BashSandboxPolicy> & { allowWrite?: string[] };
+  context: BashToolProviderContext | undefined;
+} {
+  return {
+    defaults: {
+      allowWrite: options.allowWrite,
+      allowRead: options.allowRead,
+      denyRead: options.denyRead,
+      denyWrite: options.denyWrite,
+      allowedDomains: options.allowedDomains,
+      deniedDomains: options.deniedDomains,
+      allowNetwork: options.allowNetwork,
+    },
+    context: context
+      ? {
+          cwd: context.cwd,
+          timeoutMs: context.bashTimeoutMs,
+          allowWrite: context.allowWrite,
+          allowRead: context.allowRead,
+          denyRead: context.denyRead,
+          denyWrite: context.denyWrite,
+          allowedDomains: context.allowedDomains,
+          deniedDomains: context.deniedDomains,
+          allowNetwork: context.allowNetwork,
+        }
+      : undefined,
+  };
+}
+
 /**
  * The Mastra-style combined file+bash+fetch surface — "everything needed to work on a
  * codebase in one folder," under one `cwd`, plus `fetchUrl` (which has no working directory)
@@ -169,10 +206,9 @@ function assertFetchConfigAllowed(
  * `fetchTimeoutMs` so the two independent knobs cannot collide. For a narrower need, use the
  * atomic provider directly.
  *
- * `cwd` here is set by the workflow/host via `toolProviderContext`, never by the model
- * directly, so it's trusted to point anywhere — the file jail fully re-scopes to it, while
- * bash's actual write permissions stay whatever `options.executor` was constructed with
- * (fixed, independent of `cwd`).
+ * Pass either a pre-built `executor` or sandbox policy (`allowWrite`, …). `cwd` is set by the
+ * workflow/host via `toolProviderContext`, never by the model directly — the file jail
+ * re-scopes to it; bash write permissions come from the resolved executor's policy.
  */
 export function createWorkspaceToolProvider(
   options: WorkspaceToolProviderOptions,
@@ -180,16 +216,21 @@ export function createWorkspaceToolProvider(
   const includeFetchUrl = options.fetchUrl !== false;
   assertFetchConfigAllowed(includeFetchUrl, setKeys(options, FETCH_OPTION_KEYS), "options");
 
+  // Fail closed at construction when options alone are already contradictory.
+  if (options.executor) {
+    resolveBashExecutorForCall({
+      executor: options.executor,
+      backend: options.backend,
+      defaults: options,
+      context: undefined,
+      projectRoot: undefined,
+    });
+  }
+
   const fileProvider = createFileToolProvider({
     root: options.cwd,
     maxReadBytes: options.maxReadBytes,
     maxWriteBytes: options.maxWriteBytes,
-  });
-  const bashProvider = createBashToolProvider({
-    executor: options.executor,
-    cwd: options.cwd,
-    timeoutMs: options.bashTimeoutMs,
-    safetyCheck: options.safetyCheck,
   });
   const webProvider = includeFetchUrl
     ? createWebToolProvider({
@@ -202,12 +243,21 @@ export function createWorkspaceToolProvider(
       })
     : undefined;
 
+  const heldKeys = new Set<string>();
+
   const workspaceOwnContextSchema = z
     .object({
       cwd: z.string(),
       bashTimeoutMs: z.number(),
       maxReadBytes: z.number(),
       maxWriteBytes: z.number(),
+      allowWrite: z.array(z.string()),
+      allowRead: z.array(z.string()),
+      denyRead: z.array(z.string()),
+      denyWrite: z.array(z.string()),
+      allowedDomains: z.array(z.string()),
+      deniedDomains: z.array(z.string()),
+      allowNetwork: z.boolean(),
     })
     .partial();
 
@@ -218,9 +268,14 @@ export function createWorkspaceToolProvider(
           .extend(webToolProviderContextSchema.omit({ timeoutMs: true }).shape)
       : workspaceOwnContextSchema,
     listTools(): ToolProviderToolSummary[] {
-      // Mirrors `getTools`' merge below: each sub-provider's own describe-env tool
-      // (`describeFileEnv` / `describeBashEnv` / `describeWebEnv`) is dropped in favor of
-      // this provider's combined `describeWorkspaceEnv`.
+      const bashList = createBashToolProvider({
+        executor: options.executor,
+        allowWrite: options.allowWrite,
+        backend: options.backend,
+        cwd: options.cwd,
+        timeoutMs: options.bashTimeoutMs,
+        safetyCheck: options.safetyCheck,
+      }).listTools?.();
       const dropOwnDescribeEnv = (summaries: ToolProviderToolSummary[]) =>
         summaries.filter(
           (summary) =>
@@ -232,7 +287,7 @@ export function createWorkspaceToolProvider(
         ...dropOwnDescribeEnv(fileProvider.listTools?.() ?? []),
         { name: "grep", description: GREP_DESCRIPTION },
         { name: "glob", description: GLOB_DESCRIPTION },
-        ...dropOwnDescribeEnv(bashProvider.listTools?.() ?? []),
+        ...dropOwnDescribeEnv(bashList ?? []),
         ...(webProvider ? dropOwnDescribeEnv(webProvider.listTools?.() ?? []) : []),
         {
           name: "describeWorkspaceEnv",
@@ -240,7 +295,7 @@ export function createWorkspaceToolProvider(
         },
       ];
     },
-    async getTools(ctx) {
+    async getTools(ctx: ExtendedToolProviderContext<WorkspaceToolProviderContext | undefined>) {
       assertFetchConfigAllowed(
         includeFetchUrl,
         setKeys(ctx.toolProviderContext ?? {}, FETCH_CONTEXT_KEYS),
@@ -273,6 +328,29 @@ export function createWorkspaceToolProvider(
       const maxRedirects =
         ctx.toolProviderContext?.maxRedirects ?? options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
 
+      const { defaults, context: bashContext } = bashPolicyFromWorkspace(
+        options,
+        ctx.toolProviderContext,
+      );
+      const { executor, poolKey } = resolveBashExecutorForCall({
+        executor: options.executor,
+        backend: options.backend,
+        defaults,
+        context: bashContext,
+        projectRoot: ctx.projectRoot,
+        heldKeys,
+      });
+      if (poolKey) {
+        heldKeys.add(poolKey);
+      }
+
+      const bashProvider = createBashToolProvider({
+        executor,
+        cwd: options.cwd,
+        timeoutMs: options.bashTimeoutMs,
+        safetyCheck: options.safetyCheck,
+      });
+
       const [fileTools, bashTools, webTools] = await Promise.all([
         fileProvider.getTools({
           ...ctx,
@@ -296,7 +374,7 @@ export function createWorkspaceToolProvider(
           : Promise.resolve(undefined),
       ]);
       const searchTools = createSearchTools({
-        executor: options.executor,
+        executor,
         root: cwd,
         timeoutMs: bashTimeoutMs,
       });
@@ -306,11 +384,7 @@ export function createWorkspaceToolProvider(
         inputSchema: describeWorkspaceEnvInputSchema,
         execute: async () => ({
           fileAccess: describeFileAccess(path.resolve(cwd), maxReadBytes, maxWriteBytes),
-          bashAccess: describeBashAccess(
-            options.executor,
-            cwd,
-            bashTimeoutMs ?? DEFAULT_TIMEOUT_MS,
-          ),
+          bashAccess: describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
           ...(webTools
             ? {
                 webAccess: describeWebAccess(
@@ -338,6 +412,11 @@ export function createWorkspaceToolProvider(
         ...(webTools ? { fetchUrl: webTools.fetchUrl } : {}),
         describeWorkspaceEnv,
       };
+    },
+    async dispose() {
+      const keys = [...heldKeys];
+      heldKeys.clear();
+      await Promise.all(keys.map((key) => releaseBashExecutor(key)));
     },
   };
 }

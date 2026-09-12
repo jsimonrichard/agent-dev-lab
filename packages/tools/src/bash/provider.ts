@@ -1,6 +1,7 @@
 import {
   AdlError,
   tool,
+  type ExtendedToolProviderContext,
   type Tool,
   type ToolProvider,
   type ToolProviderToolSummary,
@@ -9,6 +10,13 @@ import {
 import { z } from "zod";
 
 import type { BashExecutor, BashExecutorDescription, BashExecutorResult } from "./executor";
+import {
+  acquireBashExecutor,
+  bashExecutorPoolKeyFor,
+  releaseBashExecutor,
+  type BashSandboxBackend,
+  type BashSandboxPolicy,
+} from "./executor-pool.ts";
 import { BASH_TOOL_DESCRIPTION, createBashTool, DEFAULT_TIMEOUT_MS, type BashTools } from "./tools";
 
 export const bashSafetyCheckInputSchema = z.object({
@@ -81,9 +89,32 @@ const describeBashEnvDescription =
 const describeBashEnvInputSchema = z.object({});
 type DescribeBashEnvInput = z.infer<typeof describeBashEnvInputSchema>;
 
-export interface BashToolProviderOptions {
-  /** Isolation strategy. Required — there is no unsandboxed default. */
-  executor: BashExecutor;
+const POLICY_KEYS = [
+  "allowWrite",
+  "allowRead",
+  "denyRead",
+  "denyWrite",
+  "allowedDomains",
+  "deniedDomains",
+  "allowNetwork",
+] as const satisfies readonly (keyof BashSandboxPolicy)[];
+
+export interface BashToolProviderContext extends Partial<BashSandboxPolicy> {
+  /** Overrides `options.cwd` for this call. */
+  cwd?: string;
+  /** Overrides `options.timeoutMs` for this call. */
+  timeoutMs?: number;
+}
+
+export interface BashToolProviderOptions extends Partial<BashSandboxPolicy> {
+  /**
+   * Isolation strategy. Optional when policy (`allowWrite`, …) is provided — the provider
+   * acquires a shared executor from the process pool. Escape hatch for tests / custom
+   * backends; mutually exclusive with policy fields and `backend`.
+   */
+  executor?: BashExecutor;
+  /** Sandbox backend when using the pool. Default `"asrt"`. Invalid with `executor`. */
+  backend?: BashSandboxBackend;
   /** Default working directory when a call's context doesn't specify one. */
   cwd?: string;
   /** Default wall-clock timeout (ms) when a call's context doesn't specify one. */
@@ -94,13 +125,6 @@ export interface BashToolProviderOptions {
    * See `BashSafetyCheckWorkflow`'s doc comment.
    */
   safetyCheck?: BashSafetyCheckWorkflow;
-}
-
-export interface BashToolProviderContext {
-  /** Overrides `options.cwd` for this call. */
-  cwd?: string;
-  /** Overrides `options.timeoutMs` for this call. */
-  timeoutMs?: number;
 }
 
 /** Reported by `createBashToolProvider`'s `describeBashEnv` tool. */
@@ -121,24 +145,141 @@ export type BashProviderTools = {
   describeBashEnv: DescribeBashEnvTool;
 };
 
+function policyFieldsSet(
+  values: Partial<Record<(typeof POLICY_KEYS)[number], unknown>>,
+): (typeof POLICY_KEYS)[number][] {
+  return POLICY_KEYS.filter((key) => values[key] !== undefined);
+}
+
+function mergePolicy(
+  defaults: Partial<BashSandboxPolicy>,
+  context: Partial<BashSandboxPolicy> | undefined,
+): BashSandboxPolicy {
+  const allowWrite = context?.allowWrite ?? defaults.allowWrite;
+  if (!allowWrite) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      "createBashToolProvider: no allowWrite given — pass options.allowWrite as a default, or " +
+        "toolProviderContext.allowWrite per call (or pass a pre-built executor).",
+    );
+  }
+  return {
+    allowWrite,
+    allowRead: context?.allowRead ?? defaults.allowRead,
+    denyRead: context?.denyRead ?? defaults.denyRead,
+    denyWrite: context?.denyWrite ?? defaults.denyWrite,
+    allowedDomains: context?.allowedDomains ?? defaults.allowedDomains,
+    deniedDomains: context?.deniedDomains ?? defaults.deniedDomains,
+    allowNetwork: context?.allowNetwork ?? defaults.allowNetwork,
+  };
+}
+
 /**
- * `ToolProvider` wrapping `createBashTool` so `cwd`/`timeoutMs` can be set per `agent.run()`
- * call via `toolProviderContext` (set by the workflow/host, not the model) instead of being
- * fixed at construction time. The "command-only sandbox" primitive — no file jail attached; see
+ * Resolve the {@link BashExecutor} for a bash/workspace getTools call.
+ * Escape-hatch `executor` wins only when no policy fields are set on options or context.
+ */
+/**
+ * Resolve the {@link BashExecutor} for a bash/workspace getTools call.
+ * Escape-hatch `executor` wins only when no policy fields are set on options or context.
+ */
+export function resolveBashExecutorForCall(options: {
+  executor?: BashExecutor;
+  backend?: BashSandboxBackend;
+  defaults: Partial<BashSandboxPolicy> & Pick<BashToolProviderOptions, "allowWrite">;
+  context: Partial<BashSandboxPolicy> | undefined;
+  projectRoot: string | undefined;
+  /** Keys this provider instance already holds (dispose will release once each). */
+  heldKeys?: ReadonlySet<string>;
+}): { executor: BashExecutor; poolKey?: string } {
+  const contextPolicy = policyFieldsSet(options.context ?? {});
+  const defaultPolicy = policyFieldsSet(options.defaults);
+  const anyPolicy = contextPolicy.length > 0 || defaultPolicy.length > 0;
+
+  if (options.executor) {
+    if (options.backend !== undefined) {
+      throw new AdlError(
+        "INVALID_INPUT",
+        "createBashToolProvider: pass either executor or backend, not both.",
+      );
+    }
+    if (anyPolicy) {
+      throw new AdlError(
+        "INVALID_INPUT",
+        "createBashToolProvider: pass either executor or sandbox policy fields " +
+          `(${[...new Set([...defaultPolicy, ...contextPolicy])].join(", ")}), not both.`,
+      );
+    }
+    return { executor: options.executor };
+  }
+
+  const policy = mergePolicy(options.defaults, options.context);
+  const backend = options.backend ?? "asrt";
+  if (!options.projectRoot) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      "Pooled bash executor requires projectRoot on the tool-provider context " +
+        "(LoadedAdlProject attaches it; or pass createAdlRuntime({ projectRoot })).",
+    );
+  }
+  const key = bashExecutorPoolKeyFor({
+    projectRoot: options.projectRoot,
+    backend,
+    policy,
+  });
+  const alreadyHeld = options.heldKeys?.has(key) ?? false;
+  const acquired = acquireBashExecutor({
+    projectRoot: options.projectRoot,
+    backend,
+    policy,
+    alreadyHeld,
+  });
+  return { executor: acquired.executor, poolKey: acquired.key };
+}
+
+/**
+ * `ToolProvider` wrapping `createBashTool` so `cwd`/`timeoutMs`/sandbox policy can be set per
+ * `agent.run()` call via `toolProviderContext` (set by the workflow/host, not the model).
+ * Pass either a pre-built `executor` (escape hatch) or policy (`allowWrite`, …) to use the
+ * process-scoped pool. The "command-only sandbox" primitive — no file jail attached; see
  * `createWorkspaceToolProvider` for the combined file+bash+fetch surface.
  */
 export function createBashToolProvider(
   options: BashToolProviderOptions,
 ): ToolProvider<BashProviderTools, BashToolProviderContext | undefined> {
+  // Fail closed at construction when options alone are already contradictory.
+  if (options.executor) {
+    resolveBashExecutorForCall({
+      executor: options.executor,
+      backend: options.backend,
+      defaults: options,
+      context: undefined,
+      projectRoot: undefined,
+    });
+  }
+
+  const heldKeys = new Set<string>();
+
   return {
-    contextSchema: z.object({ cwd: z.string(), timeoutMs: z.number() }).partial(),
+    contextSchema: z
+      .object({
+        cwd: z.string(),
+        timeoutMs: z.number(),
+        allowWrite: z.array(z.string()),
+        allowRead: z.array(z.string()),
+        denyRead: z.array(z.string()),
+        denyWrite: z.array(z.string()),
+        allowedDomains: z.array(z.string()),
+        deniedDomains: z.array(z.string()),
+        allowNetwork: z.boolean(),
+      })
+      .partial(),
     listTools(): ToolProviderToolSummary[] {
       return [
         { name: "bash", description: BASH_TOOL_DESCRIPTION },
         { name: "describeBashEnv", description: describeBashEnvDescription },
       ];
     },
-    getTools(ctx) {
+    getTools(ctx: ExtendedToolProviderContext<BashToolProviderContext | undefined>) {
       const cwd = ctx.toolProviderContext?.cwd ?? options.cwd;
       if (!cwd) {
         throw new AdlError(
@@ -148,15 +289,27 @@ export function createBashToolProvider(
         );
       }
       const timeoutMs = ctx.toolProviderContext?.timeoutMs ?? options.timeoutMs;
-
       const resolvedTimeoutMs = timeoutMs ?? DEFAULT_TIMEOUT_MS;
-      const base = createBashTool({ executor: options.executor, cwd, timeoutMs });
+
+      const { executor, poolKey } = resolveBashExecutorForCall({
+        executor: options.executor,
+        backend: options.backend,
+        defaults: options,
+        context: ctx.toolProviderContext,
+        projectRoot: ctx.projectRoot,
+        heldKeys,
+      });
+      if (poolKey) {
+        heldKeys.add(poolKey);
+      }
+
+      const base = createBashTool({ executor, cwd, timeoutMs });
 
       const describeBashEnv: DescribeBashEnvTool = tool({
         description: describeBashEnvDescription,
         inputSchema: describeBashEnvInputSchema,
         execute: async () => ({
-          bashAccess: describeBashAccess(options.executor, cwd, resolvedTimeoutMs),
+          bashAccess: describeBashAccess(executor, cwd, resolvedTimeoutMs),
         }),
       });
 
@@ -184,7 +337,7 @@ export function createBashToolProvider(
           // Calls the executor directly (not `base.bash.execute`) — its return type is a
           // concrete AsyncGenerator, not the AI SDK's broader `Tool.execute` return union
           // (`AsyncIterable | PromiseLike | OUTPUT`), which `yield*` can't statically iterate.
-          yield* options.executor.run(["/bin/bash", "-c", input.command], {
+          yield* executor.run(["/bin/bash", "-c", input.command], {
             cwd,
             timeoutMs: resolvedTimeoutMs,
             signal: toolOptions.abortSignal,
@@ -193,6 +346,11 @@ export function createBashToolProvider(
       });
 
       return { bash: safeBash, describeBashEnv };
+    },
+    async dispose() {
+      const keys = [...heldKeys];
+      heldKeys.clear();
+      await Promise.all(keys.map((key) => releaseBashExecutor(key)));
     },
   };
 }

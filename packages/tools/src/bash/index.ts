@@ -8,6 +8,21 @@ export type {
   BashExecutorRunOptions,
   BashExecutorUpdate,
 } from "./executor";
+export {
+  acquireBashExecutor,
+  bashExecutorPoolKeyFor,
+  bashExecutorPoolKeyString,
+  bashExecutorPoolSizeForTests,
+  canonicalizeBashSandboxPolicy,
+  releaseBashExecutor,
+  resetBashExecutorPoolForTests,
+} from "./executor-pool";
+export type {
+  BashExecutorPoolKey,
+  BashSandboxBackend,
+  BashSandboxPolicy,
+  CanonicalBashSandboxPolicy,
+} from "./executor-pool";
 export { createNativeBashExecutor } from "./native-executor";
 export type { NativeBashExecutorOptions } from "./native-executor";
 export {
@@ -15,6 +30,7 @@ export {
   bashSafetyVerdictSchema,
   createBashToolProvider,
   describeBashAccess,
+  resolveBashExecutorForCall,
 } from "./provider";
 export type {
   BashAccessInfo,

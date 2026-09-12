@@ -35,6 +35,9 @@ export {
   createNativeBashExecutor,
   DEFAULT_TIMEOUT_MS,
   describeBashAccess,
+  acquireBashExecutor,
+  releaseBashExecutor,
+  canonicalizeBashSandboxPolicy,
 } from "./bash";
 export type {
   AsrtBashExecutorOptions,
@@ -49,6 +52,8 @@ export type {
   BashSafetyCheckInput,
   BashSafetyCheckVerdict,
   BashSafetyCheckWorkflow,
+  BashSandboxBackend,
+  BashSandboxPolicy,
   BashTools,
   BashToolOptions,
   BashToolProviderContext,

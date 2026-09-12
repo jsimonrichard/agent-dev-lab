@@ -145,23 +145,19 @@ properly is a **core API addition** — some notion of run-scoped resource lifec
 sandboxed tool — so it belongs in this file alongside the other core-surface extensions rather
 than being scoped as more `packages/tools` work.
 
-**2026-09-12:** sandbox _process_ lifecycle (ASRT supervisor / per-policy pool, project reload)
-is designed in [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — not implemented.
-That plan adds optional `ToolProvider.dispose?()` only; it does **not** add a run-ended hook.
-A kernel that must die when `agent.run` finishes still needs the run-scoped question below.
-
-Concretely still open:
+**2026-09-12 (updated):** sandbox _process_ lifecycle and the run-scoped hook are implemented
+— see [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md). Core now has
+`ToolProvider.dispose?()` (reload/unload) and `ToolProvider.onRunEnd?()` (per `agentCallId`).
+A Python/Jupyter **kernel tool** is still not built; authors can hang one off a class that
+implements `ToolProvider` and stops the kernel in `onRunEnd`. Still open for that tool:
 
 - Where the kernel process itself is sandboxed (reuse `BashExecutor`'s tiers, or a dedicated
   primitive — a long-lived process is a different isolation problem than a one-shot command).
-- What "run ended" means precisely for cleanup purposes — ties into the same open shutdown-hook
-  gap `tool-sandboxing.md` flags (ASRT supervisors now die on `dispose()` / host exit, but
-  there is still no framework-level run-scoped shutdown hook for _any_ per-run resource).
 - One kernel per run vs. per conversation vs. pooled/shared — affects both isolation and cost.
+  (`onRunEnd` is per episode / `agentCallId`; conversation-scoped teardown is not provided.)
 
-**v1 for this item:** design notes only, same as everything else in this file — no
-implementation planned until the run-scoped-resource question above has an answer that isn't
-specific to this one tool.
+**v1 for this item:** design notes only for the kernel tool itself — the run-scoped hook it
+needs is shipped; the sandboxed interpreter is not.
 
 ---
 

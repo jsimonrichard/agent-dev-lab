@@ -40,7 +40,7 @@ Shipped in `@agent-dev-lab/tools`: file, bash (Linux native + ASRT), grep/glob, 
 | 🔲 `createNativeBashExecutor` macOS backend | `sandbox-exec`; needs a Mac. Default ASRT path is already cross-platform.                                                                                                                         |
 | 🔲 `writeFile` parent-directory creation    | Known jail gap — `mkdir -p` needs a level-by-level check.                                                                                                                                         |
 | 🔲 LSP diagnostics / find-references        | Heavier than shipped grep/glob; per-language server process.                                                                                                                                      |
-| 🔲 Tool-provider lifecycle (design done)    | [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — `dispose?()` + per-policy executor pool. Not implemented. First slice is the core hook, then the tools pool.                       |
+| 🔲 Tool-provider lifecycle (core+pool done) | [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) — `dispose?()` / `onRunEnd?()` + per-policy pool shipped. Playground still construct-once.                                           |
 
 ---
 

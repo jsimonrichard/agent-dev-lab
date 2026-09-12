@@ -1,12 +1,12 @@
 # Tool-provider lifecycle (sandbox executor pool)
 
-**Status:** Design only — not implemented. Decisions below were recorded **2026-09-12**. Do not treat this file as a shipped API.
+**Status:** Sections 1–2 + `onRunEnd` **implemented** (2026-09-12). Playground still construct-once (section 3). No kernel shipped. Do not treat deferred sections as done.
 
-Parent notes (pointers only; this file is the plan): [`future-extensions.md`](./future-extensions.md) (run-scoped / project-unload gap), [`tool-sandboxing.md`](./tool-sandboxing.md) (ASRT supervisor isolation, leftover “no framework shutdown hook”).
+Parent notes (pointers only): [`future-extensions.md`](./future-extensions.md) (kernel still future; run-scoped hook now exists), [`tool-sandboxing.md`](./tool-sandboxing.md) (ASRT supervisor isolation).
 
 ## Goal
 
-Long-lived bash sandbox resources (the ASRT supervisor child, and any future per-policy executor) are created, reused, and torn down without authors constructing or disposing executors. Same sandbox _policy_ shares one process; `cwd` stays a per-run argument. Project reload of user code is leak-free: the pool object stays, and only the executors whose policies are no longer referenced go away. The core contract for that teardown is an optional `ToolProvider.dispose?()` — nothing else until a later need is proven.
+Long-lived bash sandbox resources (the ASRT supervisor child, and any future per-policy executor) are created, reused, and torn down without authors constructing or disposing executors. Same sandbox _policy_ shares one process; `cwd` stays a per-run argument. Project reload of user code is leak-free: the pool object stays, and only the executors whose policies are no longer referenced go away. Core contracts: optional `ToolProvider.dispose?()` (reload/unload) and `ToolProvider.onRunEnd?()` (per `agentCallId` episode).
 
 ## Principles
 
@@ -154,39 +154,32 @@ No pool and no provider API change in `@agent-dev-lab/tools` in this slice. Toda
 
 Pin the pool map on `globalThis` with `Symbol.for`, matching `load-config.ts`. Only if framework-dev leaks are worth the magic after slice 2.
 
-## Out of scope
+## Out of scope (remaining)
 
-- Implementing any numbered section in this lane unless a follow-up explicitly starts section 1.
+- Playground dropping `createAsrtBashExecutor` (section 3).
+- `globalThis` pool pin for tools HMR (section 4).
 - Changing ASRT isolation (supervisor subprocess, NDJSON, stdin keepalive).
 - Per-domain `fetchUrl` allowlists, a positive deny-all for fetch, or `updateConfig()`.
-- Stateful code-execution kernel (Python/Jupyter) — same _hook shape_ (`dispose?()` is what we have; a kernel that must die when `agent.run` ends still needs a run-scoped hook, which this plan does not add).
-- Mastra-style long-running bash (`execute_command` / poll / kill).
-- `onRunEnd` / idle eviction.
+- Implementing a Python/Jupyter kernel (the hook is the system; the tool is still future).
+- Conversation-scoped kernel lifetime (`onRunEnd` is per `agentCallId`).
+- Idle eviction of pool entries; Mastra-style long-running bash.
 - Editing `apps/docs` except to fix a claim that is already false today.
-- Landing work in the reporter task (`taba0001f`).
 
-## What is not decided
+## Decisions that were open (now closed)
 
-1. **How tools receives `projectRoot` for the pool key.** Alternatives: (a) add it to `ExtendedToolProviderContext` in core (authoritative, every `getTools` sees it); (b) read `ADL_PROJECT_ROOT` / `LoadedAdlProject.root` from env inside tools (already set for the dashboard; weaker — tests must set it); (c) require `projectRoot` on `createWorkspaceToolProvider` options (author burden we are trying to remove). **Lean (a)** when slice 2 is designed in detail; do not implement a silent env fallback that hides a missing root. Until then, fail closed: no share if the root is unknown.
-2. **Exact name of the backend opt-in** (`backend: "asrt" | "native"` vs `createExecutor` factory). Same behavior either way; pick in slice 2 from whatever `packages/tools` already uses in JSDoc.
-3. **Whether `LoadedAdlProject` grows a public `dispose()`** or only process-host/reset calls a package-private walk. Public is clearer for tests; private is a smaller surface. Pick in slice 1.
+1. **`projectRoot` on the envelope** — optional on `ExtendedToolProviderContext`; `LoadedAdlProject` attaches `project.root`. Pooled acquire throws if missing.
+2. **`backend?: "asrt" | "native"`** on bash/workspace options (default `"asrt"`).
+3. **Public `LoadedAdlProject.dispose()`** — idempotent; process-host reset/root switch await it.
 
-## What the first implementation slice is
+## Success criteria (design lane — done)
 
-**Section 1 only:** optional `ToolProvider.dispose?()`, forwarded by the existing helpers, invoked on the outgoing registry after a successful reload and on project unload. **Yes, this is a core API change.** No pool, no per-call policy, no playground edit.
+Met when the design note landed. Implementation criteria below.
 
-## Success criteria (this design lane)
-
-1. This file exists in the house-rules shape. Scope items 1–6 have an explicit decision (above).
-2. Undecided items and the first implementation slice (including the core API change) are named.
-3. `notes/future-extensions.md` and `notes/tool-sandboxing.md` carry a dated pointer here; they do not claim a hook or pool that was not implemented.
-4. No core/tools behavior change in the design-only handoff.
-5. `.claude/gate.sh fast` green after the notes edits.
-
-## Success criteria (later, once section 1+2 ship)
+## Success criteria (sections 1–2)
 
 1. User-code reload does not leave an ASRT supervisor for a policy the new registry no longer uses.
 2. Authors can ship bash/workspace tools with policy + `cwd` and never call `createAsrtBashExecutor`.
 3. Same policy + same project root ⇒ one supervisor; `cwd`-only changes do not spawn.
-4. Hosts do not mention ASRT. Core only calls `dispose?()`.
-5. `node --test` on tools still exits without an undisposed supervisor.
+4. Hosts do not mention ASRT. Core only calls `dispose?()` / `onRunEnd?()`.
+5. `onRunEnd` runs at the end of every `agent.run` / `agent.stream` (success, failure, abort).
+6. `node --test` on tools still exits without an undisposed supervisor.
