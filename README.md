@@ -108,7 +108,7 @@ Working on the framework itself (this monorepo, as opposed to a project built wi
 ```bash
 bun install
 bun run dev:docs   # docs site on :4321
-bun run dev:web    # inspection UI on :3000
+bun run dev:web    # inspection UI (Vite)
 ```
 
 No external services are required. Put LLM provider keys in the playground (or your project) `.env` when you want to execute agents.

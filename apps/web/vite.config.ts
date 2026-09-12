@@ -11,6 +11,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 
 import { createAdlViteLogger } from "./src/lib/adl-vite-logger";
+import { viteListenLoopbackUrl } from "./src/lib/vite-listen-url";
 
 const ADL_FRAMEWORK_DEV_ENV = "ADL_FRAMEWORK_DEV";
 const ADL_PROJECT_ROOT_ENV = "ADL_PROJECT_ROOT";
@@ -35,7 +36,7 @@ function adlArmProjectWatchPlugin(): Plugin {
         if (!addr || typeof addr === "string") {
           throw new Error("adl-arm-project-watch: expected a TCP listen address");
         }
-        const url = `http://127.0.0.1:${addr.port}/api/project`;
+        const url = viteListenLoopbackUrl(addr, "/api/project");
         void (async () => {
           let lastError: unknown;
           for (let attempt = 0; attempt < 50; attempt += 1) {

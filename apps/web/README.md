@@ -23,13 +23,13 @@ Working on this package inside the monorepo (as opposed to using `adl dashboard`
 From the monorepo root:
 
 ```bash
-bun run dev:web    # Vite on :3000, `ADL_FRAMEWORK_DEV=1`, playground project
+bun run dev:web    # Vite, `ADL_FRAMEWORK_DEV=1`, playground project
 ```
 
 From this package:
 
 ```bash
-bun --bun vite dev --port 3000
+bun --bun vite dev
 bun run build
 bun run start      # Bun runtime (bun:sqlite) — local convenience
 bun run start-node # Node runtime (better-sqlite3)
