@@ -105,7 +105,7 @@ A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a t
 
 ## `fetchUrl`
 
-Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set `allowedUrls` or `allowPrivateNetwork: true`. A non-2xx status is returned as data. Treat the body as untrusted third-party content.
+Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set a concrete-host `allowedUrls` entry or `allowPrivateNetwork: true`. Host-wildcard patterns like `**` alone do not bypass the address check. A non-2xx status is returned as data. Treat the body as untrusted third-party content.
 
 ```ts
 import { createFetchUrlTool } from "@agent-dev-lab/tools";

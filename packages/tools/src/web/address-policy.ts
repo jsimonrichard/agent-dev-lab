@@ -44,16 +44,18 @@ const defaultResolver: HostnameResolver = async (hostname) => {
 
 export interface AddressPolicy {
   /**
-   * URL patterns (glob strings and/or `RegExp`s — see `url-pattern.ts`) allowed to bypass both
-   * address checks. Empty by default. Matched **per redirect hop** against
-   * {@link urlMatchCandidate} — see `README.md` for the pattern language and the path-scoping
-   * this enables that plain `hostname:port` allowlisting couldn't.
+   * URL patterns (glob strings and/or `RegExp`s — see `url-pattern.ts`) that may bypass both
+   * address checks **when the matching pattern names a concrete host**. Host-unrestricted
+   * patterns (whole-pattern wildcards, host labels that are only wildcards, a broad
+   * `RegExp`) do **not** bypass — set `allowPrivateNetwork` for that. Empty by default.
+   * Matched **per redirect hop** against {@link urlMatchCandidate}.
    */
   allowedUrls?: readonly UrlPattern[];
   /**
    * Disables both address checks entirely. Default `false`. Checked at the same decision point as
-   * `allowedUrls` (not a second enforcement path) — see `README.md`'s "allowPrivateNetwork"
-   * section. Host/workflow-only, like `allowedUrls`; never exposed on `fetchUrl`'s input schema.
+   * a concrete-host `allowedUrls` match (not a second enforcement path) — see `README.md`'s
+   * "allowPrivateNetwork" section. Host/workflow-only, like `allowedUrls`; never exposed on
+   * `fetchUrl`'s input schema.
    */
   allowPrivateNetwork?: boolean;
   /** Hostname resolver, defaulting to `node:dns`' `lookup(..., { all: true })`. */
@@ -117,7 +119,76 @@ function rejectNonPublic(url: URL, offendingAddresses: readonly string[]): never
       `address. Private, loopback, link-local (including cloud metadata services), and other ` +
       `non-globally-routable addresses are blocked. Add "${url.protocol}//${url.hostname}:` +
       `${effectivePort(url)}/**" to the tool's allowedUrls to permit this origin on purpose, ` +
-      `or scope it to one path with something like ".../a-specific-path/*".`,
+      `or scope it to one path with something like ".../a-specific-path/*". Host-wildcard ` +
+      `patterns like "**" do not bypass this check — set allowPrivateNetwork: true for that.`,
+  );
+}
+
+/**
+ * Probes used to detect a host-unrestricted `RegExp`: if the pattern matches both of these
+ * unrelated private candidates, it is treated as unbounded (fail closed) and does not bypass.
+ */
+const PRIVATE_BYPASS_PROBES = [
+  urlMatchCandidate(new URL("http://127.0.0.1:8080/")),
+  urlMatchCandidate(new URL("http://10.0.0.1:80/")),
+] as const;
+
+/**
+ * Authority (host[:port]) from a URL-shaped glob, or `undefined` when the pattern is not
+ * `scheme://…`.
+ */
+function authorityFromUrlGlob(pattern: string): string | undefined {
+  const match = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/([^/?#]+)/.exec(pattern);
+  return match?.[1];
+}
+
+/** Host label only — strip a trailing `:port` when present (port may itself be `*` / `**`). */
+function hostLabelFromAuthority(authority: string): string {
+  if (authority.startsWith("[")) {
+    const end = authority.indexOf("]");
+    if (end !== -1) {
+      return authority.slice(0, end + 1);
+    }
+  }
+  const colon = authority.lastIndexOf(":");
+  if (colon === -1) {
+    return authority;
+  }
+  return authority.slice(0, colon);
+}
+
+/**
+ * True when a matching pattern is **not** enough to skip the address checks — the host is
+ * unrestricted (only wildcards), so `allowPrivateNetwork` is still required for private targets.
+ */
+export function isHostUnrestrictedUrlPattern(pattern: UrlPattern): boolean {
+  if (typeof pattern === "string") {
+    if (pattern === "*" || pattern === "**") {
+      return true;
+    }
+    const authority = authorityFromUrlGlob(pattern);
+    if (authority === undefined) {
+      // Not URL-shaped — fail closed if it matches both private probes.
+      return PRIVATE_BYPASS_PROBES.every((probe) => matchesUrlPattern(pattern, probe));
+    }
+    const host = hostLabelFromAuthority(authority);
+    return host === "*" || host === "**";
+  }
+  return PRIVATE_BYPASS_PROBES.every((probe) => matchesUrlPattern(pattern, probe));
+}
+
+/**
+ * True when this policy skips both address checks for `candidate` (already a
+ * {@link urlMatchCandidate}). `allowPrivateNetwork`, or a matching pattern with a concrete host.
+ */
+function bypassesAddressChecks(policy: AddressPolicy, candidate: string): boolean {
+  if (policy.allowPrivateNetwork) {
+    return true;
+  }
+  return (
+    policy.allowedUrls?.some(
+      (pattern) => matchesUrlPattern(pattern, candidate) && !isHostUnrestrictedUrlPattern(pattern),
+    ) ?? false
   );
 }
 
@@ -134,8 +205,8 @@ export interface AddressCheckResult {
 
 /**
  * Throws unless `url` may be fetched. Order: scheme (absolute — nothing below exempts a
- * non-`http(s)` URL) → `allowPrivateNetwork`/`allowedUrls` → the address itself (a literal IP, or
- * every address a domain name resolves to — both regardless of scheme).
+ * non-`http(s)` URL) → `allowPrivateNetwork` / concrete-host `allowedUrls` → the address itself
+ * (a literal IP, or every address a domain name resolves to — both regardless of scheme).
  *
  * When a domain resolves, every answer must pass, not merely one: the connection picks an address
  * from that set and this code doesn't choose which, so a mixed public/private answer is refused.
@@ -153,10 +224,7 @@ export async function assertAllowedUrl(
   }
 
   const candidate = urlMatchCandidate(url);
-  if (
-    policy.allowPrivateNetwork ||
-    policy.allowedUrls?.some((pattern) => matchesUrlPattern(pattern, candidate))
-  ) {
+  if (bypassesAddressChecks(policy, candidate)) {
     return {};
   }
 

@@ -251,7 +251,9 @@ describe("assertAllowedUrl", () => {
     it("does not pin a literal IP or a bypassed check — nothing was resolved to pin", async () => {
       assert.deepEqual(await assertAllowedUrl(new URL("http://93.184.216.34/x")), {});
       assert.deepEqual(
-        await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedUrls: ["**"] }),
+        await assertAllowedUrl(new URL("http://127.0.0.1/x"), {
+          allowedUrls: ["http://127.0.0.1:80/**"],
+        }),
         {},
       );
       assert.deepEqual(
@@ -317,6 +319,40 @@ describe("assertAllowedUrl", () => {
         /not a public address/,
       );
     });
+
+    it("host-unrestricted globs do not bypass the address check", async () => {
+      for (const pattern of ["**", "*", "http://*/**", "https://**:443/**"]) {
+        await assert.rejects(
+          assertAllowedUrl(new URL("http://127.0.0.1:8080/x"), { allowedUrls: [pattern] }),
+          /not a public address/,
+          pattern,
+        );
+      }
+    });
+
+    it("host-unrestricted globs still allow public URLs through the address check", async () => {
+      const resolver = resolverFor({ "example.com": ["93.184.216.34"] });
+      await assertAllowedUrl(new URL("http://example.com/a"), {
+        allowedUrls: ["**"],
+        resolver,
+      });
+    });
+
+    it("** plus allowPrivateNetwork still bypasses private addresses", async () => {
+      await assertAllowedUrl(new URL("http://127.0.0.1/x"), {
+        allowedUrls: ["**"],
+        allowPrivateNetwork: true,
+      });
+    });
+
+    it("a RegExp that matches two unrelated private URLs does not bypass", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("http://127.0.0.1:8080/x"), {
+          allowedUrls: [/^http:\/\/.*$/],
+        }),
+        /not a public address/,
+      );
+    });
   });
 
   describe("allowPrivateNetwork", () => {
@@ -342,10 +378,11 @@ describe("assertAllowedUrl", () => {
       });
     });
 
-    it("is checked at the same point allowedUrls is — not a second enforcement path", async () => {
-      // Equivalent, today, to writing allowedUrls: ["**"] — proven by producing the identical
-      // outcome, not by inspecting internals.
-      await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedUrls: ["**"] });
+    it("is required for host-wildcard allowedUrls to reach private addresses", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedUrls: ["**"] }),
+        /not a public address/,
+      );
       await assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowPrivateNetwork: true });
     });
 

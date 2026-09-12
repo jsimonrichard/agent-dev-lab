@@ -50,7 +50,8 @@ one is requested — relying on `fetch`'s own `redirect: "follow"` would fetch a
 policy of ours ever saw it).
 
 **Two checks, different in scope, checked in this order** (after the scheme allowlist, before
-either): `allowedUrls` and `allowPrivateNetwork` bypass both.
+either): `allowPrivateNetwork`, or a matching **concrete-host** `allowedUrls` entry, bypasses both.
+Host-wildcard `allowedUrls` alone do not.
 
 1. **A literal IP address in the hostname** (`http://127.0.0.1/x`) — no DNS involved — is checked
    **regardless of scheme**. There's no DNS-rebinding question here (nothing was resolved), so
@@ -66,7 +67,8 @@ either): `allowedUrls` and `allowPrivateNetwork` bypass both.
    relying on SNI-based virtual hosting). It's added as a second, independent layer: TLS
    verification is only as strong as the runtime's certificate validation actually being enabled
    (weakened by, say, `NODE_TLS_REJECT_UNAUTHORIZED=0` or an installed MITM proxy CA, neither of
-   which this module controls), and `allowedUrls`/`allowPrivateNetwork` already bypass this check
+   which this module controls), and `allowPrivateNetwork` / concrete-host `allowedUrls` already
+   bypass this check
    for any internal HTTPS domain a caller explicitly wants reached — so there's no legitimate use
    this closes off, only an unallowlisted internal domain that used to work by relying on TLS
    alone, which house rule 1's fail-closed default says should have needed allowlisting anyway.
@@ -99,11 +101,13 @@ matching a substring.
 ### `allowPrivateNetwork`
 
 Disables both address checks entirely, default `false`. Not a second enforcement path: checked at
-the exact same decision point `allowedUrls` is (`allowedUrls: ["**"]` already has this effect —
-this option is a clearer, more discoverable name for that intent, matching the name a comparable
-agent framework, OpenClaw, already uses). Host/workflow-only — same trust boundary as `allowedUrls`
-and `resolver`, never exposed on `fetchUrl`'s own input schema, so the model can't reach it.
-Reported by `describeWebEnv` as its own field, not folded into `allowedUrls`'s reported list.
+the exact same decision point a **concrete-host** `allowedUrls` match is. Host-unrestricted
+patterns (`**`, `*`, `http://*/**`, a `RegExp` that matches unrelated private probes) do **not**
+bypass the address check on their own — set `allowPrivateNetwork: true` for that intent (matching
+the name a comparable agent framework, OpenClaw, already uses). Host/workflow-only — same trust
+boundary as `allowedUrls` and `resolver`, never exposed on `fetchUrl`'s own input schema, so the
+model can't reach it. Reported by `describeWebEnv` as its own field, not folded into
+`allowedUrls`'s reported list.
 
 ### IP pinning (`http:` only)
 
