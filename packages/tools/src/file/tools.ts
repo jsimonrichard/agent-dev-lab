@@ -17,10 +17,18 @@ export const EDIT_FILE_DESCRIPTION =
 
 export interface FileToolsOptions {
   /**
-   * Directory every path is confined to. Resolved (and symlink-checked) lazily on first
-   * tool call, not at `createFileTools` time.
+   * Directory write paths are confined to, and the base for relative read paths.
+   * Resolved (and symlink-checked) lazily on first tool call, not at `createFileTools` time.
    */
   root: string;
+  /**
+   * Directories `readFile` may read. Omitted (`undefined`) is unbounded. `null` (or `[]`)
+   * means nothing can be read. A list is exactly those roots — `root` is not inserted.
+   * `denyRead` still wins. Writes (`writeFile` / `editFile`) stay in `root`.
+   */
+  allowRead?: string[] | null;
+  /** Paths hidden from `readFile`, even when they sit inside `root` or `allowRead`. */
+  denyRead?: string[];
   /** Refuse to read a file over this many bytes. Default 1,000,000 (1 MB). */
   maxReadBytes?: number;
   /** Refuse to write more than this many bytes. Default 1,000,000 (1 MB). */
@@ -41,9 +49,9 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 /**
- * `readFile`/`writeFile`/`editFile` tools jailed to `options.root` — no path may resolve
- * (after symlink resolution) outside it. There is **no zero-config unsafe default**: `root`
- * is required.
+ * `readFile`/`writeFile`/`editFile` tools jailed to `options.root` for writes, and to
+ * `options.allowRead` (omitted = unbounded) for reads. There is **no zero-config unsafe
+ * default**: `root` is required.
  *
  * `editFile` is a find/replace, not a diff format: it fails unless `find` appears exactly
  * once in the file, so an ambiguous edit is rejected rather than guessed at.
@@ -61,12 +69,25 @@ export interface FileTools {
 }
 
 export function createFileTools(options: FileToolsOptions): FileTools {
-  const jail = createFileJail(options.root);
+  const jail = createFileJail(options.root, {
+    allowRead: options.allowRead,
+    denyRead: options.denyRead,
+  });
   const maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_BYTES;
   const maxWriteBytes = options.maxWriteBytes ?? DEFAULT_MAX_BYTES;
 
   async function assertReadable(resolved: string, requestedPath: string): Promise<void> {
-    const info = await stat(resolved);
+    let info;
+    try {
+      info = await stat(resolved);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new AdlError("INVALID_INPUT", `File not found: "${requestedPath}"`, {
+          cause: error,
+        });
+      }
+      throw error;
+    }
     if (info.isDirectory()) {
       throw new AdlError("INVALID_INPUT", `"${requestedPath}" is a directory, not a file.`);
     }
@@ -91,7 +112,9 @@ export function createFileTools(options: FileToolsOptions): FileTools {
     readFile: tool({
       description: READ_FILE_DESCRIPTION,
       inputSchema: z.object({
-        path: z.string().describe("Path relative to the sandbox root."),
+        path: z
+          .string()
+          .describe("Path relative to the sandbox root, or an absolute path within allowRead."),
       }),
       execute: async ({ path: requestedPath }) => {
         const resolved = await jail.resolveExisting(requestedPath);
@@ -123,7 +146,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
         replace: z.string(),
       }),
       execute: async ({ path: requestedPath, find, replace }) => {
-        const resolved = await jail.resolveExisting(requestedPath);
+        const resolved = await jail.resolveForWrite(requestedPath);
         await assertReadable(resolved, requestedPath);
         const original = await readFile(resolved, "utf8");
         const occurrences = countOccurrences(original, find);

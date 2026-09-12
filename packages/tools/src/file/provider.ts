@@ -9,6 +9,8 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../bash/provider";
+
 import {
   createFileTools,
   DEFAULT_MAX_BYTES,
@@ -20,8 +22,15 @@ import {
 
 /** The `describeFileEnv` tool's payload — see `createFileToolProvider`. */
 export interface FileAccessInfo {
-  /** The sandbox root this call's file tools are actually jailed to. */
+  /** The sandbox root writes are jailed to, and the default relative-path base. */
   root: string;
+  /**
+   * Paths `readFile` may read, or {@link UNBOUNDED_ALLOW_READ} when reads are not confined.
+   * Always the resolved default — omitted `allowRead` reports unbounded; `null` reports `[]`.
+   */
+  allowRead: ModelAllowRead;
+  /** Paths hidden from `readFile`. Empty when the caller set none. */
+  denyRead: string[];
   maxReadBytes: number;
   maxWriteBytes: number;
 }
@@ -30,11 +39,20 @@ export function describeFileAccess(
   root: string,
   maxReadBytes: number,
   maxWriteBytes: number,
+  allowRead?: string[] | null,
+  denyRead?: readonly string[] | null,
 ): FileAccessInfo {
-  return { root, maxReadBytes, maxWriteBytes };
+  return {
+    root,
+    allowRead: allowRead === undefined ? UNBOUNDED_ALLOW_READ : (allowRead ?? []),
+    denyRead: denyRead == null ? [] : [...denyRead],
+    maxReadBytes,
+    maxWriteBytes,
+  };
 }
 
-const describeFileEnvDescription = "Report the file sandbox root and read/write byte caps.";
+const describeFileEnvDescription =
+  "Report the file sandbox root, read allow-list, and read/write byte caps.";
 
 const describeFileEnvInputSchema = z.object({});
 type DescribeFileEnvInput = z.infer<typeof describeFileEnvInputSchema>;
@@ -45,6 +63,10 @@ export type DescribeFileEnvTool = Tool<DescribeFileEnvInput, { fileAccess: FileA
 export interface FileToolProviderOptions {
   /** Default sandbox root when a call's context doesn't specify one. */
   root?: string;
+  /** Default read bound when a call's context doesn't specify one. Omitted means unbounded, `null` means nothing can be read. */
+  allowRead?: string[] | null;
+  /** Default deny-read paths when a call's context doesn't specify any. */
+  denyRead?: string[];
   /** Default read byte cap when a call's context doesn't specify one. */
   maxReadBytes?: number;
   /** Default write byte cap when a call's context doesn't specify one. */
@@ -54,6 +76,10 @@ export interface FileToolProviderOptions {
 export interface FileToolProviderContext {
   /** Overrides `options.root` for this call. */
   root?: string;
+  /** Overrides `options.allowRead` for this call. Omitted means unbounded, `null` means nothing can be read. */
+  allowRead?: string[] | null;
+  /** Overrides `options.denyRead` for this call. */
+  denyRead?: string[];
   /** Overrides `options.maxReadBytes` for this call. */
   maxReadBytes?: number;
   /** Overrides `options.maxWriteBytes` for this call. */
@@ -75,17 +101,25 @@ export type FileProviderTools = {
   describeFileEnv: DescribeFileEnvTool;
 };
 
-function cacheKey(root: string, maxReadBytes: number, maxWriteBytes: number): string {
-  return `${root}::${maxReadBytes}::${maxWriteBytes}`;
+function cacheKey(
+  root: string,
+  maxReadBytes: number,
+  maxWriteBytes: number,
+  allowRead: string[] | null | undefined,
+  denyRead: readonly string[] | undefined,
+): string {
+  const read =
+    allowRead === undefined ? "unbounded" : allowRead === null ? "none" : allowRead.join("\0");
+  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}`;
 }
 
 /**
- * `ToolProvider` wrapping `createFileTools` so `root`/`maxReadBytes`/`maxWriteBytes` can be set
- * per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not the model)
- * instead of being fixed at construction time. Caches the constructed `FileTools` (and its
- * `FileJail`'s cached `realpath`
- * promise) per distinct resolved `(root, maxReadBytes, maxWriteBytes)` combination, since the
- * common case is the same combination recurring across many calls in one run.
+ * `ToolProvider` wrapping `createFileTools` so `root`/`allowRead`/`maxReadBytes`/`maxWriteBytes`
+ * can be set per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not
+ * the model) instead of being fixed at construction time. Caches the constructed `FileTools`
+ * (and its `FileJail`'s cached `realpath` promise) per distinct resolved
+ * `(root, allowRead, denyRead, maxReadBytes, maxWriteBytes)` combination, since the common
+ * case is the same combination recurring across many calls in one run.
  */
 export function createFileToolProvider(
   options: FileToolProviderOptions,
@@ -94,7 +128,13 @@ export function createFileToolProvider(
 
   return {
     contextSchema: z
-      .object({ root: z.string(), maxReadBytes: z.number(), maxWriteBytes: z.number() })
+      .object({
+        root: z.string(),
+        allowRead: z.array(z.string()).nullable(),
+        denyRead: z.array(z.string()),
+        maxReadBytes: z.number(),
+        maxWriteBytes: z.number(),
+      })
       .partial(),
     listTools(): ToolProviderToolSummary[] {
       return [
@@ -117,12 +157,22 @@ export function createFileToolProvider(
         ctx.toolProviderContext?.maxReadBytes ?? options.maxReadBytes ?? DEFAULT_MAX_BYTES;
       const maxWriteBytes =
         ctx.toolProviderContext?.maxWriteBytes ?? options.maxWriteBytes ?? DEFAULT_MAX_BYTES;
+      const context = ctx.toolProviderContext;
+      const allowRead =
+        context && Object.hasOwn(context, "allowRead") ? context.allowRead : options.allowRead;
+      const denyRead = ctx.toolProviderContext?.denyRead ?? options.denyRead;
 
       const resolvedRoot = path.resolve(root);
-      const key = cacheKey(resolvedRoot, maxReadBytes, maxWriteBytes);
+      const key = cacheKey(resolvedRoot, maxReadBytes, maxWriteBytes, allowRead, denyRead);
       let fileTools = cache.get(key);
       if (!fileTools) {
-        fileTools = createFileTools({ root: resolvedRoot, maxReadBytes, maxWriteBytes });
+        fileTools = createFileTools({
+          root: resolvedRoot,
+          allowRead,
+          denyRead,
+          maxReadBytes,
+          maxWriteBytes,
+        });
         cache.set(key, fileTools);
       }
 
@@ -130,7 +180,13 @@ export function createFileToolProvider(
         description: describeFileEnvDescription,
         inputSchema: describeFileEnvInputSchema,
         execute: async () => ({
-          fileAccess: describeFileAccess(resolvedRoot, maxReadBytes, maxWriteBytes),
+          fileAccess: describeFileAccess(
+            resolvedRoot,
+            maxReadBytes,
+            maxWriteBytes,
+            allowRead,
+            denyRead,
+          ),
         }),
       });
 

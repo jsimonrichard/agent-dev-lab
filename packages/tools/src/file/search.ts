@@ -17,8 +17,16 @@ export interface SearchToolsOptions {
    * unsandboxed default.
    */
   executor: BashExecutor;
-  /** Directory every search path is confined to. */
+  /** Directory relative search paths resolve against. */
   root: string;
+  /**
+   * Directories `grep`'s `path` may target. Omitted (`undefined`) is unbounded. `null`
+   * (or `[]`) means nothing can be searched. A list is exactly those roots — `root` is
+   * not inserted. The executor's own `allowRead` is still the subprocess read boundary.
+   */
+  allowRead?: string[] | null;
+  /** Paths rejected as a `grep` `path`, even when they sit inside `root` or `allowRead`. */
+  denyRead?: string[];
   /** Wall-clock timeout per search, in milliseconds. Default 30,000 (30s). */
   timeoutMs?: number;
 }
@@ -60,7 +68,10 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       `SearchToolsOptions.timeoutMs must be positive, got ${timeoutMs}`,
     );
   }
-  const jail = createFileJail(options.root);
+  const jail = createFileJail(options.root, {
+    allowRead: options.allowRead,
+    denyRead: options.denyRead,
+  });
 
   return {
     grep: tool({
@@ -73,7 +84,10 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
         path: z
           .string()
           .optional()
-          .describe("Path relative to the sandbox root. Defaults to the root itself."),
+          .describe(
+            "Path relative to the sandbox root, or an absolute path within allowRead. " +
+              "Defaults to the root itself.",
+          ),
         glob: z
           .string()
           .optional()

@@ -17,6 +17,7 @@ export type {
   DescribeFileEnvTool,
   FileAccessInfo,
   FileJail,
+  FileJailOptions,
   FileProviderTools,
   FileTools,
   FileToolProviderContext,

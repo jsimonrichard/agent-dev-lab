@@ -49,11 +49,24 @@ describe("createFileTools", () => {
       await expect(readFileTool.execute?.({ path: "big.txt" }, toolCallOptions)).rejects.toThrow();
     });
 
-    it("rejects a path that escapes the root", async () => {
-      const { readFile: readFileTool } = createFileTools({ root });
+    it("rejects a path that escapes the root when allowRead is the write root", async () => {
+      const { readFile: readFileTool } = createFileTools({ root, allowRead: [root] });
       await expect(
         readFileTool.execute?.({ path: "../outside.txt" }, toolCallOptions),
       ).rejects.toThrow();
+    });
+
+    it("reads an absolute path outside the root when allowRead is omitted", async () => {
+      const outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-tools-out-"));
+      try {
+        const outsideFile = path.join(outsideDir, "out.txt");
+        await Bun.write(outsideFile, "out");
+        const { readFile: readFileTool } = createFileTools({ root });
+        const result = await readFileTool.execute?.({ path: outsideFile }, toolCallOptions);
+        expect(result).toEqual({ content: "out" });
+      } finally {
+        await rm(outsideDir, { recursive: true, force: true });
+      }
     });
   });
 

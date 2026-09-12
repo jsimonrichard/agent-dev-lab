@@ -30,7 +30,9 @@ function ctx(
   };
 }
 
-function stubExecutor(): BashExecutor & {
+function stubExecutor(
+  describeOverrides?: Partial<ReturnType<BashExecutor["describe"]>>,
+): BashExecutor & {
   calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }>;
 } {
   const calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }> = [];
@@ -54,6 +56,7 @@ function stubExecutor(): BashExecutor & {
         denyRead: [],
         denyWrite: [],
         network: { allowNetwork: false },
+        ...describeOverrides,
       };
     },
   };
@@ -145,6 +148,8 @@ describe("createWorkspaceToolProvider", () => {
     expect(result).toEqual({
       fileAccess: {
         root: path.resolve(root),
+        allowRead: UNBOUNDED_ALLOW_READ,
+        denyRead: [],
         maxReadBytes: 1_000_000,
         maxWriteBytes: 1_000_000,
       },
@@ -167,6 +172,27 @@ describe("createWorkspaceToolProvider", () => {
         maxRedirects: DEFAULT_MAX_REDIRECTS,
       },
     });
+  });
+
+  it("describeWorkspaceEnv reports bash allowRead on fileAccess without inserting cwd", async () => {
+    const executor = stubExecutor({ allowRead: ["/only-this"] });
+    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const { describeWorkspaceEnv } = await provider.getTools(ctx());
+    const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(result).toMatchObject({
+      fileAccess: { allowRead: ["/only-this"], denyRead: [] },
+      bashAccess: { allowRead: ["/only-this"] },
+    });
+  });
+
+  it("does not let readFile use the write root when allowRead is a different list", async () => {
+    await Bun.write(path.join(root, "inside.txt"), "inside");
+    const executor = stubExecutor({ allowRead: ["/only-this"], allowWrite: [root] });
+    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const { readFile: readFileTool } = await provider.getTools(ctx());
+    await expect(readFileTool.execute?.({ path: "inside.txt" }, toolCallOptions)).rejects.toThrow(
+      /outside the allowed read roots/,
+    );
   });
 
   it("keeps bashTimeoutMs and fetchTimeoutMs as independent knobs", async () => {
@@ -241,6 +267,8 @@ describe("createWorkspaceToolProvider", () => {
     expect(result).toEqual({
       fileAccess: {
         root: path.resolve(root),
+        allowRead: UNBOUNDED_ALLOW_READ,
+        denyRead: [],
         maxReadBytes: 1_000_000,
         maxWriteBytes: 1_000_000,
       },

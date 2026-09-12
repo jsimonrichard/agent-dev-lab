@@ -55,26 +55,72 @@ describe("createFileJail", () => {
       await expectInvalidInput(jail.resolveExisting("missing.txt"));
     });
 
-    it("rejects an absolute path", async () => {
-      const jail = createFileJail(root);
+    it("rejects an absolute path outside the root when allowRead is the write root", async () => {
+      const jail = createFileJail(root, { allowRead: [root] });
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await expectInvalidInput(jail.resolveExisting(outsideFile));
     });
 
-    it("rejects a `..` traversal that escapes the root", async () => {
+    it("accepts an absolute path that stays inside the root", async () => {
+      await writeFile(path.join(root, "a.txt"), "hi", "utf8");
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveExisting(path.join(root, "a.txt"));
+      expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
+    });
+
+    it("reads an absolute path outside the root when allowRead is omitted", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       const jail = createFileJail(root);
+      const resolved = await jail.resolveExisting(outsideFile);
+      expect(resolved).toBe(await realpath(outsideFile));
+    });
+
+    it("reads a path under an allowRead root without implying the write root is readable", async () => {
+      await writeFile(path.join(root, "inside.txt"), "inside", "utf8");
+      const outsideFile = path.join(outsideDir, "extra.txt");
+      await writeFile(outsideFile, "extra", "utf8");
+      const jail = createFileJail(root, { allowRead: [outsideDir] });
+      const resolved = await jail.resolveExisting(outsideFile);
+      expect(resolved).toBe(await realpath(outsideFile));
+      await expectInvalidInput(jail.resolveExisting("inside.txt"));
+    });
+
+    it("rejects every path when allowRead is null", async () => {
+      await writeFile(path.join(root, "a.txt"), "hi", "utf8");
+      const jail = createFileJail(root, { allowRead: null });
+      await expectInvalidInput(jail.resolveExisting("a.txt"));
+      await expectInvalidInput(jail.resolveExisting(path.join(root, "a.txt")));
+    });
+
+    it("rejects a denyRead path even when it sits inside the root", async () => {
+      await mkdir(path.join(root, "hidden"), { recursive: true });
+      await writeFile(path.join(root, "hidden", "secret.txt"), "nope", "utf8");
+      const jail = createFileJail(root, { denyRead: [path.join(root, "hidden")] });
+      await expectInvalidInput(jail.resolveExisting("hidden/secret.txt"));
+    });
+
+    it("rejects a denyRead path even when allowRead is omitted", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      const jail = createFileJail(root, { denyRead: [outsideDir] });
+      await expectInvalidInput(jail.resolveExisting(outsideFile));
+    });
+
+    it("rejects a `..` traversal that escapes the root when allowRead is the write root", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      const jail = createFileJail(root, { allowRead: [root] });
       const relativeEscape = path.join("..", path.basename(outsideDir), "secret.txt");
       await expectInvalidInput(jail.resolveExisting(relativeEscape));
     });
 
-    it("rejects a symlink inside the root that points outside it", async () => {
+    it("rejects a symlink inside the root that points outside it when allowRead is the write root", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await symlink(outsideFile, path.join(root, "link.txt"));
-      const jail = createFileJail(root);
+      const jail = createFileJail(root, { allowRead: [root] });
       await expectInvalidInput(jail.resolveExisting("link.txt"));
     });
 
@@ -86,7 +132,7 @@ describe("createFileJail", () => {
       const outsideFile = path.join(outsideDir, "deep", "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await symlink(outsideDir, path.join(root, "link"));
-      const jail = createFileJail(root);
+      const jail = createFileJail(root, { allowRead: [root] });
       await expectInvalidInput(jail.resolveExisting("link/deep/secret.txt"));
     });
 

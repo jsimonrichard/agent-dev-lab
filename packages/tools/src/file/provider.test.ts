@@ -83,7 +83,42 @@ describe("createFileToolProvider", () => {
     const { describeFileEnv } = await provider.getTools(ctx());
     const result = await describeFileEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
-      fileAccess: { root: path.resolve(root), maxReadBytes: 111, maxWriteBytes: 222 },
+      fileAccess: {
+        root: path.resolve(root),
+        allowRead: "unbounded",
+        denyRead: [],
+        maxReadBytes: 111,
+        maxWriteBytes: 222,
+      },
     });
+  });
+
+  it("describeFileEnv reports an empty allowRead when constructed with null", async () => {
+    const provider = createFileToolProvider({ root, allowRead: null });
+    const { describeFileEnv } = await provider.getTools(ctx());
+    const result = await describeFileEnv.execute?.({}, toolCallOptions);
+    expect(result).toMatchObject({
+      fileAccess: { allowRead: [], denyRead: [] },
+    });
+  });
+
+  it("does not reuse the cached instance when allowRead differs for the same root", async () => {
+    const provider = createFileToolProvider({ root });
+    const first = await provider.getTools(ctx());
+    const second = await provider.getTools(ctx({ allowRead: null }));
+    expect(first.readFile).not.toBe(second.readFile);
+  });
+
+  it("treats toolProviderContext.allowRead null as nothing-readable, not as omitted", async () => {
+    const provider = createFileToolProvider({ root });
+    const { describeFileEnv, readFile: readFileTool } = await provider.getTools(
+      ctx({ allowRead: null }),
+    );
+    await Bun.write(path.join(root, "a.txt"), "hi");
+    const described = await describeFileEnv.execute?.({}, toolCallOptions);
+    expect(described).toMatchObject({ fileAccess: { allowRead: [] } });
+    await expect(readFileTool.execute?.({ path: "a.txt" }, toolCallOptions)).rejects.toThrow(
+      /outside the allowed read roots/,
+    );
   });
 });

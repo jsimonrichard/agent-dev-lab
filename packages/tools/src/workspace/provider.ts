@@ -10,7 +10,7 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import type { BashExecutor } from "../bash/executor";
+import type { BashExecutor, BashExecutorDescription } from "../bash/executor";
 import type { BashSandboxBackend, BashSandboxPolicy } from "../bash/executor-pool";
 import {
   createBashToolProvider,
@@ -47,10 +47,26 @@ import { releaseBashExecutor } from "../bash/executor-pool.ts";
 
 function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
   return (
-    "Report this workspace's working directory, file byte caps, and bash permissions" +
+    "Report this workspace's working directory, file read/write permissions, and bash permissions" +
     (includeFetchUrl ? ", plus what fetchUrl is allowed to retrieve" : "") +
     "."
   );
+}
+
+/**
+ * File-tool read bound implied by the bash executor actually in effect. Bash reports
+ * `null` for unbounded reads; the file jail uses `undefined` for that and `null`/`[]`
+ * for nothing. The list is passed through as-is — `cwd` is not inserted.
+ */
+function fileReadPolicyFromExecutor(described: BashExecutorDescription): {
+  allowRead: string[] | null | undefined;
+  denyRead: string[];
+} {
+  const denyRead = described.denyRead ?? [];
+  if (described.allowRead === null) {
+    return { allowRead: undefined, denyRead };
+  }
+  return { allowRead: described.allowRead, denyRead };
 }
 
 const describeWorkspaceEnvInputSchema = z.object({});
@@ -350,10 +366,20 @@ export function createWorkspaceToolProvider(
         safetyCheck: options.safetyCheck,
       });
 
+      const described = executor.describe();
+      const { allowRead: fileAllowRead, denyRead: fileDenyRead } =
+        fileReadPolicyFromExecutor(described);
+
       const [fileTools, bashTools, webTools] = await Promise.all([
         fileProvider.getTools({
           ...ctx,
-          toolProviderContext: { root: cwd, maxReadBytes, maxWriteBytes },
+          toolProviderContext: {
+            root: cwd,
+            allowRead: fileAllowRead,
+            denyRead: fileDenyRead,
+            maxReadBytes,
+            maxWriteBytes,
+          },
         }),
         bashProvider.getTools({
           ...ctx,
@@ -375,6 +401,8 @@ export function createWorkspaceToolProvider(
       const searchTools = createSearchTools({
         executor,
         root: cwd,
+        allowRead: fileAllowRead,
+        denyRead: fileDenyRead,
         timeoutMs: bashTimeoutMs,
       });
 
@@ -382,7 +410,13 @@ export function createWorkspaceToolProvider(
         description: describeWorkspaceEnvDescription(includeFetchUrl),
         inputSchema: describeWorkspaceEnvInputSchema,
         execute: async () => ({
-          fileAccess: describeFileAccess(path.resolve(cwd), maxReadBytes, maxWriteBytes),
+          fileAccess: describeFileAccess(
+            path.resolve(cwd),
+            maxReadBytes,
+            maxWriteBytes,
+            fileAllowRead,
+            fileDenyRead,
+          ),
           bashAccess: describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
           ...(webTools
             ? {

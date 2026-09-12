@@ -1,5 +1,5 @@
 export { createFileJail } from "./jail";
-export type { FileJail } from "./jail";
+export type { FileJail, FileJailOptions } from "./jail";
 export { createFileToolProvider, describeFileAccess } from "./provider";
 export type {
   DescribeFileEnvTool,
