@@ -4,8 +4,7 @@ import { z } from "zod";
 import type { BashExecutor, BashExecutorUpdate } from "../bash/executor.ts";
 import { resolveCommandOnPath } from "../bash/resolve-command.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools.ts";
-import { createFileJail } from "./jail.ts";
-import { resolveFileAllowRead, type FileAllowRead } from "./tools.ts";
+import { createFileJail, type FileAllowRead } from "./jail.ts";
 
 /** Also used by `createWorkspaceToolProvider`'s `listTools`. */
 export const GREP_DESCRIPTION =
@@ -79,7 +78,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
   }
   const rgPath = resolveCommandOnPath("rg");
   const jail = createFileJail(options.root, {
-    allowRead: resolveFileAllowRead(options.root, options.allowRead),
+    allowRead: options.allowRead,
     denyRead: options.denyRead,
   });
 

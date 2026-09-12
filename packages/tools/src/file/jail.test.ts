@@ -5,6 +5,7 @@ import path from "node:path";
 import { isAdlError } from "@agent-dev-lab/core";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createFileJail } from "./jail";
 
 let root: string;
@@ -69,10 +70,17 @@ describe("createFileJail", () => {
       expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
     });
 
-    it("reads an absolute path outside the root when allowRead is omitted", async () => {
+    it("rejects an absolute path outside the root when allowRead is omitted (defaults to root)", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveExisting(outsideFile));
+    });
+
+    it("reads an absolute path outside the root when allowRead is UNBOUNDED_ALLOW_READ", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      const jail = createFileJail(root, { allowRead: UNBOUNDED_ALLOW_READ });
       const resolved = await jail.resolveExisting(outsideFile);
       expect(resolved).toBe(await realpath(outsideFile));
     });
@@ -101,10 +109,13 @@ describe("createFileJail", () => {
       await expectInvalidInput(jail.resolveExisting("hidden/secret.txt"));
     });
 
-    it("rejects a denyRead path even when allowRead is omitted", async () => {
+    it("rejects a denyRead path even when allowRead is UNBOUNDED_ALLOW_READ", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      const jail = createFileJail(root, { denyRead: [outsideDir] });
+      const jail = createFileJail(root, {
+        allowRead: UNBOUNDED_ALLOW_READ,
+        denyRead: [outsideDir],
+      });
       await expectInvalidInput(jail.resolveExisting(outsideFile));
     });
 
