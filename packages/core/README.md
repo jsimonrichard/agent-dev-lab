@@ -61,14 +61,14 @@ await handle.result;
 | **Runtime**       | `createAdlRuntime`, `createTestRuntime`                                                                            | Wires stores, observers, template engine, and default model/tools; `adl.createAgent` / `adl.createWorkflow` bind to it        |
 | **Agents**        | `createAgent`, `stopWhen` re-exports (`stepCountIs`, `hasToolCall`), `inspectLanguageModel`, `inspectSystemPrompt` | Model + system prompt + tools + memory binding; `agent.run` / `agent.stream` are one conversation episode each                |
 | **Workflows**     | `createWorkflow`, `createWorkflowFromAgent`                                                                        | Plain-TypeScript orchestration (`if` / `for` / `await` / `Promise.all`) with `ctx.step` as the observability + retry boundary |
-| **Tools**         | `createToolFromAgent`, `createToolFromWorkflow`                                                                    | Wrap an agent or workflow as an AI SDK `Tool`                                                                                 |
+| **Tools**         | `createToolProvider`, `combineToolProviders`, `createToolFromAgent`, `createToolFromWorkflow`                      | `ToolSet` or `ToolProvider` (`getTools`, optional `dispose` / `onRunEnd`); wrap an agent or workflow as an AI SDK `Tool`      |
 | **Templates**     | `createTemplate`, `TemplateEngine`                                                                                 | Handlebars markdown templates validated with Zod, colocated with code                                                         |
 | **Stores**        | `sqliteMessageStore`, `inMemoryMessageStore`, `sqliteWorkflowStore`, `inMemoryWorkflowStore`                       | Conversation transcripts (`MessageStore`) and run/step/event history (`WorkflowStore`)                                        |
 | **Observability** | `inMemoryEventLog`, `RunEvent` types, `WorkflowObserver` / `AgentObserver`                                         | Push-based event stream (`step_*`, `agent_*`, `workflow_*`, and author `ctx.emit` custom events)                              |
 | **Project**       | `loadAdlProject`, `findAdlProjectRootFromCwd`, `watchAdlProject`                                                   | Discovers and loads an `adl.config.*` project — the same path the CLI and inspection UI use                                   |
 | **Result**        | `ok`, `err`, `unwrap`, `fromThrowable`                                                                             | A small `Result<T, E>` helper (`@agent-dev-lab/core/result`) safe for inspector payloads and server-function returns          |
 
-Every agent call and workflow run is one AI SDK `streamText` invocation under the hood — there's no parallel execution model or workflow graph DSL to learn beyond `ctx.step` for retry/observability boundaries and `otherWorkflow.run(input)` for nesting.
+Each `agent.run` / `agent.stream` is one conversation episode (an AI SDK tool loop). A workflow is ordinary TypeScript — `ctx.step` marks retry/observability boundaries; `otherWorkflow.run(input)` nests. There is no workflow graph DSL.
 
 ## Subpath exports
 
@@ -118,6 +118,7 @@ const output = await workflow!.run({ topic: "CRISPR delivery" }).result;
 - [Overview](https://agent-dev-lab.com/guides/overview/)
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry
 - [Agents](https://agent-dev-lab.com/core/agents/) — `adl.createAgent`, [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), memory, structured output
+- [Tool providers](https://agent-dev-lab.com/core/tool-provider/) — `ToolProvider`, `dispose` / `onRunEnd`, per-call context
 - [Workflows](https://agent-dev-lab.com/core/workflows/) — `adl.createWorkflow`, `ctx.step`, retry/resumability
 - [Project Config](https://agent-dev-lab.com/core/project/) — registry shape, `loadAdlProject`
 - [API Reference](https://agent-dev-lab.com/api/readme/) — generated from this package's JSDoc

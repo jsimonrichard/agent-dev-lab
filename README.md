@@ -89,7 +89,7 @@ const review = adl.createWorkflow({
       await researcher.run({
         memoryScope: child.memoryScopeWithSuffix("notes"),
         user: input.topic,
-      });
+      }).result;
     });
     return { topic: input.topic };
   },

@@ -351,17 +351,18 @@ Two things only surfaced by actually running this under `node --test` (which —
 
 ## Web search tool
 
-**Audit done** — see `packages/tools/README.md`'s "Provider-native tools" table for the full
-allowlist (checked against actual installed types, not assumed): OpenAI's `openai.tools.webSearch()`
-runs entirely server-side (search + page fetch both happen on OpenAI's infra) and is already
-usable with this repo's default `openai(modelId)` factory — no sandboxing concern on ADL's side
-at all, since ADL never executes the fetch itself. **Prefer provider-native search whenever the
-configured model supports it**, and only fall back to a custom implementation (project-supplied
-fetch + an allow/deny domain list + response size caps) for providers/models without one. The
-custom fallback's "sandboxing" is really just: no arbitrary redirects to internal/private IP
-ranges (SSRF guard), and treating fetched content as untrusted text, never executed. That same
-table also confirms `fileSearch` (OpenAI-hosted vector-store retrieval) is **not** a substitute
-for either this or the `fetchUrl` tool (`src/web/`), despite the name looking like a match, and that
+**Audit done** (checked against actual installed types, not assumed) — `packages/tools/README.md`
+states the consumer rule: this package does not search the web; use a provider-native search tool
+(for example `openai.tools.webSearch()`) for discovery and `fetchUrl` when you already have an
+address. OpenAI's `openai.tools.webSearch()` runs entirely server-side (search + page fetch both
+happen on OpenAI's infra) and is already usable with this repo's default `openai(modelId)` factory
+— no sandboxing concern on ADL's side, since ADL never executes the fetch itself. **Prefer
+provider-native search whenever the configured model supports it**, and only fall back to a custom
+implementation (project-supplied fetch + an allow/deny domain list + response size caps) for
+providers/models without one. The custom fallback's "sandboxing" is really just: no arbitrary
+redirects to internal/private IP ranges (SSRF guard), and treating fetched content as untrusted
+text, never executed. `fileSearch` (OpenAI-hosted vector-store retrieval) is **not** a substitute
+for either this or the `fetchUrl` tool (`src/web/`), despite the name looking like a match, and
 `localShell` is **not** a substitute for `createBashTool` (schema-only, still client-executed).
 
 ---

@@ -1,9 +1,9 @@
 # `src/web/`
 
 `createFetchUrlTool`'s implementation — the `fetchUrl` tool, retrieving one URL and reducing its
-body to readable text/markdown. See the package [README](../../README.md)'s "src/web/" entry for
-the one-paragraph summary and the provider-native table explaining why web _search_ isn't built
-here (`fetchUrl` _reads_ a page you already have the address of; it doesn't find pages).
+body to readable text/markdown. The package [README](../../README.md) has the consumer summary:
+`fetchUrl` reads a page you already have the address of; it does not find pages. Use a
+provider-native search tool (for example `openai.tools.webSearch()`) for discovery.
 
 This file is the "why" for the whole module — design decisions, threat model, citations, library
 comparisons. Code comments point back here rather than repeating it; keep this file, not the
