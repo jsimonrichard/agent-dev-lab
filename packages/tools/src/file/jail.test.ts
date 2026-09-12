@@ -190,5 +190,21 @@ describe("createFileJail", () => {
       const jail = createFileJail(root);
       await expectInvalidInput(jail.resolveForWrite("link/deep/new.txt"));
     });
+
+    it("rejects an existing leaf symlink that points outside the root", async () => {
+      const outsideFile = path.join(outsideDir, "secret.txt");
+      await writeFile(outsideFile, "secret", "utf8");
+      await symlink(outsideFile, path.join(root, "link.txt"));
+      const jail = createFileJail(root);
+      await expectInvalidInput(jail.resolveForWrite("link.txt"));
+    });
+
+    it("resolves an existing leaf symlink that stays inside the root", async () => {
+      await writeFile(path.join(root, "target.txt"), "inside", "utf8");
+      await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
+      const jail = createFileJail(root);
+      const resolved = await jail.resolveForWrite("link.txt");
+      expect(resolved).toBe(await realpath(path.join(root, "target.txt")));
+    });
   });
 });

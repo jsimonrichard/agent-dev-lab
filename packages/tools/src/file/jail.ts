@@ -49,10 +49,12 @@ export interface FileJail {
   resolveExisting(requestedPath: string): Promise<string>;
   /**
    * Resolve `requestedPath` to an absolute, symlink-resolved path for a file that may not
-   * exist yet — the file itself isn't symlink-resolved (it may not exist), but its parent
-   * directory is, and must already exist. Writes stay confined to `root` even when reads
-   * are unbounded. Throws `AdlError("INVALID_INPUT", …)` if the path is absolute, escapes
-   * the root, or its parent directory doesn't exist.
+   * exist yet. The parent directory must already exist and stay inside `root`. When the
+   * leaf itself already exists, it is `realpath`'d too so an outbound leaf symlink cannot
+   * smuggle a write (or an `editFile` read) outside the jail. A missing leaf stays
+   * parent-only. Writes stay confined to `root` even when reads are unbounded. Throws
+   * `AdlError("INVALID_INPUT", …)` if the path is absolute, escapes the root, or its
+   * parent directory doesn't exist.
    */
   resolveForWrite(requestedPath: string): Promise<string>;
 }
@@ -210,7 +212,20 @@ export function createFileJail(root: string, options?: FileJailOptions): FileJai
         throw error;
       }
       assertWithinRoot(realParent, realRoot, requestedPath);
-      return path.join(realParent, path.basename(candidate));
+      const joined = path.join(realParent, path.basename(candidate));
+      // If the leaf already exists (including as a symlink), confine the resolved target —
+      // otherwise Node's writeFile/readFile would follow an outbound leaf symlink past the
+      // parent-only check above.
+      try {
+        const realLeaf = await realpath(joined);
+        assertWithinRoot(realLeaf, realRoot, requestedPath);
+        return realLeaf;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return joined;
+        }
+        throw error;
+      }
     },
   };
 }

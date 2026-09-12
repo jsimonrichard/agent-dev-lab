@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -101,6 +101,22 @@ describe("createFileTools", () => {
         writeFileTool.execute?.({ path: "new.txt", content: "0123456789" }, toolCallOptions),
       ).rejects.toThrow();
     });
+
+    it("rejects writing through an outbound leaf symlink", async () => {
+      const outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-tools-symlink-out-"));
+      try {
+        const outsideFile = path.join(outsideDir, "secret.txt");
+        await writeFile(outsideFile, "secret", "utf8");
+        await symlink(outsideFile, path.join(root, "link.txt"));
+        const { writeFile: writeFileTool } = createFileTools({ root });
+        await expect(
+          writeFileTool.execute?.({ path: "link.txt", content: "pwned" }, toolCallOptions),
+        ).rejects.toThrow();
+        expect(await readFile(outsideFile, "utf8")).toBe("secret");
+      } finally {
+        await rm(outsideDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("editFile", () => {
@@ -142,6 +158,25 @@ describe("createFileTools", () => {
           toolCallOptions,
         ),
       ).rejects.toThrow();
+    });
+
+    it("rejects editing through an outbound leaf symlink", async () => {
+      const outsideDir = await mkdtemp(path.join(tmpdir(), "adl-file-tools-edit-symlink-"));
+      try {
+        const outsideFile = path.join(outsideDir, "secret.txt");
+        await writeFile(outsideFile, "the secret value", "utf8");
+        await symlink(outsideFile, path.join(root, "link.txt"));
+        const { editFile: editFileTool } = createFileTools({ root });
+        await expect(
+          editFileTool.execute?.(
+            { path: "link.txt", find: "secret", replace: "pwned" },
+            toolCallOptions,
+          ),
+        ).rejects.toThrow();
+        expect(await readFile(outsideFile, "utf8")).toBe("the secret value");
+      } finally {
+        await rm(outsideDir, { recursive: true, force: true });
+      }
     });
   });
 });

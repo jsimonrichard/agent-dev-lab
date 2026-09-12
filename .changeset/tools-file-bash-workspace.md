@@ -2,4 +2,4 @@
 "@agent-dev-lab/tools": patch
 ---
 
-Add the `@agent-dev-lab/tools` package: sandboxed file and bash tools plus `createWorkspaceToolProvider`. Jail/executor is required — no unsafe default.
+Add the `@agent-dev-lab/tools` package: sandboxed file and bash tools plus `createWorkspaceToolProvider`. Jail/executor is required — no unsafe default. The file jail confines writes (and `editFile` reads of an existing path) after symlink resolution, including an outbound leaf symlink.
