@@ -220,7 +220,7 @@ export function mergePolicy(
     anchor: resolvedCwd,
     allowWrite: context?.allowWrite ?? defaults.allowWrite,
     whenOmitted: "anchor",
-  })!;
+  });
   const rawAllowRead = Object.hasOwn(context ?? {}, "allowRead")
     ? context!.allowRead
     : Object.hasOwn(defaults, "allowRead")

@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-import { isAdlError } from "@agent-dev-lab/core";
-
 import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
 import { resolveAllowReadList, resolveAllowWriteList } from "./fs-bounds.ts";
 
@@ -16,15 +14,6 @@ describe("resolveAllowWriteList", () => {
     expect(
       resolveAllowWriteList({ anchor: "/proj", allowWrite: undefined, whenOmitted: "omit" }),
     ).toBeUndefined();
-  });
-
-  it("throws when omitted and whenOmitted is required", () => {
-    try {
-      resolveAllowWriteList({ anchor: "/proj", allowWrite: undefined, whenOmitted: "required" });
-      throw new Error("expected throw");
-    } catch (error) {
-      expect(isAdlError(error)).toBe(true);
-    }
   });
 
   it("keeps an empty list as deny-all writes", () => {

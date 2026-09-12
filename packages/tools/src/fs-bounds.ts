@@ -1,7 +1,5 @@
 import path from "node:path";
 
-import { AdlError } from "@agent-dev-lab/core";
-
 import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
 
 /**
@@ -18,27 +16,33 @@ function uniqueResolved(paths: readonly string[]): string[] {
 }
 
 /**
- * Resolve `allowWrite`. `whenOmitted: "anchor"` → `[anchor]`; `"required"` throws if
- * omitted; `"omit"` → `undefined` (file jail: no extra write bound beyond `root`).
+ * Resolve `allowWrite`.
+ *
+ * - `whenOmitted: "anchor"` — omitted → `[anchor]`; always returns a list.
+ * - `whenOmitted: "omit"` — omitted → `undefined` (file jail: no extra write bound).
+ *
  * `[]` is always an empty allow list (no writes) — never treated as omitted.
+ * Callers that need a required `allowWrite` (escape-hatch executors) declare it on their
+ * own options type; there is no runtime `"required"` mode here.
  */
 export function resolveAllowWriteList(options: {
   anchor: string;
   allowWrite: string[] | undefined;
-  whenOmitted: "anchor" | "required" | "omit";
+  whenOmitted: "anchor";
+}): string[];
+export function resolveAllowWriteList(options: {
+  anchor: string;
+  allowWrite: string[] | undefined;
+  whenOmitted: "omit";
+}): string[] | undefined;
+export function resolveAllowWriteList(options: {
+  anchor: string;
+  allowWrite: string[] | undefined;
+  whenOmitted: "anchor" | "omit";
 }): string[] | undefined {
   const { anchor, allowWrite, whenOmitted } = options;
   if (allowWrite === undefined) {
-    if (whenOmitted === "anchor") {
-      return [path.resolve(anchor)];
-    }
-    if (whenOmitted === "omit") {
-      return undefined;
-    }
-    throw new AdlError(
-      "INVALID_INPUT",
-      "allowWrite is required — pass an explicit list (use [] for no writes).",
-    );
+    return whenOmitted === "anchor" ? [path.resolve(anchor)] : undefined;
   }
   return uniqueResolved(allowWrite);
 }
