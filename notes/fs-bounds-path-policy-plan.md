@@ -74,7 +74,7 @@ createFileJail(options?: {
 
 interface FileJail {
   readonly cwd: string; // was `.root`; always absolute (resolved)
-  resolveExisting(path: string): Promise<string>;
+  resolveForRead(path: string): Promise<string>;
   resolveForWrite(path: string): Promise<string>;
 }
 ```

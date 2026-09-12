@@ -82,16 +82,16 @@ export interface FileJail {
   /** Relative-path base, resolved absolute (not yet symlink-resolved). */
   readonly cwd: string;
   /**
-   * Resolve `requestedPath` to an absolute, symlink-resolved path for a file that must
-   * already exist. Relative paths resolve against {@link FileJail.cwd}; absolute paths are
-   * accepted when they fall within the read policy. Throws `AdlError("INVALID_INPUT", …)`
+   * Resolve `requestedPath` to an absolute, symlink-resolved path for a **read**. The file
+   * must already exist. Relative paths resolve against {@link FileJail.cwd}; absolute paths
+   * are accepted when they fall within the read policy. Throws `AdlError("INVALID_INPUT", …)`
    * if the path escapes the read bound, is denied, or doesn't exist.
    */
-  resolveExisting(requestedPath: string): Promise<string>;
+  resolveForRead(requestedPath: string): Promise<string>;
   /**
-   * Resolve `requestedPath` to an absolute, symlink-resolved path for a file that may not
-   * exist yet. The parent directory must already exist. When the leaf itself already exists,
-   * it is `realpath`'d too so an outbound leaf symlink cannot smuggle a write (or an
+   * Resolve `requestedPath` to an absolute, symlink-resolved path for a **write**. The parent
+   * directory must already exist; the leaf may be missing. When the leaf itself already
+   * exists, it is `realpath`'d too so an outbound leaf symlink cannot smuggle a write (or an
    * `editFile` read) outside the write bound. A missing leaf stays parent-only. Absolute
    * paths are allowed when they fall under `allowWrite`. Throws
    * `AdlError("INVALID_INPUT", …)` if the path is denied, outside the write allow list, or
@@ -171,7 +171,7 @@ export function createFileJail(options: FileJailOptions = {}): FileJail {
 
   return {
     cwd,
-    async resolveExisting(requestedPath) {
+    async resolveForRead(requestedPath) {
       const candidate = resolveAgainstCwd(cwd, requestedPath);
       await assertReadableBound(candidate, requestedPath);
       let real: string;

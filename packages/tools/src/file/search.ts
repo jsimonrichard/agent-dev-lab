@@ -105,7 +105,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
           .describe("Optional glob filter (ripgrep `--glob`). Not a flag."),
       }),
       execute: async function* ({ pattern, path: requestedPath, glob }, { abortSignal }) {
-        const searchPath = await jail.resolveExisting(requestedPath ?? ".");
+        const searchPath = await jail.resolveForRead(requestedPath ?? ".");
         yield* options.executor.run(grepArgv(pattern, searchPath, glob, rgPath), {
           cwd: jail.cwd,
           timeoutMs,
@@ -120,7 +120,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
         pattern: z.string().min(1).describe("Glob of files to list, relative to the sandbox root."),
       }),
       execute: async function* ({ pattern }, { abortSignal }) {
-        const searchPath = await jail.resolveExisting(".");
+        const searchPath = await jail.resolveForRead(".");
         yield* options.executor.run(globArgv(pattern, searchPath, rgPath), {
           cwd: jail.cwd,
           timeoutMs,

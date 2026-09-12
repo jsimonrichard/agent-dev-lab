@@ -131,7 +131,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
           .describe("Path relative to the sandbox root, or an absolute path within allowRead."),
       }),
       execute: async ({ path: requestedPath }) => {
-        const resolved = await jail.resolveExisting(requestedPath);
+        const resolved = await jail.resolveForRead(requestedPath);
         await assertReadable(resolved, requestedPath);
         return { content: await readFile(resolved, "utf8") };
       },
