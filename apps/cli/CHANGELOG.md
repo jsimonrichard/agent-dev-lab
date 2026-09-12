@@ -1,5 +1,33 @@
 # @agent-dev-lab/cli
 
+## 0.0.6
+
+### Patch Changes
+
+- 2fb13f1: Add short aliases: `i`/`l`/`r` for remaining commands, `-p`/`-i`/`-s` for `--project`/`--input`/`--serve`, and `-P` for `--port`.
+- 1f7d078: Pick the next free port when `adl dashboard --port` is already bound. `--strictPort` fails instead of hopping.
+- d3c9dc3: `adl init` does not create a VCS repository. Git is opt-in via `--git` (`git init` in the new project; refused if the directory is already inside a Git work tree). `.gitignore` is still written so jj and a later `git init` have ignore rules.
+- 851f524: `adl dashboard` now watches the project registry. `--serve` disables watching (`ADL_PROJECT_WATCH=0`); `--prebuilt` forces the Nitro UI in the monorepo.
+- bcf5603: Rename workflow `input`/`output` to `inputSchema`/`outputSchema` (**breaking**). Update `adl.createWorkflow({ input, output })` to `{ inputSchema, outputSchema }`.
+- Updated dependencies [b0e3dc3]
+- Updated dependencies [801309c]
+- Updated dependencies [bcf5603]
+- Updated dependencies [76c6bde]
+- Updated dependencies [801309c]
+- Updated dependencies [e01a47f]
+- Updated dependencies [84247b6]
+- Updated dependencies [bcf5603]
+- Updated dependencies [54da4c6]
+- Updated dependencies [801309c]
+- Updated dependencies [bcd5dac]
+- Updated dependencies [851f524]
+- Updated dependencies [801309c]
+- Updated dependencies [801309c]
+- Updated dependencies [bcf5603]
+- Updated dependencies [8d85d21]
+  - @agent-dev-lab/web@0.0.4
+  - @agent-dev-lab/core@0.0.4
+
 ## 0.0.5
 
 ### Patch Changes

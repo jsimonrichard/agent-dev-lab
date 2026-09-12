@@ -1,5 +1,31 @@
 # @agent-dev-lab/web
 
+## 0.0.4
+
+### Patch Changes
+
+- b0e3dc3: The inspection UI process prints a Vite-shaped `[adl] reload <file>` line when the project registry reloads, and `[adl] reload failed` when it does not.
+- 801309c: Conversation metadata and agent episodes are now first-class store types. **Breaking:** `adl_inspector_sessions` → `adl_conversation_metadata`, `adl_workflow_events` → `adl_run_events` (existing DBs renamed on open). Adds `adl_agent_episodes`, `conversation_forked`, and `listEvents({ memoryScope })`.
+- 76c6bde: Add run tags: `workflow.run(input, { tags })` and `agent.run({ tags })` record them, `WorkflowStore.listRuns({ tags })` filters by any-of match, and `setRunTags` replaces a workflow run's tags. The inspection UI shows them in inspector footers.
+- 54da4c6: Arm project watch on the address Vite actually bound. A second `dev:web` no longer dies with ConnectionRefused against hardcoded `127.0.0.1`.
+- 801309c: `watchAdlProject` now uses chokidar and returns `{ ready, close }` instead of a dispose function (**breaking**). The inspection UI watches in the same process as `/api`; the Vite reload plugin and `/api/project/reload` are gone.
+- bcd5dac: The inspection UI arms project file watching when the server starts, so registry reloads no longer wait for a browser to open a page.
+- 851f524: `adl dashboard` now watches the project registry. `--serve` disables watching (`ADL_PROJECT_WATCH=0`); `--prebuilt` forces the Nitro UI in the monorepo.
+- 801309c: Fix chat history for multi-round tool calls: keep the highest commit total per episode so earlier rounds stay visible when commits arrive out of order.
+- 801309c: Fix the agent settings panel: `stopWhen` is labeled default vs custom from `agent.definition.stopWhen`, and a `ToolProvider`'s tools come from `listTools()` (empty if missing).
+- Updated dependencies [801309c]
+- Updated dependencies [bcf5603]
+- Updated dependencies [76c6bde]
+- Updated dependencies [801309c]
+- Updated dependencies [e01a47f]
+- Updated dependencies [84247b6]
+- Updated dependencies [bcf5603]
+- Updated dependencies [801309c]
+- Updated dependencies [851f524]
+- Updated dependencies [bcf5603]
+- Updated dependencies [8d85d21]
+  - @agent-dev-lab/core@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes
