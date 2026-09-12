@@ -4,7 +4,7 @@
 
 Flexible TypeScript tooling for developing, debugging, and visualizing AI agents and workflows.
 
-Agent Dev Lab (ADL) is a TypeScript-first framework for experimenting with agentic workflows. It pairs a headless core library built on top of [Vercel's AI SDK](https://ai-sdk.dev/) with an optional inspection UI and a CLI — so you can author agents and workflows as plain TypeScript, run them from scripts, tests, or a server, and inspect the resulting telemetry.
+Agent Dev Lab (ADL) is a TypeScript-first framework for experimenting with agentic workflows. It pairs a headless core library built on top of [Vercel's AI SDK](https://ai-sdk.dev/) with optional sandboxed tools, an inspection UI, and a CLI — so you can author agents and workflows as plain TypeScript, run them from scripts, tests, or a server, and inspect the resulting telemetry.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jsimonrichard/agent-dev-lab/main/assets/screenshots/dashboard.png" alt="ADL inspection UI showing a workflow run's waterfall of steps, with a step's output selected in the inspector panel" width="100%" />
@@ -41,6 +41,8 @@ Or add the packages to an existing project (still need `adl.config.ts`, `src/adl
 
 ```bash
 bun add @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
+# optional sandboxed file/bash/fetchUrl tools:
+# bun add @agent-dev-lab/tools
 # or: npm install @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
 cp .env.example .env   # or create one with OPENAI_API_KEY
 ```
@@ -113,19 +115,19 @@ No external services are required. Put LLM provider keys in the playground (or y
 
 All standard scripts live in the root `package.json` and run through Turbo:
 
-| Command                | Description                                             |
-| ---------------------- | ------------------------------------------------------- |
-| `bun install`          | Install dependencies                                    |
-| `bun run dev`          | Run web + docs in parallel                              |
-| `bun run dev:web`      | Framework UI dev against `apps/playground`              |
-| `bun run dev:cli`      | `adl dashboard` using the nearest user project from cwd |
-| `bun run dev:docs`     | Docs site on port 4321                                  |
-| `bun run build`        | Build all packages                                      |
-| `bun run lint`         | ESLint across all packages                              |
-| `bun run typecheck`    | TypeScript checking via Turbo                           |
-| `bun run test`         | Run package tests via Turbo (`core`, `cli`, `web`)      |
-| `bun run format`       | Prettier write across the repo                          |
-| `bun run format:check` | Prettier check (used in CI)                             |
+| Command                | Description                                                 |
+| ---------------------- | ----------------------------------------------------------- |
+| `bun install`          | Install dependencies                                        |
+| `bun run dev`          | Run web + docs in parallel                                  |
+| `bun run dev:web`      | Framework UI dev against `apps/playground`                  |
+| `bun run dev:cli`      | `adl dashboard` using the nearest user project from cwd     |
+| `bun run dev:docs`     | Docs site on port 4321                                      |
+| `bun run build`        | Build all packages                                          |
+| `bun run lint`         | ESLint across all packages                                  |
+| `bun run typecheck`    | TypeScript checking via Turbo                               |
+| `bun run test`         | Run package tests via Turbo (`core`, `tools`, `cli`, `web`) |
+| `bun run format`       | Prettier write across the repo                              |
+| `bun run format:check` | Prettier check (used in CI)                                 |
 
 ## Monorepo layout
 
@@ -134,6 +136,7 @@ Bun + Turborepo monorepo.
 | Package                     | Path              | Role                                                                                                     |
 | --------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
 | `@agent-dev-lab/core`       | `packages/core`   | Headless runtime — agents, workflows, templates, stores; also `./db`, `./eslint`, `./tsconfig/node.json` |
+| `@agent-dev-lab/tools`      | `packages/tools`  | Optional sandboxed file, bash, search, and `fetchUrl` tools (policy + executor pool)                     |
 | `@agent-dev-lab/web`        | `apps/web`        | TanStack Start (React 19) inspection UI — port 3000                                                      |
 | `@agent-dev-lab/cli`        | `apps/cli`        | Stricli CLI (`adl`)                                                                                      |
 | `@agent-dev-lab/docs`       | `apps/docs`       | Astro Starlight guides + TypeDoc API reference — port 4321                                               |
@@ -146,6 +149,8 @@ Full documentation is hosted at [agent-dev-lab.com](https://agent-dev-lab.com).
 - [Overview](https://agent-dev-lab.com/guides/overview/) — high-level orientation
 - [Project Setup](https://agent-dev-lab.com/guides/project-setup/) — the recommended way to start a project (`adl init`)
 - [Manual Setup](https://agent-dev-lab.com/guides/manual-setup/) — adding ADL to an existing project by hand
+- [Sandboxed tools](https://agent-dev-lab.com/guides/tools/) — optional `@agent-dev-lab/tools` (file, bash, search, `fetchUrl`)
+- [Tool providers](https://agent-dev-lab.com/core/tool-provider/) — `ToolProvider`, `dispose` / `onRunEnd`, per-call context
 - [Inspection UI](https://agent-dev-lab.com/guides/inspection-ui/) — `adl dashboard`, waterfalls, agent conversations
 - [Gotchas](https://agent-dev-lab.com/guides/gotchas/) — sharp edges worth knowing about before they surprise you
 - [Runtime](https://agent-dev-lab.com/core/runtime/) — `createAdlRuntime`, workflow context, OpenTelemetry

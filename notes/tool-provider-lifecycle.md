@@ -1,6 +1,6 @@
 # Tool-provider lifecycle (sandbox executor pool)
 
-**Status:** Sections 1–4 + `onRunEnd` **implemented** (2026-09-12). Playground uses the pool; pool map is pinned on `globalThis` for tools HMR. No kernel shipped. `apps/docs` refresh is the remaining follow-up.
+**Status:** Sections 1–4 + `onRunEnd` **implemented** (2026-09-12). Playground uses the pool; pool map is pinned on `globalThis` for tools HMR. Published `apps/docs` guides reconciled **2026-09-12**. No kernel shipped.
 
 Parent notes (pointers only): [`future-extensions.md`](./future-extensions.md) (kernel still future; run-scoped hook now exists), [`tool-sandboxing.md`](./tool-sandboxing.md) (ASRT supervisor isolation).
 
@@ -161,7 +161,6 @@ Pin the pool map on `globalThis` with `Symbol.for`, matching `load-config.ts`. O
 - Implementing a Python/Jupyter kernel (the hook is the system; the tool is still future).
 - Conversation-scoped kernel lifetime (`onRunEnd` is per `agentCallId`).
 - Idle eviction of pool entries; Mastra-style long-running bash.
-- Editing `apps/docs` (planned follow-up — verify published claims against pooled authoring).
 
 ## Decisions that were open (now closed)
 

@@ -71,7 +71,7 @@ Before the config module is evaluated, `loadAdlProjectEnv()` applies Next.js-sty
 
 For custom tooling, `LoadedAdlProject.reload()` re-imports the config, and `watchAdlProject()` notifies you when source files change.
 
-**What a reload updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of the runtime module (typically `src/adl.ts`). File-backed prompt templates may also re-read from disk on each `render()` while a watcher is active.
+**What a reload updates:** agent/workflow definitions, templates, and runtime **observers** from a fresh evaluation of the runtime module (typically `src/adl.ts`). File-backed prompt templates may also re-read from disk on each `render()` while a watcher is active. After a **successful** registry swap, outgoing agent `ToolProvider`s receive `dispose?()` so pooled bash supervisors can drop refs.
 
 **Prompt caching:** one-shot CLI invocations and `adl dashboard` load each prompt `.md` once when the template is created. A `reload()` or watcher-driven re-import picks up `.md` edits.
 

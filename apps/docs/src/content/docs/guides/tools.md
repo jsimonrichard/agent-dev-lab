@@ -5,7 +5,7 @@ description: Optional @agent-dev-lab/tools package — file, bash, search, and f
 
 [`@agent-dev-lab/tools`](https://www.npmjs.com/package/@agent-dev-lab/tools) is an optional package of sandboxed file, bash, search (`grep` / `glob`), and `fetchUrl` tools for `@agent-dev-lab/core` agents. Core does not depend on it. A project can omit the dependency entirely.
 
-Dangerous tools take their jail or executor as a **required** argument — there is no unsandboxed default. Missing host packages fail with a clear error instead of running without a sandbox.
+Providers take a sandbox **policy** (`allowWrite`, …) and share a process-scoped executor pool, or an escape-hatch `executor`. There is no unsandboxed default. Missing host packages fail with a clear error instead of running without a sandbox.
 
 These tools raise the bar against a misbehaving **model**. They are not a multi-tenant security boundary.
 
@@ -20,29 +20,28 @@ bun add @agent-dev-lab/tools
 
 ## Quick start
 
-`createWorkspaceToolProvider` is the usual surface: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`.
+`createWorkspaceToolProvider` is the usual surface: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`. Pass policy (not a constructed executor). Prefer `loadAdlProject` so `projectRoot` is on the tool-provider envelope for pooling (or pass `projectRoot` to `createAdlRuntime` in tests).
 
 ```ts
 import { mkdirSync } from "node:fs";
 
 import { createAdlRuntime } from "@agent-dev-lab/core";
-import {
-  createAsrtBashExecutor,
-  createWorkspaceToolProvider,
-  resolveDefaultSandboxRoot,
-} from "@agent-dev-lab/tools";
+import { createWorkspaceToolProvider, resolveDefaultSandboxRoot } from "@agent-dev-lab/tools";
 import { openai } from "@ai-sdk/openai";
 
 const cwd = resolveDefaultSandboxRoot();
 mkdirSync(cwd, { recursive: true });
 
-const adl = createAdlRuntime({ defaults: { model: openai("gpt-4o-mini") } });
+const adl = createAdlRuntime({
+  defaults: { model: openai("gpt-4o-mini") },
+  projectRoot: process.cwd(),
+});
 
 const coder = adl.createAgent({
   id: "coder",
   systemPrompt: "You edit files and run commands only inside the sandbox.",
   tools: createWorkspaceToolProvider({
-    executor: createAsrtBashExecutor({ allowWrite: [cwd] }),
+    allowWrite: [cwd],
     cwd,
   }),
 });
@@ -50,7 +49,7 @@ const coder = adl.createAgent({
 
 `resolveDefaultSandboxRoot()` is `.data/sandbox` under the current working directory, or `ADL_SANDBOX_ROOT` when set. It only resolves a path — create the directory yourself.
 
-Override the working directory per call (host- or workflow-set, never by the model):
+Override the working directory per call (host- or workflow-set, never by the model). `cwd` does not spawn a new sandbox process — only policy changes do:
 
 ```ts
 await coder.run({
@@ -58,6 +57,8 @@ await coder.run({
   toolProviderContext: { cwd: "/path/to/another/folder" },
 }).result;
 ```
+
+Call `dispose()` on the tool provider (project reload does this for outgoing providers) to release pool refs; unused supervisors exit when the refcount hits zero.
 
 ## Factories
 
@@ -85,16 +86,18 @@ Every path is confined to `root` after symlink resolution. The jail is a userlan
 
 ## Bash
 
-You choose the executor. The tool never picks one.
+Prefer policy on `createBashToolProvider` / `createWorkspaceToolProvider` (pooled). For a one-off tool without a provider, pass an executor explicitly. The tool never picks an unsandboxed fallback.
 
-| Executor                   | Platform     | Host packages                                             | Notes                                                                                         |
-| -------------------------- | ------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `createAsrtBashExecutor`   | Linux, macOS | Linux: `bubblewrap`, `socat`, `ripgrep`. macOS: `ripgrep` | Preferred default. Per-domain network allowlist. One supervisor process per executor.         |
-| `createNativeBashExecutor` | Linux only   | `bubblewrap`                                              | No extra npm sandbox runtime. Network is all-or-nothing. Throws on macOS instead of no-oping. |
+| Backend / factory          | Platform     | Host packages                                             | Notes                                                                          |
+| -------------------------- | ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| pooled `backend: "asrt"`   | Linux, macOS | Linux: `bubblewrap`, `socat`, `ripgrep`. macOS: `ripgrep` | Preferred default. Per-domain network allowlist. Shared supervisor per policy. |
+| pooled `backend: "native"` | Linux only   | `bubblewrap`                                              | No extra npm sandbox runtime. Network is all-or-nothing. Throws on macOS.      |
+| `createAsrtBashExecutor`   | (same)       | (same)                                                    | Escape hatch when you must own the executor instance.                          |
+| `createNativeBashExecutor` | (same)       | (same)                                                    | Escape hatch for a dedicated native executor.                                  |
 
-`allowWrite` is required — pass `[]` for a sandbox that can run commands but write nowhere.
+`allowWrite` is required — pass `[]` for a sandbox that can run commands but write nowhere. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
 
-Each `createAsrtBashExecutor` spawns a supervisor child that owns that instance's `SandboxManager`, so two executors can have different filesystem and domain policies in one host process. Call `dispose()` to end the supervisor; it also exits if the host process dies (stdin keepalive).
+Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
 
 A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a thrown tool error.
 

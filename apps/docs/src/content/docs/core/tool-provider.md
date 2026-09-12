@@ -13,26 +13,41 @@ Sandboxed file/bash/`fetchUrl` factories that implement this interface live in t
 
 ```ts
 interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderContext = unknown> {
-  getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): Tools | Promise<Tools>;
+  getTools(ctx: ExtendedToolProviderContext<ToolProviderContext>): MaybePromise<Tools>;
   contextSchema?: z.ZodType<unknown, ToolProviderContext>;
   listTools?(): ToolProviderToolSummary[];
+  /** Per agent.run / agent.stream episode — success, failure, or abort. */
+  onRunEnd?(ctx: ExtendedToolProviderContext<ToolProviderContext>): MaybePromise<void>;
+  /** Provider instance going away (reload outgoing registry, or project unload). */
+  dispose?(): MaybePromise<void>;
 }
 ```
 
-`getTools` is the only method the runtime calls. It receives:
+`getTools` is the only method required for a turn. Optional hooks:
 
-| Field                 | Source                                                  |
-| --------------------- | ------------------------------------------------------- |
-| `agentId`             | The agent being run                                     |
-| `memoryScope`         | Conversation key for this episode                       |
-| `workflow?`           | `{ workflowRunId, stepId }` when inside a workflow      |
-| `toolProviderContext` | The raw value from `agent.run({ toolProviderContext })` |
+| Hook       | When                                                                                         | Typical use                                      |
+| ---------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `onRunEnd` | End of this `agent.run` / `agent.stream` (`agentCallId`), including failure and abort        | Run-scoped resources (e.g. a future kernel)      |
+| `dispose`  | Outgoing providers after a successful project reload, or `LoadedAdlProject.dispose` / unload | Process/project-scoped resources (executor pool) |
+
+`onRunEnd` is **not** called on reload; `dispose` is **not** called at run end. Per-call `agent.run({ tools })` providers get `onRunEnd`, not the reload `dispose` walk.
+
+`getTools` receives:
+
+| Field                 | Source                                                                    |
+| --------------------- | ------------------------------------------------------------------------- |
+| `agentId`             | The agent being run                                                       |
+| `agentCallId`         | Stable id for this episode (one per `run` / `stream`)                     |
+| `memoryScope`         | Conversation key for this episode                                         |
+| `projectRoot?`        | ADL project root when loaded via `loadAdlProject` (or set on the runtime) |
+| `workflow?`           | `{ workflowRunId, stepId }` when inside a workflow                        |
+| `toolProviderContext` | The raw value from `agent.run({ toolProviderContext })`                   |
 
 The framework never parses or validates `toolProviderContext`. If you want Zod defaults, call `.parse()` yourself at the start of `getTools`.
 
 `contextSchema` and `listTools` are introspection-only (inspection UI / settings). The runtime never reads them. Skip `listTools` when the tool names themselves depend on a real context — the inspector treats a missing `listTools` as "cannot list" rather than calling `getTools` with a fabricated context.
 
-A provider can be a class (constructor state, other interfaces) or a function wrapped with `createToolProvider`.
+A provider can be a class (constructor state, other interfaces) or a function wrapped with `createToolProvider`. Classes are the documented pattern for run-scoped state keyed by `agentCallId`.
 
 ## createToolProvider
 
@@ -107,7 +122,7 @@ await agent.run({
 
 A source that needs no context still needs a key; its `toolProviderContext` slot is unused.
 
-`createWorkspaceToolProvider` from `@agent-dev-lab/tools` is **not** implemented with `combineToolProviders` — file tools and bash must share one `cwd`. It already includes `fetchUrl`; combine a workspace provider with another source when an agent needs something beyond that surface.
+Pass sandbox **policy** (`allowWrite`, …) to [`createWorkspaceToolProvider`](/guides/tools/) to use the process pool (file + bash + `fetchUrl` sharing one `cwd`). Combine a workspace provider with another source when an agent needs something beyond that surface.
 
 ## Related
 

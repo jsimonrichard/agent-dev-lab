@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-12**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor lifecycle / pool / playground / HMR pin: **implemented** — see [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md) (`apps/docs` refresh still open). Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
+**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-12**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor lifecycle / pool / playground / HMR pin / docs: **implemented** — see [`tool-provider-lifecycle.md`](./tool-provider-lifecycle.md). Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
 Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
