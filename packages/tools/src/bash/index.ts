@@ -1,5 +1,7 @@
 export { createAsrtBashExecutor } from "./asrt-executor";
 export type { AsrtBashExecutorOptions } from "./asrt-executor";
+export type { AllowEnv } from "./allow-env";
+export { resolveAllowEnv } from "./allow-env";
 export type {
   BashExecutor,
   BashExecutorDescription,

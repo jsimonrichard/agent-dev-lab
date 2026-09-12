@@ -200,6 +200,55 @@ describe("createNativeBashExecutor", () => {
     },
   );
 
+  describe("allowEnv", () => {
+    it("hides host secrets from printenv by default", { timeout: 15_000 }, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowenv-"));
+      const secret = "ADL_NATIVE_ENV_SECRET_VALUE";
+      const prev = process.env.ADL_NATIVE_ENV_SECRET;
+      process.env.ADL_NATIVE_ENV_SECRET = secret;
+      try {
+        const executor = createNativeBashExecutor({ allowWrite: [root] });
+        const result = await finalResult(
+          executor.run(sh("printenv"), { cwd: root, timeoutMs: 10_000 }),
+        );
+        assert.equal(result.exitCode, 0);
+        assert.ok(!result.stdout.includes(secret), result.stdout);
+        assert.ok(!result.stdout.includes("ADL_NATIVE_ENV_SECRET"), result.stdout);
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ADL_NATIVE_ENV_SECRET;
+        } else {
+          process.env.ADL_NATIVE_ENV_SECRET = prev;
+        }
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    it("passes an allowlisted name into the sandbox", { timeout: 15_000 }, async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "adl-native-allowenv-"));
+      const prev = process.env.ADL_NATIVE_ENV_FOO;
+      process.env.ADL_NATIVE_ENV_FOO = "bar";
+      try {
+        const executor = createNativeBashExecutor({
+          allowWrite: [root],
+          allowEnv: ["ADL_NATIVE_ENV_FOO"],
+        });
+        const result = await finalResult(
+          executor.run(sh('printenv ADL_NATIVE_ENV_FOO'), { cwd: root, timeoutMs: 10_000 }),
+        );
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.stdout.trim(), "bar");
+      } finally {
+        if (prev === undefined) {
+          delete process.env.ADL_NATIVE_ENV_FOO;
+        } else {
+          process.env.ADL_NATIVE_ENV_FOO = prev;
+        }
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   it("allows writing under an allowWrite path", { timeout: 15_000 }, async () => {
     const root = await mkdtemp(path.join(tmpdir(), "adl-native-executor-"));
     try {

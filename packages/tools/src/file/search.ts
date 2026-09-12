@@ -2,6 +2,7 @@ import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
 import type { BashExecutor, BashExecutorUpdate } from "../bash/executor.ts";
+import { resolveCommandOnPath } from "../bash/resolve-command.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools.ts";
 import { createFileJail } from "./jail.ts";
 import { resolveFileAllowRead, type FileAllowRead } from "./tools.ts";
@@ -43,9 +44,15 @@ export interface SearchTools {
 /**
  * Fixed `rg` argv. The model supplies only the pattern and an in-root path/glob — never
  * flags. `--` keeps a pattern that starts with `-` from being parsed as a flag.
+ * `rgPath` is absolute so an empty sandbox `PATH` still finds ripgrep.
  */
-export function grepArgv(pattern: string, searchPath: string, glob?: string): string[] {
-  const argv = ["rg", "--color=never", "--line-number", "--no-heading", "--fixed-strings"];
+export function grepArgv(
+  pattern: string,
+  searchPath: string,
+  glob?: string,
+  rgPath = "rg",
+): string[] {
+  const argv = [rgPath, "--color=never", "--line-number", "--no-heading", "--fixed-strings"];
   if (glob !== undefined) {
     argv.push("--glob", glob);
   }
@@ -54,8 +61,8 @@ export function grepArgv(pattern: string, searchPath: string, glob?: string): st
 }
 
 /** `rg --files` filtered by `--glob`. Search path is always the jail-resolved root. */
-export function globArgv(pattern: string, searchPath: string): string[] {
-  return ["rg", "--files", "--color=never", "--glob", pattern, "--", searchPath];
+export function globArgv(pattern: string, searchPath: string, rgPath = "rg"): string[] {
+  return [rgPath, "--files", "--color=never", "--glob", pattern, "--", searchPath];
 }
 
 /**
@@ -70,6 +77,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       `SearchToolsOptions.timeoutMs must be positive, got ${timeoutMs}`,
     );
   }
+  const rgPath = resolveCommandOnPath("rg");
   const jail = createFileJail(options.root, {
     allowRead: resolveFileAllowRead(options.root, options.allowRead),
     denyRead: options.denyRead,
@@ -97,7 +105,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       }),
       execute: async function* ({ pattern, path: requestedPath, glob }, { abortSignal }) {
         const searchPath = await jail.resolveExisting(requestedPath ?? ".");
-        yield* options.executor.run(grepArgv(pattern, searchPath, glob), {
+        yield* options.executor.run(grepArgv(pattern, searchPath, glob, rgPath), {
           cwd: jail.root,
           timeoutMs,
           signal: abortSignal,
@@ -112,7 +120,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       }),
       execute: async function* ({ pattern }, { abortSignal }) {
         const searchPath = await jail.resolveExisting(".");
-        yield* options.executor.run(globArgv(pattern, searchPath), {
+        yield* options.executor.run(globArgv(pattern, searchPath, rgPath), {
           cwd: jail.root,
           timeoutMs,
           signal: abortSignal,

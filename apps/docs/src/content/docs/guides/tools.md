@@ -95,7 +95,7 @@ Prefer policy on `createBashToolProvider` / `createWorkspaceToolProvider` (poole
 | `createAsrtBashExecutor`   | (same)       | (same)                                                    | Escape hatch when you must own the executor instance.                          |
 | `createNativeBashExecutor` | (same)       | (same)                                                    | Escape hatch for a dedicated native executor.                                  |
 
-On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`; pass `[]` for a sandbox that can run commands but write nowhere, or `UNBOUNDED_ALLOW_READ` / `null` for host-wide reads. Escape-hatch executors still require `allowWrite` at construction (they have no cwd yet); omitted `allowRead` defaults to `allowWrite`. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
+On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`; pass `[]` for a sandbox that can run commands but write nowhere, or `UNBOUNDED_ALLOW_READ` / `null` for host-wide reads. Escape-hatch executors still require `allowWrite` at construction (they have no cwd yet); omitted `allowRead` defaults to `allowWrite`. Sandboxed commands inherit no host environment by default — pass `allowEnv: true` or a name/glob/`RegExp` allowlist. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
 
 Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
 

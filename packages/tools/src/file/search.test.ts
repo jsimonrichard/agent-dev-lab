@@ -129,7 +129,10 @@ describe("createSearchTools", () => {
       }
       expect(executor.calls).toHaveLength(1);
       const argv = executor.calls[0]?.argv ?? [];
-      expect(argv[0]).toBe("rg");
+      expect(path.isAbsolute(String(argv[0]))).toBe(true);
+      expect(String(argv[0]).endsWith(`${path.sep}rg`) || String(argv[0]).endsWith("/rg")).toBe(
+        true,
+      );
       expect(argv.includes("--")).toBe(true);
       expect(argv.at(-2)).toBe("needle");
       expect(argv.at(-1)).toBe(await realpath(root));
@@ -185,7 +188,7 @@ describe("createSearchTools", () => {
       if (result) {
         await drain(result as AsyncIterable<BashExecutorUpdate>);
       }
-      expect(executor.calls[0]?.argv[0]).toBe("rg");
+      expect(path.isAbsolute(String(executor.calls[0]?.argv[0]))).toBe(true);
       expect(executor.calls[0]?.argv.includes("--files")).toBe(true);
       expect(executor.calls[0]?.argv.includes("**/*.ts")).toBe(true);
     });

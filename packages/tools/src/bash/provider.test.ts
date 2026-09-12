@@ -95,6 +95,7 @@ describe("mergePolicy", () => {
       allowedDomains: undefined,
       deniedDomains: undefined,
       allowNetwork: undefined,
+      allowEnv: undefined,
     });
   });
 

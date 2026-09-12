@@ -3,6 +3,7 @@ import path from "node:path";
 import { AdlError } from "@agent-dev-lab/core";
 
 import { createAsrtBashExecutor } from "./asrt-executor.ts";
+import { canonicalizeAllowEnv, type AllowEnv, type CanonicalAllowEnv } from "./allow-env.ts";
 import type { BashExecutor } from "./executor.ts";
 import { createNativeBashExecutor } from "./native-executor.ts";
 
@@ -23,6 +24,10 @@ export interface BashSandboxPolicy {
   deniedDomains?: string[];
   /** Native-only. ASRT derives network access from `allowedDomains`. */
   allowNetwork?: boolean;
+  /**
+   * Host env vars exposed inside the sandbox. Omitted / `[]` → none. Part of the pool key.
+   */
+  allowEnv?: AllowEnv;
 }
 
 export interface CanonicalBashSandboxPolicy {
@@ -33,6 +38,7 @@ export interface CanonicalBashSandboxPolicy {
   allowedDomains: string[];
   deniedDomains: string[];
   allowNetwork: boolean;
+  allowEnv: CanonicalAllowEnv;
 }
 
 export interface BashExecutorPoolKey {
@@ -99,6 +105,7 @@ export function canonicalizeBashSandboxPolicy(
     allowedDomains: sortedUniqueStrings(policy.allowedDomains ?? []),
     deniedDomains: sortedUniqueStrings(policy.deniedDomains ?? []),
     allowNetwork: policy.allowNetwork ?? false,
+    allowEnv: canonicalizeAllowEnv(policy.allowEnv),
   };
 }
 
@@ -128,6 +135,7 @@ function createPooledExecutor(
       denyWrite: policy.denyWrite,
       allowedDomains: policy.allowedDomains,
       deniedDomains: policy.deniedDomains,
+      allowEnv: restoreAllowEnv(policy.allowEnv),
     });
   }
 
@@ -148,7 +156,20 @@ function createPooledExecutor(
     allowRead: policy.allowRead,
     denyRead: policy.denyRead,
     allowNetwork: policy.allowNetwork,
+    allowEnv: restoreAllowEnv(policy.allowEnv),
   });
+}
+
+function restoreAllowEnv(allowEnv: CanonicalAllowEnv): AllowEnv | undefined {
+  if (allowEnv === true) {
+    return true;
+  }
+  if (allowEnv.length === 0) {
+    return undefined;
+  }
+  return allowEnv.map((entry) =>
+    entry.kind === "string" ? entry.value : new RegExp(entry.source, entry.flags),
+  );
 }
 
 export function bashExecutorPoolKeyFor(options: {

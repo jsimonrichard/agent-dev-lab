@@ -10,7 +10,13 @@ import type { BashExecutorUpdate } from "./executor.ts";
  */
 
 export type AsrtSupervisorRequest =
-  | { id: string; type: "init"; config: SandboxRuntimeConfig }
+  | {
+      id: string;
+      type: "init";
+      config: SandboxRuntimeConfig;
+      /** Host env vars allowed into sandboxed commands (already resolved; no RegExp). */
+      sandboxEnv: Record<string, string>;
+    }
   | {
       id: string;
       type: "run";

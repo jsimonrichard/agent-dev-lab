@@ -92,6 +92,7 @@ async function main(): Promise<void> {
   }
 
   let initialized = false;
+  let sandboxEnv: Record<string, string> = {};
   const runs = new Map<string, AbortController>();
   let shuttingDown = false;
 
@@ -142,6 +143,7 @@ async function main(): Promise<void> {
             throw dependencyError(check);
           }
           await SandboxManager.initialize(request.config);
+          sandboxEnv = { ...request.sandboxEnv };
           initialized = true;
           send({ id: request.id, type: "ready" });
           return;
@@ -168,7 +170,7 @@ async function main(): Promise<void> {
               extraEnv[key] = arg;
               refs.push(`"$${key}"`);
             }
-            const { argv: sandboxArgv, env } = await SandboxManager.wrapWithSandboxArgv(
+            const { argv: sandboxArgv, env: asrtEnv } = await SandboxManager.wrapWithSandboxArgv(
               `exec ${refs.join(" ")}`,
               undefined,
               undefined,
@@ -176,10 +178,22 @@ async function main(): Promise<void> {
               request.cwd,
               { commandId },
             );
+            // Start from the host allowlist (default none), then keep only ASRT-injected
+            // overrides (proxy vars, etc.) — never the full host `process.env`.
+            const spawnEnv: Record<string, string> = { ...sandboxEnv };
+            for (const [key, value] of Object.entries(asrtEnv)) {
+              if (typeof value !== "string") {
+                continue;
+              }
+              if (process.env[key] !== value) {
+                spawnEnv[key] = value;
+              }
+            }
+            Object.assign(spawnEnv, extraEnv);
             const channel = createAsyncChannel<BashExecutorUpdate>();
             runArgvIntoChannel(
               sandboxArgv,
-              { ...env, ...extraEnv },
+              spawnEnv,
               {
                 cwd: request.cwd,
                 timeoutMs: request.timeoutMs,

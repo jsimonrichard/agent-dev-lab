@@ -28,6 +28,7 @@ describe("canonicalizeBashSandboxPolicy", () => {
     expect(canonical.allowedDomains).toEqual(["a.com", "b.com"]);
     // Omitted allowRead defaults to the write roots (not host-wide).
     expect(canonical.allowRead).toEqual(["/proj/a", "/proj/b"]);
+    expect(canonical.allowEnv).toEqual([]);
   });
 
   it("keeps allowRead null when explicitly unbounded", () => {
@@ -36,6 +37,22 @@ describe("canonicalizeBashSandboxPolicy", () => {
       allowRead: null,
     });
     expect(canonical.allowRead).toBeNull();
+  });
+
+  it("canonicalizes allowEnv for the pool key", () => {
+    const a = canonicalizeBashSandboxPolicy("/proj", {
+      allowWrite: ["s"],
+      allowEnv: [/^ADL_/, "FOO"],
+    });
+    const b = canonicalizeBashSandboxPolicy("/proj", {
+      allowWrite: ["s"],
+      allowEnv: ["FOO", /^ADL_/],
+    });
+    expect(a.allowEnv).toEqual(b.allowEnv);
+    expect(a.allowEnv).toEqual([
+      { kind: "regexp", source: "^ADL_", flags: "" },
+      { kind: "string", value: "FOO" },
+    ]);
   });
 });
 

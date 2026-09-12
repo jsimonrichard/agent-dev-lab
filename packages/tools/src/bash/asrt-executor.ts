@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
 import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 
+import { resolveAllowEnv, type AllowEnv } from "./allow-env.ts";
 import {
   attachNdjsonReader,
   writeNdjson,
@@ -15,6 +16,7 @@ import {
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES } from "./process-channel.ts";
 import { existingSystemReadPaths } from "./read-bounds.ts";
+import { resolveCommandOnPath } from "./resolve-command.ts";
 
 export interface AsrtBashExecutorOptions {
   /**
@@ -47,6 +49,13 @@ export interface AsrtBashExecutorOptions {
   deniedDomains?: string[];
   /** Bytes to keep from `stdout`/`stderr` each before truncating. Default 1,000,000 (1 MB). */
   maxOutputBytes?: number;
+  /**
+   * Host environment variables to expose inside the sandbox. Omitted / `[]` → none.
+   * `true` → every string-valued host var. A list matches names (literal, glob, or `RegExp`).
+   * The supervisor process itself may still inherit the host env (it is trusted); only the
+   * sandboxed command's env is filtered.
+   */
+  allowEnv?: AllowEnv;
 }
 
 /**
@@ -127,7 +136,10 @@ class AsrtSupervisorClient {
     child.on("error", (error) => this.failAll(error));
   }
 
-  static async start(config: SandboxRuntimeConfig): Promise<AsrtSupervisorClient> {
+  static async start(
+    config: SandboxRuntimeConfig,
+    sandboxEnv: Record<string, string>,
+  ): Promise<AsrtSupervisorClient> {
     const child = spawn(process.execPath, supervisorArgv(), {
       stdio: ["pipe", "pipe", "inherit"],
     });
@@ -136,7 +148,7 @@ class AsrtSupervisorClient {
       const id = client.allocId();
       await new Promise<void>((resolve, reject) => {
         client.pending.set(id, { kind: "init", resolve, reject });
-        client.send({ id, type: "init", config });
+        client.send({ id, type: "init", config, sandboxEnv });
       });
       return client;
     } catch (error) {
@@ -302,13 +314,27 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
         : { allowRead: [...allowRead, asrtPackageDir(), ...existingSystemReadPaths()] }),
       denyWrite: (options.denyWrite ?? []).map((p) => path.resolve(p)),
     },
+    // Absolute path so the wrap does not need PATH inside the sandbox. macOS uses
+    // sandbox-exec, not bwrap. Soft-resolve so missing-deps still surface via ASRT's
+    // checkDependencies (bwrap + socat + ripgrep together) rather than failing at
+    // construct on bwrap alone.
+    ...(process.platform === "linux"
+      ? (() => {
+          try {
+            return { bwrapPath: resolveCommandOnPath("bwrap") };
+          } catch {
+            return {};
+          }
+        })()
+      : {}),
   };
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
+  const sandboxEnv = resolveAllowEnv(options.allowEnv);
 
   let clientPromise: Promise<AsrtSupervisorClient> | undefined;
 
   const ensureClient = (): Promise<AsrtSupervisorClient> => {
-    clientPromise ??= AsrtSupervisorClient.start(config).catch((error: unknown) => {
+    clientPromise ??= AsrtSupervisorClient.start(config, sandboxEnv).catch((error: unknown) => {
       clientPromise = undefined;
       throw error;
     });

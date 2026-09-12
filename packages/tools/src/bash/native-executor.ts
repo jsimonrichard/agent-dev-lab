@@ -4,9 +4,11 @@ import path from "node:path";
 
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
 
+import { resolveAllowEnv, type AllowEnv } from "./allow-env.ts";
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
 import { existingSystemReadPaths } from "./read-bounds.ts";
+import { resolveCommandOnPath } from "./resolve-command.ts";
 
 export interface NativeBashExecutorOptions {
   /**
@@ -43,55 +45,11 @@ export interface NativeBashExecutorOptions {
   /** Bytes to keep from `stdout`/`stderr` each before truncating. Default 1,000,000 (1 MB). */
   maxOutputBytes?: number;
   /**
-   * Environment variables available inside the sandbox. Default: a minimal safe subset of
-   * this process's own env (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TERM`, `TMPDIR`) — **not** the
-   * full `process.env`, which may hold secrets ADL's own `.env` loading put there (this
-   * avoids leaking secrets that `.env` loading put on `process.env`).
+   * Host environment variables to expose inside the sandbox. Omitted / `[]` → none
+   * (`printenv` is empty aside from what the command itself sets). `true` → every
+   * string-valued host var. A list matches names (literal, glob, or `RegExp`).
    */
-  env?: Record<string, string>;
-}
-
-const DEFAULT_ENV_KEYS = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "TMPDIR"];
-
-function defaultEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const key of DEFAULT_ENV_KEYS) {
-    const value = process.env[key];
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-  return env;
-}
-
-/**
- * Manually walks `PATH` rather than asking `spawn`/`spawnSync` to resolve the bare command
- * name — verified this actually matters: under Bun, `spawnSync("bwrap", ..., { env: { PATH:
- * "" } })` still finds a real `bwrap` on the *ambient* process PATH despite the empty `env`
- * override (Node's `spawnSync` does not have this quirk — it correctly fails to resolve). A
- * manual `PATH`-segment search is deterministic across both runtimes.
- */
-function isOnPath(command: string): boolean {
-  const pathEnv = process.env.PATH ?? "";
-  return pathEnv
-    .split(path.delimiter)
-    .filter((segment) => segment.length > 0)
-    .some((segment) => existsSync(path.join(segment, command)));
-}
-
-// Checked once per process and cached — bubblewrap's presence doesn't change mid-run.
-let bwrapAvailable: boolean | undefined;
-
-function checkBwrapAvailable(): void {
-  bwrapAvailable ??= isOnPath("bwrap");
-  if (!bwrapAvailable) {
-    throw new AdlError(
-      "INIT_FAILED",
-      "bubblewrap (bwrap) not found on PATH. Install: `apt-get install bubblewrap` / " +
-        "`dnf install bubblewrap` / `pacman -S bubblewrap`. No automatic fallback to an " +
-        "unsandboxed executor is used.",
-    );
-  }
+  allowEnv?: AllowEnv;
 }
 
 // A `--ro-bind` source for hiding a *file* path (see `denyReadArgsFor` below) — must be a
@@ -144,16 +102,20 @@ function denyReadArgsFor(resolvedPath: string): string[] {
  *    here it's denyRead over allowWrite).
  * 6. `--unshare-all` (every namespace, including network) then `--share-net` added back only
  *    if `allowNetwork` — network access here is all-or-nothing, no per-domain filtering.
+ * 7. `--clearenv` then `--setenv` for each allowed host var — the host PATH used to *find*
+ *    bwrap does not enter the sandbox.
  */
 function buildBwrapArgv(
+  bwrapPath: string,
   commandArgv: readonly string[],
   cwd: string,
   allowWrite: string[],
   allowRead: string[] | null,
   denyRead: string[],
   allowNetwork: boolean,
+  sandboxEnv: Readonly<Record<string, string>>,
 ): string[] {
-  const argv = ["bwrap"];
+  const argv = [bwrapPath];
   if (allowRead === null) {
     argv.push("--ro-bind", "/", "/");
   } else {
@@ -174,6 +136,10 @@ function buildBwrapArgv(
   argv.push("--unshare-all");
   if (allowNetwork) {
     argv.push("--share-net");
+  }
+  argv.push("--clearenv");
+  for (const [key, value] of Object.entries(sandboxEnv)) {
+    argv.push("--setenv", key, value);
   }
   argv.push("--die-with-parent", "--new-session", "--chdir", cwd);
   argv.push("--", ...commandArgv);
@@ -210,6 +176,21 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
     );
   }
 
+  let bwrapPath: string;
+  try {
+    bwrapPath = resolveCommandOnPath("bwrap");
+  } catch (error) {
+    if (error instanceof AdlError) {
+      throw new AdlError(
+        "INIT_FAILED",
+        "bubblewrap (bwrap) not found on PATH. Install: `apt-get install bubblewrap` / " +
+          "`dnf install bubblewrap` / `pacman -S bubblewrap`. No automatic fallback to an " +
+          "unsandboxed executor is used.",
+      );
+    }
+    throw error;
+  }
+
   const allowWrite = options.allowWrite.map((p) => path.resolve(p));
   const allowRead =
     options.allowRead === undefined
@@ -220,7 +201,7 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
   const denyRead = (options.denyRead ?? []).map((p) => path.resolve(p));
   const allowNetwork = options.allowNetwork ?? false;
   const maxOutputBytes = options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
-  const env = options.env ?? defaultEnv();
+  const sandboxEnv = resolveAllowEnv(options.allowEnv);
 
   return {
     run(argv, run) {
@@ -229,16 +210,18 @@ export function createNativeBashExecutor(options: NativeBashExecutorOptions): Ba
         if (argv.length === 0) {
           throw new AdlError("INIT_FAILED", "Empty argv for the command to run.");
         }
-        checkBwrapAvailable();
         const bwrapArgv = buildBwrapArgv(
+          bwrapPath,
           argv,
           run.cwd,
           allowWrite,
           allowRead,
           denyRead,
           allowNetwork,
+          sandboxEnv,
         );
-        runArgvIntoChannel(bwrapArgv, env, run, maxOutputBytes, channel);
+        // Absolute bwrap path — spawn env need not carry PATH into the host process tree.
+        runArgvIntoChannel(bwrapArgv, {}, run, maxOutputBytes, channel);
       } catch (error) {
         channel.fail(error);
       }
