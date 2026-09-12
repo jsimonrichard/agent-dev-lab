@@ -9,7 +9,7 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import type { BashExecutor, BashExecutorDescription, BashExecutorResult } from "./executor";
+import type { BashExecutor, BashExecutorResult } from "./executor";
 import {
   acquireBashExecutor,
   bashExecutorPoolKeyFor,
@@ -64,20 +64,74 @@ async function runSafetyCheck(
   }
 }
 
+/**
+ * Model-facing stand-in for `BashExecutorDescription.allowRead === null` (reads not confined).
+ * A string, not `null` or `[]` — those are how the executor contract encodes "omitted" vs
+ * "bounded to nothing", which the model should not have to know.
+ */
+export const UNBOUNDED_ALLOW_READ = "unbounded" as const;
+
+/** Resolved `allowRead` as `describeBashEnv` reports it. */
+export type ModelAllowRead = string[] | typeof UNBOUNDED_ALLOW_READ;
+
 /** The `describeBashEnv` tool's payload — see `createBashToolProvider`. */
-export interface BashAccessInfo extends BashExecutorDescription {
+export interface BashAccessInfo {
   /** The working directory this call's `bash` tool actually runs commands in. */
   cwd: string;
   /** The wall-clock timeout (ms) this call's `bash` tool actually enforces. */
   timeoutMs: number;
+  backend: string;
+  allowWrite: string[];
+  /**
+   * Paths reads are confined to, or {@link UNBOUNDED_ALLOW_READ} when the executor is not
+   * bounding reads. Always the resolved default — never `null` or omitted.
+   */
+  allowRead: ModelAllowRead;
+  /** Paths hidden from reads. Empty when the caller set no extra denials. */
+  denyRead: string[];
+  /** Paths denied write access. Empty when the caller set none. */
+  denyWrite: string[];
+  network: {
+    allowNetwork: boolean;
+    allowedDomains: string[];
+    deniedDomains: string[];
+  };
 }
 
+function resolvedPathList(value: readonly string[] | null | undefined): string[] {
+  return value == null ? [] : [...value];
+}
+
+function resolvedAllowRead(value: string[] | null | undefined): ModelAllowRead {
+  return value == null ? UNBOUNDED_ALLOW_READ : value;
+}
+
+/**
+ * Resolve {@link BashExecutor.describe} into the values actually in effect, filling omitted
+ * policy fields with the same defaults the executors apply (`allowRead` omitted → unbounded
+ * reads; empty deny/domain lists). The model sees this object — it should not have to apply
+ * this package's `null`/`[]`/omitted rules itself.
+ */
 export function describeBashAccess(
   executor: BashExecutor,
   cwd: string,
   timeoutMs: number,
 ): BashAccessInfo {
-  return { cwd, timeoutMs, ...executor.describe() };
+  const described = executor.describe();
+  return {
+    cwd,
+    timeoutMs,
+    backend: described.backend,
+    allowWrite: described.allowWrite,
+    allowRead: resolvedAllowRead(described.allowRead),
+    denyRead: resolvedPathList(described.denyRead),
+    denyWrite: resolvedPathList(described.denyWrite),
+    network: {
+      allowNetwork: described.network.allowNetwork,
+      allowedDomains: resolvedPathList(described.network.allowedDomains),
+      deniedDomains: resolvedPathList(described.network.deniedDomains),
+    },
+  };
 }
 
 const describeBashEnvDescription =

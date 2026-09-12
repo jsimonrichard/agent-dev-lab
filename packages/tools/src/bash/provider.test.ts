@@ -3,8 +3,11 @@ import { describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "./executor";
+import type { BashExecutorDescription } from "./executor";
 import {
   createBashToolProvider,
+  describeBashAccess,
+  UNBOUNDED_ALLOW_READ,
   type BashSafetyCheckInput,
   type BashSafetyCheckVerdict,
   type BashSafetyCheckWorkflow,
@@ -137,11 +140,82 @@ describe("createBashToolProvider", () => {
         timeoutMs: 12_345,
         backend: "stub",
         allowWrite: ["/allowed"],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: ["/denied"],
         denyWrite: [],
-        network: { allowNetwork: false },
+        network: { allowNetwork: false, allowedDomains: [], deniedDomains: [] },
       },
+    });
+  });
+
+  describe("describeBashAccess", () => {
+    function executorWith(described: BashExecutorDescription): BashExecutor {
+      return {
+        async *run() {
+          yield { done: true, stdout: "", stderr: "", exitCode: 0, truncated: false };
+        },
+        describe: () => described,
+      };
+    }
+
+    it("maps omitted allowRead (null) to the unbounded default", () => {
+      const access = describeBashAccess(
+        executorWith({
+          backend: "stub",
+          allowWrite: ["/w"],
+          allowRead: null,
+          denyRead: [],
+          denyWrite: [],
+          network: { allowNetwork: false },
+        }),
+        "/cwd",
+        1,
+      );
+      expect(access.allowRead).toBe(UNBOUNDED_ALLOW_READ);
+      expect(access.network).toEqual({
+        allowNetwork: false,
+        allowedDomains: [],
+        deniedDomains: [],
+      });
+    });
+
+    it("keeps an explicit empty allowRead bound (fail-closed, not the omitted default)", () => {
+      const access = describeBashAccess(
+        executorWith({
+          backend: "stub",
+          allowWrite: ["/w"],
+          allowRead: [],
+          denyRead: [],
+          denyWrite: [],
+          network: { allowNetwork: false },
+        }),
+        "/cwd",
+        1,
+      );
+      expect(access.allowRead).toEqual([]);
+    });
+
+    it("fills null deny lists and omitted domain lists with empty arrays", () => {
+      const access = describeBashAccess(
+        executorWith({
+          backend: "stub",
+          allowWrite: ["/w"],
+          allowRead: ["/r"],
+          // Runtime sentinels a sloppy describe() might still emit.
+          denyRead: null as unknown as string[],
+          denyWrite: undefined as unknown as string[],
+          network: { allowNetwork: true, allowedDomains: ["example.com"] },
+        }),
+        "/cwd",
+        1,
+      );
+      expect(access.denyRead).toEqual([]);
+      expect(access.denyWrite).toEqual([]);
+      expect(access.network).toEqual({
+        allowNetwork: true,
+        allowedDomains: ["example.com"],
+        deniedDomains: [],
+      });
     });
   });
 

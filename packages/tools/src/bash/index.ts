@@ -32,9 +32,11 @@ export {
   createBashToolProvider,
   describeBashAccess,
   resolveBashExecutorForCall,
+  UNBOUNDED_ALLOW_READ,
 } from "./provider";
 export type {
   BashAccessInfo,
+  ModelAllowRead,
   BashProviderTools,
   BashSafetyCheckInput,
   BashSafetyCheckVerdict,

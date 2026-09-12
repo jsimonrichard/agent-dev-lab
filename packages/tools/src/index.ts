@@ -38,10 +38,12 @@ export {
   acquireBashExecutor,
   releaseBashExecutor,
   canonicalizeBashSandboxPolicy,
+  UNBOUNDED_ALLOW_READ,
 } from "./bash";
 export type {
   AsrtBashExecutorOptions,
   BashAccessInfo,
+  ModelAllowRead,
   BashExecutor,
   BashExecutorDescription,
   BashExecutorProgress,

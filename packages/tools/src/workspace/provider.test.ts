@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
+import { UNBOUNDED_ALLOW_READ } from "../bash/provider";
 
 import {
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -152,10 +153,10 @@ describe("createWorkspaceToolProvider", () => {
         timeoutMs: 30_000,
         backend: "stub",
         allowWrite: ["/allowed"],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
         denyWrite: [],
-        network: { allowNetwork: false },
+        network: { allowNetwork: false, allowedDomains: [], deniedDomains: [] },
       },
       webAccess: {
         allowedSchemes: ["http", "https"],
@@ -248,10 +249,10 @@ describe("createWorkspaceToolProvider", () => {
         timeoutMs: 30_000,
         backend: "stub",
         allowWrite: ["/allowed"],
-        allowRead: null,
+        allowRead: UNBOUNDED_ALLOW_READ,
         denyRead: [],
         denyWrite: [],
-        network: { allowNetwork: false },
+        network: { allowNetwork: false, allowedDomains: [], deniedDomains: [] },
       },
     });
     expect(result).not.toHaveProperty("webAccess");
