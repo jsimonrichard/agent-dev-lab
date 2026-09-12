@@ -77,9 +77,11 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
     );
   }
   const rgPath = resolveCommandOnPath("rg");
-  const jail = createFileJail(options.root, {
+  const jail = createFileJail({
+    cwd: options.root,
     allowRead: options.allowRead,
     denyRead: options.denyRead,
+    // Search never writes through the jail; keep the write allow at the cwd default.
   });
 
   return {
@@ -105,7 +107,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       execute: async function* ({ pattern, path: requestedPath, glob }, { abortSignal }) {
         const searchPath = await jail.resolveExisting(requestedPath ?? ".");
         yield* options.executor.run(grepArgv(pattern, searchPath, glob, rgPath), {
-          cwd: jail.root,
+          cwd: jail.cwd,
           timeoutMs,
           signal: abortSignal,
         });
@@ -120,7 +122,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       execute: async function* ({ pattern }, { abortSignal }) {
         const searchPath = await jail.resolveExisting(".");
         yield* options.executor.run(globArgv(pattern, searchPath, rgPath), {
-          cwd: jail.root,
+          cwd: jail.cwd,
           timeoutMs,
           signal: abortSignal,
         });

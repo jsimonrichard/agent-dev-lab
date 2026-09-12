@@ -19,26 +19,26 @@ export const EDIT_FILE_DESCRIPTION =
 
 export interface FileToolsOptions {
   /**
-   * Directory write paths are confined to, and the base for relative read paths.
-   * Resolved (and symlink-checked) lazily on first tool call, not at `createFileTools` time.
+   * Relative-path base and omit-default for allow lists (passed to the jail as `cwd`).
+   * Required so factories do not silently fall back to the home directory.
    */
   root: string;
   /**
    * Directories `readFile` may read. Omitted defaults to `[root]` (same as
    * {@link createFileJail}). {@link import("../unbounded-allow-read.ts").UNBOUNDED_ALLOW_READ}
    * is host-wide. `null` (or `[]`) means nothing can be read. A list is exactly those
-   * roots — `root` is not inserted. `denyRead` still wins. Writes (`writeFile` /
-   * `editFile`) stay in `root`, and when `allowWrite` is set must also land under one of
-   * those roots (`[]` denies every write).
+   * roots — `root` is not inserted. `denyRead` still wins.
    */
   allowRead?: FileAllowRead;
   /**
-   * Extra write roots (e.g. the bash executor's `allowWrite`). Omitted — writes only need
-   * to stay inside `root`. `[]` — no writes allowed. A list — intersection with `root`.
+   * Write allow list. Omitted → `[root]`. `[]` — no writes. A list is exactly those roots
+   * (no intersection with a privileged root).
    */
   allowWrite?: string[];
   /** Paths hidden from `readFile`, even when they sit inside `root` or `allowRead`. */
   denyRead?: string[];
+  /** Paths `writeFile` / `editFile` may not write, even under `allowWrite`. */
+  denyWrite?: string[];
   /** Refuse to read a file over this many bytes. Default 1,000,000 (1 MB). */
   maxReadBytes?: number;
   /** Refuse to write more than this many bytes. Default 1,000,000 (1 MB). */
@@ -59,9 +59,9 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 /**
- * `readFile`/`writeFile`/`editFile` tools jailed to `options.root` for writes, and to
- * `options.allowRead` (omitted = `[root]`) for reads. There is **no zero-config unsafe
- * default**: `root` is required. Pass
+ * `readFile`/`writeFile`/`editFile` tools using `options.root` as the relative-path cwd
+ * and the omit-default for allow lists. There is **no zero-config unsafe default**: `root`
+ * is required. Pass
  * {@link import("../unbounded-allow-read.ts").UNBOUNDED_ALLOW_READ} for host-wide reads.
  *
  * `editFile` is a find/replace, not a diff format: it fails unless `find` appears exactly
@@ -80,10 +80,12 @@ export interface FileTools {
 }
 
 export function createFileTools(options: FileToolsOptions): FileTools {
-  const jail = createFileJail(options.root, {
+  const jail = createFileJail({
+    cwd: options.root,
     allowRead: options.allowRead,
     denyRead: options.denyRead,
     allowWrite: options.allowWrite,
+    denyWrite: options.denyWrite,
   });
   const maxReadBytes = options.maxReadBytes ?? DEFAULT_MAX_BYTES;
   const maxWriteBytes = options.maxWriteBytes ?? DEFAULT_MAX_BYTES;

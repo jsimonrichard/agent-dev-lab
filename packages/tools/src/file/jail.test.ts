@@ -21,6 +21,10 @@ afterEach(async () => {
   await rm(outsideDir, { recursive: true, force: true });
 });
 
+function jail(options: Parameters<typeof createFileJail>[0] = {}) {
+  return createFileJail({ cwd: root, ...options });
+}
+
 /** Asserts `promise` rejects with an `AdlError("INVALID_INPUT", …)`, ADL's convention for a
  * rejected-tool-input error (see `packages/core/src/agent/agent-impl.test.ts`). */
 async function expectInvalidInput(promise: Promise<unknown>): Promise<void> {
@@ -36,103 +40,96 @@ async function expectInvalidInput(promise: Promise<unknown>): Promise<void> {
 
 describe("createFileJail", () => {
   describe("resolveExisting", () => {
-    it("resolves a plain relative path inside the root", async () => {
+    it("resolves a plain relative path inside the cwd", async () => {
       await writeFile(path.join(root, "a.txt"), "hi", "utf8");
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveExisting("a.txt");
+      const resolved = await jail().resolveExisting("a.txt");
       expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
     });
 
     it("resolves a nested relative path", async () => {
       await mkdir(path.join(root, "sub"), { recursive: true });
       await writeFile(path.join(root, "sub", "b.txt"), "hi", "utf8");
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveExisting("sub/b.txt");
+      const resolved = await jail().resolveExisting("sub/b.txt");
       expect(resolved).toBe(await realpath(path.join(root, "sub", "b.txt")));
     });
 
     it("rejects a path that doesn't exist", async () => {
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveExisting("missing.txt"));
+      await expectInvalidInput(jail().resolveExisting("missing.txt"));
     });
 
-    it("rejects an absolute path outside the root when allowRead is the write root", async () => {
-      const jail = createFileJail(root, { allowRead: [root] });
+    it("rejects an absolute path outside allowRead", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      await expectInvalidInput(jail.resolveExisting(outsideFile));
+      await expectInvalidInput(jail({ allowRead: [root] }).resolveExisting(outsideFile));
     });
 
-    it("accepts an absolute path that stays inside the root", async () => {
+    it("accepts an absolute path that stays inside allowRead", async () => {
       await writeFile(path.join(root, "a.txt"), "hi", "utf8");
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveExisting(path.join(root, "a.txt"));
+      const resolved = await jail().resolveExisting(path.join(root, "a.txt"));
       expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
     });
 
-    it("rejects an absolute path outside the root when allowRead is omitted (defaults to root)", async () => {
+    it("rejects an absolute path outside allowRead when allowRead is omitted (defaults to cwd)", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveExisting(outsideFile));
+      await expectInvalidInput(jail().resolveExisting(outsideFile));
     });
 
-    it("reads an absolute path outside the root when allowRead is UNBOUNDED_ALLOW_READ", async () => {
+    it("reads an absolute path outside cwd when allowRead is UNBOUNDED_ALLOW_READ", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      const jail = createFileJail(root, { allowRead: UNBOUNDED_ALLOW_READ });
-      const resolved = await jail.resolveExisting(outsideFile);
+      const resolved = await jail({ allowRead: UNBOUNDED_ALLOW_READ }).resolveExisting(outsideFile);
       expect(resolved).toBe(await realpath(outsideFile));
     });
 
-    it("reads a path under an allowRead root without implying the write root is readable", async () => {
+    it("reads a path under an allowRead root without implying cwd is readable", async () => {
       await writeFile(path.join(root, "inside.txt"), "inside", "utf8");
       const outsideFile = path.join(outsideDir, "extra.txt");
       await writeFile(outsideFile, "extra", "utf8");
-      const jail = createFileJail(root, { allowRead: [outsideDir] });
-      const resolved = await jail.resolveExisting(outsideFile);
+      const j = jail({ allowRead: [outsideDir] });
+      const resolved = await j.resolveExisting(outsideFile);
       expect(resolved).toBe(await realpath(outsideFile));
-      await expectInvalidInput(jail.resolveExisting("inside.txt"));
+      await expectInvalidInput(j.resolveExisting("inside.txt"));
     });
 
     it("rejects every path when allowRead is null", async () => {
       await writeFile(path.join(root, "a.txt"), "hi", "utf8");
-      const jail = createFileJail(root, { allowRead: null });
-      await expectInvalidInput(jail.resolveExisting("a.txt"));
-      await expectInvalidInput(jail.resolveExisting(path.join(root, "a.txt")));
+      const j = jail({ allowRead: null });
+      await expectInvalidInput(j.resolveExisting("a.txt"));
+      await expectInvalidInput(j.resolveExisting(path.join(root, "a.txt")));
     });
 
-    it("rejects a denyRead path even when it sits inside the root", async () => {
+    it("rejects a denyRead path even when it sits inside allowRead", async () => {
       await mkdir(path.join(root, "hidden"), { recursive: true });
       await writeFile(path.join(root, "hidden", "secret.txt"), "nope", "utf8");
-      const jail = createFileJail(root, { denyRead: [path.join(root, "hidden")] });
-      await expectInvalidInput(jail.resolveExisting("hidden/secret.txt"));
+      await expectInvalidInput(
+        jail({ denyRead: [path.join(root, "hidden")] }).resolveExisting("hidden/secret.txt"),
+      );
     });
 
     it("rejects a denyRead path even when allowRead is UNBOUNDED_ALLOW_READ", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      const jail = createFileJail(root, {
-        allowRead: UNBOUNDED_ALLOW_READ,
-        denyRead: [outsideDir],
-      });
-      await expectInvalidInput(jail.resolveExisting(outsideFile));
+      await expectInvalidInput(
+        jail({
+          allowRead: UNBOUNDED_ALLOW_READ,
+          denyRead: [outsideDir],
+        }).resolveExisting(outsideFile),
+      );
     });
 
-    it("rejects a `..` traversal that escapes the root when allowRead is the write root", async () => {
+    it("rejects a `..` traversal that escapes allowRead", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
-      const jail = createFileJail(root, { allowRead: [root] });
       const relativeEscape = path.join("..", path.basename(outsideDir), "secret.txt");
-      await expectInvalidInput(jail.resolveExisting(relativeEscape));
+      await expectInvalidInput(jail({ allowRead: [root] }).resolveExisting(relativeEscape));
     });
 
-    it("rejects a symlink inside the root that points outside it when allowRead is the write root", async () => {
+    it("rejects a symlink inside allowRead that points outside it", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await symlink(outsideFile, path.join(root, "link.txt"));
-      const jail = createFileJail(root, { allowRead: [root] });
-      await expectInvalidInput(jail.resolveExisting("link.txt"));
+      await expectInvalidInput(jail({ allowRead: [root] }).resolveExisting("link.txt"));
     });
 
     it("rejects a path reached through a symlinked *ancestor* directory, not just the immediate parent", async () => {
@@ -143,53 +140,52 @@ describe("createFileJail", () => {
       const outsideFile = path.join(outsideDir, "deep", "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await symlink(outsideDir, path.join(root, "link"));
-      const jail = createFileJail(root, { allowRead: [root] });
-      await expectInvalidInput(jail.resolveExisting("link/deep/secret.txt"));
+      await expectInvalidInput(jail({ allowRead: [root] }).resolveExisting("link/deep/secret.txt"));
     });
 
-    it("resolves a `..` that stays inside the root", async () => {
+    it("resolves a `..` that stays inside allowRead", async () => {
       await mkdir(path.join(root, "sub"), { recursive: true });
       await writeFile(path.join(root, "a.txt"), "hi", "utf8");
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveExisting("sub/../a.txt");
+      const resolved = await jail().resolveExisting("sub/../a.txt");
       expect(resolved).toBe(await realpath(path.join(root, "a.txt")));
     });
   });
 
   describe("resolveForWrite", () => {
     it("resolves a new file's path when the parent directory exists", async () => {
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveForWrite("new.txt");
+      const resolved = await jail().resolveForWrite("new.txt");
       expect(resolved).toBe(path.join(await realpath(root), "new.txt"));
     });
 
     it("resolves a new file in a nested existing directory", async () => {
       await mkdir(path.join(root, "sub"), { recursive: true });
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveForWrite("sub/new.txt");
+      const resolved = await jail().resolveForWrite("sub/new.txt");
       expect(resolved).toBe(path.join(await realpath(path.join(root, "sub")), "new.txt"));
     });
 
     it("rejects when the parent directory doesn't exist", async () => {
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveForWrite("missing-dir/new.txt"));
+      await expectInvalidInput(jail().resolveForWrite("missing-dir/new.txt"));
     });
 
-    it("rejects an absolute path", async () => {
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveForWrite(path.join(outsideDir, "new.txt")));
+    it("rejects an absolute path outside allowWrite", async () => {
+      await expectInvalidInput(jail().resolveForWrite(path.join(outsideDir, "new.txt")));
     });
 
-    it("rejects a `..` traversal that escapes the root", async () => {
-      const jail = createFileJail(root);
+    it("allows an absolute path under allowWrite (even outside cwd)", async () => {
+      const resolved = await jail({ allowWrite: [outsideDir] }).resolveForWrite(
+        path.join(outsideDir, "new.txt"),
+      );
+      expect(resolved).toBe(path.join(await realpath(outsideDir), "new.txt"));
+    });
+
+    it("rejects a `..` traversal that escapes allowWrite", async () => {
       const relativeEscape = path.join("..", path.basename(outsideDir), "new.txt");
-      await expectInvalidInput(jail.resolveForWrite(relativeEscape));
+      await expectInvalidInput(jail().resolveForWrite(relativeEscape));
     });
 
-    it("rejects a symlinked parent directory that points outside the root", async () => {
+    it("rejects a symlinked parent directory that points outside allowWrite", async () => {
       await symlink(outsideDir, path.join(root, "linked-dir"));
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveForWrite("linked-dir/new.txt"));
+      await expectInvalidInput(jail().resolveForWrite("linked-dir/new.txt"));
     });
 
     it("rejects a new file whose parent is reached through a symlinked *ancestor*, not just the immediate parent", async () => {
@@ -198,42 +194,59 @@ describe("createFileJail", () => {
       // exist — in between.
       await mkdir(path.join(outsideDir, "deep"), { recursive: true });
       await symlink(outsideDir, path.join(root, "link"));
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveForWrite("link/deep/new.txt"));
+      await expectInvalidInput(jail().resolveForWrite("link/deep/new.txt"));
     });
 
-    it("rejects an existing leaf symlink that points outside the root", async () => {
+    it("rejects an existing leaf symlink that points outside allowWrite", async () => {
       const outsideFile = path.join(outsideDir, "secret.txt");
       await writeFile(outsideFile, "secret", "utf8");
       await symlink(outsideFile, path.join(root, "link.txt"));
-      const jail = createFileJail(root);
-      await expectInvalidInput(jail.resolveForWrite("link.txt"));
+      await expectInvalidInput(jail().resolveForWrite("link.txt"));
     });
 
-    it("allows writing through an inbound leaf symlink that stays inside the root", async () => {
+    it("allows writing through an inbound leaf symlink that stays inside allowWrite", async () => {
       await writeFile(path.join(root, "target.txt"), "orig", "utf8");
       await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
-      const jail = createFileJail(root);
-      const resolved = await jail.resolveForWrite("link.txt");
+      const resolved = await jail().resolveForWrite("link.txt");
       expect(resolved).toBe(await realpath(path.join(root, "target.txt")));
     });
 
-    it("rejects a write outside allowWrite even when the path stays under root", async () => {
-      const jail = createFileJail(root, { allowWrite: [path.join(root, "only-here")] });
+    it("rejects a write outside allowWrite even when the path stays under cwd", async () => {
       await mkdir(path.join(root, "only-here"), { recursive: true });
-      await expectInvalidInput(jail.resolveForWrite("outside-allow.txt"));
+      await expectInvalidInput(
+        jail({ allowWrite: [path.join(root, "only-here")] }).resolveForWrite("outside-allow.txt"),
+      );
     });
 
     it("rejects every write when allowWrite is an empty list", async () => {
-      const jail = createFileJail(root, { allowWrite: [] });
-      await expectInvalidInput(jail.resolveForWrite("anywhere.txt"));
+      await expectInvalidInput(jail({ allowWrite: [] }).resolveForWrite("anywhere.txt"));
     });
 
-    it("allows a write under both root and allowWrite", async () => {
+    it("allows a write under allowWrite", async () => {
       await mkdir(path.join(root, "only-here"), { recursive: true });
-      const jail = createFileJail(root, { allowWrite: [path.join(root, "only-here")] });
-      const resolved = await jail.resolveForWrite("only-here/ok.txt");
+      const resolved = await jail({
+        allowWrite: [path.join(root, "only-here")],
+      }).resolveForWrite("only-here/ok.txt");
       expect(resolved).toBe(path.join(await realpath(path.join(root, "only-here")), "ok.txt"));
+    });
+
+    it("rejects a denyWrite path even under allowWrite", async () => {
+      await mkdir(path.join(root, "hidden"), { recursive: true });
+      await expectInvalidInput(
+        jail({
+          denyWrite: [path.join(root, "hidden")],
+        }).resolveForWrite("hidden/x.txt"),
+      );
+    });
+
+    it("denyWrite beats a narrower allowWrite that contains the path", async () => {
+      await mkdir(path.join(root, "hidden"), { recursive: true });
+      await expectInvalidInput(
+        jail({
+          allowWrite: [root],
+          denyWrite: [path.join(root, "hidden")],
+        }).resolveForWrite("hidden/x.txt"),
+      );
     });
   });
 });
