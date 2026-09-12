@@ -103,17 +103,17 @@ describe("createAsrtBashExecutor", () => {
       // Resolved caller roots only — the system paths and ASRT's own package directory are an
       // implementation detail of enforcing the bound, not part of the promise.
       assert.deepEqual(described.allowRead, [allowedDir]);
-      // And the broad denial that makes the carve-out mean anything is in place.
-      assert.ok(described.denyRead.includes("/"), described.denyRead.join(","));
+      // The host-wide deny that makes ASRT's carve-out mean anything stays internal.
+      assert.deepEqual(described.denyRead, []);
     });
 
-    it("keeps a caller-supplied denyRead on top of the synthesized one", () => {
+    it("reports caller denyRead without the synthesized host-wide deny", () => {
       const bounded = asrt({
         allowWrite: [allowedDir],
         allowRead: [allowedDir],
         denyRead: [deniedDir],
       });
-      assert.deepEqual(bounded.describe().denyRead, ["/", deniedDir]);
+      assert.deepEqual(bounded.describe().denyRead, [deniedDir]);
     });
 
     it(

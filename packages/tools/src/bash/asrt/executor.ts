@@ -34,15 +34,10 @@ export interface AsrtBashExecutorOptions {
    * `mergePolicy` before pooling. Pass {@link UNBOUNDED_ALLOW_READ} for host-wide reads
    * (ASRT's read-everywhere posture). `null` / `[]` mean no user read roots.
    *
-   * ASRT expresses a bound list as deny-then-allow, where `allowRead` re-allows within a
-   * denied region and takes precedence over `denyRead` (the opposite of write). This
-   * executor supplies the broad denial for you — `denyRead: ["/"]` — when a list is set.
-   * Any `denyRead` you pass is still applied on top.
-   *
-   * `existingSystemReadPaths()` and ASRT's own package directory are re-allowed
-   * automatically when reads are bounded: without the former nothing can execute, and
-   * without the latter ASRT's vendored `apply-seccomp` helper is hidden from the sandbox
-   * it is setting up (verified — the command dies with exit 127 before it starts).
+   * A bound list is enforced inside this wrapper (ASRT's own model is deny-then-allow).
+   * That encoding — and the system / vendor carve-outs needed so commands can still
+   * execute — is not part of {@link BashExecutor.describe}. Caller `denyRead` is applied
+   * on top and is what `describe()` reports.
    */
   allowRead?: string[] | null | typeof UNBOUNDED_ALLOW_READ;
   denyWrite?: string[];
@@ -314,6 +309,9 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     },
     filesystem: {
       allowWrite,
+      // ASRT is deny-then-allow: a bound list only confines reads if something first
+      // denies the host. Keep that `/` (and the system/vendor carve-outs below) inside
+      // this config — describe() reports the caller lists, not this encoding.
       denyRead: allowRead === UNBOUNDED_ALLOW_READ ? denyRead : ["/", ...denyRead],
       ...(allowRead === UNBOUNDED_ALLOW_READ
         ? {}
@@ -368,10 +366,9 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
       return {
         backend: "asrt",
         allowWrite: config.filesystem.allowWrite,
-        // The roots as the caller asked for them, not the widened set actually handed to
-        // ASRT — the system and vendor paths are an implementation detail of enforcing it.
+        // Caller lists only — not the `/` deny or system/vendor carve-outs handed to ASRT.
         allowRead,
-        denyRead: config.filesystem.denyRead,
+        denyRead,
         denyWrite: config.filesystem.denyWrite,
         network: {
           allowNetwork: config.network.allowedDomains.length > 0,
