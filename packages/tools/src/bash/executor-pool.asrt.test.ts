@@ -11,7 +11,7 @@ import type { BashExecutorResult } from "./executor.ts";
 
 /**
  * Spawn-level pool reuse — `node:test` so `node --test` waits for natural exit
- * (no leftover supervisors). See `asrt-executor.test.ts`.
+ * (no leftover supervisors). See `asrt/executor.test.ts`.
  */
 
 const root = await mkdtemp(path.join(tmpdir(), "adl-bash-pool-"));

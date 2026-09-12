@@ -126,9 +126,9 @@ Two executors implement this tier, both conforming to the same `BashExecutor` in
 
 #### `@anthropic-ai/sandbox-runtime` (ASRT) — preferred, implemented
 
-**Implemented** in `packages/tools/src/bash/asrt-executor.ts` (`createAsrtBashExecutor`) and
+**Implemented** in `packages/tools/src/bash/asrt/executor.ts` (`createAsrtBashExecutor`) and
 `packages/tools/src/bash/tools.ts` (`createBashTool`) — see those files' doc comments and
-`packages/tools/src/bash/asrt-executor.test.ts` (real integration tests against actual
+`packages/tools/src/bash/asrt/executor.test.ts` (real integration tests against actual
 `bwrap`/`socat`/`rg`, no mocking, including a subprocess-isolated missing-dependencies check).
 Uses `SandboxManager.wrapWithSandboxArgv()` (not `wrapWithSandbox()`'s string form) so the
 result is spawned directly (`spawn(argv[0], argv.slice(1), { env })`) with no extra shell
@@ -138,7 +138,7 @@ layer. Two things learned only by implementing this, beyond what evaluation belo
   module-scoped state in ASRT's own implementation, and `initialize()` is idempotent (later
   calls keep the first `{ allowWrite, denyRead, denyWrite, allowedDomains, deniedDomains }`).
   `createAsrtBashExecutor` therefore does **not** import or initialize it in the host: each
-  instance spawns `asrt-supervisor.ts` (same `process.execPath`), and that child is the only
+  instance spawns `asrt/supervisor.ts` (same `process.execPath`), and that child is the only
   place `SandboxManager` lives. Two executors can have different filesystem and domain
   policies in one host. IPC is NDJSON on stdin/stdout; stdin is also the keepalive — the
   supervisor calls `SandboxManager.reset()` and exits when the host closes the pipe
@@ -317,7 +317,7 @@ safety check: <reason>", ... }` instead of running the command — a denial is d
 
 The rest of ADL runs its tests under `bun test`, but the bash executors are exactly the kind of
 code where Bun and Node have been found to disagree (see the `spawn` PATH-resolution gotcha
-above) — so `packages/tools/src/bash/{process-channel,native-executor,asrt-executor}.test.ts`
+above) — so `packages/tools/src/bash/{process-channel,native-executor} + asrt/executor.test.ts`
 are written against `node:test` + `node:assert/strict` instead, runnable under **both**
 `bun test` (still part of the normal per-package suite) and `node --test` via the dedicated
 `test:node` turbo task (`bun run test:node` from repo root). This reflects a repo-wide decision
@@ -333,7 +333,7 @@ Two things only surfaced by actually running this under `node --test` (which —
   without an explicit `SandboxManager.reset()` call.** ASRT's own docs describe `reset()` as
   optional, "happens automatically on process exit" — that did not hold up under plain Node
   (proxy bridge processes/sockets are never unref'd). That hang is now confined to the
-  supervisor child: the host never imports `SandboxManager`. `asrt-executor.test.ts` calls
+  supervisor child: the host never imports `SandboxManager`. `asrt/executor.test.ts` calls
   `dispose()` in `after()` so each supervisor `reset()`s and exits; a host that forgets
   `dispose()` still kills supervisors when it itself exits (stdin EOF). `bun test` still
   force-ends the suite process — the orphan test checks the stdin-EOF path under a real

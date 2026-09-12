@@ -8,9 +8,9 @@ import { after, describe, it } from "node:test";
 
 import { SandboxManager } from "@anthropic-ai/sandbox-runtime";
 
-import { createAsrtBashExecutor } from "./asrt-executor.ts";
-import type { AsrtBashExecutorOptions } from "./asrt-executor.ts";
-import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "./executor.ts";
+import { createAsrtBashExecutor } from "./executor.ts";
+import type { AsrtBashExecutorOptions } from "./executor.ts";
+import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "../executor.ts";
 
 /**
  * These tests exercise the real `@anthropic-ai/sandbox-runtime` library against the actual
@@ -395,7 +395,7 @@ describe("createAsrtBashExecutor", () => {
           scriptPath,
           `
           import { execSync } from "node:child_process";
-          import { createAsrtBashExecutor } from "../asrt-executor.ts";
+          import { createAsrtBashExecutor } from "../executor.ts";
           const executor = createAsrtBashExecutor({ allowWrite: ${JSON.stringify([allowedDir])} });
           for await (const _update of executor.run(["/bin/true"], {
             cwd: ${JSON.stringify(allowedDir)},
@@ -442,7 +442,7 @@ describe("createAsrtBashExecutor — missing dependencies", () => {
     async () => {
       // Run in a fresh subprocess (rather than mutating this process's PATH) so it can't
       // affect the tests above, which need the real bwrap/socat/rg. The check script lives
-      // under `src/bash/` (not a system temp dir) so its relative import of `asrt-executor.ts`
+      // under `src/bash/asrt/` (not a system temp dir) so its relative import of `executor.ts`
       // resolves node_modules the normal way, walking up from its own location.
       const fixtureDir = path.join(import.meta.dirname, ".missing-deps-fixture");
       await mkdir(fixtureDir, { recursive: true });
@@ -451,7 +451,7 @@ describe("createAsrtBashExecutor — missing dependencies", () => {
         await writeFile(
           scriptPath,
           `
-          import { createAsrtBashExecutor } from "../asrt-executor.ts";
+          import { createAsrtBashExecutor } from "../executor.ts";
           try {
             const executor = createAsrtBashExecutor({ allowWrite: [] });
             for await (const _update of executor.run(["echo", "hi"], {

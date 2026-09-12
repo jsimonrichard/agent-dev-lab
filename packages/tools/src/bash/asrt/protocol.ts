@@ -1,10 +1,10 @@
 import type { AdlErrorCode } from "@agent-dev-lab/core";
 import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 
-import type { BashExecutorUpdate } from "./executor.ts";
+import type { BashExecutorUpdate } from "../executor.ts";
 
 /**
- * NDJSON messages between `createAsrtBashExecutor` (host) and `asrt-supervisor.ts`.
+ * NDJSON messages between `createAsrtBashExecutor` (host) and `supervisor.ts`.
  * Stdin is also the keepalive: the supervisor exits when the host closes it (parent death
  * included — the kernel closes the pipe).
  */

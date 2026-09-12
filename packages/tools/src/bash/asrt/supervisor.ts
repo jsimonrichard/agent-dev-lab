@@ -7,14 +7,14 @@ import { randomUUID } from "node:crypto";
 import { AdlError, createAsyncChannel, isAdlError } from "@agent-dev-lab/core";
 import { SandboxManager, type SandboxDependencyCheck } from "@anthropic-ai/sandbox-runtime";
 
-import type { BashExecutorUpdate } from "./executor.ts";
-import { runArgvIntoChannel } from "./process-channel.ts";
+import type { BashExecutorUpdate } from "../executor.ts";
+import { runArgvIntoChannel } from "../process-channel.ts";
 import {
   attachNdjsonReader,
   writeNdjson,
   type AsrtSupervisorEvent,
   type AsrtSupervisorRequest,
-} from "./asrt-protocol.ts";
+} from "./protocol.ts";
 
 const LINUX_INSTALL_HINTS: Array<{ match: string; hint: string }> = [
   {

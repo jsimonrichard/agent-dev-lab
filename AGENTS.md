@@ -60,7 +60,7 @@ All standard commands are in root `package.json`:
 ### Tests vs other files
 
 - **`*.test.ts` / `*.e2e.test.ts`** — Bun tests (`bun test`).
-- **`packages/tools/src/bash/{process-channel,native-executor,asrt-executor}.test.ts`** — `node:test`-based, not `bun:test`; run under both `bun test` and `node --test` (`bun run test:node`). See `notes/tool-sandboxing.md`'s testing section.
+- **`packages/tools/src/bash/{process-channel,native-executor}.test.ts`** and **`packages/tools/src/bash/asrt/executor.test.ts`** — `node:test`-based, not `bun:test`; run under both `bun test` and `node --test` (`bun run test:node`). See `notes/tool-sandboxing.md`'s testing section.
 - **`apps/cli/scripts/`** — build helpers, not tests (`verify-web-output.ts`, `package-scaffold.ts`). See `apps/cli/scripts/README.md`.
 - **`scripts/`** — monorepo helpers (`ci-publish.sh`, `ci-install-jj.sh`, `patch-lock.ts`, `pack-local.ts`). `scripts/*.test.ts` is included in `bun run test`. See `scripts/README.md`.
 - **`packages/core/src/stores/store.contract.test.ts`** — shared store contract suite (test infra).

@@ -6,17 +6,17 @@ import { fileURLToPath } from "node:url";
 import { AdlError, createAsyncChannel } from "@agent-dev-lab/core";
 import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 
-import { resolveAllowEnv, type AllowEnv } from "./allow-env.ts";
+import { resolveAllowEnv, type AllowEnv } from "../allow-env.ts";
+import type { BashExecutor, BashExecutorUpdate } from "../executor.ts";
+import { DEFAULT_MAX_OUTPUT_BYTES } from "../process-channel.ts";
+import { existingSystemReadPaths } from "../read-bounds.ts";
+import { resolveCommandOnPath } from "../resolve-command.ts";
 import {
   attachNdjsonReader,
   writeNdjson,
   type AsrtSupervisorEvent,
   type AsrtSupervisorRequest,
-} from "./asrt-protocol.ts";
-import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
-import { DEFAULT_MAX_OUTPUT_BYTES } from "./process-channel.ts";
-import { existingSystemReadPaths } from "./read-bounds.ts";
-import { resolveCommandOnPath } from "./resolve-command.ts";
+} from "./protocol.ts";
 
 export interface AsrtBashExecutorOptions {
   /**
@@ -71,7 +71,7 @@ function asrtPackageDir(): string {
 
 function supervisorPath(): string {
   const ext = path.extname(fileURLToPath(import.meta.url));
-  return fileURLToPath(new URL(`./asrt-supervisor${ext}`, import.meta.url));
+  return fileURLToPath(new URL(`./supervisor${ext}`, import.meta.url));
 }
 
 /** Bun runs `.ts` natively; Node 22 needs type-stripping for the source supervisor. Dist is `.js`. */
