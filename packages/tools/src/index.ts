@@ -2,8 +2,8 @@
  * @packageDocumentation
  *
  * Sandboxed file, bash, search (`grep`/`glob`), and `fetchUrl` tools for
- * `@agent-dev-lab/core`. Dangerous tools take their jail or executor as a
- * required argument — there is no zero-config unsandboxed default.
+ * `@agent-dev-lab/core`. Providers take sandbox policy (pooled) or an escape-hatch
+ * executor — there is no zero-config unsandboxed default.
  */
 export {
   createFileJail,

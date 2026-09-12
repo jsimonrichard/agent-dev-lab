@@ -41,7 +41,22 @@ type PoolEntry = {
   refCount: number;
 };
 
-const POOL = new Map<string, PoolEntry>();
+type PoolMap = Map<string, PoolEntry>;
+
+/**
+ * Process-scoped pool. Pinned on `globalThis` via {@link Symbol.for} so a Vite/Bun HMR
+ * re-evaluation of this module reuses the live map instead of orphaning supervisors
+ * (same idea as the jiti cache in `@agent-dev-lab/core`'s `load-config.ts`).
+ */
+const POOL_KEY = Symbol.for("@agent-dev-lab/tools:bashExecutorPool");
+
+function pool(): PoolMap {
+  const g = globalThis as typeof globalThis & { [POOL_KEY]?: PoolMap };
+  if (!g[POOL_KEY]) {
+    g[POOL_KEY] = new Map();
+  }
+  return g[POOL_KEY]!;
+}
 
 function sortedUniqueResolved(projectRoot: string, paths: readonly string[]): string[] {
   const resolved = paths.map((p) => path.resolve(projectRoot, p));
@@ -161,7 +176,7 @@ export function acquireBashExecutor(options: {
     backend: options.backend,
     policy,
   });
-  const existing = POOL.get(key);
+  const existing = pool().get(key);
   if (existing) {
     if (!options.alreadyHeld) {
       existing.refCount += 1;
@@ -175,7 +190,7 @@ export function acquireBashExecutor(options: {
     );
   }
   const executor = createPooledExecutor(options.backend, policy);
-  POOL.set(key, { executor, refCount: 1 });
+  pool().set(key, { executor, refCount: 1 });
   return { executor, key };
 }
 
@@ -184,7 +199,8 @@ export function acquireBashExecutor(options: {
  * Idempotent for unknown keys (no-op).
  */
 export async function releaseBashExecutor(key: string): Promise<void> {
-  const entry = POOL.get(key);
+  const map = pool();
+  const entry = map.get(key);
   if (!entry) {
     return;
   }
@@ -192,18 +208,24 @@ export async function releaseBashExecutor(key: string): Promise<void> {
   if (entry.refCount > 0) {
     return;
   }
-  POOL.delete(key);
+  map.delete(key);
   await entry.executor.dispose?.();
 }
 
 /** Test helper — how many live pool entries exist. */
 export function bashExecutorPoolSizeForTests(): number {
-  return POOL.size;
+  return pool().size;
+}
+
+/** Test helper — the pinned pool map identity (survives simulated module rebind). */
+export function bashExecutorPoolMapForTests(): Map<string, unknown> {
+  return pool();
 }
 
 /** Test helper — drain the pool (dispose every entry). */
 export async function resetBashExecutorPoolForTests(): Promise<void> {
-  const entries = [...POOL.values()];
-  POOL.clear();
+  const map = pool();
+  const entries = [...map.values()];
+  map.clear();
   await Promise.all(entries.map((entry) => entry.executor.dispose?.()));
 }

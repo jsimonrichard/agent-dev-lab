@@ -4,6 +4,7 @@ import { AdlError } from "@agent-dev-lab/core";
 
 import {
   acquireBashExecutor,
+  bashExecutorPoolMapForTests,
   bashExecutorPoolSizeForTests,
   canonicalizeBashSandboxPolicy,
   releaseBashExecutor,
@@ -114,5 +115,26 @@ describe("createBashToolProvider pooled vs executor", () => {
     expect(bashExecutorPoolSizeForTests()).toBe(1);
     await provider.dispose?.();
     expect(bashExecutorPoolSizeForTests()).toBe(0);
+  });
+});
+
+describe("bash executor pool globalThis pin", () => {
+  it("stores the pool on Symbol.for so identity survives a fresh pool() lookup", async () => {
+    const key = Symbol.for("@agent-dev-lab/tools:bashExecutorPool");
+    const before = bashExecutorPoolMapForTests();
+    const g = globalThis as typeof globalThis & { [key]?: Map<string, unknown> };
+    expect(g[key]).toBe(before);
+
+    acquireBashExecutor({
+      projectRoot: "/proj",
+      backend: "asrt",
+      policy: { allowWrite: ["/proj/a"] },
+    });
+    expect(bashExecutorPoolMapForTests()).toBe(before);
+    expect(bashExecutorPoolSizeForTests()).toBe(1);
+
+    // Simulate what a re-evaluated module would see: same Symbol.for target, not a new Map.
+    expect(g[key]).toBe(before);
+    expect(g[key]!.size).toBe(1);
   });
 });

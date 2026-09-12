@@ -1,6 +1,6 @@
 # Tool-provider lifecycle (sandbox executor pool)
 
-**Status:** Sections 1–3 + `onRunEnd` **implemented** (2026-09-12). Playground uses the pool (no construct-once executors). Section 4 (`globalThis` pool pin) still open. No kernel shipped. `apps/docs` refresh is a follow-up.
+**Status:** Sections 1–4 + `onRunEnd` **implemented** (2026-09-12). Playground uses the pool; pool map is pinned on `globalThis` for tools HMR. No kernel shipped. `apps/docs` refresh is the remaining follow-up.
 
 Parent notes (pointers only): [`future-extensions.md`](./future-extensions.md) (kernel still future; run-scoped hook now exists), [`tool-sandboxing.md`](./tool-sandboxing.md) (ASRT supervisor isolation).
 
@@ -76,7 +76,7 @@ Backend for the pooled path defaults to ASRT (already the preferred executor). N
 | **Project reload (user code)**    | **Leak-free and required for v1.** jiti busts the project graph; new provider instances are created. The **pool object is not in that graph** (`@agent-dev-lab/tools`). After a successful registry swap, core calls `dispose?()` on outgoing providers. Those calls **release refs**, they do not destroy the pool. Unused policies hit refcount 0 and those executors `dispose()`. Still-needed policies are re-acquired on the next `getTools` (brief recreate gap if `getTools` has not run yet — not a leak). Failed reload keeps the previous registry and must **not** dispose it. |
 | `agent.run` end                   | **Not a hook in v1.** Acquire happens in `getTools`; release happens when the _provider instance_ is disposed (reload / host unload).                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Host / project unload             | Same dispose walk as reload, then the process-scoped pool disposes any leftover entries (tests, `resetAdlProjectProcessHost`).                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Framework-dev / tools-package HMR | Less important than user-code reload. stdin EOF still saves process exit. Nice-to-have: pin the pool on `globalThis` via a `Symbol.for` (same pattern as the jiti cache in `load-config.ts`) so a re-evaluated tools module reuses the live map instead of orphaning supervisors. Not slice 1.                                                                                                                                                                                                                                                                                            |
+| Framework-dev / tools-package HMR | Pool map pinned on `globalThis` via `Symbol.for("@agent-dev-lab/tools:bashExecutorPool")` (same idea as the jiti cache in `load-config.ts`). Re-evaluating the tools module reuses the live map.                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### 5. Core API
 
@@ -156,13 +156,12 @@ Pin the pool map on `globalThis` with `Symbol.for`, matching `load-config.ts`. O
 
 ## Out of scope (remaining)
 
-- `globalThis` pool pin for tools HMR (section 4).
 - Changing ASRT isolation (supervisor subprocess, NDJSON, stdin keepalive).
 - Per-domain `fetchUrl` allowlists, a positive deny-all for fetch, or `updateConfig()`.
 - Implementing a Python/Jupyter kernel (the hook is the system; the tool is still future).
 - Conversation-scoped kernel lifetime (`onRunEnd` is per `agentCallId`).
 - Idle eviction of pool entries; Mastra-style long-running bash.
-- Editing `apps/docs` except to fix a claim that is already false today (planned follow-up after section 4).
+- Editing `apps/docs` (planned follow-up — verify published claims against pooled authoring).
 
 ## Decisions that were open (now closed)
 

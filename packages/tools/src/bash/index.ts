@@ -12,6 +12,7 @@ export {
   acquireBashExecutor,
   bashExecutorPoolKeyFor,
   bashExecutorPoolKeyString,
+  bashExecutorPoolMapForTests,
   bashExecutorPoolSizeForTests,
   canonicalizeBashSandboxPolicy,
   releaseBashExecutor,
