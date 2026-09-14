@@ -100,6 +100,9 @@ export function AgentRunWorkspace({
     setForking(false);
     setStreamEnabled(false);
     setWarnings([]);
+  }, [conversation.runId]);
+
+  useEffect(() => {
     const seeded = seedToolProviderContextForm({
       fields: settings.toolProviderContext.fields,
       sample: settings.toolProviderContext.sample,
@@ -149,17 +152,16 @@ export function AgentRunWorkspace({
 
   const { streamingText, isRunning } = useAgentRunEvents(conversation.runId, {
     enabled: streamEnabled,
-    onFinished: () => {
-      void refreshMessages();
+    onFinished: async () => {
+      await refreshMessages();
       refreshConversationMeta();
       if (effectiveCallId) {
-        void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
-          setCallEvents(payload.commits);
-          setWarnings(payload.warnings);
-          if (callId && callId === effectiveCallId) {
-            setInspectedToolContext(payload.toolProviderContext);
-          }
-        });
+        const payload = await fetchAgentCallEvents({ data: effectiveCallId });
+        setCallEvents(payload.commits);
+        setWarnings(payload.warnings);
+        if (callId && callId === effectiveCallId) {
+          setInspectedToolContext(payload.toolProviderContext);
+        }
       }
     },
     onTitleSet: refreshConversationMeta,

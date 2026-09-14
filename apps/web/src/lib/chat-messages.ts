@@ -58,19 +58,29 @@ export function conversationMessagesWithoutSystem(
 /**
  * Keep the streaming assistant bubble visible until the persisted transcript includes
  * the assistant reply (avoids a gap when `isRunning` flips false before refresh).
+ *
+ * After a tool loop, the last stored row is often `tool` (or an earlier assistant with
+ * tool-calls) while the final answer is still only in `streamingText` — keep showing it
+ * until a later assistant turn matches.
  */
 export function shouldShowStreamingAssistant(
   messages: InspectorMessage[],
   streamingText: string | undefined | null,
   options: { isRunning: boolean; sending: boolean },
 ): boolean {
-  if (!streamingText?.trim()) {
+  const trimmed = streamingText?.trim();
+  if (!trimmed) {
     return false;
   }
   if (options.isRunning || options.sending) {
     return true;
   }
-  return messages[messages.length - 1]?.role !== "assistant";
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "assistant") {
+    return true;
+  }
+  const lastText = messageText(messageParts(last)).trim();
+  return lastText !== trimmed && !lastText.endsWith(trimmed) && !trimmed.endsWith(lastText);
 }
 
 /** Prefer fresher local optimistic rows over a stale loader snapshot. */

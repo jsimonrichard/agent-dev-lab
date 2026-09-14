@@ -58,6 +58,46 @@ describe("shouldShowStreamingAssistant", () => {
       ),
     ).toBe(false);
   });
+
+  it("keeps final streamed text after a tool result until the closing assistant is stored", async () => {
+    const { shouldShowStreamingAssistant } = await import("./chat-messages");
+
+    expect(
+      shouldShowStreamingAssistant(
+        [
+          { id: "u", role: "user", content: "run it", parts: [{ type: "text", text: "run it" }] },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                type: "tool-call",
+                toolCallId: "call-1",
+                toolName: "bash",
+                input: { command: "ls" },
+              },
+            ],
+          },
+          {
+            id: "t1",
+            role: "tool",
+            content: "",
+            parts: [
+              {
+                type: "tool-result",
+                toolCallId: "call-1",
+                toolName: "bash",
+                output: { type: "text", value: "ok" },
+              },
+            ],
+          },
+        ],
+        "Done with ls.",
+        { isRunning: false, sending: false },
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("mergeConversationMessages", () => {

@@ -6,8 +6,12 @@ import { useInspectorConnection } from "#/lib/inspector-connection";
 interface UseAgentRunEventsOptions {
   /** Connect after a turn starts and the server has linked the session agentCallId. */
   enabled?: boolean;
-  /** Transcript advanced (tool results committed or episode finished); refresh messages. */
-  onFinished?: () => void;
+  /**
+   * Transcript advanced (tool results committed or episode finished); refresh messages.
+   * May return a promise — streamed text is held until it settles so the final assistant
+   * bubble is not cleared before the persisted transcript is on screen.
+   */
+  onFinished?: () => void | Promise<void>;
   /** Title updated (e.g. sidebar); avoid refetching messages here to prevent UI flash. */
   onTitleSet?: () => void;
 }
@@ -27,6 +31,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
   const [streamingText, setStreamingText] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const lastSeqRef = useRef(0);
+  const streamingTextRef = useRef("");
   const onFinishedRef = useRef(onFinished);
   const onTitleSetRef = useRef(onTitleSet);
   onFinishedRef.current = onFinished;
@@ -34,6 +39,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
 
   useEffect(() => {
     lastSeqRef.current = 0;
+    streamingTextRef.current = "";
     setStreamingText("");
     setIsRunning(false);
   }, [memoryScope]);
@@ -52,15 +58,40 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
 
     lastSeqRef.current = 0;
     setIsRunning(true);
+    streamingTextRef.current = "";
     setStreamingText("");
 
     const source = new EventSource(
       `/api/agent-runs/${encodeURIComponent(memoryScope)}/events?afterSeq=${lastSeqRef.current}`,
     );
 
+    const applyStreamingText = (value: string | ((prev: string) => string)) => {
+      setStreamingText((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        streamingTextRef.current = next;
+        return next;
+      });
+    };
+
+    const refreshAfterCommit = () => {
+      const snapshot = streamingTextRef.current;
+      const result = onFinishedRef.current?.();
+      void Promise.resolve(result).finally(() => {
+        // Drop the pre-commit buffer only if no newer deltas arrived (next tool-loop step).
+        setStreamingText((prev) => {
+          if (prev !== snapshot) {
+            streamingTextRef.current = prev;
+            return prev;
+          }
+          streamingTextRef.current = "";
+          return "";
+        });
+      });
+    };
+
     const stop = () => {
       setIsRunning(false);
-      onFinishedRef.current?.();
+      refreshAfterCommit();
       source.close();
     };
 
@@ -70,11 +101,11 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
 
         if (event.type === "agent_started") {
           setIsRunning(true);
-          setStreamingText("");
+          applyStreamingText("");
         }
 
         if (event.type === "agent_text_delta" && "delta" in event) {
-          setStreamingText((prev) => prev + event.delta);
+          applyStreamingText((prev) => prev + event.delta);
         }
 
         if (event.type === "agent_title_set") {
@@ -82,12 +113,11 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
         }
 
         if (event.type === "agent_messages_committed") {
-          setStreamingText("");
-          onFinishedRef.current?.();
+          refreshAfterCommit();
         }
 
         if (event.type === "agent_finished") {
-          onFinishedRef.current?.();
+          refreshAfterCommit();
         }
 
         if (event.type === "agent_failed") {
