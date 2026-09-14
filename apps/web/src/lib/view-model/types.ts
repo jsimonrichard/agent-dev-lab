@@ -251,6 +251,16 @@ export interface ResolvedAgentConversation {
   latestAgentCallId: string | null;
   /** From the latest `agent_started` on this conversation; empty if none yet. */
   tags: string[];
+  /**
+   * Seed for the next-turn toolProviderContext draft (inspector UI only):
+   * latest local episode, else fork source episode, else agent default.
+   */
+  nextToolProviderContextSeed?: JsonValue;
+  /**
+   * Snapshot from the latest local episode (or the focused `?call=` episode when
+   * the loader supplies one). Absent when never recorded.
+   */
+  latestEpisodeToolProviderContext?: JsonValue;
   forkSession: ForkedAgentSession | null;
   workflowLink: ConversationWorkflowLink | null;
 }

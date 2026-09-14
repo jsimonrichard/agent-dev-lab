@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
-import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
+import {
+  buildToolProviderContextInput,
+  seedToolProviderContextForm,
+} from "#/lib/agent/agent-tools";
 import { saveAgentToolContextDefault } from "#/lib/inspector/inspector-server";
-import { workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
-import type { JsonValue } from "#/lib/view-model/types";
 import { AgentConfigBody } from "@/components/app/agent-settings-panel";
 import { ConfigWorkspace } from "@/components/app/config-workspace";
 import { ErrorDetails } from "@/components/app/error-details";
@@ -18,21 +19,11 @@ function seedFormFromDefault(settings: AgentInspectorMeta): {
   values: Record<string, string | boolean>;
   rawJson: string;
 } {
-  const fields = settings.toolProviderContext.fields;
-  const saved = settings.defaultToolProviderContext;
-  if (fields.length > 0) {
-    return {
-      values: workflowInputValuesFromSample(
-        fields,
-        (saved ?? settings.toolProviderContext.sample) as JsonValue | undefined,
-      ),
-      rawJson: "",
-    };
-  }
-  if (saved !== undefined) {
-    return { values: {}, rawJson: JSON.stringify(saved, null, 2) };
-  }
-  return { values: {}, rawJson: "" };
+  return seedToolProviderContextForm({
+    fields: settings.toolProviderContext.fields,
+    sample: settings.toolProviderContext.sample,
+    seed: settings.defaultToolProviderContext,
+  });
 }
 
 export function AgentRegistryPage() {

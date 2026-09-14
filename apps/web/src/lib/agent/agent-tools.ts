@@ -2,10 +2,12 @@ import type {
   AgentToolProviderContextMeta,
   WorkflowInputField,
 } from "#/lib/inspector/inspector-types";
+import type { JsonValue } from "#/lib/view-model/types";
 import {
   buildWorkflowInput,
   describeWorkflowInput,
   sampleWorkflowInput,
+  workflowInputValuesFromSample,
 } from "#/lib/workflow/workflow-input-schema";
 
 export interface AgentToolSummary {
@@ -192,4 +194,23 @@ export function buildToolProviderContextInput(options: {
       `toolProviderContext must be valid JSON${error instanceof Error ? `: ${error.message}` : ""}`,
     );
   }
+}
+
+/** Seed the conversation / definition form from a stored JSON value or schema sample. */
+export function seedToolProviderContextForm(options: {
+  fields: WorkflowInputField[];
+  sample?: JsonValue;
+  seed?: JsonValue;
+}): { values: Record<string, string | boolean>; rawJson: string } {
+  const seed = options.seed ?? options.sample;
+  if (options.fields.length > 0) {
+    return {
+      values: workflowInputValuesFromSample(options.fields, seed),
+      rawJson: "",
+    };
+  }
+  if (seed !== undefined) {
+    return { values: {}, rawJson: JSON.stringify(seed, null, 2) };
+  }
+  return { values: {}, rawJson: "" };
 }

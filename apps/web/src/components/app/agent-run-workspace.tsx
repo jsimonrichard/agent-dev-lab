@@ -3,14 +3,16 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
-import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
+import {
+  buildToolProviderContextInput,
+  seedToolProviderContextForm,
+} from "#/lib/agent/agent-tools";
 import {
   fetchAgentCallEvents,
   fetchMessagesForScope,
   forkLinkedConversation,
   sendAgentMessage,
 } from "#/lib/inspector/inspector-server";
-import { workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   InspectorAgentSummary,
@@ -63,13 +65,22 @@ export function AgentRunWorkspace({
     Array<{ type: string; total?: number; count?: number }>
   >([]);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [contextValues, setContextValues] = useState<Record<string, string | boolean>>(() =>
-    workflowInputValuesFromSample(
-      settings.toolProviderContext.fields,
-      settings.toolProviderContext.sample,
-    ),
+  const [contextValues, setContextValues] = useState<Record<string, string | boolean>>(
+    () =>
+      seedToolProviderContextForm({
+        fields: settings.toolProviderContext.fields,
+        sample: settings.toolProviderContext.sample,
+        seed: conversation.nextToolProviderContextSeed,
+      }).values,
   );
-  const [contextJson, setContextJson] = useState("");
+  const [contextJson, setContextJson] = useState(
+    () =>
+      seedToolProviderContextForm({
+        fields: settings.toolProviderContext.fields,
+        sample: settings.toolProviderContext.sample,
+        seed: conversation.nextToolProviderContextSeed,
+      }).rawJson,
+  );
 
   useEffect(() => {
     setMessages(conversation.messages);
@@ -78,7 +89,14 @@ export function AgentRunWorkspace({
     setForking(false);
     setStreamEnabled(false);
     setWarnings([]);
-  }, [conversation.runId]);
+    const seeded = seedToolProviderContextForm({
+      fields: settings.toolProviderContext.fields,
+      sample: settings.toolProviderContext.sample,
+      seed: conversation.nextToolProviderContextSeed,
+    });
+    setContextValues(seeded.values);
+    setContextJson(seeded.rawJson);
+  }, [conversation.runId, conversation.nextToolProviderContextSeed, settings.toolProviderContext]);
 
   useEffect(() => {
     if (!effectiveCallId) {

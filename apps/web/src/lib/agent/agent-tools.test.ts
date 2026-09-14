@@ -6,6 +6,7 @@ import {
   inspectAgentStopWhen,
   inspectAgentTools,
   inspectAgentToolProviderContext,
+  seedToolProviderContextForm,
 } from "./agent-tools";
 
 describe("inspectAgentTools", () => {
@@ -238,5 +239,29 @@ describe("buildToolProviderContextInput", () => {
         rawJson: "  ",
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("seedToolProviderContextForm", () => {
+  it("prefers a seed over the schema sample for object fields", () => {
+    expect(
+      seedToolProviderContextForm({
+        fields: [{ name: "projectPath", kind: "string", required: true }],
+        sample: { projectPath: "/from-sample" },
+        seed: { projectPath: "/from-seed" },
+      }),
+    ).toEqual({ values: { projectPath: "/from-seed" }, rawJson: "" });
+  });
+
+  it("stringifies a seed for providers without an object schema", () => {
+    expect(
+      seedToolProviderContextForm({
+        fields: [],
+        seed: { projectPath: "/tmp/crate" },
+      }),
+    ).toEqual({
+      values: {},
+      rawJson: '{\n  "projectPath": "/tmp/crate"\n}',
+    });
   });
 });

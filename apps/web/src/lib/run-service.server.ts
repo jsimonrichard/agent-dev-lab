@@ -555,6 +555,21 @@ export async function resolveAgentConversation(
   const started = resolvedCallId
     ? await store.getLatestEvent({ agentCallId: resolvedCallId }, "agent_started")
     : null;
+
+  const latestEpisodeContext = await episodeToolProviderContext(resolvedCallId);
+  const forkSourceContext = session.fork
+    ? await episodeToolProviderContext(session.fork.sourceAgentCallId)
+    : undefined;
+  const agentDefault = (await inspectorAgentSettingsStore()).get(
+    viewAgentId,
+  )?.defaultToolProviderContext;
+  const nextToolProviderContextSeed =
+    latestEpisodeContext !== undefined
+      ? latestEpisodeContext
+      : forkSourceContext !== undefined
+        ? forkSourceContext
+        : agentDefault;
+
   return {
     runId: memoryScope,
     agentId: viewAgentId,
@@ -562,6 +577,12 @@ export async function resolveAgentConversation(
     messages,
     latestAgentCallId: resolvedCallId,
     tags: started?.tags ?? [],
+    ...(nextToolProviderContextSeed !== undefined
+      ? { nextToolProviderContextSeed: nextToolProviderContextSeed as JsonValue }
+      : {}),
+    ...(latestEpisodeContext !== undefined
+      ? { latestEpisodeToolProviderContext: latestEpisodeContext as JsonValue }
+      : {}),
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {
@@ -577,6 +598,17 @@ export async function resolveAgentConversation(
         }
       : null,
   };
+}
+
+async function episodeToolProviderContext(
+  agentCallId: string | null | undefined,
+): Promise<unknown | undefined> {
+  if (!agentCallId) {
+    return undefined;
+  }
+  const store = await getWorkflowStore();
+  const started = await store.getLatestEvent({ agentCallId }, "agent_started");
+  return started?.toolProviderContext;
 }
 
 async function memoryScopeHasAgentEpisode(memoryScope: string, agentId: string): Promise<boolean> {
