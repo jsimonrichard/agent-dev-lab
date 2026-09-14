@@ -12,8 +12,9 @@ import {
   type Row,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Filter, Maximize2, MoreHorizontal, Settings2 } from "lucide-react";
+import { Filter, Maximize2, MoreHorizontal, Settings2, SlidersHorizontal } from "lucide-react";
 import type { LoggedRunEvent } from "@agent-dev-lab/core";
+import { useNavigate } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -337,6 +338,7 @@ export function EventLogDataTable({
   onFilter: (field: string, value: string) => void;
   onOpenJson: (logSeq: number) => void;
 }) {
+  const navigate = useNavigate();
   const contextFieldRef = useRef<EventLogTableField | null>(null);
   const contextSeqRef = useRef<number | null>(null);
   const [menuField, setMenuField] = useState<EventLogTableField | null>(null);
@@ -346,6 +348,16 @@ export function EventLogDataTable({
     menuSeq == null
       ? null
       : (rows.find((row) => row.original.logSeq === menuSeq)?.original ?? null);
+  const menuAgentCallLink =
+    menuEntry && resolve
+      ? eventLogLinkForField(
+          "agentCall",
+          menuEntry.event,
+          resolve.workflowIds,
+          resolve.agentSessions,
+        )
+      : null;
+  const viewToolContextLink = menuAgentCallLink?.kind === "agent-call" ? menuAgentCallLink : null;
   const colSpan = Math.max(1, table.getHeaderGroups()[0]?.headers.length ?? 1);
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -464,6 +476,25 @@ export function EventLogDataTable({
             >
               <Maximize2 />
               Open JSON
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={viewToolContextLink == null}
+              onSelect={() => {
+                if (!viewToolContextLink) {
+                  return;
+                }
+                void navigate({
+                  to: "/agent/$agentId/run/$runId",
+                  params: {
+                    agentId: viewToolContextLink.agentId,
+                    runId: viewToolContextLink.memoryScope,
+                  },
+                  search: agentRunSearch({ call: viewToolContextLink.agentCallId }),
+                });
+              }}
+            >
+              <SlidersHorizontal />
+              View tool context
             </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>

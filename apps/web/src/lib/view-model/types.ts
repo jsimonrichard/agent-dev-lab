@@ -95,6 +95,8 @@ export interface AgentStartedEvent extends RunEventBase {
   agentId: string;
   memoryScope: string;
   episodeId: string;
+  /** Raw `toolProviderContext` from this episode's `agent_started`, when recorded. */
+  toolProviderContext?: JsonValue;
 }
 
 export interface AgentFinishedEvent extends RunEventBase {
@@ -209,6 +211,8 @@ export interface AgentEpisode {
   error?: unknown;
   /** Non-fatal diagnostics (e.g. system-prompt conflict). */
   warnings: string[];
+  /** Raw `toolProviderContext` recorded on `agent_started`, when present. */
+  toolProviderContext?: JsonValue;
 }
 
 export interface ForkedAgentSession {

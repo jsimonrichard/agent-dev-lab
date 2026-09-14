@@ -125,6 +125,9 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
             startedAt: event.at,
             streamingText: "",
             warnings: [],
+            ...(event.toolProviderContext !== undefined
+              ? { toolProviderContext: event.toolProviderContext }
+              : {}),
           });
         }
         break;

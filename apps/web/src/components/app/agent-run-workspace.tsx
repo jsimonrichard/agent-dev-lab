@@ -17,9 +17,11 @@ import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   InspectorAgentSummary,
   InspectorMessage,
+  JsonValue,
   ResolvedAgentConversation,
 } from "@/lib/view-model/types";
 import { messageIdsForAgentCall } from "@/lib/agent/agent-call-focus";
+import { agentRunSearch } from "@/lib/agent/agent-location";
 import { ChatMessageList } from "@/components/app/chat-message-list";
 import {
   extractSystemPromptFromMessages,
@@ -31,6 +33,12 @@ import { ChatComposer } from "@/components/app/chat-composer";
 import { AgentSettingsPanel } from "@/components/app/agent-settings-panel";
 import { ErrorDetails } from "@/components/app/error-details";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,6 +73,9 @@ export function AgentRunWorkspace({
     Array<{ type: string; total?: number; count?: number }>
   >([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [inspectedToolContext, setInspectedToolContext] = useState<unknown | null | undefined>(
+    undefined,
+  );
   const [contextValues, setContextValues] = useState<Record<string, string | boolean>>(
     () =>
       seedToolProviderContextForm({
@@ -102,19 +113,26 @@ export function AgentRunWorkspace({
     if (!effectiveCallId) {
       setCallEvents([]);
       setWarnings([]);
+      setInspectedToolContext(undefined);
       return;
     }
     let cancelled = false;
     void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
-      if (!cancelled) {
-        setCallEvents(payload.commits);
-        setWarnings(payload.warnings);
+      if (cancelled) {
+        return;
+      }
+      setCallEvents(payload.commits);
+      setWarnings(payload.warnings);
+      if (callId && callId === effectiveCallId) {
+        setInspectedToolContext(payload.toolProviderContext);
+      } else {
+        setInspectedToolContext(undefined);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [effectiveCallId]);
+  }, [callId, effectiveCallId]);
 
   useEffect(() => {
     setMessages((current) => mergeConversationMessages(current, conversation.messages));
@@ -138,6 +156,9 @@ export function AgentRunWorkspace({
         void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
           setCallEvents(payload.commits);
           setWarnings(payload.warnings);
+          if (callId && callId === effectiveCallId) {
+            setInspectedToolContext(payload.toolProviderContext);
+          }
         });
       }
     },
@@ -160,6 +181,55 @@ export function AgentRunWorkspace({
     });
     return ids.length > 0 ? new Set(ids) : undefined;
   }, [callEvents, callId, conversation.latestAgentCallId, messages]);
+
+  const episodeToolContext = useMemo(() => {
+    if (callId) {
+      if (inspectedToolContext === undefined) {
+        return undefined;
+      }
+      return {
+        value: inspectedToolContext,
+        onCopyToNextTurn:
+          workflowLink || inspectedToolContext === null
+            ? undefined
+            : () => {
+                const seeded = seedToolProviderContextForm({
+                  fields: settings.toolProviderContext.fields,
+                  sample: settings.toolProviderContext.sample,
+                  seed: inspectedToolContext as JsonValue,
+                });
+                setContextValues(seeded.values);
+                setContextJson(seeded.rawJson);
+                setSettingsOpen(true);
+              },
+      };
+    }
+    if (workflowLink) {
+      return {
+        value:
+          conversation.latestEpisodeToolProviderContext !== undefined
+            ? conversation.latestEpisodeToolProviderContext
+            : null,
+      };
+    }
+    return undefined;
+  }, [
+    callId,
+    conversation.latestEpisodeToolProviderContext,
+    inspectedToolContext,
+    settings.toolProviderContext.fields,
+    settings.toolProviderContext.sample,
+    workflowLink,
+  ]);
+
+  function viewToolContextForCall(agentCallId: string) {
+    setSettingsOpen(true);
+    void navigate({
+      to: "/agent/$agentId/run/$runId",
+      params: { agentId: agent.id, runId: conversation.runId },
+      search: agentRunSearch({ call: agentCallId }),
+    });
+  }
 
   async function handleSend(text: string) {
     setSending(true);
@@ -219,6 +289,7 @@ export function AgentRunWorkspace({
   }
 
   const storedSystemPrompt = extractSystemPromptFromMessages(messages);
+  const viewToolContextCallId = callId ?? conversation.latestAgentCallId;
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
@@ -327,14 +398,32 @@ export function AgentRunWorkspace({
         >
           <div className="flex h-full min-h-0 flex-col">
             <ScrollArea className="min-h-0 flex-1">
-              <ChatMessageList
-                messages={messages}
-                streamingText={showStreamingAssistant ? streamingText : null}
-                isStreaming={isRunning || sending}
-                systemPrompt={storedSystemPrompt ? null : settings.systemPrompt}
-                focusMessageIds={focusMessageIds}
-                focusStreaming={focusStreaming}
-              />
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <div className="min-h-full">
+                    <ChatMessageList
+                      messages={messages}
+                      streamingText={showStreamingAssistant ? streamingText : null}
+                      isStreaming={isRunning || sending}
+                      systemPrompt={storedSystemPrompt ? null : settings.systemPrompt}
+                      focusMessageIds={focusMessageIds}
+                      focusStreaming={focusStreaming}
+                    />
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    disabled={!viewToolContextCallId}
+                    onSelect={() => {
+                      if (viewToolContextCallId) {
+                        viewToolContextForCall(viewToolContextCallId);
+                      }
+                    }}
+                  >
+                    View tool context
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             </ScrollArea>
             {workflowLink ? (
               <div className="flex shrink-0 flex-col items-center gap-3 border-t border-border/40 bg-background p-4">
@@ -371,6 +460,7 @@ export function AgentRunWorkspace({
               <AgentSettingsPanel
                 settings={settings}
                 conversation={conversation}
+                episodeToolContext={episodeToolContext}
                 contextForm={
                   workflowLink
                     ? undefined

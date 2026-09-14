@@ -18,8 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { ErrorDetails } from "@/components/app/error-details";
 import { InspectorNoun } from "@/components/app/inspector-noun";
 import { SettingRow, SettingsSection } from "@/components/app/inspector-settings";
+import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
 import { SchemaFieldControl } from "@/components/app/schema-field-control";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -35,16 +37,26 @@ export interface ToolProviderContextFormState {
   purpose?: "default" | "turn";
 }
 
+/** Historical episode snapshot shown when inspecting `?call=` or a workflow-linked chat. */
+export interface EpisodeToolProviderContextView {
+  /** Null means the episode exists but context was never recorded. */
+  value: unknown | null;
+  /** When set, show a control that copies this snapshot into the next-turn draft. */
+  onCopyToNextTurn?: () => void;
+}
+
 interface AgentSettingsPanelProps {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
   contextForm?: ToolProviderContextFormState;
+  episodeToolContext?: EpisodeToolProviderContextView;
 }
 
 export function AgentSettingsPanel({
   settings,
   conversation,
   contextForm,
+  episodeToolContext,
 }: AgentSettingsPanelProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
@@ -59,6 +71,7 @@ export function AgentSettingsPanel({
             settings={settings}
             conversation={conversation}
             contextForm={contextForm}
+            episodeToolContext={episodeToolContext}
           />
         </div>
       </ScrollArea>
@@ -71,10 +84,12 @@ export function AgentConfigBody({
   settings,
   conversation,
   contextForm,
+  episodeToolContext,
 }: {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
   contextForm?: ToolProviderContextFormState;
+  episodeToolContext?: EpisodeToolProviderContextView;
 }) {
   const fork = conversation?.forkSession;
   const workflowLink = conversation?.workflowLink;
@@ -133,6 +148,13 @@ export function AgentConfigBody({
         <>
           <Separator className="bg-border/40" />
           <ToolProviderContextSection settings={settings} contextForm={contextForm} />
+        </>
+      ) : null}
+
+      {episodeToolContext ? (
+        <>
+          <Separator className="bg-border/40" />
+          <EpisodeToolContextSection episodeToolContext={episodeToolContext} />
         </>
       ) : null}
 
@@ -325,6 +347,41 @@ function ToolProviderContextSection({
           No object <span className="font-mono">contextSchema</span>. Pass JSON from the
           conversation form or <span className="font-mono">adl agent run --tool-context</span>.
         </p>
+      ) : null}
+    </SettingsSection>
+  );
+}
+
+function EpisodeToolContextSection({
+  episodeToolContext,
+}: {
+  episodeToolContext: EpisodeToolProviderContextView;
+}) {
+  return (
+    <SettingsSection icon={SlidersHorizontal} title="Episode tool context">
+      <p className="mb-3 text-xs text-muted-foreground">
+        Immutable snapshot recorded on this episode&apos;s{" "}
+        <span className="font-mono">agent_started</span>. Editing never rewrites past runs.
+      </p>
+      {episodeToolContext.value === null ? (
+        <p className="text-xs text-muted-foreground">Not recorded.</p>
+      ) : (
+        <JsonPreview
+          title="Episode tool context"
+          value={episodeToolContext.value}
+          className="bg-card/80"
+        />
+      )}
+      {episodeToolContext.onCopyToNextTurn && episodeToolContext.value !== null ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={episodeToolContext.onCopyToNextTurn}
+        >
+          Copy to next turn
+        </Button>
       ) : null}
     </SettingsSection>
   );

@@ -104,6 +104,9 @@ export function adaptCoreEventsForWorkflowRun(
           agentId: event.agentId,
           memoryScope: event.memoryScope,
           episodeId: event.agentCallId,
+          ...(event.toolProviderContext !== undefined
+            ? { toolProviderContext: asJson(event.toolProviderContext) }
+            : {}),
         });
         break;
       case "agent_finished":

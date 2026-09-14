@@ -222,6 +222,14 @@ function ConversationInspector({
           ))}
         </div>
       ) : null}
+      <div className="shrink-0 border-b border-border/40 p-2">
+        <JsonPreview
+          title="Episode tool context"
+          value={episode.toolProviderContext}
+          empty="Not recorded."
+          className="bg-card/80"
+        />
+      </div>
       <ConversationPanel
         episode={episode}
         events={events}

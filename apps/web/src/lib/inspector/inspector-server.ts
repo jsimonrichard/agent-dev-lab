@@ -93,6 +93,7 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
   .validator((agentCallId: string) => agentCallId)
   .handler(async ({ data: agentCallId }) => {
     const events = await getAgentRunEvents(agentCallId);
+    const started = events.find((event) => event.type === "agent_started");
     return {
       commits: events
         .filter((event) => event.type === "agent_messages_committed")
@@ -100,6 +101,11 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
       warnings: events
         .filter((event) => event.type === "agent_warning")
         .map((event) => event.message),
+      /** Null when this episode has no recorded `toolProviderContext` (pre-feature or omitted). */
+      toolProviderContext:
+        started && started.type === "agent_started" && started.toolProviderContext !== undefined
+          ? started.toolProviderContext
+          : null,
     };
   });
 

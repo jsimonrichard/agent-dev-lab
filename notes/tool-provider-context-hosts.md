@@ -1,6 +1,9 @@
 # Plan: supply `toolProviderContext` from CLI and dashboard
 
-**Status:** CLI and dashboard supply landed. Persist-on-conversation (finding step 2) is still open.
+**Status:** Superseded for persistence. CLI + dashboard supply (sections 1–2)
+landed. Episode snapshots, inspector agent default, and next-turn draft seeding
+are implemented under the separate plan `persist_tool_context` (2026-09-14) —
+not as a conversation-metadata next-turn column.
 Last reconciled: **2026-09-14**.
 
 ## Goal
@@ -35,8 +38,9 @@ context (e.g. `{ projectPath }`) is usable outside a workflow.
    suffixes `(tool-context)` when `agent.tools` is a `ToolProvider`. Docs.
 2. **Dashboard** — inspector meta from `contextSchema`; editable form on a
    standalone conversation; `startAgentTurn` forwards the raw value. Docs.
-3. **Remember (later)** — persist resolved context on conversation metadata so
-   continuations and forks reuse it. Not this work.
+3. **Remember (later)** — ~~persist resolved context on conversation metadata~~
+   **Done differently:** per-episode snapshot in core + inspector-only agent
+   default + UI next-turn draft (see `persist_tool_context` plan).
 
 ## Out of scope
 
