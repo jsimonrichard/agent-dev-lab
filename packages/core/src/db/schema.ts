@@ -121,6 +121,8 @@ export const agentEpisodes = sqliteTable(
     status: text("status", { enum: AGENT_EPISODE_STATUSES }).notNull(),
     modelId: text("model_id"),
     modelProvider: text("model_provider"),
+    /** JSON of `agent_started.toolProviderContext`; null when omitted / pre-field episodes. */
+    toolProviderContextJson: text("tool_provider_context_json"),
   },
   (table) => [
     index("adl_agent_episodes_started_at").on(table.startedAt),

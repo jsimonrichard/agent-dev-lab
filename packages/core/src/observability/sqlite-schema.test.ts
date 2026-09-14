@@ -442,9 +442,30 @@ describe("adl_agent_episodes", () => {
       "status",
       "model_id",
       "model_provider",
+      "tool_provider_context_json",
     ]);
     const indexes = indexNames(sqlite, "adl_agent_episodes");
     expect(indexes).toContain("adl_agent_episodes_started_at");
     expect(indexes).toContain("adl_agent_episodes_agent_started_at");
+  });
+
+  it("adds tool_provider_context_json to a pre-existing episodes table", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.exec(`
+      CREATE TABLE adl_agent_episodes (
+        agent_call_id TEXT PRIMARY KEY NOT NULL,
+        agent_id TEXT NOT NULL,
+        memory_scope TEXT NOT NULL,
+        workflow_run_id TEXT,
+        step_id TEXT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        status TEXT NOT NULL,
+        model_id TEXT,
+        model_provider TEXT
+      )
+    `);
+    ensureAdlSchema(sqlite);
+    expect(columnNames(sqlite, "adl_agent_episodes")).toContain("tool_provider_context_json");
   });
 });

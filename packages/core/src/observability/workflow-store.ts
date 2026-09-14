@@ -21,6 +21,11 @@ export type AgentEpisodeSummary = {
   /** The `{ modelId, provider }` descriptor Lane E adds to `agent_started`; absent until then. */
   modelId?: string;
   modelProvider?: string;
+  /**
+   * Raw {@link AgentRunInput.toolProviderContext} from this episode's `agent_started`.
+   * Absent when the caller did not pass one (or for episodes recorded before this field).
+   */
+  toolProviderContext?: unknown;
 };
 
 /**

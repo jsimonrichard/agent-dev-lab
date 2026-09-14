@@ -311,6 +311,9 @@ function toEpisodeSummary(row: typeof agentEpisodes.$inferSelect): AgentEpisodeS
     status: row.status,
     modelId: row.modelId ?? undefined,
     modelProvider: row.modelProvider ?? undefined,
+    ...(row.toolProviderContextJson !== null
+      ? { toolProviderContext: JSON.parse(row.toolProviderContextJson) as unknown }
+      : {}),
   };
 }
 

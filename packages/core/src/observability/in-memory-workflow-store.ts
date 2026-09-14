@@ -274,6 +274,9 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         stepId: started.stepId,
         status: finished ? (finished.type === "agent_finished" ? "ok" : "error") : "running",
         finishedAt: finished?.at,
+        ...(started.toolProviderContext !== undefined
+          ? { toolProviderContext: started.toolProviderContext }
+          : {}),
       });
     }
     episodes.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

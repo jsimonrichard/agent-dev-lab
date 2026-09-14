@@ -1216,4 +1216,52 @@ describe("AgentImpl run tags", () => {
     );
     expect(started?.tags).toEqual(["dataset:qa-v1"]);
   });
+
+  it("records toolProviderContext on agent_started when the caller passes one", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+      tools: createToolProvider<{ projectPath: string }>({
+        getTools: () => ({}),
+        contextSchema: z.object({ projectPath: z.string() }),
+      }),
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      toolProviderContext: { projectPath: "/tmp/crate" },
+    });
+    await handle.result;
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started?.toolProviderContext).toEqual({ projectPath: "/tmp/crate" });
+
+    const episodes = await adl.services.stores.workflow?.listAgentEpisodes();
+    expect(episodes?.[0]?.toolProviderContext).toEqual({ projectPath: "/tmp/crate" });
+  });
+
+  it("omits toolProviderContext on agent_started when the caller does not pass one", async () => {
+    const adl = createTestRuntime({ defaults: { model: mockTextModel("ok") } });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "hi",
+    });
+    await handle.result;
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started?.toolProviderContext).toBeUndefined();
+  });
 });

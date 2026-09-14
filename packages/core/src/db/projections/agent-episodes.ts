@@ -13,9 +13,14 @@ import type { RunEvent } from "../../observability/events";
  * `model_id`/`model_provider` are left untouched here: `agent_started` does
  * not yet carry the descriptor (Lane E adds it); once it does, this insert
  * picks it up with no further change to this file.
+ *
+ * `tool_provider_context_json` is the raw `toolProviderContext` from
+ * `agent_started` (JSON), or null when the caller omitted it.
  */
 export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
   if (event.type === "agent_started") {
+    const toolProviderContextJson =
+      event.toolProviderContext !== undefined ? JSON.stringify(event.toolProviderContext) : null;
     db.insert(agentEpisodes)
       .values({
         agentCallId: event.agentCallId,
@@ -26,6 +31,7 @@ export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
         startedAt: event.at,
         finishedAt: null,
         status: "running",
+        toolProviderContextJson,
       })
       .onConflictDoUpdate({
         target: agentEpisodes.agentCallId,
@@ -37,6 +43,7 @@ export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
           startedAt: event.at,
           finishedAt: null,
           status: "running",
+          toolProviderContextJson,
         },
       })
       .run();

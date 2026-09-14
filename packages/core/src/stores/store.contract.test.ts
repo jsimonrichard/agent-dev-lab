@@ -279,6 +279,39 @@ describe("sqlite stores share a file", () => {
     expect(afterFinish[0]?.finishedAt).toBe("2026-01-01T00:00:05.000Z");
   });
 
+  it("projects toolProviderContext from agent_started onto the episode summary", async () => {
+    const dbPath = await uniqueDbPath();
+    const store = sqliteWorkflowStore({ path: dbPath });
+    await store.recordEvent({
+      type: "agent_started",
+      agentCallId: "call-ctx",
+      agentId: "coder",
+      memoryScope: "conv:ctx",
+      runSeq: 1,
+      at: "2026-01-01T00:00:00.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      toolProviderContext: { projectPath: "/tmp/crate" },
+    });
+
+    const reopened = sqliteWorkflowStore({ path: dbPath });
+    const episodes = await reopened.listAgentEpisodes();
+    expect(episodes).toEqual([
+      {
+        agentCallId: "call-ctx",
+        agentId: "coder",
+        memoryScope: "conv:ctx",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        workflowRunId: undefined,
+        stepId: undefined,
+        status: "running",
+        finishedAt: undefined,
+        modelId: undefined,
+        modelProvider: undefined,
+        toolProviderContext: { projectPath: "/tmp/crate" },
+      },
+    ]);
+  });
+
   it("pushes agentId and limit into the query instead of filtering in JavaScript", async () => {
     const store = sqliteWorkflowStore({ path: await uniqueDbPath() });
     for (let i = 0; i < 3; i++) {

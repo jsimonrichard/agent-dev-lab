@@ -117,6 +117,12 @@ export type AgentStartedEvent = AgentEventBase & {
   memoryScope: string;
   /** Set from {@link AgentRunInput.tags} plus the automatic project version tag. */
   tags?: string[];
+  /**
+   * Raw value from {@link AgentRunInput.toolProviderContext} for this episode.
+   * Omitted when the caller did not pass one. The framework never parses it —
+   * this is a snapshot for inspection / fork seeding.
+   */
+  toolProviderContext?: unknown;
 };
 
 export type AgentFinishedEvent = AgentEventBase & {

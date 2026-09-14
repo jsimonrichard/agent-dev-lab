@@ -178,6 +178,9 @@ export class AgentImpl<
           agentId: this.definition.id,
           memoryScope,
           tags: withProjectVersionTag(input.tags, this.services.version),
+          ...(input.toolProviderContext !== undefined
+            ? { toolProviderContext: input.toolProviderContext }
+            : {}),
         });
 
         const toolCtx = buildToolProviderContext({
