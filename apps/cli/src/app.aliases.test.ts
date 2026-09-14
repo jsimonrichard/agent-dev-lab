@@ -31,9 +31,10 @@ describe("adl command aliases", () => {
 
   it("resolves a l / w l to list and a r / w r to run", async () => {
     const agentList = await cliHelp("a", "l");
-    expect(agentList).toContain("List agent ids in the current project");
+    expect(agentList).toContain("List agent ids");
     expect(agentList).toContain("adl a list");
     expect(agentList).toContain("-p");
+    expect(agentList).toContain("tool-context");
 
     const workflowList = await cliHelp("w", "l");
     expect(workflowList).toContain("List workflow ids in the current project");
@@ -44,6 +45,7 @@ describe("adl command aliases", () => {
     expect(agentRun).toContain("Run an agent from the project registry");
     expect(agentRun).toContain("-i");
     expect(agentRun).toContain("-s");
+    expect(agentRun).toMatch(/-c\s+\[--tool-context\]/);
 
     const workflowRun = await cliHelp("w", "r");
     expect(workflowRun).toContain("Run a workflow from the project registry");

@@ -32,11 +32,18 @@ export const agentsRunCommand = buildCommand({
         optional: true,
         parse: String,
       },
+      "tool-context": {
+        kind: "parsed",
+        brief: "JSON passed to agent.run as toolProviderContext (omit to pass undefined)",
+        optional: true,
+        parse: String,
+      },
     },
     aliases: {
       p: "project",
       i: "input",
       s: "scope",
+      c: "tool-context",
     },
   },
   docs: {

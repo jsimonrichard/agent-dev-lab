@@ -144,7 +144,7 @@ Implementation uses **`streamText`** with `experimental_output` when a schema is
 | **`agent.run`**    | `AgentRunHandle` (`result`, `cancel`) | Drains stream internally; observers still get `agent_text_delta` |
 | **`agent.stream`** | `AgentStreamHandle` with SDK streams  | Exposes `textStream` / `fullStream`; same persistence on finish  |
 
-The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System Prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`).
+The intended loop is **the same agent, many times, on the same conversation**. A new conversation is a new scope (or an omitted one). Passing a different agent onto an existing conversation is supported — see [System Prompt](#system-prompt). From the CLI, `adl agent run <id> --input "…"` is one episode with a string user message (optional `--scope`). Agents whose tools are a [`ToolProvider`](/core/tool-provider/) take `--tool-context` / `-c` as JSON for `toolProviderContext`; omit it to pass `undefined` — there is no cwd default. `adl agent list` marks those agents with `(tool-context)`.
 
 ```ts
 import type { ModelMessage, ToolProvider, ToolSet } from "@agent-dev-lab/core";

@@ -16,6 +16,6 @@ export const agentsListCommand = buildCommand({
     },
   },
   docs: {
-    brief: "List agent ids in the current project",
+    brief: "List agent ids; ToolProvider agents are marked (tool-context)",
   },
 });

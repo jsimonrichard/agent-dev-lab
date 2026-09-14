@@ -1,3 +1,5 @@
+import { isToolProvider } from "@agent-dev-lab/core";
+
 import type { AdlCliContext } from "../../../context";
 import { loadCliProject } from "../../../load-project";
 
@@ -13,6 +15,8 @@ export default async function list(this: AdlCliContext, flags: ListFlags): Promi
     return;
   }
   for (const id of ids) {
-    this.process.stdout.write(`${id}\n`);
+    const agent = project.getAgent(id);
+    const suffix = isToolProvider(agent?.tools) ? "  (tool-context)" : "";
+    this.process.stdout.write(`${id}${suffix}\n`);
   }
 }

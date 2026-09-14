@@ -123,7 +123,9 @@ export interface LoadedProjectForCli {
   getAgent(id: string):
     | {
         id: string;
-        run: (input: { user?: string; memoryScope?: string }) => {
+        /** `definition.tools` — duck-typed for `isToolProvider` / `contextSchema`. */
+        tools?: unknown;
+        run: (input: { user?: string; memoryScope?: string; toolProviderContext?: unknown }) => {
           agentCallId: string;
           memoryScope: string;
           result: Promise<{ output: unknown }>;

@@ -47,6 +47,14 @@ The framework never parses or validates `toolProviderContext`. If you want Zod d
 
 `contextSchema` and `listTools` are introspection-only (inspection UI / settings). The runtime never reads them. Skip `listTools` when the tool names themselves depend on a real context — the inspector treats a missing `listTools` as "cannot list" rather than calling `getTools` with a fabricated context.
 
+Standalone `adl agent run` does not invent a context. Pass `--tool-context` / `-c` with JSON:
+
+```bash
+adl agent run coder --input "List files" --tool-context '{"root":"/tmp/work"}'
+```
+
+Omit the flag to pass `undefined`. `adl agent list` suffixes `(tool-context)` when `agent.tools` is a `ToolProvider`. The inspection UI form from `contextSchema` is a separate host surface.
+
 A provider can be a class (constructor state, other interfaces) or a function wrapped with `createToolProvider`. Classes are the documented pattern for run-scoped state keyed by `agentCallId`.
 
 ## createToolProvider

@@ -22,17 +22,17 @@ bunx adl dashboard      # inspection UI
 
 ## Commands
 
-| Command                               | Description                                                             |
-| ------------------------------------- | ----------------------------------------------------------------------- |
-| `adl init <dir>` (`adl i`)            | Scaffold a new ADL project (no VCS; `--git` / `-g` runs `git init`)     |
-| `adl workflow run <id> --input '{}'`  | Run a registered workflow (`adl w r`); `--input` / `-i` is JSON         |
-| `adl workflow list`                   | Print workflow ids (`adl w l`)                                          |
-| `adl agent list`                      | Print agent ids (`adl a l`)                                             |
-| `adl agent run <id> --input "…"`      | Run a registered agent (`adl a r`); `--input` / `-i` is a string        |
-| `adl dashboard` (`adl d`, `adl dash`) | Inspection UI for the nearest `adl.config.*`                            |
-| `adl dashboard --serve` (`-s`)        | Do not reload agents, workflows, or templates from disk                 |
-| `adl dashboard --project <path>`      | Explicit ADL project root (`-p`; `-P` is `--port`, since `-p` is taken) |
-| `adl dashboard --strictPort`          | Fail if `--port` is already bound instead of using the next free port   |
+| Command                               | Description                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `adl init <dir>` (`adl i`)            | Scaffold a new ADL project (no VCS; `--git` / `-g` runs `git init`)                        |
+| `adl workflow run <id> --input '{}'`  | Run a registered workflow (`adl w r`); `--input` / `-i` is JSON                            |
+| `adl workflow list`                   | Print workflow ids (`adl w l`)                                                             |
+| `adl agent list`                      | Print agent ids (`adl a l`); `ToolProvider` agents get `(tool-context)`                    |
+| `adl agent run <id> --input "…"`      | Run a registered agent (`adl a r`); `--input` is a string, `--tool-context` / `-c` is JSON |
+| `adl dashboard` (`adl d`, `adl dash`) | Inspection UI for the nearest `adl.config.*`                                               |
+| `adl dashboard --serve` (`-s`)        | Do not reload agents, workflows, or templates from disk                                    |
+| `adl dashboard --project <path>`      | Explicit ADL project root (`-p`; `-P` is `--port`, since `-p` is taken)                    |
+| `adl dashboard --strictPort`          | Fail if `--port` is already bound instead of using the next free port                      |
 
 ## Development
 

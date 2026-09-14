@@ -209,6 +209,15 @@ describe("adl init e2e", () => {
       expect(`${missingAgent.stdout}\n${missingAgent.stderr}`).toMatch(
         /unknown|not found|no-such-agent/i,
       );
+
+      const badToolContext = await runAdl(
+        ["agent", "run", "assistant", "--input", "hi", "--tool-context", "{"],
+        { cwd: root },
+      );
+      expect(badToolContext.exitCode).not.toBe(0);
+      expect(`${badToolContext.stdout}\n${badToolContext.stderr}`).toMatch(
+        /tool-context|JSON|parse/i,
+      );
     },
     { timeout: 30_000 },
   );

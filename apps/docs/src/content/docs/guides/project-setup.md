@@ -28,7 +28,7 @@ bunx adl dashboard
 
 - **`adl init`** (`adl i`) — scaffolds a project with SQLite-backed `src/adl.ts`, a README and tsconfig, demo-counter, a sample `ask` workflow, and `@agent-dev-lab/web` for `adl dashboard`. Does **not** create a VCS repository (jj and others are valid); pass `--git` / `-g` to run `git init`. Still writes `.gitignore`, which jj also honors.
 - **`adl workflow run`** (`adl w r`) — `loadAdlProject()` → `getWorkflow(id).run(input)`
-- **`adl agent run`** (`adl a r`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` / `-i` is a string, not JSON)
+- **`adl agent run`** (`adl a r`) — `loadAdlProject()` → `getAgent(id).run({ user })` (`--input` / `-i` is a string, not JSON; `--tool-context` / `-c` is JSON for `toolProviderContext`)
 - **`adl dashboard`** (`adl d`) — [inspection UI](/guides/inspection-ui/). Agent, workflow, and template edits update the live catalog as soon as the process starts (it prints `[adl] watching <root>`); `--serve` / `-s` turns that off. Restart after `.env*` edits.
 
 ## What `adl init` Gives You

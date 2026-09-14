@@ -89,13 +89,13 @@ For custom tooling, `LoadedAdlProject.reload()` re-imports the config, and `watc
 
 **One primitive:** `workflow.run(input)` — no separate `runWorkflow()` helper.
 
-| Entry                       | What It Does                                                              |
-| --------------------------- | ------------------------------------------------------------------------- |
-| **`workflow.run(input)`**   | The execution primitive                                                   |
-| **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)`                                 |
-| **`adl agent run <id>`**    | Load project → `getAgent(id).run({ user })` — `--input` is a plain string |
-| **`adl dashboard` / UI**    | List ids + start / inspect runs                                           |
-| **Direct import**           | Skip registry; still use `.run`                                           |
+| Entry                       | What It Does                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **`workflow.run(input)`**   | The execution primitive                                                                                                              |
+| **`adl workflow run <id>`** | Load project → `getWorkflow(id).run(...)`                                                                                            |
+| **`adl agent run <id>`**    | Load project → `getAgent(id).run({ user })` — `--input` is a plain string; `--tool-context` / `-c` is JSON for `toolProviderContext` |
+| **`adl dashboard` / UI**    | List ids + start / inspect runs                                                                                                      |
+| **Direct import**           | Skip registry; still use `.run`                                                                                                      |
 
 ```ts
 import { loadAdlProject } from "@agent-dev-lab/core";
@@ -130,6 +130,7 @@ bunx adl workflow run ask --input '{"question":"What is Agent Dev Lab?"}'
 bunx adl workflow list
 bunx adl agent list
 bunx adl agent run assistant --input "What is Agent Dev Lab?"
+bunx adl agent run coder --input "List files" --tool-context '{"root":"/tmp/work"}'
 bunx adl dashboard
 ```
 
