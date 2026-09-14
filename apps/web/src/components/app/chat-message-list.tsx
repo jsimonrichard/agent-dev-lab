@@ -13,7 +13,11 @@ import { MarkdownContent } from "@/components/app/markdown-content";
 interface ChatMessageListProps {
   messages: InspectorMessage[];
   streamingText?: string | null;
-  /** When false, streamed text stays visible but without the live "Streaming…" chrome. */
+  /**
+   * When true, the assistant is still generating: show a typing indicator if there
+   * is no streamed text yet, and live chrome on the streaming bubble when there is.
+   * Defaults to false so settled transcripts never look in-flight.
+   */
   isStreaming?: boolean;
   className?: string;
   /** Smaller markdown for narrow step inspector */
@@ -33,7 +37,7 @@ interface ChatMessageListProps {
 export function ChatMessageList({
   messages,
   streamingText,
-  isStreaming = true,
+  isStreaming = false,
   className,
   compact = false,
   muted = false,
@@ -45,12 +49,16 @@ export function ChatMessageList({
   const hasStoredSystem = messages[0]?.role === "system";
   const items = toChatDisplayItems(messages);
   const overlayPrompt = !hasStoredSystem ? systemPrompt : null;
-  const streamingJson = streamingText ? parseStructuredJson(streamingText) : undefined;
+  const trimmedStreaming = streamingText?.trim() ? streamingText : null;
+  const streamingJson = trimmedStreaming ? parseStructuredJson(trimmedStreaming) : undefined;
+  const showTyping = isStreaming && !trimmedStreaming;
   const focusRef = useRef<HTMLDivElement>(null);
   const focusIds = focusMessageIds && focusMessageIds.size > 0 ? focusMessageIds : undefined;
   const groups = groupDisplayItemsByFocus(items, focusIds);
   const lastGroup = groups.at(-1);
-  const streamingInsideLastBand = Boolean(focusStreaming && streamingText && lastGroup?.focused);
+  const streamingInsideLastBand = Boolean(
+    focusStreaming && (trimmedStreaming || showTyping) && lastGroup?.focused,
+  );
   const lastFocusKey =
     !focusStreaming && focusIds
       ? [...items].reverse().find((item) => displayItemBelongsToFocus(item, focusIds))?.key
@@ -58,7 +66,7 @@ export function ChatMessageList({
 
   useEffect(() => {
     focusRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [focusIds, focusStreaming, lastFocusKey, streamingText]);
+  }, [focusIds, focusStreaming, lastFocusKey, trimmedStreaming, showTyping]);
 
   function renderItem(item: ChatDisplayItem) {
     return (
@@ -72,7 +80,7 @@ export function ChatMessageList({
   }
 
   function renderStreaming() {
-    if (!streamingText) {
+    if (!trimmedStreaming) {
       return null;
     }
     const rowRef = focusStreaming ? focusRef : undefined;
@@ -96,10 +104,28 @@ export function ChatMessageList({
     }
     return (
       <ChatBubble role="assistant" streaming={isStreaming} compact={compact} rowRef={rowRef}>
-        <MarkdownContent content={streamingText} compact={compact} />
+        <MarkdownContent content={trimmedStreaming} compact={compact} />
       </ChatBubble>
     );
   }
+
+  function renderTyping() {
+    if (!showTyping) {
+      return null;
+    }
+    return (
+      <ChatBubble role="assistant" compact={compact} rowRef={focusStreaming ? focusRef : undefined}>
+        <TypingIndicator />
+      </ChatBubble>
+    );
+  }
+
+  const liveTail = (
+    <>
+      {renderStreaming()}
+      {renderTyping()}
+    </>
+  );
 
   return (
     <div
@@ -111,11 +137,11 @@ export function ChatMessageList({
     >
       {overlayPrompt ? <LiveSystemPromptOverlay prompt={overlayPrompt} compact={compact} /> : null}
       {groups.map((group, index) => {
-        const includeStreaming = streamingInsideLastBand && index === groups.length - 1;
+        const includeLive = streamingInsideLastBand && index === groups.length - 1;
         const content = (
           <>
             {group.items.map(renderItem)}
-            {includeStreaming ? renderStreaming() : null}
+            {includeLive ? liveTail : null}
           </>
         );
         if (!group.focused) {
@@ -125,14 +151,14 @@ export function ChatMessageList({
           <AgentCallHighlight key={group.items[0]?.key ?? index}>{content}</AgentCallHighlight>
         );
       })}
-      {streamingText && !streamingInsideLastBand ? (
+      {(trimmedStreaming || showTyping) && !streamingInsideLastBand ? (
         focusStreaming ? (
-          <AgentCallHighlight>{renderStreaming()}</AgentCallHighlight>
+          <AgentCallHighlight>{liveTail}</AgentCallHighlight>
         ) : (
-          renderStreaming()
+          liveTail
         )
       ) : null}
-      {showEmpty && items.length === 0 && !streamingText ? (
+      {showEmpty && items.length === 0 && !trimmedStreaming && !showTyping ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No messages yet. Send a message to start the conversation.
         </p>
@@ -302,10 +328,26 @@ function ChatBubble({
       >
         {children}
         {streaming ? (
-          <span className="mt-1 inline-block px-1 text-xs text-muted-foreground">Streaming…</span>
+          <span className="mt-1.5 flex justify-start">
+            <TypingIndicator />
+          </span>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <span
+      role="status"
+      aria-label="Generating"
+      className="inline-flex items-center gap-1 px-0.5 py-0.5"
+    >
+      <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/70 [animation-delay:-0.3s]" />
+      <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/70 [animation-delay:-0.15s]" />
+      <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/70" />
+    </span>
   );
 }
 

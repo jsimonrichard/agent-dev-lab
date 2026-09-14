@@ -368,10 +368,11 @@ function EpisodeConversation({
                   />
                 ) : null}
                 {prior.length > 0 ? <TranscriptMarker>This Agent Call</TranscriptMarker> : null}
-                {current.length > 0 || liveStreaming ? (
+                {current.length > 0 || liveStreaming || episode.status === "running" ? (
                   <ChatMessageList
                     messages={current}
                     streamingText={liveStreaming}
+                    isStreaming={episode.status === "running"}
                     compact
                     showEmpty={false}
                     className="flex-none gap-2 p-0"
