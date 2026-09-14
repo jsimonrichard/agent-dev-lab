@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState, type ComponentProps, type FormEven
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ErrorDetails } from "@/components/app/error-details";
+import { SchemaFieldControl } from "@/components/app/schema-field-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,9 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector/inspector-server";
-import type { WorkflowInputField, WorkflowInspectorMeta } from "#/lib/inspector/inspector-types";
+import type { WorkflowInspectorMeta } from "#/lib/inspector/inspector-types";
 import {
   buildWorkflowInput,
   workflowInputValuesFromSample,
@@ -270,7 +270,7 @@ export function StartWorkflowForm({
       </div>
 
       {fields.map((field, index) => (
-        <WorkflowInputControl
+        <SchemaFieldControl
           key={field.name}
           idPrefix={formId}
           field={field}
@@ -284,103 +284,5 @@ export function StartWorkflowForm({
 
       {actions}
     </form>
-  );
-}
-
-const UNSET_SELECT_VALUE = "__unset__";
-
-function WorkflowInputControl({
-  idPrefix,
-  field,
-  value,
-  onChange,
-  autoFocus,
-}: {
-  idPrefix: string;
-  field: WorkflowInputField;
-  value: string | boolean | undefined;
-  onChange: (value: string | boolean) => void;
-  autoFocus?: boolean;
-}) {
-  const id = `${idPrefix}-${field.name}`;
-  const label = field.required ? field.name : `${field.name} (optional)`;
-
-  if (field.kind === "boolean") {
-    return (
-      <div className="flex items-center gap-2">
-        <input
-          id={id}
-          type="checkbox"
-          className="size-4 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          checked={value === true}
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        <Label htmlFor={id}>{label}</Label>
-      </div>
-    );
-  }
-
-  if (field.options && field.options.length > 0) {
-    return (
-      <div className="grid gap-2">
-        <Label htmlFor={id}>{label}</Label>
-        <Select
-          value={typeof value === "string" && value !== "" ? value : undefined}
-          onValueChange={(next) => onChange(next === UNSET_SELECT_VALUE ? "" : next)}
-        >
-          <SelectTrigger id={id} className="w-full" autoFocus={autoFocus}>
-            <SelectValue placeholder={field.required ? "Select…" : "—"} />
-          </SelectTrigger>
-          <SelectContent>
-            {field.required ? null : <SelectItem value={UNSET_SELECT_VALUE}>—</SelectItem>}
-            {field.options.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {field.description ? (
-          <p className="text-xs text-muted-foreground">{field.description}</p>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (field.kind === "json") {
-    return (
-      <div className="grid gap-2">
-        <Label htmlFor={id}>{label}</Label>
-        <Textarea
-          id={id}
-          autoFocus={autoFocus}
-          required={field.required}
-          value={typeof value === "string" ? value : ""}
-          onChange={(event) => onChange(event.target.value)}
-          className="min-h-20 font-mono text-xs"
-          spellCheck={false}
-        />
-        {field.description ? (
-          <p className="text-xs text-muted-foreground">{field.description}</p>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        autoFocus={autoFocus}
-        required={field.required}
-        type={field.kind === "number" ? "number" : "text"}
-        value={typeof value === "string" ? value : ""}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      {field.description ? (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      ) : null}
-    </div>
   );
 }

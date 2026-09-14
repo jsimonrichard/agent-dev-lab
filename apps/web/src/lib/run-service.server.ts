@@ -16,6 +16,7 @@ import {
   inspectAgentOutputSchema,
   inspectAgentStopWhen,
   inspectAgentTools,
+  inspectAgentToolProviderContext,
 } from "#/lib/agent/agent-tools";
 import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messages";
 import { generatedForkTitle } from "#/lib/memory-scope-label";
@@ -161,6 +162,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
     return {
       id,
       tools: inspectAgentTools(agent),
+      toolProviderContext: inspectAgentToolProviderContext(agent),
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
@@ -347,6 +349,7 @@ export async function startAgentTurn(options: {
   agentId: string;
   memoryScope: string;
   user: string;
+  toolProviderContext?: unknown;
   workflow?: { workflowRunId: string; stepId: string | null };
 }): Promise<{ agentCallId: string }> {
   await ensureSessionsHydrated();
@@ -371,6 +374,9 @@ export async function startAgentTurn(options: {
     memoryScope: options.memoryScope,
     user: options.user,
     workflow: options.workflow,
+    ...(options.toolProviderContext !== undefined
+      ? { toolProviderContext: options.toolProviderContext }
+      : {}),
   });
   linkAgentCallId(options.memoryScope, handle.agentCallId);
   activeAgentTurns.set(handle.agentCallId, handle);

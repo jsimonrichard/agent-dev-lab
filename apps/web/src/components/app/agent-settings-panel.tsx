@@ -1,5 +1,15 @@
-import { Braces, Cpu, Database, FileText, GitBranch, MessageSquare, Wrench } from "lucide-react";
+import {
+  Braces,
+  Cpu,
+  Database,
+  FileText,
+  GitBranch,
+  MessageSquare,
+  SlidersHorizontal,
+  Wrench,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useId } from "react";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
@@ -7,18 +17,33 @@ import { RunTagsFooter } from "@/components/app/run-tags-footer";
 import { Badge } from "@/components/ui/badge";
 import { ErrorDetails } from "@/components/app/error-details";
 import { InspectorNoun } from "@/components/app/inspector-noun";
-import { MarkdownContent } from "@/components/app/markdown-content";
 import { SettingRow, SettingsSection } from "@/components/app/inspector-settings";
+import { MarkdownContent } from "@/components/app/markdown-content";
+import { SchemaFieldControl } from "@/components/app/schema-field-control";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
+
+export interface ToolProviderContextFormState {
+  values: Record<string, string | boolean>;
+  rawJson: string;
+  onValuesChange: (values: Record<string, string | boolean>) => void;
+  onRawJsonChange: (rawJson: string) => void;
+}
 
 interface AgentSettingsPanelProps {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
+  contextForm?: ToolProviderContextFormState;
 }
 
-export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPanelProps) {
+export function AgentSettingsPanel({
+  settings,
+  conversation,
+  contextForm,
+}: AgentSettingsPanelProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
       <div className="shrink-0 border-b border-border/40 px-4 py-3">
@@ -28,7 +53,11 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
-          <AgentConfigBody settings={settings} conversation={conversation} />
+          <AgentConfigBody
+            settings={settings}
+            conversation={conversation}
+            contextForm={contextForm}
+          />
         </div>
       </ScrollArea>
       {conversation ? <RunTagsFooter tags={conversation.tags} /> : null}
@@ -39,9 +68,11 @@ export function AgentSettingsPanel({ settings, conversation }: AgentSettingsPane
 export function AgentConfigBody({
   settings,
   conversation,
+  contextForm,
 }: {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
+  contextForm?: ToolProviderContextFormState;
 }) {
   const fork = conversation?.forkSession;
   const workflowLink = conversation?.workflowLink;
@@ -95,6 +126,13 @@ export function AgentConfigBody({
           </ul>
         )}
       </SettingsSection>
+
+      {settings.toolProviderContext.declared ? (
+        <>
+          <Separator className="bg-border/40" />
+          <ToolProviderContextSection settings={settings} contextForm={contextForm} />
+        </>
+      ) : null}
 
       <Separator className="bg-border/40" />
 
@@ -207,5 +245,72 @@ export function AgentConfigBody({
         </>
       ) : null}
     </div>
+  );
+}
+
+function ToolProviderContextSection({
+  settings,
+  contextForm,
+}: {
+  settings: AgentInspectorMeta;
+  contextForm?: ToolProviderContextFormState;
+}) {
+  const formId = useId();
+  const meta = settings.toolProviderContext;
+  const fields = meta.fields;
+  const editable = contextForm !== undefined;
+
+  return (
+    <SettingsSection icon={SlidersHorizontal} title="Tool context">
+      <p className="mb-3 text-xs text-muted-foreground">
+        Passed to this agent's ToolProvider as{" "}
+        <span className="font-mono">toolProviderContext</span>. The runtime does not parse it. Leave
+        optional fields blank to omit them.
+      </p>
+      {editable && fields.length > 0 ? (
+        <div className="grid gap-3">
+          {fields.map((field) => (
+            <SchemaFieldControl
+              key={field.name}
+              idPrefix={formId}
+              field={field}
+              value={contextForm.values[field.name]}
+              onChange={(value) =>
+                contextForm.onValuesChange({ ...contextForm.values, [field.name]: value })
+              }
+            />
+          ))}
+        </div>
+      ) : null}
+      {editable && fields.length === 0 ? (
+        <div className="grid gap-2">
+          <Label htmlFor={`${formId}-json`}>JSON</Label>
+          <Textarea
+            id={`${formId}-json`}
+            value={contextForm.rawJson}
+            onChange={(event) => contextForm.onRawJsonChange(event.target.value)}
+            className="min-h-20 font-mono text-xs"
+            spellCheck={false}
+            placeholder='{"projectPath":"/path/to/crate"}'
+          />
+        </div>
+      ) : null}
+      {!editable && fields.length > 0 ? (
+        <ul className="space-y-1.5">
+          {fields.map((field) => (
+            <li key={field.name} className="font-mono text-[11px] text-muted-foreground">
+              {field.name}: {field.kind}
+              {field.required ? "" : " (optional)"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!editable && fields.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No object <span className="font-mono">contextSchema</span>. Pass JSON from the
+          conversation form or <span className="font-mono">adl agent run --tool-context</span>.
+        </p>
+      ) : null}
+    </SettingsSection>
   );
 }

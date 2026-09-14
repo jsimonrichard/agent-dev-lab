@@ -53,7 +53,7 @@ Standalone `adl agent run` does not invent a context. Pass `--tool-context` / `-
 adl agent run coder --input "List files" --tool-context '{"root":"/tmp/work"}'
 ```
 
-Omit the flag to pass `undefined`. `adl agent list` suffixes `(tool-context)` when `agent.tools` is a `ToolProvider`. The inspection UI form from `contextSchema` is a separate host surface.
+Omit the flag to pass `undefined`. `adl agent list` suffixes `(tool-context)` when `agent.tools` is a `ToolProvider`. The inspection UI builds a **Tool context** form from `contextSchema` on standalone conversations (JSON textarea when the schema is missing or not an object) and sends the raw value with each message.
 
 A provider can be a class (constructor state, other interfaces) or a function wrapped with `createToolProvider`. Classes are the documented pattern for run-scoped state keyed by `agentCallId`.
 

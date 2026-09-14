@@ -3,12 +3,14 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
+import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
 import {
   fetchAgentCallEvents,
   fetchMessagesForScope,
   forkLinkedConversation,
   sendAgentMessage,
 } from "#/lib/inspector/inspector-server";
+import { workflowInputValuesFromSample } from "#/lib/workflow/workflow-input-schema";
 import { useAgentRunEvents } from "@/hooks/use-agent-run-events";
 import type {
   InspectorAgentSummary,
@@ -61,6 +63,13 @@ export function AgentRunWorkspace({
     Array<{ type: string; total?: number; count?: number }>
   >([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [contextValues, setContextValues] = useState<Record<string, string | boolean>>(() =>
+    workflowInputValuesFromSample(
+      settings.toolProviderContext.fields,
+      settings.toolProviderContext.sample,
+    ),
+  );
+  const [contextJson, setContextJson] = useState("");
 
   useEffect(() => {
     setMessages(conversation.messages);
@@ -138,6 +147,19 @@ export function AgentRunWorkspace({
     setSending(true);
     setError(null);
     setStreamEnabled(false);
+    let toolProviderContext: unknown;
+    try {
+      toolProviderContext = buildToolProviderContextInput({
+        declared: settings.toolProviderContext.declared,
+        fields: settings.toolProviderContext.fields,
+        values: contextValues,
+        rawJson: contextJson,
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setSending(false);
+      return;
+    }
     setMessages((prev) => [
       ...prev,
       { id: `pending-${Date.now()}`, role: "user", content: text, parts: [{ type: "text", text }] },
@@ -147,6 +169,7 @@ export function AgentRunWorkspace({
         agentId: agent.id,
         memoryScope: conversation.runId,
         user: text,
+        ...(toolProviderContext !== undefined ? { toolProviderContext } : {}),
       },
     });
     if (result.isErr) {
@@ -327,7 +350,20 @@ export function AgentRunWorkspace({
           <>
             <ResizableHandle />
             <ResizablePanel id="agent-settings" defaultSize="38%" minSize="22%" maxSize="50%">
-              <AgentSettingsPanel settings={settings} conversation={conversation} />
+              <AgentSettingsPanel
+                settings={settings}
+                conversation={conversation}
+                contextForm={
+                  workflowLink
+                    ? undefined
+                    : {
+                        values: contextValues,
+                        rawJson: contextJson,
+                        onValuesChange: setContextValues,
+                        onRawJsonChange: setContextJson,
+                      }
+                }
+              />
             </ResizablePanel>
           </>
         ) : null}

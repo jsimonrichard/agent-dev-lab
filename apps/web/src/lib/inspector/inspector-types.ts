@@ -43,9 +43,20 @@ export interface AgentModelInspectorMeta {
   provider?: string;
 }
 
+export interface AgentToolProviderContextMeta {
+  /** True when `definition.tools` or runtime tools is a ToolProvider. */
+  declared: boolean;
+  /** Object-schema fields from `contextSchema`, when it describes an object. */
+  fields: WorkflowInputField[];
+  /** `{}` parsed through `contextSchema` (Zod defaults), when that succeeds. */
+  sample?: JsonValue;
+}
+
 export interface AgentInspectorMeta {
   id: string;
   tools: { name: string; description: string }[];
+  /** Introspection of a ToolProvider's `contextSchema` for the settings form. */
+  toolProviderContext: AgentToolProviderContextMeta;
   /** Message-store backend (`"in-memory"`, `"sqlite"`, or a custom kind). */
   memoryMode: string;
   /** `null` when no model is configured or it reveals nothing — hide it in the UI. */

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { inspectAgentOutputSchema, inspectAgentStopWhen, inspectAgentTools } from "./agent-tools";
+import {
+  buildToolProviderContextInput,
+  inspectAgentOutputSchema,
+  inspectAgentStopWhen,
+  inspectAgentTools,
+  inspectAgentToolProviderContext,
+} from "./agent-tools";
 
 describe("inspectAgentTools", () => {
   it("merges runtime tools with agent tools, preferring the agent", () => {
@@ -107,5 +113,130 @@ describe("inspectAgentOutputSchema", () => {
 
   it("returns null when the agent has no output schema", () => {
     expect(inspectAgentOutputSchema({ id: "researcher" })).toBeNull();
+  });
+});
+
+describe("inspectAgentToolProviderContext", () => {
+  it("is not declared for a plain ToolSet", () => {
+    expect(
+      inspectAgentToolProviderContext({
+        definition: { tools: { search: { description: "search" } } },
+      }),
+    ).toEqual({ declared: false, fields: [] });
+  });
+
+  it("declares a ToolProvider with no contextSchema as raw JSON", () => {
+    expect(
+      inspectAgentToolProviderContext({
+        definition: {
+          tools: { getTools: () => ({}) },
+        },
+      }),
+    ).toEqual({ declared: true, fields: [] });
+  });
+
+  it("describes object fields from a ToolProvider contextSchema", () => {
+    expect(
+      inspectAgentToolProviderContext({
+        definition: {
+          tools: {
+            getTools: () => ({}),
+            contextSchema: {
+              _def: {
+                typeName: "ZodObject",
+                shape: {
+                  projectPath: { _def: { typeName: "ZodString" } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      declared: true,
+      fields: [
+        {
+          name: "projectPath",
+          kind: "string",
+          required: true,
+          description: undefined,
+          options: undefined,
+        },
+      ],
+    });
+  });
+
+  it("prefers definition.tools schema over runtime tools", () => {
+    const inspected = inspectAgentToolProviderContext({
+      services: {
+        tools: {
+          getTools: () => ({}),
+          contextSchema: {
+            _def: {
+              typeName: "ZodObject",
+              shape: { apiKey: { _def: { typeName: "ZodString" } } },
+            },
+          },
+        },
+      },
+      definition: {
+        tools: {
+          getTools: () => ({}),
+          contextSchema: {
+            _def: {
+              typeName: "ZodObject",
+              shape: { projectPath: { _def: { typeName: "ZodString" } } },
+            },
+          },
+        },
+      },
+    });
+    expect(inspected.fields.map((field) => field.name)).toEqual(["projectPath"]);
+  });
+});
+
+describe("buildToolProviderContextInput", () => {
+  it("omits context when the agent has no ToolProvider", () => {
+    expect(
+      buildToolProviderContextInput({
+        declared: false,
+        fields: [],
+        values: {},
+        rawJson: '{"x":1}',
+      }),
+    ).toBeUndefined();
+  });
+
+  it("builds an object from contextSchema fields", () => {
+    expect(
+      buildToolProviderContextInput({
+        declared: true,
+        fields: [{ name: "projectPath", kind: "string", required: true }],
+        values: { projectPath: "/tmp/crate" },
+        rawJson: "",
+      }),
+    ).toEqual({ projectPath: "/tmp/crate" });
+  });
+
+  it("parses raw JSON when there is no object schema", () => {
+    expect(
+      buildToolProviderContextInput({
+        declared: true,
+        fields: [],
+        values: {},
+        rawJson: '{"projectPath":"/tmp/crate"}',
+      }),
+    ).toEqual({ projectPath: "/tmp/crate" });
+  });
+
+  it("omits empty raw JSON rather than inventing {}", () => {
+    expect(
+      buildToolProviderContextInput({
+        declared: true,
+        fields: [],
+        values: {},
+        rawJson: "  ",
+      }),
+    ).toBeUndefined();
   });
 });

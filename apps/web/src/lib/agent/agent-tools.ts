@@ -1,4 +1,12 @@
-import { describeWorkflowInput } from "#/lib/workflow/workflow-input-schema";
+import type {
+  AgentToolProviderContextMeta,
+  WorkflowInputField,
+} from "#/lib/inspector/inspector-types";
+import {
+  buildWorkflowInput,
+  describeWorkflowInput,
+  sampleWorkflowInput,
+} from "#/lib/workflow/workflow-input-schema";
 
 export interface AgentToolSummary {
   name: string;
@@ -122,4 +130,66 @@ export function inspectAgentOutputSchema(agent: unknown): string | null {
     return "structured";
   }
   return `{ ${fields.map((field) => `${field.name}: ${field.kind}`).join(", ")} }`;
+}
+
+function agentToolSources(agent: unknown): unknown[] {
+  if (!isRecord(agent)) {
+    return [];
+  }
+  const definition = isRecord(agent.definition) ? agent.definition : undefined;
+  const services = isRecord(agent.services) ? agent.services : undefined;
+  return [definition?.tools, services?.tools];
+}
+
+/**
+ * Whether this agent needs a `toolProviderContext` form, plus `contextSchema` fields
+ * when that schema describes an object. Definition tools win over runtime tools for the
+ * schema (same precedence as tool-name merge). The host still never parses the value —
+ * this is only for building a form.
+ */
+export function inspectAgentToolProviderContext(agent: unknown): AgentToolProviderContextMeta {
+  const providers = agentToolSources(agent).filter(
+    (value): value is Record<string, unknown> => isRecord(value) && isToolProvider(value),
+  );
+  if (providers.length === 0) {
+    return { declared: false, fields: [] };
+  }
+  const withSchema = providers.find((provider) => provider.contextSchema !== undefined);
+  const schema = withSchema?.contextSchema;
+  return {
+    declared: true,
+    fields: describeWorkflowInput(schema),
+    sample: sampleWorkflowInput(schema),
+  };
+}
+
+/**
+ * Build the raw `toolProviderContext` to send with a standalone agent turn.
+ * Object-schema fields go through {@link buildWorkflowInput}; a provider with no
+ * object schema uses the JSON textarea. Empty JSON / a non-provider agent omit
+ * the value (`undefined`), matching CLI when `--tool-context` is absent.
+ */
+export function buildToolProviderContextInput(options: {
+  declared: boolean;
+  fields: WorkflowInputField[];
+  values: Record<string, string | boolean>;
+  rawJson: string;
+}): unknown | undefined {
+  if (!options.declared) {
+    return undefined;
+  }
+  if (options.fields.length > 0) {
+    return buildWorkflowInput(options.fields, options.values);
+  }
+  const text = options.rawJson.trim();
+  if (text.length === 0) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    throw new Error(
+      `toolProviderContext must be valid JSON${error instanceof Error ? `: ${error.message}` : ""}`,
+    );
+  }
 }

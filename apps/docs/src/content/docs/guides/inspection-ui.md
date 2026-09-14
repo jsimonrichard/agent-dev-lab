@@ -41,7 +41,7 @@ Registered `agents` can be opened as **conversations** (standalone `memoryScope`
 - New chat → `agent.run()` (AI SDK [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control), default `stepCountIs(20)`); first successful turn may set a title via `titleWorkflow`. Tool call/result events still fire while the model works.
 - **Fork** from a workflow agent episode copies that transcript into a new conversation you can continue.
 - Shared scopes show history **up to** the selected episode; later turns are muted so you can see what the model had at that call.
-- The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `stopWhen` (`default` / `custom`), and title workflow id.
+- The agent settings panel reports effective **model** (id + provider when the LanguageModel exposes them), **memory** backend kind (`sqlite` / `in-memory` / custom), tools, `stopWhen` (`default` / `custom`), and title workflow id. When `tools` is a [`ToolProvider`](/core/tool-provider/), the panel also shows a **Tool context** form built from `contextSchema` (or a JSON field if that schema is missing / not an object). Each standalone message sends that value as `toolProviderContext`. There is no cwd default. Workflow-linked conversations stay read-only; the form is for standalone and forked chats. The value is not persisted on the conversation yet — refresh the tab and you fill it in again.
 
 ## Event Log
 

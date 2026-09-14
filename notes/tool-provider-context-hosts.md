@@ -1,6 +1,6 @@
 # Plan: supply `toolProviderContext` from CLI and dashboard
 
-**Status:** In progress. Finding 6 from `~/Downloads/agent-dev-lab-tools-0.0.1-findings.md`.
+**Status:** CLI and dashboard supply landed. Persist-on-conversation (finding step 2) is still open.
 Last reconciled: **2026-09-14**.
 
 ## Goal

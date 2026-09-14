@@ -37,6 +37,7 @@ function AgentRunPage() {
     model: null,
     memoryMode: "custom",
     tools: [],
+    toolProviderContext: { declared: false, fields: [] },
     titleWorkflowId: null,
     stopWhen: "default",
     outputSchema: null,

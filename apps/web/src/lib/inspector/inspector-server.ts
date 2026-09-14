@@ -109,13 +109,21 @@ export const fetchAgentSessions = createServerFn({ method: "GET" })
   });
 
 export const sendAgentMessage = createServerFn({ method: "POST" })
-  .validator((payload: { agentId: string; memoryScope: string; user: string }) => payload)
+  .validator(
+    (payload: {
+      agentId: string;
+      memoryScope: string;
+      user: string;
+      toolProviderContext?: unknown;
+    }) => payload,
+  )
   .handler(async ({ data }) => {
     return fromAsyncThrowable(() =>
       startAgentTurn({
         agentId: data.agentId,
         memoryScope: data.memoryScope,
         user: data.user,
+        toolProviderContext: data.toolProviderContext,
       }),
     );
   });
