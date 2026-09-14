@@ -227,6 +227,22 @@ describe("createAsrtBashExecutor", () => {
   });
 
   it(
+    "creates TMPDIR so mktemp works without CLAUDE_CODE_TMPDIR on the host",
+    { timeout: 15_000 },
+    async () => {
+      const result = await finalResult(
+        executor.run(sh('echo "$TMPDIR"; mktemp -d'), { cwd: allowedDir, timeoutMs: 10_000 }),
+      );
+      assert.equal(result.exitCode, 0, result.stderr);
+      const lines = result.stdout.trim().split("\n");
+      const reported = lines[0];
+      const created = lines[1];
+      assert.ok(reported && reported.length > 0, result.stdout);
+      assert.ok(created?.startsWith(reported + "/"), result.stdout);
+    },
+  );
+
+  it(
     "denies writing outside allowWrite (a non-zero exit code, not a thrown error)",
     { timeout: 15_000 },
     async () => {

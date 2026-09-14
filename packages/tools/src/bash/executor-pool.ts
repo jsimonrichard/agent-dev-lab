@@ -29,6 +29,11 @@ export interface BashSandboxPolicy {
    * Host env vars exposed inside the sandbox. Omitted / `[]` → none. Part of the pool key.
    */
   allowEnv?: AllowEnv;
+  /**
+   * ASRT-only. Directory used as `TMPDIR` inside the sandbox. Omitted → the executor
+   * creates a per-instance directory. Native backend rejects this field.
+   */
+  tmpDir?: string;
 }
 
 export interface CanonicalBashSandboxPolicy {
@@ -40,6 +45,7 @@ export interface CanonicalBashSandboxPolicy {
   deniedDomains: string[];
   allowNetwork: boolean;
   allowEnv: CanonicalAllowEnv;
+  tmpDir?: string;
 }
 
 export interface BashExecutorPoolKey {
@@ -110,6 +116,7 @@ export function canonicalizeBashSandboxPolicy(
     deniedDomains: sortedUniqueStrings(policy.deniedDomains ?? []),
     allowNetwork: policy.allowNetwork ?? false,
     allowEnv: canonicalizeAllowEnv(policy.allowEnv),
+    tmpDir: policy.tmpDir === undefined ? undefined : path.resolve(root, policy.tmpDir),
   };
 }
 
@@ -140,6 +147,7 @@ function createPooledExecutor(
       allowedDomains: policy.allowedDomains,
       deniedDomains: policy.deniedDomains,
       allowEnv: restoreAllowEnv(policy.allowEnv),
+      tmpDir: policy.tmpDir,
     });
   }
 
@@ -153,6 +161,12 @@ function createPooledExecutor(
     throw new AdlError(
       "INVALID_INPUT",
       'Native bash sandbox does not support denyWrite — use backend: "asrt".',
+    );
+  }
+  if (policy.tmpDir !== undefined) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      'Native bash sandbox does not support tmpDir — ASRT sets TMPDIR; native already mounts a fresh /tmp. Use backend: "asrt", or omit tmpDir.',
     );
   }
   return createNativeBashExecutor({

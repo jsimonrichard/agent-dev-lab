@@ -63,6 +63,14 @@ describe("canonicalizeBashSandboxPolicy", () => {
       { kind: "string", value: "FOO" },
     ]);
   });
+
+  it("resolves tmpDir against projectRoot", () => {
+    const canonical = canonicalizeBashSandboxPolicy("/proj", {
+      allowWrite: ["s"],
+      tmpDir: "scratch",
+    });
+    expect(canonical.tmpDir).toBe("/proj/scratch");
+  });
 });
 
 describe("bash executor pool refcounts", () => {
@@ -150,6 +158,16 @@ describe("createBashToolProvider pooled vs executor", () => {
     expect(bashExecutorPoolSizeForTests()).toBe(1);
     await provider.dispose?.();
     expect(bashExecutorPoolSizeForTests()).toBe(0);
+  });
+
+  it("rejects tmpDir on the native backend", () => {
+    expect(() =>
+      acquireBashExecutor({
+        projectRoot: "/proj",
+        backend: "native",
+        policy: { allowWrite: ["/proj/s"], tmpDir: "/proj/tmp" },
+      }),
+    ).toThrow(/tmpDir/);
   });
 });
 

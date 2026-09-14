@@ -146,12 +146,17 @@ layer. Two things learned only by implementing this, beyond what evaluation belo
   `updateConfig()`. `maxOutputBytes` is this package's truncation cap, sent per run.
 - **Linux proxy sockets vs bounded `allowRead`.** We encode a bound read list as
   `denyRead: ["/"]` plus carve-outs. ASRT then tmpfs's each root child, including `/tmp`,
-  *after* it `--bind`s the HTTP/SOCKS bridge sockets that live under `os.tmpdir()`. Without
-  re-binding those sockets at wrap time, `curl` to an *allowed* domain and a denied one both
+  _after_ it `--bind`s the HTTP/SOCKS bridge sockets that live under `os.tmpdir()`. Without
+  re-binding those sockets at wrap time, `curl` to an _allowed_ domain and a denied one both
   fail with `Proxy CONNECT aborted` — not a 403. The supervisor unions
   `getLinuxHttpSocketPath` / `getLinuxSocksSocketPath` into wrap-time `allowRead` after
   `initialize` (the paths do not exist when the host builds the session config). A missing
   socket is `INIT_FAILED`, not a domain denial.
+- **TMPDIR.** ASRT sets `TMPDIR` from `CLAUDE_CODE_TMPDIR` / `CLAUDE_TMPDIR` / `/tmp/claude`
+  and expects that directory to exist. Nothing in this package used to create it, so `mktemp`
+  failed even with `/tmp` in `allowWrite`. `createAsrtBashExecutor` now creates an owned
+  directory (or takes `tmpDir` with an lstat ownership guard) and sets `CLAUDE_CODE_TMPDIR`
+  on the supervisor spawn env. Native already mounts a fresh `--tmpfs /tmp`.
 - `SandboxManager.checkDependencies()` returns a structured `{ errors, warnings }` _before_
   `initialize()` is ever called — no need to catch-and-parse `initialize()`'s own thrown
   error; the supervisor calls it proactively and appends per-platform install hints

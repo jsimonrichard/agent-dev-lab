@@ -114,7 +114,7 @@ The tool never picks an unsandboxed fallback. Providers default to the ASRT pool
 
 On providers, omitted `allowWrite` / `allowRead` default to `[cwd]` (not unioned with each other). Pass `allowWrite: []` for a sandbox that can run commands but write nowhere; `allowRead: []` or `null` allows no reads. Pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads. Escape-hatch executors still require `allowWrite` at construction and have no cwd — omitted `allowRead` there defaults to `allowWrite`. Sandboxed commands inherit no host environment by default — pass `allowEnv: true` or a name/glob/`RegExp` allowlist.
 
-Pooled ASRT supervisors are keyed by project root + policy; call provider `dispose()` (project reload does this for outgoing providers) to release. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
+Pooled ASRT supervisors are keyed by project root + policy; call provider `dispose()` (project reload does this for outgoing providers) to release. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive). ASRT creates an owned `TMPDIR` inside the sandbox (or pass `tmpDir`); that directory is not the host's `/tmp/claude`.
 
 A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a thrown tool error.
 

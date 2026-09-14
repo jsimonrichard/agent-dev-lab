@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,7 @@ import {
   type AsrtSupervisorEvent,
   type AsrtSupervisorRequest,
 } from "./protocol.ts";
+import { resolveAsrtTmpDir, ensureAsrtTmpDir } from "./tmp-dir.ts";
 
 export interface AsrtBashExecutorOptions {
   /**
@@ -53,6 +55,13 @@ export interface AsrtBashExecutorOptions {
    * sandboxed command's env is filtered.
    */
   allowEnv?: AllowEnv;
+  /**
+   * Directory ASRT sets as `TMPDIR` inside the sandbox (via `CLAUDE_CODE_TMPDIR` on the
+   * supervisor). Omitted → a fresh `mkdtemp` this executor owns and removes on `dispose()`.
+   * An existing path must be a real directory (`lstat`), owned by the current uid, and not
+   * group/other-writable — otherwise throw rather than adopt a squat.
+   */
+  tmpDir?: string;
 }
 
 /**
@@ -136,9 +145,11 @@ class AsrtSupervisorClient {
   static async start(
     config: SandboxRuntimeConfig,
     sandboxEnv: Record<string, string>,
+    tmpDir: string,
   ): Promise<AsrtSupervisorClient> {
     const child = spawn(process.execPath, supervisorArgv(), {
       stdio: ["pipe", "pipe", "inherit"],
+      env: { ...process.env, CLAUDE_CODE_TMPDIR: tmpDir },
     });
     const client = new AsrtSupervisorClient(child);
     try {
@@ -288,13 +299,18 @@ class AsrtSupervisorClient {
  * dies (stdin keepalive). `SandboxManager.reset()` in the host process does not affect it.
  */
 export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashExecutor {
-  const allowWrite = options.allowWrite.map((p) => path.resolve(p));
-  // Omitted allowRead → allowWrite. Providers pass a concrete list (`[cwd]` by default)
-  // via mergePolicy; this fallback is for escape-hatch construction only (no cwd).
+  const callerAllowWrite = options.allowWrite.map((p) => path.resolve(p));
+  const tmp = resolveAsrtTmpDir(options.tmpDir);
+  // ASRT's getDefaultWritePaths still hardcodes `/tmp/claude`; TMPDIR follows
+  // CLAUDE_CODE_TMPDIR. The resolved directory must be in allowWrite itself.
+  const allowWrite = [...callerAllowWrite, tmp.path];
+  // Omitted allowRead → caller allowWrite (not the internal TMPDIR bind).
+  // Providers pass a concrete list (`[cwd]` by default) via mergePolicy; this
+  // fallback is for escape-hatch construction only (no cwd).
   // null → deny-all ([]). UNBOUNDED_ALLOW_READ → host-wide.
   const allowRead: string[] | typeof UNBOUNDED_ALLOW_READ =
     options.allowRead === undefined
-      ? allowWrite
+      ? callerAllowWrite
       : options.allowRead === UNBOUNDED_ALLOW_READ
         ? UNBOUNDED_ALLOW_READ
         : options.allowRead === null
@@ -344,10 +360,13 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
   let clientPromise: Promise<AsrtSupervisorClient> | undefined;
 
   const ensureClient = (): Promise<AsrtSupervisorClient> => {
-    clientPromise ??= AsrtSupervisorClient.start(config, sandboxEnv).catch((error: unknown) => {
-      clientPromise = undefined;
-      throw error;
-    });
+    ensureAsrtTmpDir(tmp.path);
+    clientPromise ??= AsrtSupervisorClient.start(config, sandboxEnv, tmp.path).catch(
+      (error: unknown) => {
+        clientPromise = undefined;
+        throw error;
+      },
+    );
     return clientPromise;
   };
 
@@ -371,7 +390,7 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     describe() {
       return {
         backend: "asrt",
-        allowWrite: config.filesystem.allowWrite,
+        allowWrite: callerAllowWrite,
         // Caller lists only — not the `/` deny or system/vendor carve-outs handed to ASRT.
         allowRead,
         denyRead,
@@ -387,6 +406,9 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     async dispose() {
       const pending = clientPromise;
       if (!pending) {
+        if (tmp.removeOnDispose) {
+          await rm(tmp.path, { recursive: true, force: true });
+        }
         return;
       }
       try {
@@ -397,6 +419,9 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
       } finally {
         if (clientPromise === pending) {
           clientPromise = undefined;
+        }
+        if (tmp.removeOnDispose) {
+          await rm(tmp.path, { recursive: true, force: true });
         }
       }
     },

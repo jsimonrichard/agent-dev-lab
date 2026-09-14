@@ -97,7 +97,7 @@ Prefer policy on `createBashToolProvider` / `createWorkspaceToolProvider` (poole
 
 On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`. Pass `allowWrite: []` for a sandbox that can run commands but write nowhere; `allowRead: []` or `null` allows no reads. Pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads. Escape-hatch executors still require `allowWrite` at construction and have no cwd — omitted `allowRead` there defaults to `allowWrite`. Sandboxed commands inherit no host environment by default — pass `allowEnv: true` or a name/glob/`RegExp` allowlist. Providers default to `backend: "asrt"`; pass `backend: "native"` or an `executor` (mutually exclusive with policy / `backend`).
 
-Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive).
+Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive). ASRT creates an owned `TMPDIR` inside the sandbox (or pass `tmpDir`); that directory is not the host's `/tmp/claude`.
 
 A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a thrown tool error.
 

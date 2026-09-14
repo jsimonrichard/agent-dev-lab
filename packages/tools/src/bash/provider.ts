@@ -150,6 +150,7 @@ const POLICY_KEYS = [
   "deniedDomains",
   "allowNetwork",
   "allowEnv",
+  "tmpDir",
 ] as const satisfies readonly (keyof BashSandboxPolicy)[];
 
 export interface BashToolProviderContext extends Partial<BashSandboxPolicy> {
@@ -238,6 +239,7 @@ export function mergePolicy(
     deniedDomains: context?.deniedDomains ?? defaults.deniedDomains,
     allowNetwork: context?.allowNetwork ?? defaults.allowNetwork,
     allowEnv: context?.allowEnv ?? defaults.allowEnv,
+    tmpDir: context?.tmpDir ?? defaults.tmpDir,
   };
 }
 
@@ -346,6 +348,7 @@ export function createBashToolProvider(
         deniedDomains: z.array(z.string()),
         allowNetwork: z.boolean(),
         allowEnv: z.union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))]),
+        tmpDir: z.string(),
       })
       .partial(),
     listTools(): ToolProviderToolSummary[] {

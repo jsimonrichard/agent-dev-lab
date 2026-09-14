@@ -231,6 +231,7 @@ function bashPolicyFromWorkspace(
       deniedDomains: options.deniedDomains,
       allowNetwork: options.allowNetwork,
       allowEnv: options.allowEnv,
+      tmpDir: options.tmpDir,
     },
     context: context
       ? {
@@ -244,6 +245,7 @@ function bashPolicyFromWorkspace(
           deniedDomains: context.deniedDomains,
           allowNetwork: context.allowNetwork,
           allowEnv: context.allowEnv,
+          tmpDir: context.tmpDir,
         }
       : undefined,
   };
@@ -314,6 +316,7 @@ export function createWorkspaceToolProvider(
       deniedDomains: z.array(z.string()),
       allowNetwork: z.boolean(),
       allowEnv: z.union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))]),
+      tmpDir: z.string(),
     })
     .partial();
 
