@@ -80,7 +80,7 @@ This package does not search the web. Use your model provider's native search to
 
 ## File Tools
 
-Every path is checked against allow/deny lists after symlink resolution. `root` is the relative-path base and the omit-default for allow lists (`allowRead` / `allowWrite` omitted → `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). `denyRead` / `denyWrite` win over allow. The jail is a userland check, not a kernel boundary.
+Every path is checked against allow/deny lists after symlink resolution. `root` is the relative-path base and the omit-default for allow lists (`allowRead` / `allowWrite` omitted → `[root]`; pass `UNBOUNDED_ALLOW_READ` (`"**"`) for host-wide reads). `denyRead` / `denyWrite` win over allow. The jail is a userland check, not a kernel boundary. Bash writes outside `allowWrite` are a different footgun (a discarded overlay — see Bash).
 
 `writeFile` requires the parent directory to already exist. `editFile` replaces exactly one occurrence of `find` and fails if the string is missing or not unique.
 
@@ -99,7 +99,22 @@ On providers, omitted `allowWrite` / `allowRead` default to `[cwd]`. Pass `allow
 
 Pooled supervisors are keyed by project root + policy. Provider `dispose()` (and project reload of outgoing providers) releases pool refs. Escape-hatch executors: call `executor.dispose()` yourself. Supervisors also exit if the host process dies (stdin keepalive). ASRT creates an owned `TMPDIR` inside the sandbox (or pass `tmpDir`); that directory is not the host's `/tmp/claude`.
 
+A bash write outside `allowWrite` often **looks successful inside the sandbox** (exit 0, the command can read its own file back) while nothing reaches the host — ASRT uses a discarded overlay for paths that are simply absent from `allowWrite`. Genuinely read-only mounts fail with `Read-only file system`. Verify edits by reading them back from the host (or via `readFile`). Do not treat a zero exit code as proof the write persisted.
+
 A non-zero command exit code is data (`stdout` / `stderr` / `exitCode`), not a thrown tool error.
+
+`bash.execute` is a **streaming** tool: it returns an `AsyncGenerator`. The AI SDK consumes that correctly. Awaiting it directly (in a test or harness) yields the generator object, which prints as `{}`:
+
+```ts
+// wrong — looks like a tool that ran and returned nothing
+const r = await tools.bash.execute({ command: "pwd" }, toolCallOptions);
+
+// drain progress snapshots; the last value is the final result
+let last;
+for await (const update of tools.bash.execute({ command: "pwd" }, toolCallOptions)) {
+  last = update;
+}
+```
 
 `grep` and `glob` run `rg` through the same executor. The model supplies a pattern and optional in-root path / glob — not flags.
 

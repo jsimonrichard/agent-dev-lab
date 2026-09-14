@@ -1,5 +1,7 @@
 # Plan: `@agent-dev-lab/tools` 0.0.1 integration findings
 
+**Status:** Landed as stacked changesets (bounded-read proxy, owned `TMPDIR`, `types` → dist, overlay/streaming docs). This file is the original plan, not live design.
+
 From `~/Downloads/agent-dev-lab-tools-0.0.1-findings.md` (verus-coding-agent). Last
 reconciled: **2026-09-14**.
 
