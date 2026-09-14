@@ -6,9 +6,8 @@
     },
     "noEmit": true,
     "types": ["bun"],
-    // @agent-dev-lab/tools' source (resolved here via its "bun"/"development" export
-    // condition) has explicit `.ts` extensions on its relative imports — see that package's
-    // own tsconfig.json for why.
+    // @agent-dev-lab/tools' `bun`/`development` conditions still point at source (explicit
+    // `.ts` import specifiers). Typecheck resolves the `types` condition (`dist/*.d.ts`).
     "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts"]
