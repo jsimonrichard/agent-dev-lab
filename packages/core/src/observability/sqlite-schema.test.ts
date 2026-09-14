@@ -469,3 +469,16 @@ describe("adl_agent_episodes", () => {
     expect(columnNames(sqlite, "adl_agent_episodes")).toContain("tool_provider_context_json");
   });
 });
+
+describe("adl_inspector_agent_settings", () => {
+  it("creates the inspector agent settings table on a fresh database", () => {
+    const sqlite = new Database(":memory:");
+    ensureAdlSchema(sqlite);
+    expect(tableNames(sqlite)).toContain("adl_inspector_agent_settings");
+    expect(columnNames(sqlite, "adl_inspector_agent_settings")).toEqual([
+      "agent_id",
+      "default_tool_provider_context_json",
+      "updated_at",
+    ]);
+  });
+});

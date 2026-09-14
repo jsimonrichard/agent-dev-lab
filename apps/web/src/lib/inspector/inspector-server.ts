@@ -23,6 +23,7 @@ import {
   renameWorkflowRun,
   deleteWorkflowRun,
   getAgentRunEvents,
+  setInspectorAgentToolContextDefault,
 } from "#/lib/run-service.server";
 import { getAdlRuntime } from "#/lib/adl-runtime.server";
 import { snapshotEventLog, getEventLog } from "#/lib/event-log/event-log.server";
@@ -158,6 +159,19 @@ export const createAgentSession = createServerFn({ method: "POST" })
   .validator((agentId: string) => agentId)
   .handler(async ({ data: agentId }) => {
     return fromAsyncThrowable(() => createStandaloneAgentSession(agentId));
+  });
+
+export const saveAgentToolContextDefault = createServerFn({ method: "POST" })
+  .validator(
+    (payload: { agentId: string; toolProviderContext?: unknown; clear?: boolean }) => payload,
+  )
+  .handler(async ({ data }) => {
+    return fromAsyncThrowable(() =>
+      setInspectorAgentToolContextDefault(
+        data.agentId,
+        data.clear ? undefined : data.toolProviderContext,
+      ),
+    );
   });
 
 export const renameAgentConversation = createServerFn({ method: "POST" })

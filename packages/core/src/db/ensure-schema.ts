@@ -84,6 +84,11 @@ const TABLES = [
     model_provider TEXT,
     tool_provider_context_json TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS adl_inspector_agent_settings (
+    agent_id TEXT PRIMARY KEY NOT NULL,
+    default_tool_provider_context_json TEXT,
+    updated_at TEXT NOT NULL
+  )`,
 ];
 
 const INDEXES = [

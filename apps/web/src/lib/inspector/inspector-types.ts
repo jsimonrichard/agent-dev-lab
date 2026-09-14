@@ -57,6 +57,11 @@ export interface AgentInspectorMeta {
   tools: { name: string; description: string }[];
   /** Introspection of a ToolProvider's `contextSchema` for the settings form. */
   toolProviderContext: AgentToolProviderContextMeta;
+  /**
+   * Inspector-only default `toolProviderContext` for new conversations.
+   * Never read by `agent.run`; absent when unset.
+   */
+  defaultToolProviderContext?: JsonValue;
   /** Message-store backend (`"in-memory"`, `"sqlite"`, or a custom kind). */
   memoryMode: string;
   /** `null` when no model is configured or it reveals nothing — hide it in the UI. */

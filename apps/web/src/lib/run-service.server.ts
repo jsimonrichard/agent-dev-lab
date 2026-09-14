@@ -7,7 +7,11 @@ import {
   type RunEvent as CoreRunEvent,
   type WorkflowRunHandle,
 } from "@agent-dev-lab/core";
-import { resolveAdlSqlitePath, sqliteConversationMetadataStore } from "@agent-dev-lab/core";
+import {
+  resolveAdlSqlitePath,
+  sqliteConversationMetadataStore,
+  sqliteInspectorAgentSettingsStore,
+} from "@agent-dev-lab/core";
 import { ok } from "@agent-dev-lab/core/result";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
@@ -45,7 +49,7 @@ import {
   mapWorkflowRunStatus,
 } from "#/lib/event-log/event-adapter";
 import { registerShutdownRunHooks } from "#/lib/server-shutdown.server";
-import type { InspectorRunSummary, InspectorMessage } from "#/lib/view-model/types";
+import type { InspectorRunSummary, InspectorMessage, JsonValue } from "#/lib/view-model/types";
 import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow/workflow-input-schema";
 
 export type { ProjectInspectorMeta };
@@ -146,8 +150,14 @@ async function ensureSessionsHydrated(): Promise<void> {
   }
 }
 
+async function inspectorAgentSettingsStore() {
+  const project = await getLoadedAdlProject();
+  return sqliteInspectorAgentSettingsStore({ path: resolveAdlSqlitePath(project.root) });
+}
+
 export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
   const project = await getLoadedAdlProject();
+  const settingsStore = await inspectorAgentSettingsStore();
   const workflowIds = project.listWorkflowIds();
   const workflows = workflowIds.map((id) => {
     const input = project.getWorkflow(id)?.inputSchema;
@@ -159,10 +169,14 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
   });
   const agents = project.listAgentIds().map((id) => {
     const agent = project.getAgent(id);
+    const saved = settingsStore.get(id);
     return {
       id,
       tools: inspectAgentTools(agent),
       toolProviderContext: inspectAgentToolProviderContext(agent),
+      ...(saved?.defaultToolProviderContext !== undefined
+        ? { defaultToolProviderContext: saved.defaultToolProviderContext as JsonValue }
+        : {}),
       memoryMode: agent?.memoryKind ?? "custom",
       model: agent?.modelInfo ?? null,
       titleWorkflowId: agent?.titleWorkflowId ?? null,
@@ -184,6 +198,23 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
     agentIds: agents.map((agent) => agent.id),
     agents,
   };
+}
+
+/**
+ * Saves the inspection-UI default `toolProviderContext` for an agent.
+ * Pass `undefined` to clear. Never consulted by `agent.run`.
+ */
+export async function setInspectorAgentToolContextDefault(
+  agentId: string,
+  defaultToolProviderContext: unknown | undefined,
+): Promise<{ agentId: string }> {
+  const project = await getLoadedAdlProject();
+  if (!project.getAgent(agentId)) {
+    throw new Error(`Unknown agent: ${agentId}`);
+  }
+  const store = await inspectorAgentSettingsStore();
+  store.set(agentId, defaultToolProviderContext);
+  return { agentId };
 }
 
 export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]> {

@@ -147,6 +147,16 @@ export const conversationMetadata = sqliteTable("adl_conversation_metadata", {
 });
 
 /**
+ * Inspection-UI defaults for a registered agent. Not read by `agent.run` —
+ * only the dashboard uses this to seed a new conversation's tool-context draft.
+ */
+export const inspectorAgentSettings = sqliteTable("adl_inspector_agent_settings", {
+  agentId: text("agent_id").primaryKey(),
+  defaultToolProviderContextJson: text("default_tool_provider_context_json"),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
  * Ledger of one-time schema/backfill steps that have been applied, so
  * "has this already run?" is answerable rather than inferred from table
  * contents. See `db/backfill.ts`.

@@ -122,11 +122,13 @@ export {
   inMemoryMessageStore,
   inspectMessageStoreKind,
   sqliteConversationMetadataStore,
+  sqliteInspectorAgentSettingsStore,
   sqliteMessageStore,
 } from "./stores";
 export type {
   ConversationFork,
   ConversationMetadataRecord,
+  InspectorAgentSettingsRecord,
   MessageStore,
   SqliteStoreOptions,
 } from "./stores";

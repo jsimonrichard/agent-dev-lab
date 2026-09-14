@@ -31,6 +31,8 @@ export interface ToolProviderContextFormState {
   rawJson: string;
   onValuesChange: (values: Record<string, string | boolean>) => void;
   onRawJsonChange: (rawJson: string) => void;
+  /** `"default"` = agent definition page; `"turn"` = conversation next-turn draft. */
+  purpose?: "default" | "turn";
 }
 
 interface AgentSettingsPanelProps {
@@ -259,13 +261,26 @@ function ToolProviderContextSection({
   const meta = settings.toolProviderContext;
   const fields = meta.fields;
   const editable = contextForm !== undefined;
+  const purpose = contextForm?.purpose ?? "turn";
 
   return (
-    <SettingsSection icon={SlidersHorizontal} title="Tool context">
+    <SettingsSection
+      icon={SlidersHorizontal}
+      title={purpose === "default" ? "Default tool context" : "Tool context"}
+    >
       <p className="mb-3 text-xs text-muted-foreground">
-        Passed to this agent's ToolProvider as{" "}
-        <span className="font-mono">toolProviderContext</span>. The runtime does not parse it. Leave
-        optional fields blank to omit them.
+        {purpose === "default" ? (
+          <>
+            Inspector-only default for new conversations. The runtime does not parse it, and{" "}
+            <span className="font-mono">adl agent run</span> ignores it.
+          </>
+        ) : (
+          <>
+            Passed to this agent's ToolProvider as{" "}
+            <span className="font-mono">toolProviderContext</span>. The runtime does not parse it.
+            Leave optional fields blank to omit them.
+          </>
+        )}
       </p>
       {editable && fields.length > 0 ? (
         <div className="grid gap-3">
