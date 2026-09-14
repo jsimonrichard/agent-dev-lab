@@ -2,10 +2,15 @@
  * Child process that owns one `SandboxManager`. Spawned by `createAsrtBashExecutor`.
  * Exits when stdin closes (host gone / `dispose`) after `SandboxManager.reset()`.
  */
+import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 import { AdlError, createAsyncChannel, isAdlError } from "@agent-dev-lab/core";
-import { SandboxManager, type SandboxDependencyCheck } from "@anthropic-ai/sandbox-runtime";
+import {
+  SandboxManager,
+  type SandboxDependencyCheck,
+  type SandboxRuntimeConfig,
+} from "@anthropic-ai/sandbox-runtime";
 
 import type { BashExecutorUpdate } from "../executor.ts";
 import { runArgvIntoChannel } from "../process-channel.ts";
@@ -75,6 +80,62 @@ function sendError(id: string, error: unknown): void {
   });
 }
 
+/** Existing paths, first-seen order. */
+function uniqueExisting(paths: Array<string | undefined>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const p of paths) {
+    if (p === undefined || p.length === 0 || seen.has(p) || !existsSync(p)) {
+      continue;
+    }
+    seen.add(p);
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Linux ASRT puts the HTTP/SOCKS bridge sockets under `os.tmpdir()` and `--bind`s them
+ * *before* `generateFilesystemArgs`. A bounded `allowRead` is encoded as `denyRead: ["/"]`,
+ * which tmpfs's each root child including `/tmp` and hides those sockets — allowed and
+ * denied domains then fail identically (`Proxy CONNECT aborted`). Union the sockets into
+ * wrap-time `allowRead` so they are re-bound over the tmpfs. Unbounded reads do not deny
+ * `/` and need no extra carve-out.
+ */
+function linuxBridgeWrapConfig(
+  config: SandboxRuntimeConfig,
+): Partial<SandboxRuntimeConfig> | undefined {
+  if (process.platform !== "linux") {
+    return undefined;
+  }
+  if (!(config.filesystem.denyRead ?? []).includes("/")) {
+    return undefined;
+  }
+  const sockets = uniqueExisting([
+    SandboxManager.getLinuxHttpSocketPath(),
+    SandboxManager.getLinuxSocksSocketPath(),
+  ]);
+  const needsNetwork = (config.network.allowedDomains?.length ?? 0) > 0;
+  if (needsNetwork && sockets.length === 0) {
+    throw new AdlError(
+      "INIT_FAILED",
+      "ASRT HTTP proxy bridge socket is missing after initialize " +
+        `(getLinuxHttpSocketPath()=${SandboxManager.getLinuxHttpSocketPath() ?? "undefined"}). ` +
+        "Sandboxed commands cannot reach the host network proxy — this is not a domain " +
+        "allowlist denial. No automatic fallback to unsandboxed network is used.",
+    );
+  }
+  if (sockets.length === 0) {
+    return undefined;
+  }
+  return {
+    filesystem: {
+      ...config.filesystem,
+      allowRead: [...(config.filesystem.allowRead ?? []), ...sockets],
+    },
+  };
+}
+
 function isRequest(value: unknown): value is AsrtSupervisorRequest {
   if (typeof value !== "object" || value === null || !("type" in value) || !("id" in value)) {
     return false;
@@ -93,6 +154,7 @@ async function main(): Promise<void> {
 
   let initialized = false;
   let sandboxEnv: Record<string, string> = {};
+  let wrapCustomConfig: Partial<SandboxRuntimeConfig> | undefined;
   const runs = new Map<string, AbortController>();
   let shuttingDown = false;
 
@@ -144,6 +206,7 @@ async function main(): Promise<void> {
           }
           await SandboxManager.initialize(request.config);
           sandboxEnv = { ...request.sandboxEnv };
+          wrapCustomConfig = linuxBridgeWrapConfig(request.config);
           initialized = true;
           send({ id: request.id, type: "ready" });
           return;
@@ -173,7 +236,7 @@ async function main(): Promise<void> {
             const { argv: sandboxArgv, env: asrtEnv } = await SandboxManager.wrapWithSandboxArgv(
               `exec ${refs.join(" ")}`,
               undefined,
-              undefined,
+              wrapCustomConfig,
               controller.signal,
               request.cwd,
               { commandId },

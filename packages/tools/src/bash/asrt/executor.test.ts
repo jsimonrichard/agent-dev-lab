@@ -254,6 +254,53 @@ describe("createAsrtBashExecutor", () => {
   );
 
   it(
+    "allows HTTPS to an allowedDomains host under the default bounded allowRead",
+    { timeout: 20_000 },
+    async () => {
+      // Default allowRead is allowWrite — deny `/` then carve-outs. That used to
+      // tmpfs `/tmp` over ASRT's proxy sockets so allowed and denied hosts failed
+      // identically (`Proxy CONNECT aborted`).
+      const networked = asrt({
+        allowWrite: [allowedDir],
+        allowedDomains: ["example.com"],
+      });
+      const result = await finalResult(
+        networked.run(
+          sh("curl -sS --max-time 8 -o /dev/null -w '%{http_code}' https://example.com"),
+          { cwd: allowedDir, timeoutMs: 15_000 },
+        ),
+      );
+      assert.equal(result.exitCode, 0, result.stderr);
+      assert.equal(result.stdout.trim(), "200");
+    },
+  );
+
+  it(
+    "denies a host not in allowedDomains with a policy error, not a broken proxy",
+    { timeout: 20_000 },
+    async () => {
+      const networked = asrt({
+        allowWrite: [allowedDir],
+        allowedDomains: ["example.com"],
+      });
+      const result = await finalResult(
+        networked.run(sh("curl -sS --max-time 8 https://example.net"), {
+          cwd: allowedDir,
+          timeoutMs: 15_000,
+        }),
+      );
+      assert.notEqual(result.exitCode, 0);
+      const output = `${result.stderr}\n${result.stdout}`;
+      assert.equal(
+        /Proxy CONNECT aborted/i.test(output),
+        false,
+        `denied host should not look like a dead proxy: ${output}`,
+      );
+      assert.match(output, /403|not on the allow list|CONNECT tunnel failed/i);
+    },
+  );
+
+  it(
     "streams progress updates before the final one, cumulative and monotonically growing",
     { timeout: 15_000 },
     async () => {

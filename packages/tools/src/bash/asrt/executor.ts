@@ -306,12 +306,18 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     network: {
       allowedDomains: options.allowedDomains ?? [],
       deniedDomains: options.deniedDomains ?? [],
+      // Policy, not a prompt-suppression hint: without a sandboxAskCallback, the
+      // default fallthrough is already deny, but a deny must not look like a
+      // broken proxy. strictAllowlist skips the callback path entirely.
+      strictAllowlist: true,
     },
     filesystem: {
       allowWrite,
       // ASRT is deny-then-allow: a bound list only confines reads if something first
       // denies the host. Keep that `/` (and the system/vendor carve-outs below) inside
       // this config — describe() reports the caller lists, not this encoding.
+      // Linux HTTP/SOCKS bridge sockets live under os.tmpdir() and are re-bound at
+      // wrap time in the supervisor — they do not exist yet when this config is built.
       denyRead: allowRead === UNBOUNDED_ALLOW_READ ? denyRead : ["/", ...denyRead],
       ...(allowRead === UNBOUNDED_ALLOW_READ
         ? {}
