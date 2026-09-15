@@ -81,3 +81,10 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Install Playwright Chromium
+        working-directory: apps/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: bun run test:e2e

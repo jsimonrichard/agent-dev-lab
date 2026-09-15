@@ -48,6 +48,7 @@ export function ChatComposer({
     >
       <Textarea
         ref={textareaRef}
+        data-testid="chat-composer"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
@@ -62,7 +63,13 @@ export function ChatComposer({
           }
         }}
       />
-      <Button type="submit" size="icon" className="shrink-0" disabled={disabled || !draft.trim()}>
+      <Button
+        type="submit"
+        size="icon"
+        className="shrink-0"
+        data-testid="chat-send"
+        disabled={disabled || !draft.trim()}
+      >
         <Send className="size-4" />
         <span className="sr-only">Send</span>
       </Button>

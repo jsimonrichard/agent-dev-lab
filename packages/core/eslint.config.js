@@ -19,6 +19,9 @@ export default tseslint.config(
       "**/routeTree.gen.ts",
       "**/.output/**",
       "apps/cli/scaffold/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
+      "**/blob-report/**",
     ],
   },
 );

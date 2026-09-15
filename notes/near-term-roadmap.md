@@ -2,7 +2,7 @@
 
 Open work after the published core/web **0.0.3** / cli **0.0.5** surface. Design notes for deferred areas live in the linked files.
 
-Last reconciled: **2026-09-12**.
+Last reconciled: **2026-09-15**.
 
 ---
 
@@ -68,7 +68,7 @@ Run tagging and `version:` / `commit:` provenance are shipped (inspector footer;
 | SQLite `EventLog`                                | `apps/docs` already says this                    | Process-wide log is in-memory only                                                                                                                                                                                                                                                                                                                                                                                           |
 | Example OTel exporter                            | [`tracing.md`](./tracing.md)                     | Core already starts spans; playground/docs could show an exporter                                                                                                                                                                                                                                                                                                                                                            |
 | Stress-test example under `examples/`            | below                                            | Not started                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Playwright / browser inspector tests in CI       | —                                                | No browser tests today                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Playwright / browser inspector tests in CI       | `apps/web/e2e`                                   | Chat streaming (echo, tool-loop, second turn) runs in CI Chromium after build (`bun run test:e2e`). Workflow waterfall / step-inspector streaming still uncovered.                                                                                                                                                                                                                                                           |
 
 ### Stress-test example (not started)
 

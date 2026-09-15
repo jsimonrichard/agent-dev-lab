@@ -118,3 +118,9 @@ dist
 
 # Claude Code session-local state
 .claude/scheduled_tasks.lock
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

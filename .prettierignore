@@ -6,3 +6,6 @@ node_modules
 bun.lock
 routeTree.gen.ts
 apps/docs/src/content/docs/api
+test-results
+playwright-report
+blob-report
