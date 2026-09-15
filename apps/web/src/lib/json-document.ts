@@ -1,3 +1,6 @@
+/** Max nesting for the document tree; deeper nodes render as raw JSON. */
+export const MAX_JSON_TREE_DEPTH = 8;
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }

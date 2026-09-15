@@ -4,10 +4,9 @@ import { CopyTextButton } from "@/components/app/copy-text-button";
 import { MarkdownContent } from "@/components/app/markdown-content";
 import { JsonTokens } from "@/components/app/json-tokens";
 import { JSON_TOKEN_CLASS } from "@/lib/highlight-json";
-import { isPlainObject, valueToClipboardText } from "@/lib/json-document";
+import { isPlainObject, MAX_JSON_TREE_DEPTH, valueToClipboardText } from "@/lib/json-document";
 import { cn } from "@/lib/utils";
 
-const MAX_DEPTH = 8;
 const MARKDOWN_MAX_CHARS = 100_000;
 
 function stringifyJson(value: unknown): string {
@@ -41,7 +40,7 @@ function JsonNode({
   depth: number;
   copySelf: boolean;
 }) {
-  if (depth >= MAX_DEPTH) {
+  if (depth >= MAX_JSON_TREE_DEPTH) {
     const text = stringifyJson(value);
     return (
       <div className="min-w-0">

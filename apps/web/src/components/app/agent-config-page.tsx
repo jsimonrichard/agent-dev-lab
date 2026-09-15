@@ -9,11 +9,10 @@ import {
 import { saveAgentToolContextDefault } from "#/lib/inspector/inspector-server";
 import { AgentConfigBody } from "@/components/app/agent-settings-panel";
 import { ConfigWorkspace } from "@/components/app/config-workspace";
-import { ErrorDetails } from "@/components/app/error-details";
 import { NewConversationButton } from "@/components/app/new-conversation-button";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
+import { toolProviderContextJsonError, type ContextEditorSource } from "@/lib/json-editor";
 
 function seedFormFromDefault(settings: AgentInspectorMeta): {
   values: Record<string, string | boolean>;
@@ -66,24 +65,34 @@ function AgentDefinitionSettings({ settings }: { settings: AgentInspectorMeta })
   const seeded = useMemo(() => seedFormFromDefault(settings), [settings]);
   const [values, setValues] = useState(seeded.values);
   const [rawJson, setRawJson] = useState(seeded.rawJson);
+  const [source, setSource] = useState<ContextEditorSource>("form");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedNotice, setSavedNotice] = useState(false);
 
   if (!settings.toolProviderContext.declared) {
     return <AgentConfigBody settings={settings} />;
   }
 
-  async function handleSave() {
+  async function handleSave(): Promise<boolean> {
+    const jsonError = toolProviderContextJsonError({
+      fields: settings.toolProviderContext.fields,
+      values,
+      rawJson,
+      source,
+    });
+    if (jsonError !== null) {
+      setError(jsonError);
+      return false;
+    }
     setSaving(true);
     setError(null);
-    setSavedNotice(false);
     try {
       const built = buildToolProviderContextInput({
         declared: true,
         fields: settings.toolProviderContext.fields,
         values,
         rawJson,
+        source,
       });
       const result = await saveAgentToolContextDefault({
         data: {
@@ -94,37 +103,33 @@ function AgentDefinitionSettings({ settings }: { settings: AgentInspectorMeta })
       if (result.isErr) {
         setError(result.error);
         setSaving(false);
-        return;
+        return false;
       }
-      setSavedNotice(true);
       await router.invalidate();
+      setSaving(false);
+      return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
+      setSaving(false);
+      return false;
     }
-    setSaving(false);
   }
 
   return (
-    <div className="space-y-4">
-      <AgentConfigBody
-        settings={settings}
-        contextForm={{
-          values,
-          rawJson,
-          onValuesChange: setValues,
-          onRawJsonChange: setRawJson,
-          purpose: "default",
-        }}
-      />
-      <div className="flex items-center gap-3">
-        <Button type="button" size="sm" disabled={saving} onClick={() => void handleSave()}>
-          {saving ? "Saving…" : "Save tool context default"}
-        </Button>
-        {savedNotice ? (
-          <p className="text-xs text-muted-foreground">Saved. New conversations seed from this.</p>
-        ) : null}
-      </div>
-      {error ? <ErrorDetails error={error} compact /> : null}
-    </div>
+    <AgentConfigBody
+      settings={settings}
+      contextForm={{
+        values,
+        rawJson,
+        onValuesChange: setValues,
+        onRawJsonChange: setRawJson,
+        source,
+        onSourceChange: setSource,
+        purpose: "default",
+        onSave: handleSave,
+        saving,
+        saveError: error,
+      }}
+    />
   );
 }

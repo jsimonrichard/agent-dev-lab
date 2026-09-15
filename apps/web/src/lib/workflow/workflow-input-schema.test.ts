@@ -61,6 +61,85 @@ describe("describeWorkflowInput", () => {
     ]);
   });
 
+  it("describes array and union fields with nested jsonType", () => {
+    const schema = z.object({
+      allowWrite: z.array(z.string()),
+      allowRead: z.union([z.array(z.string()), z.null(), z.literal("**")]),
+      allowEnv: z.union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))]),
+    });
+    expect(describeWorkflowInput(schema)).toEqual([
+      {
+        name: "allowWrite",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: { type: "array", items: { type: "string" } },
+      },
+      {
+        name: "allowRead",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: {
+          type: "union",
+          options: [
+            { type: "array", items: { type: "string" } },
+            { type: "null" },
+            { type: "literal", value: "**" },
+          ],
+        },
+      },
+      {
+        name: "allowEnv",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: {
+          type: "union",
+          options: [
+            { type: "literal", value: true },
+            { type: "array", items: { type: "string" } },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("walks nested object jsonType fields", () => {
+    const schema = z.object({
+      sandbox: z
+        .object({
+          cwd: z.string(),
+          allowWrite: z.array(z.string()),
+        })
+        .partial(),
+    });
+    expect(describeWorkflowInput(schema)).toEqual([
+      {
+        name: "sandbox",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: {
+          type: "object",
+          extra: false,
+          fields: [
+            { name: "cwd", required: false, schema: { type: "string" } },
+            {
+              name: "allowWrite",
+              required: false,
+              schema: { type: "array", items: { type: "string" } },
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
   it("returns no fields when the workflow has no object schema", () => {
     expect(describeWorkflowInput(undefined)).toEqual([]);
     expect(describeWorkflowInput(zodString())).toEqual([]);

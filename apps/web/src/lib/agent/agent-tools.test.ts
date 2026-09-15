@@ -230,6 +230,25 @@ describe("buildToolProviderContextInput", () => {
     ).toEqual({ projectPath: "/tmp/crate" });
   });
 
+  it("parses whole-context JSON when source is json", () => {
+    expect(
+      buildToolProviderContextInput({
+        declared: true,
+        fields: [
+          {
+            name: "allowWrite",
+            kind: "json",
+            required: false,
+            jsonType: { type: "array", items: { type: "string" } },
+          },
+        ],
+        values: {},
+        rawJson: '{\n  "allowWrite": ["src"]\n}',
+        source: "json",
+      }),
+    ).toEqual({ allowWrite: ["src"] });
+  });
+
   it("omits empty raw JSON rather than inventing {}", () => {
     expect(
       buildToolProviderContextInput({

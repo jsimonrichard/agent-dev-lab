@@ -27,6 +27,7 @@ import {
   buildWorkflowInput,
   workflowInputValuesFromSample,
 } from "#/lib/workflow/workflow-input-schema";
+import { workflowJsonFieldsError } from "@/lib/json-editor";
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
   const result = await startInspectionWorkflowRun({
@@ -160,6 +161,7 @@ export function StartWorkflowForm({
   );
   const description = startWorkflowDescription(lockedId, fields.length);
   const autoFocus = variant === "dialog";
+  const jsonError = workflowJsonFieldsError(fields, values);
 
   useEffect(() => {
     if (!active) {
@@ -176,6 +178,11 @@ export function StartWorkflowForm({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!selected) {
+      return;
+    }
+
+    if (jsonError !== null) {
+      setError(jsonError);
       return;
     }
 
@@ -212,13 +219,13 @@ export function StartWorkflowForm({
             Cancel
           </Button>
         ) : null}
-        <Button type="submit" disabled={submitting || !selected}>
+        <Button type="submit" disabled={submitting || !selected || jsonError !== null}>
           {submitting ? "Starting…" : "Start run"}
         </Button>
       </DialogFooter>
     ) : (
       <div className="flex justify-end">
-        <Button type="submit" disabled={submitting || !selected}>
+        <Button type="submit" disabled={submitting || !selected || jsonError !== null}>
           {submitting ? "Starting…" : "Start run"}
         </Button>
       </div>
@@ -280,7 +287,7 @@ export function StartWorkflowForm({
         />
       ))}
 
-      {error ? <ErrorDetails error={error} compact /> : null}
+      {error || jsonError ? <ErrorDetails error={error ?? jsonError} compact /> : null}
 
       {actions}
     </form>

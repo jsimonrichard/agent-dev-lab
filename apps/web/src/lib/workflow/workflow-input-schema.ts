@@ -1,5 +1,10 @@
-import type { WorkflowInputField, WorkflowInputFieldKind } from "#/lib/inspector/inspector-types";
+import type {
+  JsonSchemaType,
+  WorkflowInputField,
+  WorkflowInputFieldKind,
+} from "#/lib/inspector/inspector-types";
 import type { JsonValue } from "#/lib/view-model/types";
+import { MAX_JSON_TREE_DEPTH } from "@/lib/json-document";
 
 /**
  * Walk a Zod schema without `instanceof` so it works across duplicate `zod` copies
@@ -8,19 +13,27 @@ import type { JsonValue } from "#/lib/view-model/types";
 interface ZodLike {
   _def?: {
     typeName?: string;
-    type?: string;
+    type?: string | ZodLike;
     innerType?: ZodLike;
     schema?: ZodLike;
     shape?: (() => Record<string, ZodLike>) | Record<string, ZodLike>;
     values?: unknown;
+    entries?: unknown;
+    element?: ZodLike;
+    options?: unknown;
+    getter?: () => ZodLike;
     description?: string;
   };
   shape?: Record<string, ZodLike>;
+  element?: ZodLike;
   description?: string;
 }
 
 function typeName(schema: ZodLike): string | undefined {
-  return schema._def?.typeName ?? schema._def?.type;
+  if (schema._def?.typeName) {
+    return schema._def.typeName;
+  }
+  return typeof schema._def?.type === "string" ? schema._def.type : undefined;
 }
 
 function descriptionOf(schema: ZodLike): string | undefined {
@@ -41,7 +54,8 @@ function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; descripti
       name === "ZodOptional" ||
       name === "ZodNullable" ||
       name === "optional" ||
-      name === "nullable"
+      name === "nullable" ||
+      name === "nullish"
     ) {
       required = false;
       inner = inner._def?.innerType ?? inner;
@@ -97,13 +111,201 @@ function fieldKind(schema: ZodLike): { kind: WorkflowInputFieldKind; options?: s
     return { kind: "boolean" };
   }
   if (name === "ZodEnum" || name === "enum") {
-    const values = schema._def?.values;
-    const options = Array.isArray(values)
-      ? values.filter((v): v is string => typeof v === "string")
-      : [];
+    const options = enumOptions(schema);
     return { kind: "string", options: options.length > 0 ? options : undefined };
   }
   return { kind: "json" };
+}
+
+function enumOptions(schema: ZodLike): string[] {
+  const values = schema._def?.values;
+  if (Array.isArray(values)) {
+    return values.filter((value): value is string => typeof value === "string");
+  }
+  const entries = schema._def?.entries;
+  if (entries && typeof entries === "object" && !Array.isArray(entries)) {
+    return Object.values(entries).filter((value): value is string => typeof value === "string");
+  }
+  return [];
+}
+
+function arrayElement(schema: ZodLike): ZodLike | undefined {
+  if (schema._def?.element && typeof schema._def.element === "object") {
+    return schema._def.element;
+  }
+  if (schema.element && typeof schema.element === "object") {
+    return schema.element;
+  }
+  if (
+    typeName(schema) === "ZodArray" &&
+    schema._def?.type &&
+    typeof schema._def.type === "object"
+  ) {
+    return schema._def.type;
+  }
+  return undefined;
+}
+
+function unionMembers(schema: ZodLike): ZodLike[] {
+  const options = schema._def?.options;
+  if (!Array.isArray(options)) {
+    return [];
+  }
+  return options.filter(
+    (option): option is ZodLike => typeof option === "object" && option !== null,
+  );
+}
+
+function literalValue(schema: ZodLike): string | number | boolean | undefined {
+  const values = schema._def?.values;
+  if (!Array.isArray(values) || values.length !== 1) {
+    return undefined;
+  }
+  const value = values[0];
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return undefined;
+}
+
+function collapseUnion(options: JsonSchemaType[]): JsonSchemaType {
+  if (options.length === 0) {
+    return { type: "json" };
+  }
+  if (options.length === 1) {
+    const only = options[0];
+    if (!only) {
+      return { type: "json" };
+    }
+    return only;
+  }
+  return { type: "union", options };
+}
+
+/**
+ * Nested JSON editor type. Non-JSON members (e.g. `instanceof(RegExp)`) are dropped
+ * from unions; if nothing representable remains, the editor falls back to raw JSON.
+ */
+export function describeJsonType(schema: unknown, depth = 0): JsonSchemaType {
+  const described = describeJsonTypeInner(schema, depth);
+  return described === "unrepresentable" ? { type: "json" } : described;
+}
+
+function describeJsonTypeInner(schema: unknown, depth: number): JsonSchemaType | "unrepresentable" {
+  if (depth >= MAX_JSON_TREE_DEPTH || !schema || typeof schema !== "object") {
+    return { type: "json" };
+  }
+
+  const zod = schema as ZodLike;
+  let inner = zod;
+  let includesNull = false;
+
+  for (let i = 0; i < 16; i++) {
+    const name = typeName(inner);
+    if (
+      name === "ZodOptional" ||
+      name === "optional" ||
+      name === "ZodDefault" ||
+      name === "default" ||
+      name === "ZodEffects" ||
+      name === "ZodPipe" ||
+      name === "pipe" ||
+      name === "ZodBranded" ||
+      name === "ZodCatch" ||
+      name === "ZodReadonly" ||
+      name === "readonly"
+    ) {
+      inner = inner._def?.innerType ?? inner._def?.schema ?? inner;
+      continue;
+    }
+    if (name === "ZodNullable" || name === "nullable" || name === "nullish") {
+      includesNull = true;
+      inner = inner._def?.innerType ?? inner;
+      continue;
+    }
+    if (name === "lazy" || name === "ZodLazy") {
+      const getter = inner._def?.getter;
+      if (typeof getter !== "function") {
+        return { type: "json" };
+      }
+      inner = getter();
+      continue;
+    }
+    break;
+  }
+
+  const described = describeConcreteJsonType(inner, depth);
+  if (described === "unrepresentable" && !includesNull) {
+    return "unrepresentable";
+  }
+  const options: JsonSchemaType[] = [
+    ...(described === "unrepresentable" ? [] : [described]),
+    ...(includesNull ? [{ type: "null" as const }] : []),
+  ];
+  return collapseUnion(options);
+}
+
+function describeConcreteJsonType(
+  schema: ZodLike,
+  depth: number,
+): JsonSchemaType | "unrepresentable" {
+  const name = typeName(schema);
+  if (name === "ZodString" || name === "string") {
+    return { type: "string" };
+  }
+  if (name === "ZodNumber" || name === "number") {
+    return { type: "number" };
+  }
+  if (name === "ZodBoolean" || name === "boolean") {
+    return { type: "boolean" };
+  }
+  if (name === "ZodNull" || name === "null") {
+    return { type: "null" };
+  }
+  if (name === "ZodLiteral" || name === "literal") {
+    const value = literalValue(schema);
+    return value === undefined ? { type: "json" } : { type: "literal", value };
+  }
+  if (name === "ZodEnum" || name === "enum") {
+    const options = enumOptions(schema);
+    return { type: "string", options: options.length > 0 ? options : undefined };
+  }
+  if (name === "ZodArray" || name === "array") {
+    const element = arrayElement(schema);
+    return {
+      type: "array",
+      items: element ? describeJsonType(element, depth + 1) : { type: "json" },
+    };
+  }
+  if (name === "ZodUnion" || name === "union") {
+    const representable = unionMembers(schema).flatMap((member) => {
+      const described = describeJsonTypeInner(member, depth + 1);
+      return described === "unrepresentable" ? [] : [described];
+    });
+    return collapseUnion(representable);
+  }
+  if (name === "ZodObject" || name === "object") {
+    const shape = objectShape(schema);
+    if (!shape) {
+      return { type: "json" };
+    }
+    return {
+      type: "object",
+      extra: false,
+      fields: Object.entries(shape).map(([fieldName, fieldSchema]) => {
+        const unwrapped = unwrap(fieldSchema);
+        return {
+          name: fieldName,
+          required: unwrapped.required,
+          schema: describeJsonType(fieldSchema, depth + 1),
+        };
+      }),
+    };
+  }
+  if (name === "ZodUnknown" || name === "unknown" || name === "ZodAny" || name === "any") {
+    return { type: "json" };
+  }
+  return "unrepresentable";
 }
 
 export function describeWorkflowInput(schema: unknown): WorkflowInputField[] {
@@ -126,6 +328,7 @@ export function describeWorkflowInput(schema: unknown): WorkflowInputField[] {
       required: unwrapped.required,
       description: unwrapped.description,
       options,
+      ...(kind === "json" ? { jsonType: describeJsonType(fieldSchema) } : {}),
     };
   });
 }

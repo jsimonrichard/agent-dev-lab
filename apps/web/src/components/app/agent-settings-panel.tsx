@@ -9,9 +9,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useId } from "react";
+import { useId, useRef, useState } from "react";
 
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
+import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
 import { RunTagsFooter } from "@/components/app/run-tags-footer";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +21,35 @@ import { InspectorNoun } from "@/components/app/inspector-noun";
 import { SettingRow, SettingsSection } from "@/components/app/inspector-settings";
 import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
+import {
+  JsonEditorSummary,
+  JsonSchemaRawEditor,
+  JsonTextEditor,
+  ModeToggle,
+} from "@/components/app/json-editor";
 import { SchemaFieldControl } from "@/components/app/schema-field-control";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  buildWorkflowInput,
+  workflowInputValuesFromSample,
+} from "#/lib/workflow/workflow-input-schema";
+import {
+  jsonTextError,
+  jsonTypeFromFields,
+  parseJsonText,
+  toolProviderContextJsonError,
+  type ContextEditorSource,
+} from "@/lib/json-editor";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 
 export interface ToolProviderContextFormState {
@@ -33,8 +57,15 @@ export interface ToolProviderContextFormState {
   rawJson: string;
   onValuesChange: (values: Record<string, string | boolean>) => void;
   onRawJsonChange: (rawJson: string) => void;
+  /** Form fields vs a single JSON document for the whole context object. */
+  source: ContextEditorSource;
+  onSourceChange: (source: ContextEditorSource) => void;
   /** `"default"` = agent definition page; `"turn"` = conversation next-turn draft. */
   purpose?: "default" | "turn";
+  /** Persist the default. Required when `purpose` is `"default"`. */
+  onSave?: () => Promise<boolean>;
+  saving?: boolean;
+  saveError?: string | null;
 }
 
 /** Historical episode snapshot shown when inspecting `?call=` or a workflow-linked chat. */
@@ -118,6 +149,13 @@ export function AgentConfigBody({
         </>
       ) : null}
 
+      {settings.toolProviderContext.declared ? (
+        <>
+          <ToolProviderContextSection settings={settings} contextForm={contextForm} />
+          <Separator className="bg-border/40" />
+        </>
+      ) : null}
+
       <SettingsSection icon={Wrench} title="Tools">
         <dl className="mb-3 space-y-2 text-xs">
           <SettingRow label="Stop When" value={settings.stopWhen} mono />
@@ -143,13 +181,6 @@ export function AgentConfigBody({
           </ul>
         )}
       </SettingsSection>
-
-      {settings.toolProviderContext.declared ? (
-        <>
-          <Separator className="bg-border/40" />
-          <ToolProviderContextSection settings={settings} contextForm={contextForm} />
-        </>
-      ) : null}
 
       {episodeToolContext ? (
         <>
@@ -272,6 +303,48 @@ export function AgentConfigBody({
   );
 }
 
+function contextFormPreview(
+  form: ToolProviderContextFormState,
+  fields: AgentInspectorMeta["toolProviderContext"]["fields"],
+): { value: string; error: string | null } {
+  try {
+    const built = buildToolProviderContextInput({
+      declared: true,
+      fields,
+      values: form.values,
+      rawJson: form.rawJson,
+      source: form.source,
+    });
+    return {
+      value: built === undefined ? "" : JSON.stringify(built, null, 2),
+      error: null,
+    };
+  } catch (caught) {
+    return {
+      value: form.rawJson,
+      error: caught instanceof Error ? caught.message : String(caught),
+    };
+  }
+}
+
+function contextPayloadKey(
+  form: ToolProviderContextFormState,
+  fields: AgentInspectorMeta["toolProviderContext"]["fields"],
+): string | null {
+  try {
+    const built = buildToolProviderContextInput({
+      declared: true,
+      fields,
+      values: form.values,
+      rawJson: form.rawJson,
+      source: form.source,
+    });
+    return JSON.stringify(built === undefined ? null : built);
+  } catch {
+    return null;
+  }
+}
+
 function ToolProviderContextSection({
   settings,
   contextForm,
@@ -284,6 +357,229 @@ function ToolProviderContextSection({
   const fields = meta.fields;
   const editable = contextForm !== undefined;
   const purpose = contextForm?.purpose ?? "turn";
+  const [open, setOpen] = useState(false);
+  const [editorEpoch, setEditorEpoch] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const snapshotRef = useRef<{
+    values: Record<string, string | boolean>;
+    rawJson: string;
+    source: ContextEditorSource;
+    payloadKey: string | null;
+  } | null>(null);
+  const contextType = fields.length > 0 ? jsonTypeFromFields(fields) : undefined;
+  const source: ContextEditorSource =
+    fields.length === 0 ? "json" : (contextForm?.source ?? "form");
+
+  if (purpose === "default" && contextForm && contextForm.onSave === undefined) {
+    throw new Error("default tool context form requires onSave");
+  }
+
+  function reportFieldError(name: string, error: string | null) {
+    setFieldErrors((current) => {
+      if (error === null) {
+        if (!(name in current)) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[name];
+        return next;
+      }
+      if (current[name] === error) {
+        return current;
+      }
+      return { ...current, [name]: error };
+    });
+  }
+
+  function selectSource(next: ContextEditorSource) {
+    if (!contextForm) {
+      throw new Error("tool context source changed without a form");
+    }
+    if (fields.length === 0 || next === contextForm.source) {
+      return;
+    }
+    if (next === "json") {
+      try {
+        const built = buildWorkflowInput(fields, contextForm.values);
+        contextForm.onRawJsonChange(JSON.stringify(built, null, 2));
+        setFieldErrors({});
+        setSwitchError(null);
+        contextForm.onSourceChange("json");
+      } catch (caught) {
+        setSwitchError(caught instanceof Error ? caught.message : String(caught));
+      }
+      return;
+    }
+    if (jsonTextError(contextForm.rawJson, contextType) !== null) {
+      return;
+    }
+    const parsed = parseJsonText(contextForm.rawJson);
+    if (parsed.isErr) {
+      return;
+    }
+    setSwitchError(null);
+    contextForm.onValuesChange(workflowInputValuesFromSample(fields, parsed.value));
+    contextForm.onSourceChange("form");
+  }
+
+  function formStateFromCurrent(): {
+    values: Record<string, string | boolean>;
+    rawJson: string;
+    source: ContextEditorSource;
+  } {
+    if (!contextForm) {
+      throw new Error("tool context form is required");
+    }
+    if (fields.length === 0 || contextForm.source === "form") {
+      return {
+        values: { ...contextForm.values },
+        rawJson: contextForm.rawJson,
+        source: fields.length === 0 ? "json" : "form",
+      };
+    }
+    if (jsonTextError(contextForm.rawJson, contextType) !== null) {
+      return {
+        values: { ...contextForm.values },
+        rawJson: contextForm.rawJson,
+        source: "json",
+      };
+    }
+    const parsed = parseJsonText(contextForm.rawJson);
+    if (parsed.isErr) {
+      return {
+        values: { ...contextForm.values },
+        rawJson: contextForm.rawJson,
+        source: "json",
+      };
+    }
+    return {
+      values: workflowInputValuesFromSample(fields, parsed.value),
+      rawJson: contextForm.rawJson,
+      source: "form",
+    };
+  }
+
+  function openEditor() {
+    if (!contextForm) {
+      throw new Error("tool context editor opened without a form");
+    }
+    const opened = formStateFromCurrent();
+    contextForm.onValuesChange(opened.values);
+    contextForm.onRawJsonChange(opened.rawJson);
+    contextForm.onSourceChange(opened.source);
+    snapshotRef.current = {
+      ...opened,
+      payloadKey: contextPayloadKey({ ...contextForm, ...opened }, fields),
+    };
+    setEditorEpoch((epoch) => epoch + 1);
+    setOpen(true);
+  }
+
+  function closeEditor() {
+    const snapshot = snapshotRef.current;
+    if (snapshot && contextForm) {
+      contextForm.onValuesChange(snapshot.values);
+      contextForm.onRawJsonChange(snapshot.rawJson);
+      contextForm.onSourceChange(snapshot.source);
+    }
+    snapshotRef.current = null;
+    setOpen(false);
+  }
+
+  async function saveEditor() {
+    if (!contextForm) {
+      throw new Error("tool context save requested without a form");
+    }
+    if (jsonError !== null || !contextDirty) {
+      return;
+    }
+    if (contextForm.onSave) {
+      const saved = await contextForm.onSave();
+      if (!saved) {
+        return;
+      }
+    }
+    const opened = formStateFromCurrent();
+    contextForm.onValuesChange(opened.values);
+    contextForm.onRawJsonChange(opened.rawJson);
+    contextForm.onSourceChange(opened.source);
+    snapshotRef.current = null;
+    setOpen(false);
+  }
+
+  const preview = contextForm ? contextFormPreview(contextForm, fields) : null;
+  const jsonError = contextForm
+    ? (toolProviderContextJsonError({
+        fields,
+        values: contextForm.values,
+        rawJson: contextForm.rawJson,
+        source,
+      }) ??
+      Object.values(fieldErrors)[0] ??
+      switchError)
+    : null;
+  const contextDirty =
+    snapshotRef.current !== null &&
+    contextForm !== undefined &&
+    contextPayloadKey(contextForm, fields) !== snapshotRef.current.payloadKey;
+  const jsonPresentation = "inline";
+  const sourceToggle =
+    editable && fields.length > 0 ? (
+      <div className="mb-3 shrink-0">
+        <ModeToggle
+          mode={source === "form" ? "document" : "json"}
+          documentDisabled={
+            source === "json" && jsonTextError(contextForm.rawJson, contextType) !== null
+          }
+          onChange={(mode) => selectSource(mode === "document" ? "form" : "json")}
+        />
+      </div>
+    ) : null;
+
+  const formFields =
+    editable && fields.length > 0 && source === "form" ? (
+      <div className="grid gap-3">
+        {fields.map((field, index) => (
+          <SchemaFieldControl
+            key={field.name}
+            idPrefix={formId}
+            field={field}
+            autoFocus={index === 0}
+            jsonPresentation={jsonPresentation}
+            value={contextForm.values[field.name]}
+            onChange={(value) =>
+              contextForm.onValuesChange({ ...contextForm.values, [field.name]: value })
+            }
+            onJsonValidityChange={(error) => reportFieldError(field.name, error)}
+          />
+        ))}
+      </div>
+    ) : null;
+
+  const rawJsonField =
+    editable && (fields.length === 0 || source === "json") ? (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {fields.length === 0 ? (
+          <JsonTextEditor
+            id={`${formId}-json`}
+            title="JSON"
+            presentation={jsonPresentation}
+            fill
+            value={contextForm.rawJson}
+            onChange={contextForm.onRawJsonChange}
+          />
+        ) : (
+          <JsonSchemaRawEditor
+            id={`${formId}-json`}
+            fill
+            jsonType={contextType}
+            value={contextForm.rawJson}
+            onChange={contextForm.onRawJsonChange}
+          />
+        )}
+      </div>
+    ) : null;
 
   return (
     <SettingsSection
@@ -304,40 +600,87 @@ function ToolProviderContextSection({
           </>
         )}
       </p>
-      {editable && fields.length > 0 ? (
-        <div className="grid gap-3">
-          {fields.map((field) => (
-            <SchemaFieldControl
-              key={field.name}
-              idPrefix={formId}
-              field={field}
-              value={contextForm.values[field.name]}
-              onChange={(value) =>
-                contextForm.onValuesChange({ ...contextForm.values, [field.name]: value })
-              }
-            />
-          ))}
-        </div>
-      ) : null}
-      {editable && fields.length === 0 ? (
-        <div className="grid gap-2">
-          <Label htmlFor={`${formId}-json`}>JSON</Label>
-          <Textarea
-            id={`${formId}-json`}
-            value={contextForm.rawJson}
-            onChange={(event) => contextForm.onRawJsonChange(event.target.value)}
-            className="min-h-20 font-mono text-xs"
-            spellCheck={false}
-            placeholder='{"projectPath":"/path/to/crate"}'
+      {editable && preview && contextForm ? (
+        <>
+          <JsonEditorSummary
+            id={`${formId}-preview`}
+            value={preview.value}
+            expanded={open}
+            onEdit={openEditor}
           />
-        </div>
+          {preview.error ? (
+            <p role="alert" className="mt-1.5 text-[10px] text-destructive">
+              {preview.error}
+            </p>
+          ) : null}
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              if (next) {
+                openEditor();
+                return;
+              }
+              closeEditor();
+            }}
+          >
+            <DialogContent className="flex h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden sm:max-w-4xl">
+              <DialogHeader className="shrink-0 space-y-1 pr-8 text-left">
+                <DialogTitle className="truncate font-mono text-base">
+                  {purpose === "default" ? "Default tool context" : "Tool context"}
+                </DialogTitle>
+                <DialogDescription>
+                  {purpose === "default"
+                    ? "Inspector-only default for new conversations. Invalid JSON is not saved."
+                    : "Passed on the next send as toolProviderContext. Invalid JSON is not saved."}
+                </DialogDescription>
+              </DialogHeader>
+              <div
+                key={editorEpoch}
+                className={
+                  fields.length === 0 || source === "json"
+                    ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                    : "flex min-h-0 flex-1 flex-col overflow-auto"
+                }
+              >
+                {sourceToggle}
+                {formFields}
+                {rawJsonField}
+              </div>
+              {jsonError ? (
+                <p role="alert" className="shrink-0 text-xs text-destructive">
+                  {jsonError}
+                </p>
+              ) : null}
+              {contextForm.saveError ? (
+                <ErrorDetails error={contextForm.saveError} compact />
+              ) : null}
+              <DialogFooter className="shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={contextForm.saving}
+                  onClick={closeEditor}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={contextForm.saving || jsonError !== null || !contextDirty}
+                  onClick={() => void saveEditor()}
+                >
+                  {contextForm.saving ? "Saving…" : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
       ) : null}
       {!editable && fields.length > 0 ? (
         <ul className="space-y-1.5">
           {fields.map((field) => (
-            <li key={field.name} className="font-mono text-[11px] text-muted-foreground">
+            <li key={field.name} className="font-mono text-[11px]">
               {field.name}: {field.kind}
-              {field.required ? "" : " (optional)"}
+              {field.required ? null : <span className="text-muted-foreground"> (optional)</span>}
             </li>
           ))}
         </ul>

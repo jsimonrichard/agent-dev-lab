@@ -7,6 +7,7 @@ import {
   buildToolProviderContextInput,
   seedToolProviderContextForm,
 } from "#/lib/agent/agent-tools";
+import { toolProviderContextJsonError, type ContextEditorSource } from "@/lib/json-editor";
 import {
   fetchAgentCallEvents,
   fetchMessagesForScope,
@@ -92,6 +93,7 @@ export function AgentRunWorkspace({
         seed: conversation.nextToolProviderContextSeed,
       }).rawJson,
   );
+  const [contextSource, setContextSource] = useState<ContextEditorSource>("form");
 
   useEffect(() => {
     setMessages(conversation.messages);
@@ -112,6 +114,7 @@ export function AgentRunWorkspace({
     });
     setContextValues(seeded.values);
     setContextJson(seeded.rawJson);
+    setContextSource("form");
   }, [conversation.runId]);
 
   useEffect(() => {
@@ -212,6 +215,7 @@ export function AgentRunWorkspace({
                 });
                 setContextValues(seeded.values);
                 setContextJson(seeded.rawJson);
+                setContextSource("form");
                 setSettingsOpen(true);
               },
       };
@@ -244,6 +248,18 @@ export function AgentRunWorkspace({
   }
 
   async function handleSend(text: string) {
+    if (settings.toolProviderContext.declared) {
+      const jsonError = toolProviderContextJsonError({
+        fields: settings.toolProviderContext.fields,
+        values: contextValues,
+        rawJson: contextJson,
+        source: contextSource,
+      });
+      if (jsonError !== null) {
+        setError(jsonError);
+        return;
+      }
+    }
     setSending(true);
     setError(null);
     setStreamEnabled(false);
@@ -254,6 +270,7 @@ export function AgentRunWorkspace({
         fields: settings.toolProviderContext.fields,
         values: contextValues,
         rawJson: contextJson,
+        source: contextSource,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -483,6 +500,8 @@ export function AgentRunWorkspace({
                         rawJson: contextJson,
                         onValuesChange: setContextValues,
                         onRawJsonChange: setContextJson,
+                        source: contextSource,
+                        onSourceChange: setContextSource,
                       }
                 }
               />

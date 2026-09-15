@@ -1,5 +1,6 @@
 import type { WorkflowInputField } from "#/lib/inspector/inspector-types";
 
+import { JsonTextEditor } from "@/components/app/json-editor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -9,9 +10,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { jsonTypeLabel } from "@/lib/json-editor";
 
 const UNSET_SELECT_VALUE = "__unset__";
+
+function SchemaFieldLabel({ htmlFor, field }: { htmlFor: string; field: WorkflowInputField }) {
+  const typeHint =
+    field.kind === "json" ? (field.jsonType ? jsonTypeLabel(field.jsonType) : "json") : field.kind;
+  return (
+    <Label htmlFor={htmlFor}>
+      {field.name}
+      <span className="font-mono text-xs font-normal text-muted-foreground">{typeHint}</span>
+      {field.required ? null : (
+        <span className="font-normal text-muted-foreground">(optional)</span>
+      )}
+    </Label>
+  );
+}
 
 /** Shared Zod-field control used by workflow start and agent toolProviderContext forms. */
 export function SchemaFieldControl({
@@ -20,15 +35,18 @@ export function SchemaFieldControl({
   value,
   onChange,
   autoFocus,
+  jsonPresentation = "dialog",
+  onJsonValidityChange,
 }: {
   idPrefix: string;
   field: WorkflowInputField;
   value: string | boolean | undefined;
   onChange: (value: string | boolean) => void;
   autoFocus?: boolean;
+  jsonPresentation?: "dialog" | "inline";
+  onJsonValidityChange?: (error: string | null) => void;
 }) {
   const id = `${idPrefix}-${field.name}`;
-  const label = field.required ? field.name : `${field.name} (optional)`;
 
   if (field.kind === "boolean") {
     return (
@@ -40,7 +58,7 @@ export function SchemaFieldControl({
           checked={value === true}
           onChange={(event) => onChange(event.target.checked)}
         />
-        <Label htmlFor={id}>{label}</Label>
+        <SchemaFieldLabel htmlFor={id} field={field} />
       </div>
     );
   }
@@ -48,7 +66,7 @@ export function SchemaFieldControl({
   if (field.options && field.options.length > 0) {
     return (
       <div className="grid gap-2">
-        <Label htmlFor={id}>{label}</Label>
+        <SchemaFieldLabel htmlFor={id} field={field} />
         <Select
           value={typeof value === "string" && value !== "" ? value : undefined}
           onValueChange={(next) => onChange(next === UNSET_SELECT_VALUE ? "" : next)}
@@ -75,15 +93,17 @@ export function SchemaFieldControl({
   if (field.kind === "json") {
     return (
       <div className="grid gap-2">
-        <Label htmlFor={id}>{label}</Label>
-        <Textarea
+        <SchemaFieldLabel htmlFor={id} field={field} />
+        <JsonTextEditor
           id={id}
           autoFocus={autoFocus}
-          required={field.required}
           value={typeof value === "string" ? value : ""}
-          onChange={(event) => onChange(event.target.value)}
-          className="min-h-20 font-mono text-xs"
-          spellCheck={false}
+          jsonType={field.jsonType}
+          title={field.name}
+          description={field.description}
+          presentation={jsonPresentation}
+          onChange={onChange}
+          onValidityChange={onJsonValidityChange}
         />
         {field.description ? (
           <p className="text-xs text-muted-foreground">{field.description}</p>
@@ -94,7 +114,7 @@ export function SchemaFieldControl({
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <SchemaFieldLabel htmlFor={id} field={field} />
       <Input
         id={id}
         autoFocus={autoFocus}

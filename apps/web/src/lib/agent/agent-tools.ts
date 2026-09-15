@@ -4,6 +4,13 @@ import type {
 } from "#/lib/inspector/inspector-types";
 import type { JsonValue } from "#/lib/view-model/types";
 import {
+  jsonTypeFromFields,
+  jsonTypeLabel,
+  parseJsonText,
+  valueMatchesJsonType,
+  type ContextEditorSource,
+} from "@/lib/json-editor";
+import {
   buildWorkflowInput,
   describeWorkflowInput,
   sampleWorkflowInput,
@@ -176,24 +183,31 @@ export function buildToolProviderContextInput(options: {
   fields: WorkflowInputField[];
   values: Record<string, string | boolean>;
   rawJson: string;
+  source?: ContextEditorSource;
 }): unknown | undefined {
   if (!options.declared) {
     return undefined;
   }
-  if (options.fields.length > 0) {
-    return buildWorkflowInput(options.fields, options.values);
+  const source = options.fields.length === 0 ? "json" : (options.source ?? "form");
+  if (source === "json") {
+    const parsed = parseJsonText(options.rawJson);
+    if (parsed.isErr) {
+      throw new Error(`toolProviderContext must be valid JSON: ${parsed.error}`);
+    }
+    if (parsed.value === undefined) {
+      return undefined;
+    }
+    if (options.fields.length > 0) {
+      const jsonType = jsonTypeFromFields(options.fields);
+      if (!valueMatchesJsonType(parsed.value, jsonType)) {
+        throw new Error(
+          `toolProviderContext must be valid JSON: Value does not match ${jsonTypeLabel(jsonType)}`,
+        );
+      }
+    }
+    return parsed.value;
   }
-  const text = options.rawJson.trim();
-  if (text.length === 0) {
-    return undefined;
-  }
-  try {
-    return JSON.parse(text) as unknown;
-  } catch (error) {
-    throw new Error(
-      `toolProviderContext must be valid JSON${error instanceof Error ? `: ${error.message}` : ""}`,
-    );
-  }
+  return buildWorkflowInput(options.fields, options.values);
 }
 
 /** Seed the conversation / definition form from a stored JSON value or schema sample. */

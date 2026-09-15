@@ -20,12 +20,32 @@ export interface ProjectInspectorMeta {
 
 export type WorkflowInputFieldKind = "string" | "number" | "boolean" | "json";
 
+/** Serializable Zod-walk result for nested `kind: "json"` editors. */
+export type JsonSchemaType =
+  | { type: "string"; options?: string[] }
+  | { type: "number" }
+  | { type: "boolean" }
+  | { type: "null" }
+  | { type: "literal"; value: string | number | boolean }
+  | { type: "array"; items: JsonSchemaType }
+  | { type: "object"; fields: JsonSchemaObjectField[]; extra: boolean }
+  | { type: "union"; options: JsonSchemaType[] }
+  | { type: "json" };
+
+export interface JsonSchemaObjectField {
+  name: string;
+  schema: JsonSchemaType;
+  required: boolean;
+}
+
 export interface WorkflowInputField {
   name: string;
   kind: WorkflowInputFieldKind;
   required: boolean;
   description?: string;
   options?: string[];
+  /** Present when {@link kind} is `"json"` — nested editor follows this type. */
+  jsonType?: JsonSchemaType;
 }
 
 export interface WorkflowInspectorMeta {
