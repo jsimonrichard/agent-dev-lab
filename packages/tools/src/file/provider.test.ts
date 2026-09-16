@@ -175,6 +175,8 @@ describe("createFileToolProvider", () => {
   it("fills hardcoded byte-cap defaults when parsing empty context", () => {
     const provider = createFileToolProvider({ root });
     expect(provider.contextSchema?.parse({})).toEqual({
+      denyRead: [],
+      denyWrite: [],
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
     });

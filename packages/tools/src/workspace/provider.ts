@@ -346,8 +346,8 @@ export function createWorkspaceToolProvider(
       .union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)])
       .optional()
       .describe(omitAllowReadSchemaDescription("cwd")),
-    denyRead: z.array(z.string()).optional(),
-    denyWrite: z.array(z.string()).optional(),
+    denyRead: z.array(z.string()).default([]),
+    denyWrite: z.array(z.string()).default([]),
     allowedDomains: z
       .array(z.string())
       .default(DEFAULT_ALLOWED_DOMAINS)

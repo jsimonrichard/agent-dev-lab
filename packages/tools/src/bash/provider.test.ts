@@ -334,6 +334,8 @@ describe("createBashToolProvider", () => {
     const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
     expect(provider.contextSchema?.parse({})).toEqual({
       timeoutMs: DEFAULT_TIMEOUT_MS,
+      denyRead: [],
+      denyWrite: [],
       allowedDomains: DEFAULT_ALLOWED_DOMAINS,
       deniedDomains: [],
       allowNetwork: false,

@@ -466,6 +466,8 @@ describe("createWorkspaceToolProvider", () => {
       allowPrivateNetwork: false,
       maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
       maxRedirects: DEFAULT_MAX_REDIRECTS,
+      denyRead: [],
+      denyWrite: [],
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
       allowedDomains: DEFAULT_ALLOWED_DOMAINS,
@@ -479,6 +481,8 @@ describe("createWorkspaceToolProvider", () => {
     const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
     expect(provider.contextSchema?.parse({})).toEqual({
       bashTimeoutMs: DEFAULT_TIMEOUT_MS,
+      denyRead: [],
+      denyWrite: [],
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
       allowedDomains: DEFAULT_ALLOWED_DOMAINS,
