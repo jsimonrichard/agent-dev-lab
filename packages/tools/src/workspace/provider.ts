@@ -11,7 +11,13 @@ import {
 import { z } from "zod";
 
 import type { BashExecutor, BashExecutorDescription } from "../bash/executor";
-import type { BashSandboxBackend, BashSandboxPolicy } from "../bash/executor-pool";
+import {
+  ALLOWED_DOMAINS_DESCRIPTION,
+  DEFAULT_ALLOWED_DOMAINS,
+  releaseBashExecutor,
+  type BashSandboxBackend,
+  type BashSandboxPolicy,
+} from "../bash/executor-pool.ts";
 import {
   createBashToolProvider,
   describeBashAccess,
@@ -45,7 +51,6 @@ import {
   FETCH_URL_DESCRIPTION,
   type FetchUrlTool,
 } from "../web/tools";
-import { releaseBashExecutor } from "../bash/executor-pool.ts";
 
 function describeWorkspaceEnvDescription(includeFetchUrl: boolean): string {
   return (
@@ -331,7 +336,10 @@ export function createWorkspaceToolProvider(
     allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]).optional(),
     denyRead: z.array(z.string()).optional(),
     denyWrite: z.array(z.string()).optional(),
-    allowedDomains: z.array(z.string()).default([]),
+    allowedDomains: z
+      .array(z.string())
+      .default(DEFAULT_ALLOWED_DOMAINS)
+      .describe(ALLOWED_DOMAINS_DESCRIPTION),
     deniedDomains: z.array(z.string()).default([]),
     allowNetwork: z
       .boolean()

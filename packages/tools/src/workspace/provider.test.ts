@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
+import { DEFAULT_ALLOWED_DOMAINS } from "../bash/executor-pool.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools";
 import { DEFAULT_MAX_BYTES } from "../file/tools";
@@ -431,7 +432,7 @@ describe("createWorkspaceToolProvider", () => {
       maxRedirects: DEFAULT_MAX_REDIRECTS,
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
-      allowedDomains: [],
+      allowedDomains: DEFAULT_ALLOWED_DOMAINS,
       deniedDomains: [],
       allowNetwork: false,
       allowEnv: [],
@@ -444,7 +445,7 @@ describe("createWorkspaceToolProvider", () => {
       bashTimeoutMs: DEFAULT_TIMEOUT_MS,
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
-      allowedDomains: [],
+      allowedDomains: DEFAULT_ALLOWED_DOMAINS,
       deniedDomains: [],
       allowNetwork: false,
       allowEnv: [],

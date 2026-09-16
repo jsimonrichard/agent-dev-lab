@@ -15,6 +15,7 @@ import {
   type BashToolProviderContext,
 } from "./provider";
 import { DEFAULT_TIMEOUT_MS } from "./tools";
+import { DEFAULT_ALLOWED_DOMAINS } from "./executor-pool.ts";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 
@@ -326,7 +327,7 @@ describe("createBashToolProvider", () => {
     const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
     expect(provider.contextSchema?.parse({})).toEqual({
       timeoutMs: DEFAULT_TIMEOUT_MS,
-      allowedDomains: [],
+      allowedDomains: DEFAULT_ALLOWED_DOMAINS,
       deniedDomains: [],
       allowNetwork: false,
       allowEnv: [],

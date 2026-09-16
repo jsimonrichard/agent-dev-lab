@@ -10,6 +10,12 @@ import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 export type BashSandboxBackend = "asrt" | "native";
 
+/** Default `allowedDomains` while `allowNetwork` is off — applied only when network is enabled. */
+export const DEFAULT_ALLOWED_DOMAINS: string[] = ["*"];
+
+export const ALLOWED_DOMAINS_DESCRIPTION =
+  'Hosts bash may reach when allowNetwork is true. "*" allows any host.';
+
 /** Isolation policy fields — not `cwd` / timeouts / output caps. */
 export interface BashSandboxPolicy {
   allowWrite: string[];
@@ -23,7 +29,7 @@ export interface BashSandboxPolicy {
   denyWrite?: string[];
   allowedDomains?: string[];
   deniedDomains?: string[];
-  /** Native-only. ASRT derives network access from `allowedDomains`. */
+  /** Master network switch. Domain lists apply only when this is true. */
   allowNetwork?: boolean;
   /**
    * Host env vars exposed inside the sandbox. Omitted / `[]` → none. Part of the pool key.
@@ -128,15 +134,39 @@ export function bashExecutorPoolKeyString(key: BashExecutorPoolKey): string {
   });
 }
 
+function networkDomainLists(policy: CanonicalBashSandboxPolicy): {
+  allowedDomains: string[];
+  deniedDomains: string[];
+} {
+  if (!policy.allowNetwork) {
+    return { allowedDomains: [], deniedDomains: [] };
+  }
+  return {
+    allowedDomains: policy.allowedDomains,
+    deniedDomains: policy.deniedDomains,
+  };
+}
+
+function nativeHonorsDomainLists(allowedDomains: string[], deniedDomains: string[]): boolean {
+  if (deniedDomains.length > 0) {
+    return false;
+  }
+  if (allowedDomains.length === 0) {
+    return true;
+  }
+  return JSON.stringify(allowedDomains) === JSON.stringify(DEFAULT_ALLOWED_DOMAINS);
+}
+
 function createPooledExecutor(
   backend: BashSandboxBackend,
   policy: CanonicalBashSandboxPolicy,
 ): BashExecutor {
+  const { allowedDomains, deniedDomains } = networkDomainLists(policy);
   if (backend === "asrt") {
-    if (policy.allowNetwork && policy.allowedDomains.length === 0) {
+    if (policy.allowNetwork && allowedDomains.length === 0) {
       throw new AdlError(
         "INVALID_INPUT",
-        "ASRT sandbox: allowNetwork is not a separate knob — pass allowedDomains to enable network.",
+        'ASRT sandbox: allowNetwork is true but allowedDomains is empty — pass at least one host, or "*".',
       );
     }
     return createAsrtBashExecutor({
@@ -144,17 +174,17 @@ function createPooledExecutor(
       allowRead: policy.allowRead,
       denyRead: policy.denyRead,
       denyWrite: policy.denyWrite,
-      allowedDomains: policy.allowedDomains,
-      deniedDomains: policy.deniedDomains,
+      allowedDomains,
+      deniedDomains,
       allowEnv: restoreAllowEnv(policy.allowEnv),
       tmpDir: policy.tmpDir,
     });
   }
 
-  if (policy.allowedDomains.length > 0 || policy.deniedDomains.length > 0) {
+  if (!nativeHonorsDomainLists(allowedDomains, deniedDomains)) {
     throw new AdlError(
       "INVALID_INPUT",
-      'Native bash sandbox does not support allowedDomains/deniedDomains — use backend: "asrt", or allowNetwork.',
+      'Native bash sandbox does not support per-host allowedDomains/deniedDomains — use backend: "asrt", or "*".',
     );
   }
   if (policy.denyWrite.length > 0) {

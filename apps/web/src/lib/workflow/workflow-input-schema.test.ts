@@ -118,6 +118,29 @@ describe("describeWorkflowInput", () => {
     ]);
   });
 
+  it("keeps .describe() on a defaulted field", () => {
+    expect(
+      describeWorkflowInput(
+        z.object({
+          allowedDomains: z
+            .array(z.string())
+            .default(["*"])
+            .describe("Hosts bash may reach when allowNetwork is true."),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: "allowedDomains",
+        kind: "json",
+        required: true,
+        description: "Hosts bash may reach when allowNetwork is true.",
+        options: undefined,
+        default: ["*"],
+        jsonType: { type: "array", items: { type: "string" } },
+      },
+    ]);
+  });
+
   it("reads defaults from a live Zod schema without marking them optional", () => {
     expect(
       describeWorkflowInput(

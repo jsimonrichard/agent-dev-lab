@@ -169,6 +169,43 @@ describe("createBashToolProvider pooled vs executor", () => {
       }),
     ).toThrow(/tmpDir/);
   });
+
+  it("rejects a restricting native allowlist when allowNetwork is true", () => {
+    expect(() =>
+      acquireBashExecutor({
+        projectRoot: "/proj",
+        backend: "native",
+        policy: {
+          allowWrite: ["/proj/s"],
+          allowNetwork: true,
+          allowedDomains: ["example.com"],
+        },
+      }),
+    ).toThrow(/per-host/);
+  });
+
+  it("rejects ASRT allowNetwork with an empty allowedDomains list", () => {
+    expect(() =>
+      acquireBashExecutor({
+        projectRoot: "/proj",
+        backend: "asrt",
+        policy: { allowWrite: ["/proj/s"], allowNetwork: true, allowedDomains: [] },
+      }),
+    ).toThrow(/allowedDomains is empty/);
+  });
+
+  it("does not pass allowedDomains to ASRT while allowNetwork is false", () => {
+    const { executor } = acquireBashExecutor({
+      projectRoot: "/proj",
+      backend: "asrt",
+      policy: { allowWrite: ["/proj/a"], allowedDomains: ["*"] },
+    });
+    expect(executor.describe().network).toEqual({
+      allowNetwork: false,
+      allowedDomains: [],
+      deniedDomains: [],
+    });
+  });
 });
 
 describe("bash executor pool globalThis pin", () => {

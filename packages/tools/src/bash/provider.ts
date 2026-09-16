@@ -15,7 +15,9 @@ import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-re
 import type { BashExecutor, BashExecutorResult } from "./executor.ts";
 import {
   acquireBashExecutor,
+  ALLOWED_DOMAINS_DESCRIPTION,
   bashExecutorPoolKeyFor,
+  DEFAULT_ALLOWED_DOMAINS,
   releaseBashExecutor,
   type BashSandboxBackend,
   type BashSandboxPolicy,
@@ -345,7 +347,10 @@ export function createBashToolProvider(
         .optional(),
       denyRead: z.array(z.string()).optional(),
       denyWrite: z.array(z.string()).optional(),
-      allowedDomains: z.array(z.string()).default([]),
+      allowedDomains: z
+        .array(z.string())
+        .default(DEFAULT_ALLOWED_DOMAINS)
+        .describe(ALLOWED_DOMAINS_DESCRIPTION),
       deniedDomains: z.array(z.string()).default([]),
       allowNetwork: z.boolean().default(false),
       allowEnv: z

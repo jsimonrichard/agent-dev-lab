@@ -97,7 +97,7 @@ import { createAsrtBashExecutor, createBashTool } from "@agent-dev-lab/tools";
 const { bash } = createBashTool({
   executor: createAsrtBashExecutor({
     allowWrite: [cwd],
-    allowedDomains: ["example.com"], // omit or `[]` for no network
+    allowedDomains: ["example.com"], // omit or `[]` for no network on the escape hatch
   }),
   cwd,
 });

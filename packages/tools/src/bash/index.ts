@@ -12,11 +12,13 @@ export type {
 } from "./executor";
 export {
   acquireBashExecutor,
+  ALLOWED_DOMAINS_DESCRIPTION,
   bashExecutorPoolKeyFor,
   bashExecutorPoolKeyString,
   bashExecutorPoolMapForTests,
   bashExecutorPoolSizeForTests,
   canonicalizeBashSandboxPolicy,
+  DEFAULT_ALLOWED_DOMAINS,
   releaseBashExecutor,
   resetBashExecutorPoolForTests,
 } from "./executor-pool";
