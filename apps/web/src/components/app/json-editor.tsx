@@ -806,9 +806,17 @@ function TypedValue({
   );
 }
 
-function AddItemButton({ onClick, label = "Add item" }: { onClick: () => void; label?: string }) {
+function AddItemButton({
+  onClick,
+  label = "Add item",
+  autoFocus,
+}: {
+  onClick: () => void;
+  label?: string;
+  autoFocus?: boolean;
+}) {
   return (
-    <Button type="button" variant="outline" size="sm" onClick={onClick}>
+    <Button type="button" variant="outline" size="sm" autoFocus={autoFocus} onClick={onClick}>
       <Plus />
       {label}
     </Button>
@@ -830,12 +838,8 @@ function ArrayEditor({
   variantSelect: ReactNode;
   autoFocus?: boolean;
 }) {
-  function add(item: JsonValue) {
-    onChange([...items, item]);
-  }
-
   function addDefault() {
-    add(defaultValueForJsonType(itemType));
+    onChange([...items, defaultValueForJsonType(itemType)]);
   }
 
   function replace(index: number, next: JsonValue | undefined) {
@@ -854,26 +858,11 @@ function ArrayEditor({
       onChange={onChange}
     >
       <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center gap-1">
+          <span className="font-mono text-[10px] text-muted-foreground">[{items.length}]</span>
+          <span className="ml-auto shrink-0">{variantSelect}</span>
+        </div>
         {items.length > 0 ? (
-          <div className="mb-2 flex flex-wrap items-center gap-1">
-            <span className="font-mono text-[10px] text-muted-foreground">[{items.length}]</span>
-            <span className="ml-auto shrink-0">{variantSelect}</span>
-          </div>
-        ) : null}
-        {items.length === 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-xs text-muted-foreground">[]</span>
-            <div className="min-w-0 flex-1">
-              <ValueComposer
-                jsonType={itemType}
-                onCommit={add}
-                autoFocus={autoFocus}
-                commitLabel="Add item"
-              />
-            </div>
-            {variantSelect}
-          </div>
-        ) : (
           <ol className="min-w-0 list-none space-y-3">
             {items.map((item, index) => (
               <li key={index} className="flex min-w-0 items-start gap-2">
@@ -899,12 +888,10 @@ function ArrayEditor({
               </li>
             ))}
           </ol>
-        )}
-        {items.length > 0 ? (
-          <div className="mt-2">
-            <AddItemButton onClick={addDefault} />
-          </div>
         ) : null}
+        <div className={items.length > 0 ? "mt-2" : undefined}>
+          <AddItemButton onClick={addDefault} autoFocus={autoFocus} />
+        </div>
       </div>
     </NestedRawSwitch>
   );
