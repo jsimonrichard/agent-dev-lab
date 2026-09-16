@@ -10,7 +10,7 @@ import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import { resolveAllowEnv, type AllowEnv } from "../allow-env.ts";
 import type { BashExecutor, BashExecutorUpdate } from "../executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES } from "../process-channel.ts";
-import { existingSystemReadPaths } from "../read-bounds.ts";
+import { expandedRootDenyReadPaths, existingSystemReadPaths } from "../read-bounds.ts";
 import { resolveCommandOnPath } from "../resolve-command.ts";
 import { UNBOUNDED_ALLOW_READ } from "../../unbounded-allow-read.ts";
 import {
@@ -330,11 +330,17 @@ export function createAsrtBashExecutor(options: AsrtBashExecutorOptions): BashEx
     filesystem: {
       allowWrite,
       // ASRT is deny-then-allow: a bound list only confines reads if something first
-      // denies the host. Keep that `/` (and the system/vendor carve-outs below) inside
-      // this config — describe() reports the caller lists, not this encoding.
+      // denies the host. Keep that encoding (and the system/vendor carve-outs below)
+      // inside this config — describe() reports the caller lists, not this encoding.
+      // Expand `/` ourselves and skip usr-merge symlink mounts (`/bin` → `usr/bin`):
+      // ASRT's `denyRead: ["/"]` tmpfs's each root child and bwrap aborts with
+      // `Can't mount on symlink destination /bin` on Arch and other usr-merged hosts.
       // Linux HTTP/SOCKS bridge sockets live under os.tmpdir() and are re-bound at
       // wrap time in the supervisor — they do not exist yet when this config is built.
-      denyRead: allowRead === UNBOUNDED_ALLOW_READ ? denyRead : ["/", ...denyRead],
+      denyRead:
+        allowRead === UNBOUNDED_ALLOW_READ
+          ? denyRead
+          : [...expandedRootDenyReadPaths(), ...denyRead],
       ...(allowRead === UNBOUNDED_ALLOW_READ
         ? {}
         : { allowRead: [...allowRead, asrtPackageDir(), ...existingSystemReadPaths()] }),

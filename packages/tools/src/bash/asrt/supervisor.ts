@@ -96,11 +96,12 @@ function uniqueExisting(paths: Array<string | undefined>): string[] {
 
 /**
  * Linux ASRT puts the HTTP/SOCKS bridge sockets under `os.tmpdir()` and `--bind`s them
- * *before* `generateFilesystemArgs`. A bounded `allowRead` is encoded as `denyRead: ["/"]`,
- * which tmpfs's each root child including `/tmp` and hides those sockets — allowed and
- * denied domains then fail identically (`Proxy CONNECT aborted`). Union the sockets into
- * wrap-time `allowRead` so they are re-bound over the tmpfs. Unbounded reads do not deny
- * `/` and need no extra carve-out.
+ * *before* `generateFilesystemArgs`. A bounded `allowRead` is encoded as an expanded
+ * root-child `denyRead` list (not literal `"/"` — usr-merge `/bin` symlinks cannot be
+ * tmpfs'd after ASRT's `--ro-bind / /`), which tmpfs's `/tmp` and hides those sockets —
+ * allowed and denied domains then fail identically (`Proxy CONNECT aborted`). Union the
+ * sockets into wrap-time `allowRead` so they are re-bound over the tmpfs. Unbounded reads
+ * do not deny `/tmp` and need no extra carve-out.
  */
 function linuxBridgeWrapConfig(
   config: SandboxRuntimeConfig,
@@ -108,7 +109,9 @@ function linuxBridgeWrapConfig(
   if (process.platform !== "linux") {
     return undefined;
   }
-  if (!(config.filesystem.denyRead ?? []).includes("/")) {
+  const denyRead = config.filesystem.denyRead ?? [];
+  // Bounded encoding denies `/tmp` (or legacy `"/"`); unbounded leaves host `/tmp` visible.
+  if (!denyRead.includes("/") && !denyRead.includes("/tmp")) {
     return undefined;
   }
   const sockets = uniqueExisting([

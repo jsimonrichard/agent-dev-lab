@@ -8,7 +8,7 @@ import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { resolveAllowEnv, type AllowEnv } from "./allow-env.ts";
 import type { BashExecutor, BashExecutorUpdate } from "./executor.ts";
 import { DEFAULT_MAX_OUTPUT_BYTES, runArgvIntoChannel } from "./process-channel.ts";
-import { existingSystemReadPaths } from "./read-bounds.ts";
+import { systemReadBwrapArgs } from "./read-bounds.ts";
 import { resolveCommandOnPath } from "./resolve-command.ts";
 
 export interface NativeBashExecutorOptions {
@@ -122,9 +122,7 @@ function buildBwrapArgv(
   if (allowRead === UNBOUNDED_ALLOW_READ) {
     argv.push("--ro-bind", "/", "/");
   } else {
-    for (const p of existingSystemReadPaths()) {
-      argv.push("--ro-bind", p, p);
-    }
+    argv.push(...systemReadBwrapArgs());
   }
   argv.push("--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp");
   if (allowRead !== UNBOUNDED_ALLOW_READ) {
