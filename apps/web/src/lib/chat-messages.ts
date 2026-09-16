@@ -66,13 +66,15 @@ export function conversationMessagesWithoutSystem(
 export function shouldShowStreamingAssistant(
   messages: InspectorMessage[],
   streamingText: string | undefined | null,
-  options: { isRunning: boolean; sending: boolean },
+  options: { isRunning: boolean },
 ): boolean {
   const trimmed = streamingText?.trim();
   if (!trimmed) {
     return false;
   }
-  if (options.isRunning || options.sending) {
+  // Do not treat `sending` as active stream — that revived the prior turn's
+  // held text beside a new optimistic user message. Typing uses `isStreaming`.
+  if (options.isRunning) {
     return true;
   }
   const last = messages[messages.length - 1];

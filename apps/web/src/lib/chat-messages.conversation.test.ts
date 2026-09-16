@@ -38,7 +38,7 @@ describe("shouldShowStreamingAssistant", () => {
       shouldShowStreamingAssistant(
         [{ id: "pending-1", role: "user", content: "Hi", parts: [{ type: "text", text: "Hi" }] }],
         "Hello there",
-        { isRunning: false, sending: false },
+        { isRunning: false },
       ),
     ).toBe(true);
 
@@ -54,7 +54,42 @@ describe("shouldShowStreamingAssistant", () => {
           },
         ],
         "Hello there",
-        { isRunning: false, sending: false },
+        { isRunning: false },
+      ),
+    ).toBe(false);
+  });
+
+  it("hides when the last stored assistant already matches (sending is not a factor)", async () => {
+    const { shouldShowStreamingAssistant } = await import("./chat-messages");
+
+    expect(
+      shouldShowStreamingAssistant(
+        [
+          { id: "u", role: "user", content: "Hi", parts: [{ type: "text", text: "Hi" }] },
+          {
+            id: "a",
+            role: "assistant",
+            content: "Hello there",
+            parts: [{ type: "text", text: "Hello there" }],
+          },
+        ],
+        "Hello there",
+        { isRunning: false },
+      ),
+    ).toBe(false);
+
+    expect(
+      shouldShowStreamingAssistant(
+        [
+          {
+            id: "pending-2",
+            role: "user",
+            content: "Again",
+            parts: [{ type: "text", text: "Again" }],
+          },
+        ],
+        "",
+        { isRunning: false },
       ),
     ).toBe(false);
   });
@@ -94,7 +129,7 @@ describe("shouldShowStreamingAssistant", () => {
           },
         ],
         "Done with ls.",
-        { isRunning: false, sending: false },
+        { isRunning: false },
       ),
     ).toBe(true);
   });

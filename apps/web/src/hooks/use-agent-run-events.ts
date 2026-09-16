@@ -14,6 +14,11 @@ interface UseAgentRunEventsOptions {
   onFinished?: () => void | Promise<void>;
   /** Title updated (e.g. sidebar); avoid refetching messages here to prevent UI flash. */
   onTitleSet?: () => void;
+  /**
+   * Surfaces failures from `onFinished` refresh work (and later `agent_failed`).
+   * Required — otherwise refresh rejections become silent or unhandled.
+   */
+  onError: (error: unknown) => void;
 }
 
 /**
@@ -25,8 +30,8 @@ interface UseAgentRunEventsOptions {
  * also fires when messages are committed so tool calls appear before the next
  * request streams text.
  */
-export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEventsOptions = {}) {
-  const { enabled = true, onFinished, onTitleSet } = options;
+export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEventsOptions) {
+  const { enabled = true, onFinished, onTitleSet, onError } = options;
   const { offline } = useInspectorConnection();
   const [streamingText, setStreamingText] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -34,8 +39,10 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
   const streamingTextRef = useRef("");
   const onFinishedRef = useRef(onFinished);
   const onTitleSetRef = useRef(onTitleSet);
+  const onErrorRef = useRef(onError);
   onFinishedRef.current = onFinished;
   onTitleSetRef.current = onTitleSet;
+  onErrorRef.current = onError;
 
   useEffect(() => {
     lastSeqRef.current = 0;
@@ -53,6 +60,10 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
   useEffect(() => {
     if (!enabled || offline) {
       setIsRunning(false);
+      // Drop held text when the client disables the stream (new send) so the
+      // previous turn cannot reappear beside the next optimistic user message.
+      streamingTextRef.current = "";
+      setStreamingText("");
       return;
     }
 
@@ -76,17 +87,21 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
     const refreshAfterCommit = () => {
       const snapshot = streamingTextRef.current;
       const result = onFinishedRef.current?.();
-      void Promise.resolve(result).finally(() => {
-        // Drop the pre-commit buffer only if no newer deltas arrived (next tool-loop step).
-        setStreamingText((prev) => {
-          if (prev !== snapshot) {
-            streamingTextRef.current = prev;
-            return prev;
-          }
-          streamingTextRef.current = "";
-          return "";
+      void Promise.resolve(result)
+        .catch((error: unknown) => {
+          onErrorRef.current(error);
+        })
+        .finally(() => {
+          // Drop the pre-commit buffer only if no newer deltas arrived (next tool-loop step).
+          setStreamingText((prev) => {
+            if (prev !== snapshot) {
+              streamingTextRef.current = prev;
+              return prev;
+            }
+            streamingTextRef.current = "";
+            return "";
+          });
         });
-      });
     };
 
     const stop = () => {

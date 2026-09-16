@@ -103,6 +103,8 @@ export function AgentRunWorkspace({
   }, [conversation.runId]);
 
   useEffect(() => {
+    // Only reseed on conversation change — not when invalidate rebuilds seed/settings
+    // object identity after a turn or title update (that wiped in-progress edits).
     const seeded = seedToolProviderContextForm({
       fields: settings.toolProviderContext.fields,
       sample: settings.toolProviderContext.sample,
@@ -110,7 +112,7 @@ export function AgentRunWorkspace({
     });
     setContextValues(seeded.values);
     setContextJson(seeded.rawJson);
-  }, [conversation.runId, conversation.nextToolProviderContextSeed, settings.toolProviderContext]);
+  }, [conversation.runId]);
 
   useEffect(() => {
     if (!effectiveCallId) {
@@ -165,11 +167,13 @@ export function AgentRunWorkspace({
       }
     },
     onTitleSet: refreshConversationMeta,
+    onError: (caught) => {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    },
   });
 
   const showStreamingAssistant = shouldShowStreamingAssistant(messages, streamingText, {
     isRunning,
-    sending,
   });
   const focusStreaming = Boolean(
     callId && showStreamingAssistant && conversation.latestAgentCallId === callId,
@@ -250,9 +254,10 @@ export function AgentRunWorkspace({
       setSending(false);
       return;
     }
+    const pendingId = `pending-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
-      { id: `pending-${Date.now()}`, role: "user", content: text, parts: [{ type: "text", text }] },
+      { id: pendingId, role: "user", content: text, parts: [{ type: "text", text }] },
     ]);
     const result = await sendAgentMessage({
       data: {
@@ -263,6 +268,7 @@ export function AgentRunWorkspace({
       },
     });
     if (result.isErr) {
+      setMessages((prev) => prev.filter((message) => message.id !== pendingId));
       setError(result.error);
       setSending(false);
       return;
