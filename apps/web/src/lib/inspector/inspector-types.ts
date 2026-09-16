@@ -38,6 +38,8 @@ export interface JsonSchemaObjectField {
   required: boolean;
   /** Zod `.default()` when present — distinct from optional omit. */
   default?: JsonValue;
+  /** Zod `.describe()` when present. */
+  description?: string;
 }
 
 export interface WorkflowInputField {

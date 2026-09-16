@@ -14,6 +14,7 @@ import type { JsonSchemaType } from "#/lib/inspector/inspector-types";
 import type { JsonValue } from "#/lib/view-model/types";
 import { JsonCodeEditor } from "@/components/app/json-code-editor";
 import { JsonDocument } from "@/components/app/json-document";
+import { SchemaFieldDescription } from "@/components/app/schema-field-description";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -1159,6 +1160,7 @@ function ObjectEditor({
                   </span>
                 ) : null}
               </p>
+              <SchemaFieldDescription>{field.description}</SchemaFieldDescription>
               <div className={cn("min-w-0", nested && "pl-4")}>
                 <TypedEditor
                   value={child}

@@ -118,6 +118,42 @@ describe("describeWorkflowInput", () => {
     ]);
   });
 
+  it("keeps .describe() on nested object fields", () => {
+    expect(
+      describeWorkflowInput(
+        z.object({
+          sandbox: z.object({
+            allowNetwork: z
+              .boolean()
+              .default(false)
+              .describe("When true, bash may use the network."),
+          }),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: "sandbox",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: {
+          type: "object",
+          extra: false,
+          fields: [
+            {
+              name: "allowNetwork",
+              required: true,
+              default: false,
+              description: "When true, bash may use the network.",
+              schema: { type: "boolean" },
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
   it("keeps .describe() on a defaulted field", () => {
     expect(
       describeWorkflowInput(

@@ -28,6 +28,7 @@ import {
   ModeToggle,
 } from "@/components/app/json-editor";
 import { SchemaFieldControl } from "@/components/app/schema-field-control";
+import { SchemaFieldDescription } from "@/components/app/schema-field-description";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -678,16 +679,19 @@ function ToolProviderContextSection({
       {!editable && fields.length > 0 ? (
         <ul className="space-y-1.5">
           {fields.map((field) => (
-            <li key={field.name} className="font-mono text-[11px]">
-              {field.name}: {field.kind}
-              {field.default !== undefined ? (
-                <span className="text-muted-foreground">
-                  {" "}
-                  (default {JSON.stringify(field.default)})
-                </span>
-              ) : field.required ? null : (
-                <span className="text-muted-foreground"> (optional)</span>
-              )}
+            <li key={field.name} className="space-y-1">
+              <p className="font-mono text-[11px]">
+                {field.name}: {field.kind}
+                {field.default !== undefined ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    (default {JSON.stringify(field.default)})
+                  </span>
+                ) : field.required ? null : (
+                  <span className="text-muted-foreground"> (optional)</span>
+                )}
+              </p>
+              <SchemaFieldDescription>{field.description}</SchemaFieldDescription>
             </li>
           ))}
         </ul>

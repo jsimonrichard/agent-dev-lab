@@ -347,6 +347,7 @@ function describeConcreteJsonType(
           required: unwrapped.required,
           schema: describeJsonType(fieldSchema, depth + 1),
           ...(unwrapped.default !== undefined ? { default: unwrapped.default } : {}),
+          ...(unwrapped.description !== undefined ? { description: unwrapped.description } : {}),
         };
       }),
     };

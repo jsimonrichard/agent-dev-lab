@@ -1,6 +1,7 @@
 import type { WorkflowInputField } from "#/lib/inspector/inspector-types";
 
 import { JsonTextEditor, JsonTypedEditor } from "@/components/app/json-editor";
+import { SchemaFieldDescription } from "@/components/app/schema-field-description";
 import { Label } from "@/components/ui/label";
 import {
   jsonTypeFromField,
@@ -46,34 +47,22 @@ export function SchemaFieldControl({
   onJsonValidityChange?: (error: string | null) => void;
 }) {
   const id = `${idPrefix}-${field.name}`;
-
-  if (field.kind === "json") {
-    return (
-      <div className="grid gap-3">
-        <SchemaFieldLabel htmlFor={id} field={field} />
-        <JsonTextEditor
-          id={id}
-          autoFocus={autoFocus}
-          value={typeof value === "string" ? value : ""}
-          jsonType={field.jsonType}
-          title={field.name}
-          description={field.description}
-          presentation={jsonPresentation}
-          optional={!field.required}
-          defaultValue={field.default}
-          onChange={onChange}
-          onValidityChange={onJsonValidityChange}
-        />
-        {field.description ? (
-          <p className="text-xs text-muted-foreground">{field.description}</p>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-3">
-      <SchemaFieldLabel htmlFor={id} field={field} />
+  const editor =
+    field.kind === "json" ? (
+      <JsonTextEditor
+        id={id}
+        autoFocus={autoFocus}
+        value={typeof value === "string" ? value : ""}
+        jsonType={field.jsonType}
+        title={field.name}
+        description={field.description}
+        presentation={jsonPresentation}
+        optional={!field.required}
+        defaultValue={field.default}
+        onChange={onChange}
+        onValidityChange={onJsonValidityChange}
+      />
+    ) : (
       <JsonTypedEditor
         value={jsonValueFromSchemaField(field, value)}
         jsonType={jsonTypeFromField(field)}
@@ -83,9 +72,13 @@ export function SchemaFieldControl({
         autoFocus={autoFocus}
         onChange={(next) => onChange(schemaFieldFromJsonValue(field, next))}
       />
-      {field.description ? (
-        <p className="text-xs text-muted-foreground">{field.description}</p>
-      ) : null}
+    );
+
+  return (
+    <div className="grid gap-3">
+      <SchemaFieldLabel htmlFor={id} field={field} />
+      <SchemaFieldDescription>{field.description}</SchemaFieldDescription>
+      {editor}
     </div>
   );
 }
