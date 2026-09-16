@@ -634,15 +634,15 @@ function ToolProviderContextSection({
                     : "Passed on the next send as toolProviderContext. Invalid JSON is not saved."}
                 </DialogDescription>
               </DialogHeader>
+              {sourceToggle}
               <div
                 key={editorEpoch}
                 className={
                   fields.length === 0 || source === "json"
                     ? "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
-                    : "flex min-h-0 flex-1 flex-col gap-4 overflow-auto"
+                    : "min-h-0 flex-1 overflow-auto"
                 }
               >
-                {sourceToggle}
                 {formFields}
                 {rawJsonField}
               </div>
