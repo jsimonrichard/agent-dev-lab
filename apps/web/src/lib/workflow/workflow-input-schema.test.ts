@@ -158,6 +158,16 @@ describe("sampleWorkflowInput", () => {
     });
   });
 
+  it("does not invent values for optional fields without Zod defaults", () => {
+    const schema = z
+      .object({
+        allowNetwork: z.boolean(),
+        allowWrite: z.array(z.string()),
+      })
+      .partial();
+    expect(sampleWorkflowInput(schema)).toEqual({});
+  });
+
   it("maps a sample object into start-run form values", () => {
     expect(
       workflowInputValuesFromSample(
@@ -184,6 +194,32 @@ describe("buildWorkflowInput", () => {
     expect(() =>
       buildWorkflowInput([{ name: "topic", kind: "string", required: true }], { topic: "" }),
     ).toThrow("topic is required");
+  });
+
+  it("omits unset optional booleans instead of coercing them to false", () => {
+    expect(
+      buildWorkflowInput(
+        [
+          { name: "allowNetwork", kind: "boolean", required: false },
+          { name: "allowWrite", kind: "json", required: false },
+        ],
+        {},
+      ),
+    ).toEqual({});
+  });
+
+  it("includes an explicit false optional boolean", () => {
+    expect(
+      buildWorkflowInput([{ name: "allowNetwork", kind: "boolean", required: false }], {
+        allowNetwork: false,
+      }),
+    ).toEqual({ allowNetwork: false });
+  });
+
+  it("rejects a missing required boolean", () => {
+    expect(() =>
+      buildWorkflowInput([{ name: "flag", kind: "boolean", required: true }], {}),
+    ).toThrow("flag is required");
   });
 
   it("returns an empty object when the workflow has no input fields", () => {

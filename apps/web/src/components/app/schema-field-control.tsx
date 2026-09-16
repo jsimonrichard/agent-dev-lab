@@ -49,6 +49,38 @@ export function SchemaFieldControl({
   const id = `${idPrefix}-${field.name}`;
 
   if (field.kind === "boolean") {
+    if (!field.required) {
+      const selected =
+        value === true || value === "true"
+          ? "true"
+          : value === false || value === "false"
+            ? "false"
+            : UNSET_SELECT_VALUE;
+      return (
+        <div className="grid gap-2">
+          <SchemaFieldLabel htmlFor={id} field={field} />
+          <Select
+            value={selected}
+            onValueChange={(next) => {
+              if (next === UNSET_SELECT_VALUE) {
+                onChange("");
+                return;
+              }
+              onChange(next === "true");
+            }}
+          >
+            <SelectTrigger id={id} className="w-full" autoFocus={autoFocus}>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNSET_SELECT_VALUE}>—</SelectItem>
+              <SelectItem value="true">true</SelectItem>
+              <SelectItem value="false">false</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-2">
         <input

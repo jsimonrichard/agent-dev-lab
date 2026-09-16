@@ -391,8 +391,21 @@ export function buildWorkflowInput(
   for (const field of fields) {
     const raw = values[field.name];
     if (field.kind === "boolean") {
-      input[field.name] = raw === true || raw === "true";
-      continue;
+      if (raw === true || raw === "true") {
+        input[field.name] = true;
+        continue;
+      }
+      if (raw === false || raw === "false") {
+        input[field.name] = false;
+        continue;
+      }
+      if (raw === undefined || raw === "") {
+        if (field.required) {
+          throw new Error(`${field.name} is required`);
+        }
+        continue;
+      }
+      throw new Error(`${field.name} must be a boolean`);
     }
 
     const text = typeof raw === "string" ? raw.trim() : "";
