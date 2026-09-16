@@ -42,6 +42,7 @@ import {
   DEFAULT_FETCH_TIMEOUT_MS,
   DEFAULT_MAX_REDIRECTS,
   DEFAULT_MAX_RESPONSE_BYTES,
+  FETCH_URL_DESCRIPTION,
   type FetchUrlTool,
 } from "../web/tools";
 import { releaseBashExecutor } from "../bash/executor-pool.ts";
@@ -290,7 +291,6 @@ export function createWorkspaceToolProvider(
 ): ToolProvider<WorkspaceTools, WorkspaceToolProviderContext | undefined> {
   const fetchUrlOptionEnabled = options.fetchUrl !== false;
   assertFetchConfigAllowed(fetchUrlOptionEnabled, setKeys(options, FETCH_OPTION_KEYS), "options");
-  const listFetchUrl = workspaceFetchUrlEnabled(options);
 
   // Fail closed at construction when options alone are already contradictory.
   if (options.executor) {
@@ -370,7 +370,15 @@ export function createWorkspaceToolProvider(
         { name: "grep", description: GREP_DESCRIPTION },
         { name: "glob", description: GLOB_DESCRIPTION },
         ...dropOwnDescribeEnv(bashList ?? []),
-        ...(listFetchUrl && webProvider ? dropOwnDescribeEnv(webProvider.listTools?.() ?? []) : []),
+        ...(fetchUrlOptionEnabled
+          ? [
+              {
+                name: "fetchUrl",
+                description:
+                  FETCH_URL_DESCRIPTION + " Only added to a run when allowNetwork is true.",
+              },
+            ]
+          : []),
         {
           name: "describeWorkspaceEnv",
           description: describeWorkspaceEnvDescription(fetchUrlOptionEnabled),

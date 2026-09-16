@@ -142,23 +142,9 @@ describe("createWorkspaceToolProvider", () => {
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
-  it("lists fetchUrl only when allowNetwork is true", () => {
-    const withoutNetwork = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
-    expect(withoutNetwork.listTools?.().map((summary) => summary.name)).toEqual([
-      "readFile",
-      "writeFile",
-      "editFile",
-      "grep",
-      "glob",
-      "bash",
-      "describeWorkspaceEnv",
-    ]);
-    const withNetwork = createWorkspaceToolProvider({
-      executor: stubExecutor(),
-      cwd: root,
-      allowNetwork: true,
-    });
-    expect(withNetwork.listTools?.().map((summary) => summary.name)).toEqual([
+  it("lists fetchUrl unless constructed with fetchUrl: false", () => {
+    const withFetch = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    expect(withFetch.listTools?.().map((summary) => summary.name)).toEqual([
       "readFile",
       "writeFile",
       "editFile",
@@ -168,6 +154,15 @@ describe("createWorkspaceToolProvider", () => {
       "fetchUrl",
       "describeWorkspaceEnv",
     ]);
+    expect(
+      withFetch.listTools?.().find((summary) => summary.name === "fetchUrl")?.description,
+    ).toContain("allowNetwork");
+    const withoutFetch = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      fetchUrl: false,
+    });
+    expect(withoutFetch.listTools?.().map((summary) => summary.name)).not.toContain("fetchUrl");
   });
 
   it("describeWorkspaceEnv reports fileAccess, bashAccess, and webAccess together", async () => {
@@ -341,7 +336,7 @@ describe("createWorkspaceToolProvider", () => {
       executor: stubExecutor(),
       cwd: root,
     });
-    expect(provider.listTools?.().map((summary) => summary.name)).not.toContain("fetchUrl");
+    expect(provider.listTools?.().map((summary) => summary.name)).toContain("fetchUrl");
     expect(
       provider.listTools?.().find((summary) => summary.name === "describeWorkspaceEnv")
         ?.description,
