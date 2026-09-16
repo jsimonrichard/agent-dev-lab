@@ -58,8 +58,8 @@ export interface AsrtBashExecutorOptions {
   /**
    * Directory ASRT sets as `TMPDIR` inside the sandbox (via `CLAUDE_CODE_TMPDIR` on the
    * supervisor). Omitted → a fresh `mkdtemp` this executor owns and removes on `dispose()`.
-   * An existing path must be a real directory (`lstat`), owned by the current uid, and not
-   * group/other-writable — otherwise throw rather than adopt a squat.
+   * An explicit path is created if missing, must pass the ownership guard, and is **never**
+   * removed on dispose (caller owns lifecycle — safe to share across pool keys).
    */
   tmpDir?: string;
 }

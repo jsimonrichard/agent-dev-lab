@@ -65,11 +65,11 @@ describe("resolveAsrtTmpDir", () => {
     }
   });
 
-  it("creates a missing requested path and marks it for dispose", () => {
+  it("creates a missing requested path but leaves lifecycle to the caller", () => {
     const dir = path.join(scratch, "created");
     const resolved = resolveAsrtTmpDir(dir);
     expect(resolved.path).toBe(dir);
-    expect(resolved.removeOnDispose).toBe(true);
+    expect(resolved.removeOnDispose).toBe(false);
     expect(lstatSync(dir).isDirectory()).toBe(true);
   });
 

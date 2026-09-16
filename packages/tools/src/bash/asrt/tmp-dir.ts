@@ -46,15 +46,21 @@ export function assertOwnedDirectory(dir: string): void {
 
 export interface ResolvedAsrtTmpDir {
   path: string;
-  /** `true` when this process created the directory and should remove it on dispose. */
+  /**
+   * `true` only for auto-`mkdtemp` directories (omitted `requested`).
+   * Caller-supplied paths are never removed — even if we created a missing
+   * directory — so two pool entries sharing an explicit `tmpDir` cannot
+   * `rm -rf` each other's `TMPDIR`.
+   */
   removeOnDispose: boolean;
 }
 
 /**
  * Resolve the directory ASRT will set as `TMPDIR` inside the sandbox
  * (`CLAUDE_CODE_TMPDIR` on the supervisor). Omitted `requested` → a fresh
- * `mkdtemp` under `os.tmpdir()`. An existing path must already pass
- * {@link assertOwnedDirectory}; a missing path is created `0o700` then checked.
+ * `mkdtemp` under `os.tmpdir()` that this executor owns and removes on dispose.
+ * An explicit path is created if missing (`0o700`) then ownership-checked; the
+ * caller retains lifecycle (never removed on dispose).
  */
 export function resolveAsrtTmpDir(requested?: string): ResolvedAsrtTmpDir {
   if (requested === undefined) {
@@ -64,13 +70,12 @@ export function resolveAsrtTmpDir(requested?: string): ResolvedAsrtTmpDir {
     return { path: dir, removeOnDispose: true };
   }
   const dir = path.resolve(requested);
-  const existed = existsSync(dir);
-  if (!existed) {
+  if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
     chmodSync(dir, 0o700);
   }
   assertOwnedDirectory(dir);
-  return { path: dir, removeOnDispose: !existed };
+  return { path: dir, removeOnDispose: false };
 }
 
 /** Recreate `dir` if it vanished after dispose (same path, so ASRT allowWrite stays valid). */
