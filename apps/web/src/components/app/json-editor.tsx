@@ -789,37 +789,35 @@ function TypedEditor({
       onChange={onChange}
       autoFocus={autoFocus}
     />
+  ) : omitted && showSelect ? (
+    <p className="font-mono text-xs text-muted-foreground">omitted</p>
   ) : null;
+  const block = bodyType?.type === "array" || bodyType?.type === "object";
 
   return (
     <div className="min-w-0 space-y-2">
-      {typeControl ? (
-        <div className="flex min-h-8 items-center justify-end">{typeControl}</div>
-      ) : null}
       {mismatch ? (
         <p role="alert" className="text-[10px] text-destructive">
           Value does not match {jsonType ? jsonTypeLabel(jsonType) : "schema"}. Choose a type or
           edit JSON.
         </p>
       ) : null}
-      {showSelect ? (
-        body
-      ) : (
-        <OptionalValueRow
-          optional={optional}
-          omitted={omitted}
-          showClear={showFieldClear}
-          typeHint={staticType}
-          onClear={() => {
-            if (!optional) {
-              throw new Error("json editor clear called on a required slot");
-            }
-            onChange(undefined);
-          }}
-        >
-          {body}
-        </OptionalValueRow>
-      )}
+      <OptionalValueRow
+        optional={optional && !showSelect}
+        omitted={omitted}
+        showClear={showFieldClear}
+        typeHint={staticType}
+        trailing={typeControl}
+        align={block ? "start" : "center"}
+        onClear={() => {
+          if (!optional) {
+            throw new Error("json editor clear called on a required slot");
+          }
+          onChange(undefined);
+        }}
+      >
+        {body}
+      </OptionalValueRow>
     </div>
   );
 }
@@ -912,19 +910,24 @@ function OptionalValueRow({
   onClear,
   children,
   typeHint,
+  trailing,
   showClear = true,
+  align = "start",
 }: {
   optional: boolean;
   omitted: boolean;
   onClear: () => void;
   children: ReactNode;
   typeHint?: ReactNode;
+  trailing?: ReactNode;
   showClear?: boolean;
+  align?: "start" | "center";
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-2">
+    <div className={cn("flex min-w-0 gap-2", align === "center" ? "items-center" : "items-start")}>
       <div className="min-w-0 flex-1">{children}</div>
       {typeHint}
+      {trailing}
       {showClear && optional && !omitted ? <ClearFieldButton onClick={onClear} /> : null}
     </div>
   );
