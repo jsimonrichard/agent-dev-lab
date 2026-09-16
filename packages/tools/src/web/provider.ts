@@ -67,24 +67,22 @@ export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAcces
 
 /**
  * Validates a `toolProviderContext` passed to `createWebToolProvider` — ground truth for
- * `WebToolProviderContext`, which is `z.infer`'d from it below rather than hand-typed alongside
+ * `WebToolProviderContext`, which is `z.input`'d from it below rather than hand-typed alongside
  * it, so the two shapes can't drift. `allowedUrls` accepts a glob string or a `RegExp` instance
  * per entry — matching `AddressPolicy.allowedUrls`/`UrlPattern` exactly, not just the string half
  * of it, since a caller building `toolProviderContext` programmatically should get the same
  * schema-level guarantee this provider actually enforces at runtime.
  */
-export const webToolProviderContextSchema = z
-  .object({
-    allowedUrls: z
-      .array(z.union([z.string(), z.instanceof(RegExp)]))
-      .readonly()
-      .default([]),
-    allowPrivateNetwork: z.boolean().default(false),
-    timeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS),
-    maxResponseBytes: z.number().default(DEFAULT_MAX_RESPONSE_BYTES),
-    maxRedirects: z.number().default(DEFAULT_MAX_REDIRECTS),
-  })
-  .partial();
+export const webToolProviderContextSchema = z.object({
+  allowedUrls: z
+    .array(z.union([z.string(), z.instanceof(RegExp)]))
+    .readonly()
+    .default([]),
+  allowPrivateNetwork: z.boolean().default(false),
+  timeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS),
+  maxResponseBytes: z.number().default(DEFAULT_MAX_RESPONSE_BYTES),
+  maxRedirects: z.number().default(DEFAULT_MAX_REDIRECTS),
+});
 
 /**
  * Overrides `options` for one call — every field is optional, defaulting to `options`'s own
@@ -93,7 +91,7 @@ export const webToolProviderContextSchema = z
  * survives here (unlike `WebAccessInfo.allowedUrls`) since this is a plain in-process value,
  * never serialized through JSON.
  */
-export type WebToolProviderContext = z.infer<typeof webToolProviderContextSchema>;
+export type WebToolProviderContext = z.input<typeof webToolProviderContextSchema>;
 
 /**
  * Defaults for `createWebToolProvider`'s `fetchUrl` — every `WebToolProviderContext` field, used

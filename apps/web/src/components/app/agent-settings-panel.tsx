@@ -680,7 +680,14 @@ function ToolProviderContextSection({
           {fields.map((field) => (
             <li key={field.name} className="font-mono text-[11px]">
               {field.name}: {field.kind}
-              {field.required ? null : <span className="text-muted-foreground"> (optional)</span>}
+              {field.default !== undefined ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  (default {JSON.stringify(field.default)})
+                </span>
+              ) : field.required ? null : (
+                <span className="text-muted-foreground"> (optional)</span>
+              )}
             </li>
           ))}
         </ul>

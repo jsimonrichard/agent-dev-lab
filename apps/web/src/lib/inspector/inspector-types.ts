@@ -36,6 +36,8 @@ export interface JsonSchemaObjectField {
   name: string;
   schema: JsonSchemaType;
   required: boolean;
+  /** Zod `.default()` when present — distinct from optional omit. */
+  default?: JsonValue;
 }
 
 export interface WorkflowInputField {
@@ -44,6 +46,8 @@ export interface WorkflowInputField {
   required: boolean;
   description?: string;
   options?: string[];
+  /** Zod `.default()` when present — distinct from optional omit. */
+  default?: JsonValue;
   /** Present when {@link kind} is `"json"` — nested editor follows this type. */
   jsonType?: JsonSchemaType;
 }

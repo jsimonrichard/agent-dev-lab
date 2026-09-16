@@ -185,17 +185,15 @@ export function createFileToolProvider(
   const cache = new Map<string, FileTools>();
 
   return {
-    contextSchema: z
-      .object({
-        root: z.string(),
-        allowRead: fileAllowReadSchema,
-        allowWrite: z.array(z.string()),
-        denyRead: z.array(z.string()),
-        denyWrite: z.array(z.string()),
-        maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
-        maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
-      })
-      .partial(),
+    contextSchema: z.object({
+      root: z.string().optional(),
+      allowRead: fileAllowReadSchema.optional(),
+      allowWrite: z.array(z.string()).optional(),
+      denyRead: z.array(z.string()).optional(),
+      denyWrite: z.array(z.string()).optional(),
+      maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
+      maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
+    }),
     listTools(): ToolProviderToolSummary[] {
       return [
         { name: "readFile", description: READ_FILE_DESCRIPTION },

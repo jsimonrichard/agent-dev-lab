@@ -23,6 +23,7 @@ interface ZodLike {
     options?: unknown;
     getter?: () => ZodLike;
     description?: string;
+    defaultValue?: unknown | (() => unknown);
   };
   shape?: Record<string, ZodLike>;
   element?: ZodLike;
@@ -45,10 +46,32 @@ function isUndefinedType(schema: ZodLike): boolean {
   return name === "ZodUndefined" || name === "undefined";
 }
 
-function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; description?: string } {
+function jsonDefault(value: unknown): JsonValue | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value)) as JsonValue;
+  } catch {
+    return undefined;
+  }
+}
+
+function defaultOf(schema: ZodLike): JsonValue | undefined {
+  const raw = schema._def?.defaultValue;
+  return jsonDefault(typeof raw === "function" ? raw() : raw);
+}
+
+function unwrap(schema: ZodLike): {
+  inner: ZodLike;
+  required: boolean;
+  description?: string;
+  default?: JsonValue;
+} {
   let inner = schema;
   let required = true;
   let description = descriptionOf(schema);
+  let defaultValue: JsonValue | undefined;
 
   for (let i = 0; i < 16; i++) {
     const name = typeName(inner);
@@ -82,7 +105,9 @@ function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; descripti
       }
     }
     if (name === "ZodDefault" || name === "default") {
-      required = false;
+      if (defaultValue === undefined) {
+        defaultValue = defaultOf(inner);
+      }
       inner = inner._def?.innerType ?? inner;
       continue;
     }
@@ -102,7 +127,7 @@ function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; descripti
     break;
   }
 
-  return { inner, required, description };
+  return { inner, required, description, default: defaultValue };
 }
 
 function objectShape(schema: ZodLike): Record<string, ZodLike> | null {
@@ -321,6 +346,7 @@ function describeConcreteJsonType(
           name: fieldName,
           required: unwrapped.required,
           schema: describeJsonType(fieldSchema, depth + 1),
+          ...(unwrapped.default !== undefined ? { default: unwrapped.default } : {}),
         };
       }),
     };
@@ -351,6 +377,7 @@ export function describeWorkflowInput(schema: unknown): WorkflowInputField[] {
       required: unwrapped.required,
       description: unwrapped.description,
       options,
+      ...(unwrapped.default !== undefined ? { default: unwrapped.default } : {}),
       ...(kind === "json" ? { jsonType: describeJsonType(fieldSchema) } : {}),
     };
   });

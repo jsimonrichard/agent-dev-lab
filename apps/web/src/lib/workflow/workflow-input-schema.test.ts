@@ -94,10 +94,10 @@ describe("describeWorkflowInput", () => {
     ]);
   });
 
-  it("marks optional and defaulted fields as not required", () => {
+  it("marks optional fields as not required and defaulted fields as present", () => {
     const schema = zodObject({
       steps: zodOptional(zodNumber()),
-      name: zodDefault(zodString()),
+      name: zodDefault(zodString(), "anon"),
     });
     expect(describeWorkflowInput(schema)).toEqual([
       {
@@ -107,7 +107,50 @@ describe("describeWorkflowInput", () => {
         description: undefined,
         options: undefined,
       },
-      { name: "name", kind: "string", required: false, description: undefined, options: undefined },
+      {
+        name: "name",
+        kind: "string",
+        required: true,
+        description: undefined,
+        options: undefined,
+        default: "anon",
+      },
+    ]);
+  });
+
+  it("reads defaults from a live Zod schema without marking them optional", () => {
+    expect(
+      describeWorkflowInput(
+        z.object({
+          allowNetwork: z.boolean().default(false),
+          timeoutMs: z.number().default(30_000),
+          cwd: z.string().optional(),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: "allowNetwork",
+        kind: "boolean",
+        required: true,
+        description: undefined,
+        options: undefined,
+        default: false,
+      },
+      {
+        name: "timeoutMs",
+        kind: "number",
+        required: true,
+        description: undefined,
+        options: undefined,
+        default: 30_000,
+      },
+      {
+        name: "cwd",
+        kind: "string",
+        required: false,
+        description: undefined,
+        options: undefined,
+      },
     ]);
   });
 

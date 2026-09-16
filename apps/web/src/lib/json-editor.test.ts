@@ -124,6 +124,26 @@ describe("schema-driven defaults", () => {
     );
   });
 
+  it("renders Zod .default() instead of .optional() for defaulted fields", () => {
+    expect(
+      jsonTypeToZodText({
+        type: "object",
+        extra: false,
+        fields: [
+          {
+            name: "allowNetwork",
+            required: true,
+            default: false,
+            schema: { type: "boolean" },
+          },
+          { name: "cwd", required: false, schema: { type: "string" } },
+        ],
+      }),
+    ).toBe(
+      `z.object({\n  "allowNetwork": z.boolean().default(false),\n  "cwd": z.string().optional()\n})`,
+    );
+  });
+
   it("matches union options without coercing", () => {
     const options = [
       { type: "array" as const, items: { type: "string" as const } },

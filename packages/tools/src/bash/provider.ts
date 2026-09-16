@@ -336,23 +336,23 @@ export function createBashToolProvider(
   const heldKeys = new Set<string>();
 
   return {
-    contextSchema: z
-      .object({
-        cwd: z.string(),
-        timeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
-        allowWrite: z.array(z.string()),
-        allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]),
-        denyRead: z.array(z.string()),
-        denyWrite: z.array(z.string()),
-        allowedDomains: z.array(z.string()).default([]),
-        deniedDomains: z.array(z.string()).default([]),
-        allowNetwork: z.boolean().default(false),
-        allowEnv: z
-          .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
-          .default([]),
-        tmpDir: z.string(),
-      })
-      .partial(),
+    contextSchema: z.object({
+      cwd: z.string().optional(),
+      timeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
+      allowWrite: z.array(z.string()).optional(),
+      allowRead: z
+        .union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)])
+        .optional(),
+      denyRead: z.array(z.string()).optional(),
+      denyWrite: z.array(z.string()).optional(),
+      allowedDomains: z.array(z.string()).default([]),
+      deniedDomains: z.array(z.string()).default([]),
+      allowNetwork: z.boolean().default(false),
+      allowEnv: z
+        .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
+        .default([]),
+      tmpDir: z.string().optional(),
+    }),
     listTools(): ToolProviderToolSummary[] {
       return [
         { name: "bash", description: BASH_TOOL_DESCRIPTION },

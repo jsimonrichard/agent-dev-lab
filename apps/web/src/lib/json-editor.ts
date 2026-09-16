@@ -192,6 +192,7 @@ export function jsonTypeFromFields(fields: WorkflowInputField[]): JsonSchemaType
       name: field.name,
       required: field.required,
       schema: jsonTypeFromField(field),
+      ...(field.default !== undefined ? { default: field.default } : {}),
     })),
   };
 }
@@ -219,7 +220,12 @@ export function jsonTypeToZodText(schema: JsonSchemaType): string {
       }
       const lines = schema.fields.map((field) => {
         const inner = jsonTypeToZodText(field.schema);
-        const typed = field.required ? inner : `${inner}.optional()`;
+        const typed =
+          field.default !== undefined
+            ? `${inner}.default(${JSON.stringify(field.default)})`
+            : field.required
+              ? inner
+              : `${inner}.optional()`;
         return `  ${JSON.stringify(field.name)}: ${typed}`;
       });
       const extra = schema.extra ? ".passthrough()" : "";

@@ -1088,7 +1088,11 @@ function ObjectEditor({
                     {jsonTypeLabel(field.schema)}
                   </span>
                 )}
-                {field.required ? null : (
+                {field.default !== undefined ? (
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    default {JSON.stringify(field.default)}
+                  </span>
+                ) : field.required ? null : (
                   <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
                     (optional)
                   </span>

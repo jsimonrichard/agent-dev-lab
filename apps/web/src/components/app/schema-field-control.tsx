@@ -16,7 +16,11 @@ function SchemaFieldLabel({ htmlFor, field }: { htmlFor: string; field: Workflow
     <Label htmlFor={htmlFor}>
       {field.name}
       <span className="font-mono text-xs font-normal text-muted-foreground">{typeHint}</span>
-      {field.required ? null : (
+      {field.default !== undefined ? (
+        <span className="font-mono text-xs font-normal text-muted-foreground">
+          default {JSON.stringify(field.default)}
+        </span>
+      ) : field.required ? null : (
         <span className="font-normal text-muted-foreground">(optional)</span>
       )}
     </Label>

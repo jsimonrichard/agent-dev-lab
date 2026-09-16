@@ -322,28 +322,26 @@ export function createWorkspaceToolProvider(
 
   const heldKeys = new Set<string>();
 
-  const workspaceOwnContextSchema = z
-    .object({
-      cwd: z.string(),
-      bashTimeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
-      maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
-      maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
-      allowWrite: z.array(z.string()),
-      allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]),
-      denyRead: z.array(z.string()),
-      denyWrite: z.array(z.string()),
-      allowedDomains: z.array(z.string()).default([]),
-      deniedDomains: z.array(z.string()).default([]),
-      allowNetwork: z
-        .boolean()
-        .default(false)
-        .describe("When true, bash may use the network and the fetchUrl tool is included."),
-      allowEnv: z
-        .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
-        .default([]),
-      tmpDir: z.string(),
-    })
-    .partial();
+  const workspaceOwnContextSchema = z.object({
+    cwd: z.string().optional(),
+    bashTimeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
+    maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
+    maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
+    allowWrite: z.array(z.string()).optional(),
+    allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]).optional(),
+    denyRead: z.array(z.string()).optional(),
+    denyWrite: z.array(z.string()).optional(),
+    allowedDomains: z.array(z.string()).default([]),
+    deniedDomains: z.array(z.string()).default([]),
+    allowNetwork: z
+      .boolean()
+      .default(false)
+      .describe("When true, bash may use the network and the fetchUrl tool is included."),
+    allowEnv: z
+      .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
+      .default([]),
+    tmpDir: z.string().optional(),
+  });
 
   return {
     contextSchema: fetchUrlOptionEnabled
