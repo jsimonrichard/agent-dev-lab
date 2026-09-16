@@ -12,6 +12,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import type { JsonSchemaType } from "#/lib/inspector/inspector-types";
 import type { JsonValue } from "#/lib/view-model/types";
+import { JsonCodeEditor } from "@/components/app/json-code-editor";
 import { JsonDocument } from "@/components/app/json-document";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { JSON_TOKEN_CLASS } from "@/lib/highlight-json";
 import { MAX_JSON_TREE_DEPTH } from "@/lib/json-document";
 import {
@@ -635,18 +635,14 @@ function RawPane({
       )}
     >
       <SchemaHint jsonType={jsonType} />
-      <Textarea
+      <JsonCodeEditor
         id={id}
         autoFocus={autoFocus}
         value={text}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          "font-mono text-xs",
-          fill ? "h-full min-h-0 flex-1 resize-none overflow-auto field-sizing-fixed" : "min-h-20",
-        )}
-        spellCheck={false}
-        aria-invalid={error !== null}
-        aria-describedby={error && id ? `${id}-error` : undefined}
+        fill={fill}
+        invalid={error !== null}
+        describedBy={error && id ? `${id}-error` : undefined}
+        onChange={onChange}
       />
       {error ? (
         <p
@@ -1835,20 +1831,17 @@ function RawNodeEditor({
 
   return (
     <div className="grid min-w-0 gap-1">
-      <Textarea
+      <JsonCodeEditor
         value={focused || error ? draft : pretty}
-        aria-invalid={error !== null}
-        onFocus={() => {
+        invalid={error !== null}
+        onChange={(text) => {
           setFocused(true);
-          setDraft(error ? draft : pretty);
+          setDraft(text);
         }}
-        onBlur={() => {
-          commit(draft);
+        onBlur={(text) => {
+          commit(text);
           setFocused(false);
         }}
-        onChange={(event) => setDraft(event.target.value)}
-        className="min-h-16 font-mono text-[10px]"
-        spellCheck={false}
       />
       {error ? (
         <p role="alert" className="text-[10px] text-destructive">
