@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
@@ -94,6 +94,7 @@ export function AgentRunWorkspace({
       }).rawJson,
   );
   const [contextSource, setContextSource] = useState<ContextEditorSource>("form");
+  const callEventsRequestId = useRef(0);
 
   useEffect(() => {
     setMessages(conversation.messages);
@@ -117,33 +118,44 @@ export function AgentRunWorkspace({
     setContextSource("form");
   }, [conversation.runId]);
 
+  const applyCallEvents = useCallback(
+    (
+      payload: {
+        commits: Array<{ type: string; total?: number; count?: number }>;
+        warnings: string[];
+        error: JsonValue | null;
+        toolProviderContext: unknown | null;
+      },
+      inspect: boolean,
+    ) => {
+      setCallEvents(payload.commits);
+      setWarnings(payload.warnings);
+      setError(payload.error);
+      setInspectedToolContext(inspect ? payload.toolProviderContext : undefined);
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!effectiveCallId) {
       setCallEvents([]);
       setWarnings([]);
+      setError(null);
       setInspectedToolContext(undefined);
       return;
     }
     let cancelled = false;
+    const requestId = ++callEventsRequestId.current;
     void fetchAgentCallEvents({ data: effectiveCallId }).then((payload) => {
-      if (cancelled) {
+      if (cancelled || requestId !== callEventsRequestId.current) {
         return;
       }
-      setCallEvents(payload.commits);
-      setWarnings(payload.warnings);
-      if (payload.error != null) {
-        setError(payload.error);
-      }
-      if (callId && callId === effectiveCallId) {
-        setInspectedToolContext(payload.toolProviderContext);
-      } else {
-        setInspectedToolContext(undefined);
-      }
+      applyCallEvents(payload, Boolean(callId && callId === effectiveCallId));
     });
     return () => {
       cancelled = true;
     };
-  }, [callId, effectiveCallId]);
+  }, [applyCallEvents, callId, effectiveCallId]);
 
   useEffect(() => {
     setMessages((current) => mergeConversationMessages(current, conversation.messages));
@@ -163,16 +175,11 @@ export function AgentRunWorkspace({
     onFinished: async () => {
       await refreshMessages();
       refreshConversationMeta();
-      if (effectiveCallId) {
-        const payload = await fetchAgentCallEvents({ data: effectiveCallId });
-        setCallEvents(payload.commits);
-        setWarnings(payload.warnings);
-        if (payload.error != null) {
-          setError(payload.error);
-        }
-        if (callId && callId === effectiveCallId) {
-          setInspectedToolContext(payload.toolProviderContext);
-        }
+      // Inspecting `?call=` only. Latest-turn events wait for `latestAgentCallId` to
+      // update — fetching the pre-send id would re-apply a prior `agent_failed`.
+      if (callId) {
+        const payload = await fetchAgentCallEvents({ data: callId });
+        applyCallEvents(payload, true);
       }
     },
     onTitleSet: refreshConversationMeta,
@@ -262,6 +269,8 @@ export function AgentRunWorkspace({
     }
     setSending(true);
     setError(null);
+    setWarnings([]);
+    callEventsRequestId.current += 1;
     setStreamEnabled(false);
     let toolProviderContext: unknown;
     try {
