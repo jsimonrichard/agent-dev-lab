@@ -6,3 +6,6 @@ export const ECHO_CHUNK_DELAY_MS = 400;
 
 export const TOOL_LOOP_TOOL_NAME = "lookup";
 export const TOOL_LOOP_DONE = "TOOL_LOOP_DONE";
+
+/** Message thrown by `fail-agent` so Playwright can assert the ErrorDetails banner. */
+export const FAIL_AGENT_MESSAGE = "Fixture model refused to stream";

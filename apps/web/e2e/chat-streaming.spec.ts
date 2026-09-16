@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { ECHO_REPLY, TOOL_LOOP_DONE, TOOL_LOOP_TOOL_NAME } from "./fixture/src/replies";
+import {
+  ECHO_REPLY,
+  FAIL_AGENT_MESSAGE,
+  TOOL_LOOP_DONE,
+  TOOL_LOOP_TOOL_NAME,
+} from "./fixture/src/replies";
 
 test.beforeEach(({ page }) => {
   page.on("console", (msg) => {
@@ -73,5 +78,21 @@ test.describe("inspection UI agent chat streaming", () => {
     await expect(page.getByText("ping-two")).toBeVisible();
     await expect(page.getByText("ping-one")).toBeVisible();
     await expect(page.getByText(ECHO_REPLY)).toHaveCount(2);
+  });
+
+  test("fail-agent: mid-turn model error surfaces in the chat UI without reload", async ({
+    page,
+  }) => {
+    await startConversation(page, "fail-agent");
+    await sendChat(page, "please-fail");
+
+    await expect(page.getByText("please-fail")).toBeVisible();
+    const alert = page.getByRole("alert");
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(FAIL_AGENT_MESSAGE);
+
+    await page.reload();
+    await expect(page.getByTestId("chat-composer")).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText(FAIL_AGENT_MESSAGE);
   });
 });

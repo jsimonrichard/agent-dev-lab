@@ -67,7 +67,7 @@ export function AgentRunWorkspace({
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [forking, setForking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [callEvents, setCallEvents] = useState<
     Array<{ type: string; total?: number; count?: number }>
@@ -128,6 +128,9 @@ export function AgentRunWorkspace({
       }
       setCallEvents(payload.commits);
       setWarnings(payload.warnings);
+      if (payload.error != null) {
+        setError(payload.error);
+      }
       if (callId && callId === effectiveCallId) {
         setInspectedToolContext(payload.toolProviderContext);
       } else {
@@ -161,6 +164,9 @@ export function AgentRunWorkspace({
         const payload = await fetchAgentCallEvents({ data: effectiveCallId });
         setCallEvents(payload.commits);
         setWarnings(payload.warnings);
+        if (payload.error != null) {
+          setError(payload.error);
+        }
         if (callId && callId === effectiveCallId) {
           setInspectedToolContext(payload.toolProviderContext);
         }
@@ -168,7 +174,7 @@ export function AgentRunWorkspace({
     },
     onTitleSet: refreshConversationMeta,
     onError: (caught) => {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(caught);
     },
   });
 

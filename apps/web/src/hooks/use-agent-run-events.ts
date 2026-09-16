@@ -136,6 +136,11 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
         }
 
         if (event.type === "agent_failed") {
+          onErrorRef.current(
+            "error" in event && event.error !== undefined
+              ? event.error
+              : { message: "Agent run failed" },
+          );
           stop();
         }
 

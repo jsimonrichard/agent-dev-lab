@@ -1,7 +1,7 @@
 {
   "extends": "@agent-dev-lab/core/tsconfig/node.json",
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/*.test.ts", "test-results", "playwright-report"],
+  "exclude": ["**/*.test.ts", "e2e", "playwright.config.ts", "test-results", "playwright-report"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "paths": {

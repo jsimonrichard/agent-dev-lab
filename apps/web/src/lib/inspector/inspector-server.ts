@@ -1,7 +1,7 @@
 import { createMiddleware, createServerFn } from "@tanstack/react-start";
 import { fromAsyncThrowable } from "@agent-dev-lab/core";
 
-import type { InspectorMessage } from "#/lib/view-model/types";
+import type { InspectorMessage, JsonValue } from "#/lib/view-model/types";
 
 import {
   forkAgentFromWorkflow,
@@ -94,6 +94,14 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
   .handler(async ({ data: agentCallId }) => {
     const events = await getAgentRunEvents(agentCallId);
     const started = events.find((event) => event.type === "agent_started");
+    let failedError: JsonValue | null = null;
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const event = events[i];
+      if (event?.type === "agent_failed") {
+        failedError = event.error as JsonValue;
+        break;
+      }
+    }
     return {
       commits: events
         .filter((event) => event.type === "agent_messages_committed")
@@ -101,6 +109,8 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
       warnings: events
         .filter((event) => event.type === "agent_warning")
         .map((event) => event.message),
+      /** Serialized `agent_failed.error` for this call, or null when the episode did not fail. */
+      error: failedError,
       /** Null when this episode has no recorded `toolProviderContext` (pre-feature or omitted). */
       toolProviderContext:
         started && started.type === "agent_started" && started.toolProviderContext !== undefined
