@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -415,6 +416,7 @@ function JsonTextEditorPane({
             depth={0}
             hideStaticType={hideStaticType}
             optional={optional}
+            showFieldClear={false}
             onChange={(next) => onChange(next === undefined ? "" : stringifyJsonValue(next))}
             autoFocus={autoFocus}
           />
@@ -688,6 +690,35 @@ export function JsonSchemaRawEditor({
   );
 }
 
+/** Schema-driven document editor without the document/JSON mode chrome. */
+export function JsonTypedEditor({
+  value,
+  onChange,
+  jsonType,
+  autoFocus,
+  optional = false,
+  hideStaticType = false,
+}: {
+  value: JsonValue | undefined;
+  onChange: (value: JsonValue | undefined) => void;
+  jsonType: JsonSchemaType;
+  autoFocus?: boolean;
+  optional?: boolean;
+  hideStaticType?: boolean;
+}) {
+  return (
+    <TypedEditor
+      value={value}
+      jsonType={jsonType}
+      depth={0}
+      onChange={onChange}
+      autoFocus={autoFocus}
+      optional={optional}
+      hideStaticType={hideStaticType}
+    />
+  );
+}
+
 function TypedEditor({
   value,
   jsonType,
@@ -696,6 +727,7 @@ function TypedEditor({
   autoFocus,
   hideStaticType = false,
   optional = false,
+  showFieldClear = true,
 }: {
   value: JsonValue | undefined;
   jsonType?: JsonSchemaType;
@@ -704,6 +736,7 @@ function TypedEditor({
   autoFocus?: boolean;
   hideStaticType?: boolean;
   optional?: boolean;
+  showFieldClear?: boolean;
 }) {
   if (depth >= MAX_JSON_TREE_DEPTH && value !== undefined) {
     return <RawNodeEditor value={value} onChange={onChange} />;
@@ -711,6 +744,9 @@ function TypedEditor({
 
   const variants = editorVariants(jsonType);
   const selected = resolveEditorVariant(value, variants, optional);
+  const omitted = optional && value === undefined;
+  const onlyType = variants.length === 1 ? variants[0] : undefined;
+  const showSelect = variants.length > 1;
   const mismatch =
     value !== undefined && jsonType !== undefined && jsonType.type !== "json"
       ? !valueMatchesJsonType(value, jsonType)
@@ -727,7 +763,6 @@ function TypedEditor({
     onChange(defaultValueForJsonType(next));
   }
 
-  const showSelect = variants.length > 1 || optional;
   const typeControl = showSelect ? (
     <TypeSelect
       variants={variants}
@@ -735,11 +770,26 @@ function TypedEditor({
       allowUndefined={optional}
       onChange={selectType}
     />
-  ) : hideStaticType || !selected ? null : (
-    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-      {jsonTypeLabel(selected)}
-    </span>
-  );
+  ) : null;
+  const staticType =
+    !showSelect && !hideStaticType && onlyType ? (
+      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+        {jsonTypeLabel(onlyType)}
+      </span>
+    ) : null;
+
+  const bodyType = showSelect ? selected : onlyType;
+  const body = bodyType ? (
+    <TypedValue
+      value={value}
+      jsonType={bodyType}
+      depth={depth}
+      omitted={omitted}
+      allowEmpty={optional}
+      onChange={onChange}
+      autoFocus={autoFocus}
+    />
+  ) : null;
 
   return (
     <div className="min-w-0 space-y-2">
@@ -752,15 +802,24 @@ function TypedEditor({
           edit JSON.
         </p>
       ) : null}
-      {selected ? (
-        <TypedValue
-          value={value}
-          jsonType={selected}
-          depth={depth}
-          onChange={onChange}
-          autoFocus={autoFocus}
-        />
-      ) : null}
+      {showSelect ? (
+        body
+      ) : (
+        <OptionalValueRow
+          optional={optional}
+          omitted={omitted}
+          showClear={showFieldClear}
+          typeHint={staticType}
+          onClear={() => {
+            if (!optional) {
+              throw new Error("json editor clear called on a required slot");
+            }
+            onChange(undefined);
+          }}
+        >
+          {body}
+        </OptionalValueRow>
+      )}
     </div>
   );
 }
@@ -771,12 +830,16 @@ function TypedValue({
   depth,
   onChange,
   autoFocus,
+  omitted = false,
+  allowEmpty = false,
 }: {
   value: JsonValue | undefined;
   jsonType: JsonSchemaType;
   depth: number;
   onChange: (value: JsonValue | undefined) => void;
   autoFocus?: boolean;
+  omitted?: boolean;
+  allowEmpty?: boolean;
 }) {
   if (jsonType.type === "array") {
     const items = Array.isArray(value) ? value : [];
@@ -785,6 +848,7 @@ function TypedValue({
         items={items}
         itemType={jsonType.items}
         depth={depth}
+        omitted={omitted}
         onChange={onChange}
         autoFocus={autoFocus}
       />
@@ -792,6 +856,22 @@ function TypedValue({
   }
 
   if (jsonType.type === "object") {
+    if (omitted) {
+      return (
+        <div className="space-y-2">
+          <p className="font-mono text-xs text-muted-foreground">omitted</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            autoFocus={autoFocus}
+            onClick={() => onChange(defaultValueForJsonType(jsonType))}
+          >
+            Set object
+          </Button>
+        </div>
+      );
+    }
     const obj = value !== undefined && isJsonObject(value) ? value : {};
     return <ObjectEditor obj={obj} schema={jsonType} depth={depth} onChange={onChange} />;
   }
@@ -801,7 +881,52 @@ function TypedValue({
   }
 
   return (
-    <PrimitiveEditor value={value} jsonType={jsonType} onChange={onChange} autoFocus={autoFocus} />
+    <PrimitiveEditor
+      value={value}
+      jsonType={jsonType}
+      omitted={omitted}
+      allowEmpty={allowEmpty}
+      onChange={onChange}
+      autoFocus={autoFocus}
+    />
+  );
+}
+
+function ClearFieldButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      className="shrink-0 text-muted-foreground"
+      onClick={onClick}
+    >
+      Clear
+    </Button>
+  );
+}
+
+function OptionalValueRow({
+  optional,
+  omitted,
+  onClear,
+  children,
+  typeHint,
+  showClear = true,
+}: {
+  optional: boolean;
+  omitted: boolean;
+  onClear: () => void;
+  children: ReactNode;
+  typeHint?: ReactNode;
+  showClear?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2">
+      <div className="min-w-0 flex-1">{children}</div>
+      {typeHint}
+      {showClear && optional && !omitted ? <ClearFieldButton onClick={onClear} /> : null}
+    </div>
   );
 }
 
@@ -828,12 +953,14 @@ function ArrayEditor({
   depth,
   onChange,
   autoFocus,
+  omitted = false,
 }: {
   items: JsonValue[];
   itemType: JsonSchemaType;
   depth: number;
   onChange: (value: JsonValue) => void;
   autoFocus?: boolean;
+  omitted?: boolean;
 }) {
   function addDefault() {
     onChange([...items, defaultValueForJsonType(itemType)]);
@@ -845,6 +972,15 @@ function ArrayEditor({
       return;
     }
     onChange(items.map((item, itemIndex) => (itemIndex === index ? next : item)));
+  }
+
+  if (omitted) {
+    return (
+      <div className="min-w-0 space-y-2">
+        <p className="font-mono text-xs text-muted-foreground">omitted</p>
+        <AddItemButton onClick={addDefault} autoFocus={autoFocus} />
+      </div>
+    );
   }
 
   return (
@@ -970,7 +1106,7 @@ function ObjectEditor({
                   value={child}
                   jsonType={field.schema}
                   depth={depth + 1}
-                  hideStaticType
+                  hideStaticType={field.required && field.schema.type !== "union"}
                   optional={!field.required}
                   onChange={(next) => setField(field.name, next)}
                 />
@@ -1059,12 +1195,16 @@ function PrimitiveEditor({
   jsonType,
   onChange,
   autoFocus,
+  omitted = false,
+  allowEmpty = false,
   hideStaticType = false,
 }: {
   value: JsonValue | undefined;
   jsonType: JsonSchemaType;
   onChange: (value: JsonValue | undefined) => void;
   autoFocus?: boolean;
+  omitted?: boolean;
+  allowEmpty?: boolean;
   hideStaticType?: boolean;
 }) {
   if (
@@ -1077,10 +1217,74 @@ function PrimitiveEditor({
         <Input
           autoFocus={autoFocus}
           value={typeof value === "string" ? value : ""}
+          placeholder={omitted ? "omitted" : undefined}
           onChange={(event) => onChange(event.target.value)}
           className={cn(EDITOR_CONTROL_CLASS, "flex-1", JSON_TOKEN_CLASS.string)}
           spellCheck={false}
         />
+      </div>
+    );
+  }
+
+  if (jsonType.type === "boolean") {
+    return (
+      <BooleanEditor
+        value={typeof value === "boolean" ? value : undefined}
+        omitted={omitted}
+        autoFocus={autoFocus}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (jsonType.type === "number") {
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">
+          <NumberEditor
+            value={typeof value === "number" ? value : undefined}
+            allowEmpty={allowEmpty}
+            omitted={omitted}
+            autoFocus={autoFocus}
+            onChange={onChange}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (jsonType.type === "string" && jsonType.options && jsonType.options.length > 0) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Select value={typeof value === "string" ? value : undefined} onValueChange={onChange}>
+          <SelectTrigger size="sm" className={cn(EDITOR_CONTROL_CLASS, "w-auto")}>
+            <SelectValue placeholder={omitted ? "omitted" : "Select…"} />
+          </SelectTrigger>
+          <SelectContent>
+            {jsonType.options.map((option) => (
+              <SelectItem key={option} value={option} className="font-mono text-xs">
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  if (omitted && (jsonType.type === "null" || jsonType.type === "literal")) {
+    return (
+      <div className="space-y-2">
+        <p className="font-mono text-xs text-muted-foreground">omitted</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          autoFocus={autoFocus}
+          onClick={() => onChange(defaultValueForJsonType(jsonType))}
+        >
+          Set {jsonTypeLabel(jsonType)}
+        </Button>
       </div>
     );
   }
@@ -1110,62 +1314,6 @@ function PrimitiveEditor({
         <span className="font-mono text-[10px] text-muted-foreground">
           {JSON.stringify(jsonType.value)}
         </span>
-      </div>
-    );
-  }
-
-  if (typeof value === "boolean" || jsonType.type === "boolean") {
-    const checked = value === true;
-    return (
-      <div className="flex items-center gap-1.5">
-        <label className="inline-flex min-w-0 items-center gap-1.5">
-          <input
-            type="checkbox"
-            autoFocus={autoFocus}
-            className="size-4 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-            checked={checked}
-            onChange={(event) => onChange(event.target.checked)}
-          />
-          <span className={cn("font-mono text-[10px]", JSON_TOKEN_CLASS.boolean)}>
-            {String(checked)}
-          </span>
-        </label>
-      </div>
-    );
-  }
-
-  if (typeof value === "number" || jsonType.type === "number") {
-    return (
-      <div className="flex items-center gap-1.5">
-        <div className="min-w-0 flex-1">
-          <NumberEditor
-            value={typeof value === "number" ? value : 0}
-            autoFocus={autoFocus}
-            onChange={onChange}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (jsonType.type === "string" && jsonType.options && jsonType.options.length > 0) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <Select
-          value={typeof value === "string" ? value : jsonType.options[0]}
-          onValueChange={onChange}
-        >
-          <SelectTrigger size="sm" className={cn(EDITOR_CONTROL_CLASS, "w-auto")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {jsonType.options.map((option) => (
-              <SelectItem key={option} value={option} className="font-mono text-xs">
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
     );
   }
@@ -1503,22 +1651,68 @@ function KeyEditor({
   );
 }
 
+function BooleanEditor({
+  value,
+  omitted,
+  autoFocus,
+  onChange,
+}: {
+  value: boolean | undefined;
+  omitted: boolean;
+  autoFocus?: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.indeterminate = omitted;
+    }
+  }, [omitted]);
+  const checked = value === true;
+  return (
+    <div className="flex items-center gap-1.5">
+      <label className="inline-flex min-w-0 items-center gap-1.5">
+        <input
+          ref={ref}
+          type="checkbox"
+          autoFocus={autoFocus}
+          className="size-4 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span
+          className={cn(
+            "font-mono text-[10px]",
+            omitted ? "text-muted-foreground" : JSON_TOKEN_CLASS.boolean,
+          )}
+        >
+          {omitted ? "omitted" : String(checked)}
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function NumberEditor({
   value,
   onChange,
   autoFocus,
+  allowEmpty = false,
+  omitted = false,
 }: {
-  value: number;
-  onChange: (value: number) => void;
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
   autoFocus?: boolean;
+  allowEmpty?: boolean;
+  omitted?: boolean;
 }) {
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState(value === undefined ? "" : String(value));
   const [focused, setFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!focused) {
-      setDraft(String(value));
+      setDraft(value === undefined ? "" : String(value));
       setError(null);
     }
   }, [value, focused]);
@@ -1526,6 +1720,13 @@ function NumberEditor({
   function commit(text: string) {
     const trimmed = text.trim();
     if (trimmed.length === 0) {
+      if (allowEmpty) {
+        setError(null);
+        if (value !== undefined) {
+          onChange(undefined);
+        }
+        return;
+      }
       setError("Number is required");
       return;
     }
@@ -1540,16 +1741,19 @@ function NumberEditor({
     }
   }
 
+  const display = value === undefined ? "" : String(value);
+
   return (
     <div className="min-w-0">
       <Input
         autoFocus={autoFocus}
         inputMode="decimal"
-        value={focused ? draft : String(value)}
+        value={focused ? draft : display}
+        placeholder={omitted ? "omitted" : undefined}
         aria-invalid={error !== null}
         onFocus={() => {
           setFocused(true);
-          setDraft(String(value));
+          setDraft(display);
         }}
         onBlur={() => {
           commit(draft);

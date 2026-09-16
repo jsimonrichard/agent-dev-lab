@@ -91,6 +91,79 @@ export function jsonTypeLabel(schema: JsonSchemaType): string {
   }
 }
 
+/** Form string/boolean → JSON. Empty optional slots stay omitted (`undefined`). */
+export function jsonValueFromSchemaField(
+  field: WorkflowInputField,
+  value: string | boolean | undefined,
+): JsonValue | undefined {
+  if (field.kind === "json") {
+    throw new Error("json schema fields are serialized as text, not a typed JSON value");
+  }
+  if (field.kind === "boolean") {
+    if (value === true || value === "true") {
+      return true;
+    }
+    if (value === false || value === "false") {
+      return false;
+    }
+    if (value === undefined || value === "") {
+      return undefined;
+    }
+    throw new Error(`${field.name} must be a boolean`);
+  }
+  if (typeof value === "boolean") {
+    throw new Error(`${field.name} must not be a boolean`);
+  }
+  if (value === undefined || value === "") {
+    return undefined;
+  }
+  if (field.kind === "number") {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`${field.name} must be a finite number`);
+    }
+    return parsed;
+  }
+  if (field.kind === "string") {
+    return value;
+  }
+  const exhaustive: never = field.kind;
+  throw new Error(`unknown workflow field kind: ${String(exhaustive)}`);
+}
+
+/** JSON → form string/boolean. Omitted slots serialize as `""`. */
+export function schemaFieldFromJsonValue(
+  field: WorkflowInputField,
+  value: JsonValue | undefined,
+): string | boolean {
+  if (field.kind === "json") {
+    throw new Error("json schema fields are serialized as text, not a typed JSON value");
+  }
+  if (value === undefined) {
+    return "";
+  }
+  if (field.kind === "boolean") {
+    if (typeof value !== "boolean") {
+      throw new Error(`${field.name} must be a boolean`);
+    }
+    return value;
+  }
+  if (field.kind === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`${field.name} must be a finite number`);
+    }
+    return String(value);
+  }
+  if (field.kind === "string") {
+    if (typeof value !== "string") {
+      throw new Error(`${field.name} must be a string`);
+    }
+    return value;
+  }
+  const exhaustive: never = field.kind;
+  throw new Error(`unknown workflow field kind: ${String(exhaustive)}`);
+}
+
 export function jsonTypeFromField(field: WorkflowInputField): JsonSchemaType {
   if (field.kind === "json") {
     return field.jsonType ?? { type: "json" };

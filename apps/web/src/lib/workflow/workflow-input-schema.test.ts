@@ -44,6 +44,56 @@ describe("describeWorkflowInput", () => {
     ]);
   });
 
+  it("treats T | undefined unions as optional T, not a required json field", () => {
+    expect(
+      describeWorkflowInput(
+        z.object({
+          allowNetwork: z.union([z.boolean(), z.undefined()]),
+          maxWriteBytes: z.union([z.number(), z.undefined()]),
+          mixed: z.union([z.string(), z.number(), z.undefined()]),
+          sandbox: z.object({
+            allowNetwork: z.union([z.boolean(), z.undefined()]),
+          }),
+        }),
+      ),
+    ).toEqual([
+      {
+        name: "allowNetwork",
+        kind: "boolean",
+        required: false,
+        description: undefined,
+        options: undefined,
+      },
+      {
+        name: "maxWriteBytes",
+        kind: "number",
+        required: false,
+        description: undefined,
+        options: undefined,
+      },
+      {
+        name: "mixed",
+        kind: "json",
+        required: false,
+        description: undefined,
+        options: undefined,
+        jsonType: { type: "union", options: [{ type: "string" }, { type: "number" }] },
+      },
+      {
+        name: "sandbox",
+        kind: "json",
+        required: true,
+        description: undefined,
+        options: undefined,
+        jsonType: {
+          type: "object",
+          extra: false,
+          fields: [{ name: "allowNetwork", required: false, schema: { type: "boolean" } }],
+        },
+      },
+    ]);
+  });
+
   it("marks optional and defaulted fields as not required", () => {
     const schema = zodObject({
       steps: zodOptional(zodNumber()),

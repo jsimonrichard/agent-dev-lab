@@ -9,7 +9,9 @@ import {
   getAtPath,
   insertArrayItem,
   jsonTypeFromFields,
+  jsonValueFromSchemaField,
   jsonTypeLabel,
+  schemaFieldFromJsonValue,
   jsonTypeToZodText,
   matchUnionOption,
   parseJsonText,
@@ -54,6 +56,22 @@ describe("schema-driven defaults", () => {
     expect(editorVariants({ type: "array", items: { type: "string" } })).toEqual([
       { type: "array", items: { type: "string" } },
     ]);
+  });
+
+  it("round-trips omitted vs zero for an optional number field", () => {
+    const field = { name: "maxWriteBytes", kind: "number" as const, required: false };
+    expect(jsonValueFromSchemaField(field, "")).toBeUndefined();
+    expect(jsonValueFromSchemaField(field, "0")).toBe(0);
+    expect(schemaFieldFromJsonValue(field, undefined)).toBe("");
+    expect(schemaFieldFromJsonValue(field, 0)).toBe("0");
+  });
+
+  it("keeps explicit false distinct from omitted for optional booleans", () => {
+    const field = { name: "allowNetwork", kind: "boolean" as const, required: false };
+    expect(jsonValueFromSchemaField(field, "")).toBeUndefined();
+    expect(jsonValueFromSchemaField(field, false)).toBe(false);
+    expect(schemaFieldFromJsonValue(field, undefined)).toBe("");
+    expect(schemaFieldFromJsonValue(field, false)).toBe(false);
   });
 
   it("keeps optional slots unset instead of selecting the first union member", () => {

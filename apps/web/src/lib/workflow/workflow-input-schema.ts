@@ -40,6 +40,11 @@ function descriptionOf(schema: ZodLike): string | undefined {
   return schema.description ?? schema._def?.description;
 }
 
+function isUndefinedType(schema: ZodLike): boolean {
+  const name = typeName(schema);
+  return name === "ZodUndefined" || name === "undefined";
+}
+
 function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; description?: string } {
   let inner = schema;
   let required = true;
@@ -60,6 +65,21 @@ function unwrap(schema: ZodLike): { inner: ZodLike; required: boolean; descripti
       required = false;
       inner = inner._def?.innerType ?? inner;
       continue;
+    }
+    if (name === "ZodUnion" || name === "union") {
+      const members = unionMembers(inner);
+      const defined = members.filter((member) => !isUndefinedType(member));
+      if (defined.length > 0 && defined.length < members.length) {
+        required = false;
+        if (defined.length === 1) {
+          const only = defined[0];
+          if (!only) {
+            throw new Error("optional union dropped its only defined member");
+          }
+          inner = only;
+          continue;
+        }
+      }
     }
     if (name === "ZodDefault" || name === "default") {
       required = false;
@@ -279,6 +299,9 @@ function describeConcreteJsonType(
   }
   if (name === "ZodUnion" || name === "union") {
     const representable = unionMembers(schema).flatMap((member) => {
+      if (isUndefinedType(member)) {
+        return [];
+      }
       const described = describeJsonTypeInner(member, depth + 1);
       return described === "unrepresentable" ? [] : [described];
     });
