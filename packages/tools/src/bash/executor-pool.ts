@@ -14,7 +14,7 @@ export type BashSandboxBackend = "asrt" | "native";
 export const DEFAULT_ALLOWED_DOMAINS: string[] = ["*"];
 
 export const ALLOWED_DOMAINS_DESCRIPTION =
-  'Hosts bash may reach when allowNetwork is true. "*" allows any host.';
+  'These are the hosts that may be reached through fetchUrl or the bash tool. Only matters when allowNetwork is true. "*" allows any host.';
 
 /** Isolation policy fields — not `cwd` / timeouts / output caps. */
 export interface BashSandboxPolicy {
