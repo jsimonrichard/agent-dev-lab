@@ -14,6 +14,7 @@ import {
   matchUnionOption,
   parseJsonText,
   jsonTextError,
+  resolveEditorVariant,
   toolProviderContextJsonError,
   removeAtPath,
   renameObjectKey,
@@ -53,6 +54,17 @@ describe("schema-driven defaults", () => {
     expect(editorVariants({ type: "array", items: { type: "string" } })).toEqual([
       { type: "array", items: { type: "string" } },
     ]);
+  });
+
+  it("keeps optional slots unset instead of selecting the first union member", () => {
+    const variants = [
+      { type: "array" as const, items: { type: "string" as const } },
+      { type: "boolean" as const },
+    ];
+    expect(resolveEditorVariant(undefined, variants, true)).toBeUndefined();
+    expect(resolveEditorVariant(undefined, variants, false)).toEqual(variants[0]);
+    expect(resolveEditorVariant(false, variants, true)).toEqual({ type: "boolean" });
+    expect(resolveEditorVariant(["src"], variants, true)).toEqual(variants[0]);
   });
 
   it("matches array items and object fields recursively", () => {

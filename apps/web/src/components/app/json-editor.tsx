@@ -40,9 +40,9 @@ import {
   isJsonObject,
   jsonTypeLabel,
   jsonTypeToZodText,
-  matchUnionOption,
   parseJsonText,
   jsonTextError,
+  resolveEditorVariant,
   removeAtPath,
   renameObjectKey,
   stringifyJsonValue,
@@ -149,6 +149,7 @@ export function JsonTextEditor({
   description,
   presentation = "dialog",
   fill = false,
+  optional = false,
   onValidityChange,
 }: {
   value: string;
@@ -161,6 +162,8 @@ export function JsonTextEditor({
   /** `"inline"` when the editor is already hosted in a dialog. */
   presentation?: "dialog" | "inline";
   fill?: boolean;
+  /** When true, the type selector includes `undefined` and unset stays omitted. */
+  optional?: boolean;
   onValidityChange?: (error: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -184,6 +187,7 @@ export function JsonTextEditor({
         value={value}
         jsonType={jsonType}
         fill={fill}
+        optional={optional}
         hideStaticType={paneHidesStaticType}
         onChange={onChange}
         onValidityChange={reportValidity}
@@ -247,6 +251,7 @@ export function JsonTextEditor({
                 value={draft}
                 jsonType={jsonType}
                 fill
+                optional={optional}
                 hideStaticType={paneHidesStaticType}
                 onChange={setDraft}
                 onValidityChange={setNestedError}
@@ -331,6 +336,7 @@ function JsonTextEditorPane({
   autoFocus,
   fill = false,
   hideStaticType = false,
+  optional = false,
   onValidityChange,
 }: {
   value: string;
@@ -340,6 +346,7 @@ function JsonTextEditorPane({
   autoFocus?: boolean;
   fill?: boolean;
   hideStaticType?: boolean;
+  optional?: boolean;
   onValidityChange?: (error: string | null) => void;
 }) {
   const parsed = parseJsonText(value);
@@ -407,6 +414,7 @@ function JsonTextEditorPane({
             jsonType={jsonType}
             depth={0}
             hideStaticType={hideStaticType}
+            optional={optional}
             onChange={(next) => onChange(next === undefined ? "" : stringifyJsonValue(next))}
             autoFocus={autoFocus}
           />
@@ -687,6 +695,7 @@ function TypedEditor({
   onChange,
   autoFocus,
   hideStaticType = false,
+  optional = false,
 }: {
   value: JsonValue | undefined;
   jsonType?: JsonSchemaType;
@@ -694,54 +703,64 @@ function TypedEditor({
   onChange: (value: JsonValue | undefined) => void;
   autoFocus?: boolean;
   hideStaticType?: boolean;
+  optional?: boolean;
 }) {
   if (depth >= MAX_JSON_TREE_DEPTH && value !== undefined) {
     return <RawNodeEditor value={value} onChange={onChange} />;
   }
 
   const variants = editorVariants(jsonType);
-  const selected =
-    value === undefined ? variants[0] : (matchUnionOption(value, variants) ?? variants[0]);
+  const selected = resolveEditorVariant(value, variants, optional);
   const mismatch =
     value !== undefined && jsonType !== undefined && jsonType.type !== "json"
       ? !valueMatchesJsonType(value, jsonType)
       : false;
 
-  function selectVariant(next: JsonSchemaType) {
+  function selectType(next: JsonSchemaType | undefined) {
+    if (next === undefined) {
+      if (!optional) {
+        throw new Error("json editor type select chose undefined on a required slot");
+      }
+      onChange(undefined);
+      return;
+    }
     onChange(defaultValueForJsonType(next));
   }
 
-  const typeHint =
-    selected && (variants.length > 1 || !hideStaticType) ? (
-      <TypeHint
-        variants={variants}
-        selected={selected}
-        hideStatic={hideStaticType}
-        onChange={variants.length > 1 ? selectVariant : undefined}
-      />
-    ) : null;
-
-  const body = selected ? (
-    <TypedValue
-      value={value}
-      jsonType={selected}
-      depth={depth}
-      onChange={onChange}
-      autoFocus={autoFocus}
-      variantSelect={typeHint}
-      hideStaticType={hideStaticType}
+  const showSelect = variants.length > 1 || optional;
+  const typeControl = showSelect ? (
+    <TypeSelect
+      variants={variants}
+      selected={selected}
+      allowUndefined={optional}
+      onChange={selectType}
     />
-  ) : null;
+  ) : hideStaticType || !selected ? null : (
+    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+      {jsonTypeLabel(selected)}
+    </span>
+  );
 
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="min-w-0 space-y-2">
+      {typeControl ? (
+        <div className="flex min-h-8 items-center justify-end">{typeControl}</div>
+      ) : null}
       {mismatch ? (
         <p role="alert" className="text-[10px] text-destructive">
           Value does not match {jsonType ? jsonTypeLabel(jsonType) : "schema"}. Choose a type or
           edit JSON.
         </p>
       ) : null}
-      {body}
+      {selected ? (
+        <TypedValue
+          value={value}
+          jsonType={selected}
+          depth={depth}
+          onChange={onChange}
+          autoFocus={autoFocus}
+        />
+      ) : null}
     </div>
   );
 }
@@ -752,16 +771,12 @@ function TypedValue({
   depth,
   onChange,
   autoFocus,
-  variantSelect,
-  hideStaticType = false,
 }: {
   value: JsonValue | undefined;
   jsonType: JsonSchemaType;
   depth: number;
   onChange: (value: JsonValue | undefined) => void;
   autoFocus?: boolean;
-  variantSelect: ReactNode;
-  hideStaticType?: boolean;
 }) {
   if (jsonType.type === "array") {
     const items = Array.isArray(value) ? value : [];
@@ -771,7 +786,6 @@ function TypedValue({
         itemType={jsonType.items}
         depth={depth}
         onChange={onChange}
-        variantSelect={variantSelect}
         autoFocus={autoFocus}
       />
     );
@@ -779,15 +793,7 @@ function TypedValue({
 
   if (jsonType.type === "object") {
     const obj = value !== undefined && isJsonObject(value) ? value : {};
-    return (
-      <ObjectEditor
-        obj={obj}
-        schema={jsonType}
-        depth={depth}
-        onChange={onChange}
-        variantSelect={variantSelect}
-      />
-    );
+    return <ObjectEditor obj={obj} schema={jsonType} depth={depth} onChange={onChange} />;
   }
 
   if (jsonType.type === "union") {
@@ -795,14 +801,7 @@ function TypedValue({
   }
 
   return (
-    <PrimitiveEditor
-      value={value}
-      jsonType={jsonType}
-      onChange={onChange}
-      autoFocus={autoFocus}
-      variantSelect={variantSelect}
-      hideStaticType={hideStaticType}
-    />
+    <PrimitiveEditor value={value} jsonType={jsonType} onChange={onChange} autoFocus={autoFocus} />
   );
 }
 
@@ -828,14 +827,12 @@ function ArrayEditor({
   itemType,
   depth,
   onChange,
-  variantSelect,
   autoFocus,
 }: {
   items: JsonValue[];
   itemType: JsonSchemaType;
   depth: number;
   onChange: (value: JsonValue) => void;
-  variantSelect: ReactNode;
   autoFocus?: boolean;
 }) {
   function addDefault() {
@@ -860,7 +857,6 @@ function ArrayEditor({
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-1">
           <span className="font-mono text-[10px] text-muted-foreground">[{items.length}]</span>
-          <span className="ml-auto shrink-0">{variantSelect}</span>
         </div>
         {items.length > 0 ? (
           <ol className="min-w-0 list-none space-y-3">
@@ -902,13 +898,11 @@ function ObjectEditor({
   schema,
   depth,
   onChange,
-  variantSelect,
 }: {
   obj: Record<string, JsonValue>;
   schema: Extract<JsonSchemaType, { type: "object" }>;
   depth: number;
   onChange: (value: JsonValue | undefined) => void;
-  variantSelect: ReactNode;
 }) {
   const known = new Set(schema.fields.map((field) => field.name));
   const extraKeys = Object.keys(obj).filter((key) => !known.has(key));
@@ -939,12 +933,7 @@ function ObjectEditor({
     <NestedRawSwitch enabled={depth > 0} value={obj} jsonType={schema} onChange={onChange}>
       <div className="min-w-0 space-y-6">
         {schema.fields.length === 0 && extraKeys.length === 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">{"{}"}</span>
-            <span className="ml-auto shrink-0">{variantSelect}</span>
-          </div>
-        ) : variantSelect ? (
-          <div className="flex justify-end">{variantSelect}</div>
+          <p className="font-mono text-xs text-muted-foreground">{"{}"}</p>
         ) : null}
         {schema.fields.map((field) => {
           const child = obj[field.name];
@@ -955,7 +944,7 @@ function ObjectEditor({
                 <span className={cn("min-w-0 truncate font-mono text-xs", JSON_TOKEN_CLASS.key)}>
                   {field.name}
                 </span>
-                {field.schema.type === "union" ? null : (
+                {field.schema.type === "union" || !field.required ? null : (
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                     {jsonTypeLabel(field.schema)}
                   </span>
@@ -975,14 +964,6 @@ function ObjectEditor({
                     [{child.length}]
                   </span>
                 ) : null}
-                {child !== undefined ? (
-                  <span className="ml-auto shrink-0">
-                    <RemoveButton
-                      label={field.name}
-                      onClick={() => setField(field.name, undefined)}
-                    />
-                  </span>
-                ) : null}
               </p>
               <div className={cn("min-w-0", nested && "pl-4")}>
                 <TypedEditor
@@ -990,6 +971,7 @@ function ObjectEditor({
                   jsonType={field.schema}
                   depth={depth + 1}
                   hideStaticType
+                  optional={!field.required}
                   onChange={(next) => setField(field.name, next)}
                 />
               </div>
@@ -1077,14 +1059,12 @@ function PrimitiveEditor({
   jsonType,
   onChange,
   autoFocus,
-  variantSelect,
   hideStaticType = false,
 }: {
   value: JsonValue | undefined;
   jsonType: JsonSchemaType;
   onChange: (value: JsonValue | undefined) => void;
   autoFocus?: boolean;
-  variantSelect: ReactNode;
   hideStaticType?: boolean;
 }) {
   if (
@@ -1101,7 +1081,6 @@ function PrimitiveEditor({
           className={cn(EDITOR_CONTROL_CLASS, "flex-1", JSON_TOKEN_CLASS.string)}
           spellCheck={false}
         />
-        {variantSelect}
       </div>
     );
   }
@@ -1112,7 +1091,6 @@ function PrimitiveEditor({
         jsonType={jsonType}
         onCommit={onChange}
         autoFocus={autoFocus}
-        trailing={variantSelect}
         hideStaticType={hideStaticType}
       />
     );
@@ -1122,7 +1100,6 @@ function PrimitiveEditor({
     return (
       <div className="flex items-center gap-1.5">
         <span className={cn("font-mono text-[10px]", JSON_TOKEN_CLASS.null)}>null</span>
-        {variantSelect}
       </div>
     );
   }
@@ -1133,7 +1110,6 @@ function PrimitiveEditor({
         <span className="font-mono text-[10px] text-muted-foreground">
           {JSON.stringify(jsonType.value)}
         </span>
-        {variantSelect}
       </div>
     );
   }
@@ -1154,7 +1130,6 @@ function PrimitiveEditor({
             {String(checked)}
           </span>
         </label>
-        {variantSelect}
       </div>
     );
   }
@@ -1169,7 +1144,6 @@ function PrimitiveEditor({
             onChange={onChange}
           />
         </div>
-        {variantSelect}
       </div>
     );
   }
@@ -1192,7 +1166,6 @@ function PrimitiveEditor({
             ))}
           </SelectContent>
         </Select>
-        {variantSelect}
       </div>
     );
   }
@@ -1207,7 +1180,6 @@ function PrimitiveEditor({
         className={cn(EDITOR_CONTROL_CLASS, "flex-1", JSON_TOKEN_CLASS.string)}
         spellCheck={false}
       />
-      {variantSelect}
     </div>
   );
 }
@@ -1339,6 +1311,9 @@ function ObjectAddRow({
           variants={variants}
           selected={current}
           onChange={(next) => {
+            if (next === undefined) {
+              throw new Error("json editor type select chose undefined");
+            }
             const nextIndex = variants.indexOf(next);
             setIndex(nextIndex >= 0 ? nextIndex : 0);
           }}
@@ -1375,7 +1350,18 @@ function TypeHint({
   hideStatic?: boolean;
 }) {
   if (variants.length > 1 && onChange) {
-    return <TypeSelect variants={variants} selected={selected} onChange={onChange} />;
+    return (
+      <TypeSelect
+        variants={variants}
+        selected={selected}
+        onChange={(next) => {
+          if (next === undefined) {
+            throw new Error("json editor type select chose undefined");
+          }
+          onChange(next);
+        }}
+      />
+    );
   }
   if (hideStatic) {
     return null;
@@ -1391,23 +1377,37 @@ function TypeSelect({
   variants,
   selected,
   onChange,
+  allowUndefined = false,
 }: {
   variants: JsonSchemaType[];
-  selected: JsonSchemaType;
-  onChange: (schema: JsonSchemaType) => void;
+  selected: JsonSchemaType | undefined;
+  allowUndefined?: boolean;
+  onChange: (schema: JsonSchemaType | undefined) => void;
 }) {
-  const selectedIndex = Math.max(
-    0,
-    variants.findIndex(
-      (variant) =>
-        variant.type === selected.type && jsonTypeLabel(variant) === jsonTypeLabel(selected),
-    ),
-  );
+  const unsetValue = "undefined";
+  const selectedIndex =
+    selected === undefined
+      ? -1
+      : variants.findIndex(
+          (variant) =>
+            variant.type === selected.type && jsonTypeLabel(variant) === jsonTypeLabel(selected),
+        );
+  const selectValue =
+    selected === undefined && allowUndefined
+      ? unsetValue
+      : String(selectedIndex >= 0 ? selectedIndex : 0);
 
   return (
     <Select
-      value={String(selectedIndex)}
+      value={selectValue}
       onValueChange={(next) => {
+        if (next === unsetValue) {
+          if (!allowUndefined) {
+            throw new Error("json editor type select chose undefined on a required slot");
+          }
+          onChange(undefined);
+          return;
+        }
         const variant = variants[Number(next)];
         if (!variant) {
           throw new Error(`json editor type select missing variant ${next}`);
@@ -1418,11 +1418,16 @@ function TypeSelect({
       <SelectTrigger
         size="sm"
         aria-label="JSON type"
-        className={cn(EDITOR_CONTROL_CLASS, "w-auto shrink-0 gap-1")}
+        className={cn(EDITOR_CONTROL_CLASS, "w-40 shrink-0 justify-between gap-1")}
       >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        {allowUndefined ? (
+          <SelectItem value={unsetValue} className="font-mono text-xs">
+            undefined
+          </SelectItem>
+        ) : null}
         {variants.map((variant, index) => (
           <SelectItem
             key={`${variant.type}-${index}`}

@@ -134,6 +134,7 @@ export function SchemaFieldControl({
           title={field.name}
           description={field.description}
           presentation={jsonPresentation}
+          optional={!field.required}
           onChange={onChange}
           onValidityChange={onJsonValidityChange}
         />

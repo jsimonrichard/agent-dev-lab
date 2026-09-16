@@ -193,6 +193,24 @@ export function editorVariants(schema: JsonSchemaType | undefined): JsonSchemaTy
   return [schema];
 }
 
+/**
+ * Which variant the document editor should show. Optional slots keep `undefined`
+ * unset instead of pretending the first variant (often an array) is selected.
+ */
+export function resolveEditorVariant(
+  value: JsonValue | undefined,
+  variants: JsonSchemaType[],
+  optional: boolean,
+): JsonSchemaType | undefined {
+  if (variants.length === 0) {
+    throw new Error("json editor has no type variants");
+  }
+  if (value === undefined) {
+    return optional ? undefined : variants[0];
+  }
+  return matchUnionOption(value, variants) ?? variants[0];
+}
+
 export function valueMatchesJsonType(value: JsonValue, schema: JsonSchemaType): boolean {
   switch (schema.type) {
     case "string":
