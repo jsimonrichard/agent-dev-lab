@@ -266,8 +266,9 @@ these are `ToolProvider` wrappers on top of them, for projects that want `cwd`/`
   jail/bash/fetch construction**, translating its one shared `cwd` into the file and bash
   field names, `bashTimeoutMs` into bash's `timeoutMs`, and `fetchTimeoutMs` into
   `createWebToolProvider`'s `timeoutMs` so bash and fetch timeouts cannot collide.
-  `fetchUrl: false` omits the tool (empty `allowedUrls` does not — public http(s) still
-  works). Deliberately not `combineToolProviders` (`packages/core`):
+  `fetchUrl` is omitted when `allowNetwork` is false (the default) or when constructed with
+  `fetchUrl: false` (empty `allowedUrls` does not omit it — public http(s) still works).
+  Deliberately not `combineToolProviders` (`packages/core`):
   that namespaces context per source, which would let the file root and bash cwd drift apart
   on the exact thing meant to be shared. This is the structural answer to "differentiate
   command-only sandboxes from workspace tools that have everything for working on a codebase

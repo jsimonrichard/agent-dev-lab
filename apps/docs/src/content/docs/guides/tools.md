@@ -74,7 +74,7 @@ Providers also expose a `describe*Env` tool so the model can see the resolved ro
 
 Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `toolProviderContext`. Pass the plain tool objects when the sandbox is fixed at construction.
 
-`fetchUrl` is included in the workspace provider by default. Pass `fetchUrl: false` to omit it. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool.
+`fetchUrl` is included in the workspace provider when `allowNetwork` is true. It is omitted when `allowNetwork` is false (the default) or when constructed with `fetchUrl: false`. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool.
 
 This package does not search the web. Use your model provider's native search tool (for example `openai.tools.webSearch()`) for discovery; use `fetchUrl` when you already have an address.
 

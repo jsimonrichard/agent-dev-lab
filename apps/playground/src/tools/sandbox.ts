@@ -19,7 +19,7 @@ export const sandboxRoot = resolveDefaultSandboxRoot(playgroundRoot);
 mkdirSync(sandboxRoot, { recursive: true });
 
 /**
- * Workspace tools (file + bash + `fetchUrl`, sharing one `cwd` for file/bash) via the
+ * Workspace tools (file + bash, plus `fetchUrl` when `allowNetwork` is true) via the
  * process-scoped ASRT executor pool (default `backend`). Needs `bwrap`, `socat`, and
  * `ripgrep` on `PATH`; throws a clear `AdlError` (surfaced as a failed tool call) if any
  * are missing rather than silently running unsandboxed. Layers the `bash-safety-check`
@@ -33,7 +33,7 @@ export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
 });
 
 /**
- * Same workspace tools (file + bash + `fetchUrl`), backed by the pooled native/`bwrap`
+ * Same workspace tools (file + bash, plus `fetchUrl` when `allowNetwork` is true), backed by the pooled native/`bwrap`
  * backend instead (Linux only — throws a clear "not implemented" error elsewhere). No
  * `socat`/`ripgrep` dependency, but network access is all-or-nothing and there's no
  * violation logging, unlike ASRT. No safety check wired in, so both configurations

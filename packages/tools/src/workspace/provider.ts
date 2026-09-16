@@ -106,7 +106,8 @@ function workspaceWebAccess(info: WebAccessInfo): WorkspaceWebAccessInfo {
 
 /** Reported by `createWorkspaceToolProvider`'s `describeWorkspaceEnv` tool — the merge of the
  * file, bash, and (when enabled) fetch sides' own info. File and bash share one `cwd`; fetch
- * has none. `webAccess` is omitted when `options.fetchUrl` is `false`. Timeouts use the
+ * has none. `webAccess` is omitted when `fetchUrl` is disabled (`fetchUrl: false` or
+ * `allowNetwork` is false). Timeouts use the
  * workspace knob names (`bashTimeoutMs` / `fetchTimeoutMs`), not the atomic `timeoutMs`. */
 export type DescribeWorkspaceEnvTool = Tool<
   DescribeWorkspaceEnvInput,
@@ -119,8 +120,8 @@ export type DescribeWorkspaceEnvTool = Tool<
 
 /**
  * `createWorkspaceToolProvider`'s tools — file tools, `bash`, optional `fetchUrl`, and one
- * combined `describeWorkspaceEnv`. `fetchUrl` is present unless constructed with
- * `fetchUrl: false`. Named for its actual scope (this workspace's own file/bash sandbox plus
+ * combined `describeWorkspaceEnv`. `fetchUrl` is present when network is allowed and the
+ * provider was not constructed with `fetchUrl: false`. Named for its actual scope (this workspace's own file/bash sandbox plus
  * `fetchUrl` when enabled), not a generic "describeEnvironment" — a project may have other
  * tools (e.g. a web-search tool) with their own network access this doesn't cover, so the
  * name shouldn't imply completeness. A plain object-literal type alias, not
@@ -169,9 +170,10 @@ export interface WorkspaceToolProviderOptions extends WorkspaceToolProviderConte
   /** Hostname resolver override, fixed at construction time — see `FetchUrlToolOptions`. */
   resolver?: WebToolProviderOptions["resolver"];
   /**
-   * Include `fetchUrl`. Default `true`. Set `false` to omit the tool from `listTools` /
-   * `getTools`. Empty `allowedUrls` is not a deny — public http(s) still works — so it does
-   * not remove the tool. Fetch options (`allowedUrls`, `allowPrivateNetwork`,
+   * Include `fetchUrl`. Default is to include it only when {@link WorkspaceToolProviderOptions.allowNetwork}
+   * (or this call's `toolProviderContext.allowNetwork`) is `true`. Set `false` to omit the tool
+   * even when network is allowed. Empty `allowedUrls` is not a deny — public http(s) still
+   * works — so it does not remove the tool. Fetch options (`allowedUrls`, `allowPrivateNetwork`,
    * `fetchTimeoutMs`, `maxResponseBytes`, `maxRedirects`, `resolver`) and the matching
    * `toolProviderContext` fields are rejected when this is `false`.
    */
@@ -214,6 +216,16 @@ function assertFetchConfigAllowed(
   );
 }
 
+function workspaceFetchUrlEnabled(
+  options: WorkspaceToolProviderOptions,
+  context?: WorkspaceToolProviderContext,
+): boolean {
+  if (options.fetchUrl === false) {
+    return false;
+  }
+  return context?.allowNetwork ?? options.allowNetwork ?? false;
+}
+
 function bashPolicyFromWorkspace(
   options: WorkspaceToolProviderOptions,
   context: WorkspaceToolProviderContext | undefined,
@@ -221,40 +233,45 @@ function bashPolicyFromWorkspace(
   defaults: Partial<BashSandboxPolicy> & { allowWrite?: string[] };
   context: BashToolProviderContext | undefined;
 } {
-  return {
-    defaults: {
-      allowWrite: options.allowWrite,
-      allowRead: options.allowRead,
-      denyRead: options.denyRead,
-      denyWrite: options.denyWrite,
-      allowedDomains: options.allowedDomains,
-      deniedDomains: options.deniedDomains,
-      allowNetwork: options.allowNetwork,
-      allowEnv: options.allowEnv,
-      tmpDir: options.tmpDir,
-    },
-    context: context
-      ? {
-          cwd: context.cwd,
-          timeoutMs: context.bashTimeoutMs,
-          allowWrite: context.allowWrite,
-          allowRead: context.allowRead,
-          denyRead: context.denyRead,
-          denyWrite: context.denyWrite,
-          allowedDomains: context.allowedDomains,
-          deniedDomains: context.deniedDomains,
-          allowNetwork: context.allowNetwork,
-          allowEnv: context.allowEnv,
-          tmpDir: context.tmpDir,
-        }
-      : undefined,
+  const defaults: Partial<BashSandboxPolicy> & { allowWrite?: string[] } = {
+    allowWrite: options.allowWrite,
+    allowRead: options.allowRead,
+    denyRead: options.denyRead,
+    denyWrite: options.denyWrite,
+    allowedDomains: options.allowedDomains,
+    deniedDomains: options.deniedDomains,
+    allowEnv: options.allowEnv,
+    tmpDir: options.tmpDir,
   };
+  const bashContext: BashToolProviderContext | undefined = context
+    ? {
+        cwd: context.cwd,
+        timeoutMs: context.bashTimeoutMs,
+        allowWrite: context.allowWrite,
+        allowRead: context.allowRead,
+        denyRead: context.denyRead,
+        denyWrite: context.denyWrite,
+        allowedDomains: context.allowedDomains,
+        deniedDomains: context.deniedDomains,
+        allowEnv: context.allowEnv,
+        tmpDir: context.tmpDir,
+      }
+    : undefined;
+  // A supplied executor already encodes bash network policy; forwarding `allowNetwork`
+  // would be rejected as mixed executor+policy. The flag still gates `fetchUrl`.
+  if (!options.executor) {
+    defaults.allowNetwork = options.allowNetwork;
+    if (bashContext) {
+      bashContext.allowNetwork = context?.allowNetwork;
+    }
+  }
+  return { defaults, context: bashContext };
 }
 
 /**
  * The Mastra-style combined file+bash+fetch surface — "everything needed to work on a
  * codebase in one folder," under one `cwd`, plus `fetchUrl` (which has no working directory)
- * unless constructed with `fetchUrl: false`. Built by composing `createFileToolProvider`,
+ * unless constructed with `fetchUrl: false` or `allowNetwork` is false. Built by composing `createFileToolProvider`,
  * `createBashToolProvider`, and `createWebToolProvider` (rather than reimplementing
  * jail/bash/fetch construction) and translating the one shared `cwd` into the file and bash
  * field names — deliberately *not* `combineToolProviders`, which would namespace context per
@@ -265,19 +282,22 @@ function bashPolicyFromWorkspace(
  * Pass either a pre-built `executor` or sandbox policy (`allowWrite`, …). `cwd` is set by the
  * workflow/host via `toolProviderContext`, never by the model directly — the file jail
  * re-scopes to it; bash write permissions come from the resolved executor's policy.
+ * With a supplied `executor`, `allowNetwork` does not reconfigure bash (the executor already
+ * has a network policy) and only gates whether `fetchUrl` is included.
  */
 export function createWorkspaceToolProvider(
   options: WorkspaceToolProviderOptions,
 ): ToolProvider<WorkspaceTools, WorkspaceToolProviderContext | undefined> {
-  const includeFetchUrl = options.fetchUrl !== false;
-  assertFetchConfigAllowed(includeFetchUrl, setKeys(options, FETCH_OPTION_KEYS), "options");
+  const fetchUrlOptionEnabled = options.fetchUrl !== false;
+  assertFetchConfigAllowed(fetchUrlOptionEnabled, setKeys(options, FETCH_OPTION_KEYS), "options");
+  const listFetchUrl = workspaceFetchUrlEnabled(options);
 
   // Fail closed at construction when options alone are already contradictory.
   if (options.executor) {
     resolveBashExecutorForCall({
       executor: options.executor,
       backend: options.backend,
-      defaults: options,
+      defaults: bashPolicyFromWorkspace(options, undefined).defaults,
       context: undefined,
       cwd: options.cwd,
       projectRoot: undefined,
@@ -289,7 +309,7 @@ export function createWorkspaceToolProvider(
     maxReadBytes: options.maxReadBytes,
     maxWriteBytes: options.maxWriteBytes,
   });
-  const webProvider = includeFetchUrl
+  const webProvider = fetchUrlOptionEnabled
     ? createWebToolProvider({
         allowedUrls: options.allowedUrls,
         allowPrivateNetwork: options.allowPrivateNetwork,
@@ -314,7 +334,10 @@ export function createWorkspaceToolProvider(
       denyWrite: z.array(z.string()),
       allowedDomains: z.array(z.string()).default([]),
       deniedDomains: z.array(z.string()).default([]),
-      allowNetwork: z.boolean().default(false),
+      allowNetwork: z
+        .boolean()
+        .default(false)
+        .describe("When true, bash may use the network and the fetchUrl tool is included."),
       allowEnv: z
         .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
         .default([]),
@@ -323,7 +346,7 @@ export function createWorkspaceToolProvider(
     .partial();
 
   return {
-    contextSchema: includeFetchUrl
+    contextSchema: fetchUrlOptionEnabled
       ? workspaceOwnContextSchema
           .extend({ fetchTimeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS) })
           .extend(webToolProviderContextSchema.omit({ timeoutMs: true }).shape)
@@ -349,19 +372,20 @@ export function createWorkspaceToolProvider(
         { name: "grep", description: GREP_DESCRIPTION },
         { name: "glob", description: GLOB_DESCRIPTION },
         ...dropOwnDescribeEnv(bashList ?? []),
-        ...(webProvider ? dropOwnDescribeEnv(webProvider.listTools?.() ?? []) : []),
+        ...(listFetchUrl && webProvider ? dropOwnDescribeEnv(webProvider.listTools?.() ?? []) : []),
         {
           name: "describeWorkspaceEnv",
-          description: describeWorkspaceEnvDescription(includeFetchUrl),
+          description: describeWorkspaceEnvDescription(fetchUrlOptionEnabled),
         },
       ];
     },
     async getTools(ctx: ExtendedToolProviderContext<WorkspaceToolProviderContext | undefined>) {
       assertFetchConfigAllowed(
-        includeFetchUrl,
+        fetchUrlOptionEnabled,
         setKeys(ctx.toolProviderContext ?? {}, FETCH_CONTEXT_KEYS),
         "toolProviderContext",
       );
+      const includeFetchThisCall = workspaceFetchUrlEnabled(options, ctx.toolProviderContext);
       const cwd = ctx.toolProviderContext?.cwd ?? options.cwd;
       if (!cwd) {
         throw new AdlError(
@@ -438,7 +462,7 @@ export function createWorkspaceToolProvider(
           ...ctx,
           toolProviderContext: { cwd, timeoutMs: bashTimeoutMs },
         }),
-        webProvider
+        webProvider && includeFetchThisCall
           ? webProvider.getTools({
               ...ctx,
               toolProviderContext: {
@@ -460,7 +484,7 @@ export function createWorkspaceToolProvider(
       });
 
       const describeWorkspaceEnv: DescribeWorkspaceEnvTool = tool({
-        description: describeWorkspaceEnvDescription(includeFetchUrl),
+        description: describeWorkspaceEnvDescription(fetchUrlOptionEnabled),
         inputSchema: describeWorkspaceEnvInputSchema,
         execute: async () => ({
           fileAccess: describeFileAccess(

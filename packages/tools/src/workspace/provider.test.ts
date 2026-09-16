@@ -142,9 +142,23 @@ describe("createWorkspaceToolProvider", () => {
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
-  it("lists fetchUrl and the combined describe tool, not the atomic describe-env tools", () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
-    expect(provider.listTools?.().map((summary) => summary.name)).toEqual([
+  it("lists fetchUrl only when allowNetwork is true", () => {
+    const withoutNetwork = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    expect(withoutNetwork.listTools?.().map((summary) => summary.name)).toEqual([
+      "readFile",
+      "writeFile",
+      "editFile",
+      "grep",
+      "glob",
+      "bash",
+      "describeWorkspaceEnv",
+    ]);
+    const withNetwork = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      allowNetwork: true,
+    });
+    expect(withNetwork.listTools?.().map((summary) => summary.name)).toEqual([
       "readFile",
       "writeFile",
       "editFile",
@@ -158,7 +172,11 @@ describe("createWorkspaceToolProvider", () => {
 
   it("describeWorkspaceEnv reports fileAccess, bashAccess, and webAccess together", async () => {
     const executor = stubExecutor();
-    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const provider = createWorkspaceToolProvider({
+      executor,
+      cwd: root,
+      allowNetwork: true,
+    });
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
     const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
@@ -224,6 +242,7 @@ describe("createWorkspaceToolProvider", () => {
       cwd: root,
       bashTimeoutMs: 111,
       fetchTimeoutMs: 222,
+      allowNetwork: true,
     });
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
     const constructed = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
@@ -248,6 +267,7 @@ describe("createWorkspaceToolProvider", () => {
       cwd: root,
       allowedUrls: ["https://docs.internal:443/**"],
       bashTimeoutMs: 111,
+      allowNetwork: true,
     });
     const { describeWorkspaceEnv } = await provider.getTools(
       ctx({
@@ -284,8 +304,13 @@ describe("createWorkspaceToolProvider", () => {
       "bash",
       "describeWorkspaceEnv",
     ]);
+    expect(
+      provider.listTools?.().find((summary) => summary.name === "describeWorkspaceEnv")
+        ?.description,
+    ).not.toContain("fetchUrl");
     const tools = await provider.getTools(ctx());
     expect(tools.fetchUrl).toBeUndefined();
+    expect(tools.describeWorkspaceEnv.description).not.toContain("fetchUrl");
     const result = await tools.describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
       fileAccess: {
@@ -311,11 +336,40 @@ describe("createWorkspaceToolProvider", () => {
     expect(result).not.toHaveProperty("webAccess");
   });
 
+  it("omits fetchUrl and webAccess when allowNetwork is false", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+    });
+    expect(provider.listTools?.().map((summary) => summary.name)).not.toContain("fetchUrl");
+    expect(
+      provider.listTools?.().find((summary) => summary.name === "describeWorkspaceEnv")
+        ?.description,
+    ).toContain("fetchUrl");
+    const tools = await provider.getTools(ctx());
+    expect(tools.fetchUrl).toBeUndefined();
+    expect(tools.describeWorkspaceEnv.description).toContain("fetchUrl");
+    const result = await tools.describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(result).not.toHaveProperty("webAccess");
+  });
+
+  it("includes fetchUrl for a call when toolProviderContext.allowNetwork is true", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+    });
+    const tools = await provider.getTools(ctx({ allowNetwork: true }));
+    expect(tools.fetchUrl).toBeDefined();
+    const result = await tools.describeWorkspaceEnv.execute?.({}, toolCallOptions);
+    expect(result).toHaveProperty("webAccess");
+  });
+
   it("does not treat empty allowedUrls as a deny that removes fetchUrl", () => {
     const provider = createWorkspaceToolProvider({
       executor: stubExecutor(),
       cwd: root,
       allowedUrls: [],
+      allowNetwork: true,
     });
     expect(provider.listTools?.().map((summary) => summary.name)).toContain("fetchUrl");
   });
@@ -343,7 +397,11 @@ describe("createWorkspaceToolProvider", () => {
   });
 
   it("carries allowedUrls from workspace context into the fetchUrl tool", async () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      allowNetwork: true,
+    });
     const tools = await provider.getTools(ctx({ allowedUrls: ["http://127.0.0.1:9/**"] }));
     expect(tools.fetchUrl).toBeDefined();
     const fetchUrl = tools.fetchUrl!;
