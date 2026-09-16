@@ -981,7 +981,7 @@ function ArrayEditor({
     return (
       <div className="min-w-0 space-y-2">
         <p className="font-mono text-xs text-muted-foreground">omitted</p>
-        <AddItemButton onClick={addDefault} autoFocus={autoFocus} />
+        <AddItemButton label="Create list" onClick={() => onChange([])} autoFocus={autoFocus} />
       </div>
     );
   }
