@@ -194,6 +194,7 @@ export class AgentImpl<
 
         let turnError: unknown;
         let turnResult: AgentRunResult<Tools, TOutput> | undefined;
+        let streamError: unknown;
         try {
           throwIfAborted(abortSignal);
           const storedMessages = await messageStore.load(memoryScope);
@@ -323,6 +324,10 @@ export class AgentImpl<
           };
 
           throwIfAborted(abortSignal);
+          // streamText puts model failures on fullStream error parts and calls
+          // onError; awaiting `.text` / `.steps` then rejects with
+          // NoOutputGeneratedError ("check the stream for errors"). Keep the
+          // onError payload so agent_failed records the model error, not the wrapper.
           const streamResult = streamText({
             model,
             ...(system ? { system } : {}),
@@ -335,6 +340,9 @@ export class AgentImpl<
             experimental_context: toolProviderContext,
             abortSignal,
             stopWhen,
+            onError: ({ error }) => {
+              streamError ??= error;
+            },
             experimental_telemetry: {
               isEnabled: telemetry?.isEnabled !== false,
               ...(telemetry?.recordInputs !== undefined
@@ -452,14 +460,14 @@ export class AgentImpl<
             sdk: lastSdk,
           };
         } catch (error) {
-          turnError = abortSignal.aborted ? abortError(abortSignal) : error;
+          turnError = abortSignal.aborted ? abortError(abortSignal) : (streamError ?? error);
           await runRecorder.emit({
             type: "agent_failed",
             agentCallId,
             workflowRunId,
             stepId,
             agentId: this.definition.id,
-            error: serializeError(error),
+            error: serializeError(turnError),
           });
         } finally {
           try {

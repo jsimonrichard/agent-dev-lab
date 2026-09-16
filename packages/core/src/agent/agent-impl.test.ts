@@ -1045,6 +1045,36 @@ describe("ToolProvider-owned context validation", () => {
   });
 });
 
+describe("AgentImpl model stream failures", () => {
+  it("records the doStream throw on agent_failed, not NoOutputGeneratedError", async () => {
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            throw new Error("Fixture model refused to stream");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "failing",
+      systemPrompt: "Be brief.",
+    });
+
+    const handle = agent.run({ memoryScope: "notes", user: "hi" });
+    await expect(handle.result).rejects.toThrow("Fixture model refused to stream");
+
+    const events = await adl.services.stores.workflow?.listEvents({
+      agentCallId: handle.agentCallId,
+    });
+    const failed = events?.find((event) => event.type === "agent_failed");
+    expect(failed).toMatchObject({
+      type: "agent_failed",
+      error: { message: "Fixture model refused to stream" },
+    });
+  });
+});
+
 describe("AgentImpl onRunEnd", () => {
   it("calls onRunEnd after a successful turn with the same agentCallId getTools saw", async () => {
     const ends: string[] = [];
