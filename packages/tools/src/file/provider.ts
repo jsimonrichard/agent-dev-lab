@@ -192,8 +192,8 @@ export function createFileToolProvider(
         allowWrite: z.array(z.string()),
         denyRead: z.array(z.string()),
         denyWrite: z.array(z.string()),
-        maxReadBytes: z.number(),
-        maxWriteBytes: z.number(),
+        maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
+        maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
       })
       .partial(),
     listTools(): ToolProviderToolSummary[] {

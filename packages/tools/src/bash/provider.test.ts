@@ -14,6 +14,7 @@ import {
   type BashSafetyCheckWorkflow,
   type BashToolProviderContext,
 } from "./provider";
+import { DEFAULT_TIMEOUT_MS } from "./tools";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 
@@ -318,6 +319,17 @@ describe("createBashToolProvider", () => {
       expect(last?.done).toBe(true);
       expect((last as { stderr: string }).stderr).toContain("checker unavailable");
       expect((last as { exitCode: number }).exitCode).not.toBe(0);
+    });
+  });
+
+  it("fills hardcoded runtime defaults when parsing empty context", () => {
+    const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
+    expect(provider.contextSchema?.parse({})).toEqual({
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+      allowedDomains: [],
+      deniedDomains: [],
+      allowNetwork: false,
+      allowEnv: [],
     });
   });
 });

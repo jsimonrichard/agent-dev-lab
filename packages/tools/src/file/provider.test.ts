@@ -8,6 +8,7 @@ import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createFileToolProvider, type FileToolProviderContext } from "./provider";
+import { DEFAULT_MAX_BYTES } from "./tools";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 
@@ -163,5 +164,13 @@ describe("createFileToolProvider", () => {
     await expect(readFileTool.execute?.({ path: "a.txt" }, toolCallOptions)).rejects.toThrow(
       /outside the allowed read roots/,
     );
+  });
+
+  it("fills hardcoded byte-cap defaults when parsing empty context", () => {
+    const provider = createFileToolProvider({ root });
+    expect(provider.contextSchema?.parse({})).toEqual({
+      maxReadBytes: DEFAULT_MAX_BYTES,
+      maxWriteBytes: DEFAULT_MAX_BYTES,
+    });
   });
 });

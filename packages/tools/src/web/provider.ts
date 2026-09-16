@@ -75,11 +75,14 @@ export type DescribeWebEnvTool = Tool<DescribeWebEnvInput, { webAccess: WebAcces
  */
 export const webToolProviderContextSchema = z
   .object({
-    allowedUrls: z.array(z.union([z.string(), z.instanceof(RegExp)])).readonly(),
-    allowPrivateNetwork: z.boolean(),
-    timeoutMs: z.number(),
-    maxResponseBytes: z.number(),
-    maxRedirects: z.number(),
+    allowedUrls: z
+      .array(z.union([z.string(), z.instanceof(RegExp)]))
+      .readonly()
+      .default([]),
+    allowPrivateNetwork: z.boolean().default(false),
+    timeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS),
+    maxResponseBytes: z.number().default(DEFAULT_MAX_RESPONSE_BYTES),
+    maxRedirects: z.number().default(DEFAULT_MAX_REDIRECTS),
   })
   .partial();
 

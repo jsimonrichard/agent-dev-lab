@@ -305,17 +305,19 @@ export function createWorkspaceToolProvider(
   const workspaceOwnContextSchema = z
     .object({
       cwd: z.string(),
-      bashTimeoutMs: z.number(),
-      maxReadBytes: z.number(),
-      maxWriteBytes: z.number(),
+      bashTimeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
+      maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
+      maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
       allowWrite: z.array(z.string()),
       allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]),
       denyRead: z.array(z.string()),
       denyWrite: z.array(z.string()),
-      allowedDomains: z.array(z.string()),
-      deniedDomains: z.array(z.string()),
-      allowNetwork: z.boolean(),
-      allowEnv: z.union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))]),
+      allowedDomains: z.array(z.string()).default([]),
+      deniedDomains: z.array(z.string()).default([]),
+      allowNetwork: z.boolean().default(false),
+      allowEnv: z
+        .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
+        .default([]),
       tmpDir: z.string(),
     })
     .partial();
@@ -323,7 +325,7 @@ export function createWorkspaceToolProvider(
   return {
     contextSchema: includeFetchUrl
       ? workspaceOwnContextSchema
-          .extend({ fetchTimeoutMs: z.number().optional() })
+          .extend({ fetchTimeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS) })
           .extend(webToolProviderContextSchema.omit({ timeoutMs: true }).shape)
       : workspaceOwnContextSchema,
     listTools(): ToolProviderToolSummary[] {

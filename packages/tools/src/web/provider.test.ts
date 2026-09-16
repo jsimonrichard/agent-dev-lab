@@ -65,9 +65,21 @@ describe("createWebToolProvider", () => {
     });
     expect(parsed).toEqual({
       allowedUrls: ["https://docs.internal:443/**", pattern],
+      allowPrivateNetwork: false,
       timeoutMs: 1_000,
       maxResponseBytes: 2_000,
       maxRedirects: 3,
+    });
+  });
+
+  it("fills hardcoded runtime defaults when parsing empty context", () => {
+    const provider = createWebToolProvider();
+    expect(provider.contextSchema?.parse({})).toEqual({
+      allowedUrls: [],
+      allowPrivateNetwork: false,
+      timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+      maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
+      maxRedirects: DEFAULT_MAX_REDIRECTS,
     });
   });
 

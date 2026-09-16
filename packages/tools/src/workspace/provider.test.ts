@@ -8,6 +8,8 @@ import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
+import { DEFAULT_TIMEOUT_MS } from "../bash/tools";
+import { DEFAULT_MAX_BYTES } from "../file/tools";
 
 import {
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -371,6 +373,33 @@ describe("createWorkspaceToolProvider", () => {
       allowedUrls: ["https://docs.internal:443/**", pattern],
       fetchTimeoutMs: 1_000,
       bashTimeoutMs: 2_000,
+      allowPrivateNetwork: false,
+      maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
+      maxRedirects: DEFAULT_MAX_REDIRECTS,
+      maxReadBytes: DEFAULT_MAX_BYTES,
+      maxWriteBytes: DEFAULT_MAX_BYTES,
+      allowedDomains: [],
+      deniedDomains: [],
+      allowNetwork: false,
+      allowEnv: [],
+    });
+  });
+
+  it("fills hardcoded runtime defaults when parsing empty context", () => {
+    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    expect(provider.contextSchema?.parse({})).toEqual({
+      bashTimeoutMs: DEFAULT_TIMEOUT_MS,
+      maxReadBytes: DEFAULT_MAX_BYTES,
+      maxWriteBytes: DEFAULT_MAX_BYTES,
+      allowedDomains: [],
+      deniedDomains: [],
+      allowNetwork: false,
+      allowEnv: [],
+      fetchTimeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+      allowedUrls: [],
+      allowPrivateNetwork: false,
+      maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
+      maxRedirects: DEFAULT_MAX_REDIRECTS,
     });
   });
 });
