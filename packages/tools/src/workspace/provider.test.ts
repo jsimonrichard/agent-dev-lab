@@ -7,10 +7,17 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
+import { OMIT_TMP_DIR_SCHEMA_DESCRIPTION } from "../bash/asrt/tmp-dir.ts";
 import { DEFAULT_ALLOWED_DOMAINS } from "../bash/executor-pool.ts";
-import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools";
 import { DEFAULT_MAX_BYTES } from "../file/tools";
+import {
+  objectSchemaFieldDescription,
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+} from "../fs-bounds.ts";
+import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 
 import {
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -484,5 +491,21 @@ describe("createWorkspaceToolProvider", () => {
       maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
       maxRedirects: DEFAULT_MAX_REDIRECTS,
     });
+  });
+
+  it("describes omit-defaults that depend on cwd", () => {
+    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    expect(objectSchemaFieldDescription(provider.contextSchema, "cwd")).toBe(
+      omitAnchorSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowWrite")).toBe(
+      omitAllowWriteSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowRead")).toBe(
+      omitAllowReadSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "tmpDir")).toBe(
+      OMIT_TMP_DIR_SCHEMA_DESCRIPTION,
+    );
   });
 });

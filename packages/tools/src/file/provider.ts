@@ -9,7 +9,13 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
-import { resolveAllowWriteList, resolveDenyList } from "../fs-bounds.ts";
+import {
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+  resolveAllowWriteList,
+  resolveDenyList,
+} from "../fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
 
 import {
@@ -186,9 +192,9 @@ export function createFileToolProvider(
 
   return {
     contextSchema: z.object({
-      root: z.string().optional(),
-      allowRead: fileAllowReadSchema.optional(),
-      allowWrite: z.array(z.string()).optional(),
+      root: z.string().optional().describe(omitAnchorSchemaDescription("root")),
+      allowRead: fileAllowReadSchema.optional().describe(omitAllowReadSchemaDescription("root")),
+      allowWrite: z.array(z.string()).optional().describe(omitAllowWriteSchemaDescription("root")),
       denyRead: z.array(z.string()).optional(),
       denyWrite: z.array(z.string()).optional(),
       maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),

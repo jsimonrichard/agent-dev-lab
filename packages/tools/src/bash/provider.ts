@@ -10,8 +10,15 @@ import {
 import path from "node:path";
 import { z } from "zod";
 
-import { resolveAllowReadList, resolveAllowWriteList } from "../fs-bounds.ts";
+import {
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+  resolveAllowReadList,
+  resolveAllowWriteList,
+} from "../fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ, type ModelAllowRead } from "../unbounded-allow-read.ts";
+import { OMIT_TMP_DIR_SCHEMA_DESCRIPTION } from "./asrt/tmp-dir.ts";
 import type { BashExecutor, BashExecutorResult } from "./executor.ts";
 import {
   acquireBashExecutor,
@@ -31,6 +38,7 @@ import {
 
 export { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 export type { ModelAllowRead } from "../unbounded-allow-read.ts";
+export { OMIT_TMP_DIR_SCHEMA_DESCRIPTION };
 
 export const bashSafetyCheckInputSchema = z.object({
   command: z.string(),
@@ -339,12 +347,13 @@ export function createBashToolProvider(
 
   return {
     contextSchema: z.object({
-      cwd: z.string().optional(),
+      cwd: z.string().optional().describe(omitAnchorSchemaDescription("cwd")),
       timeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
-      allowWrite: z.array(z.string()).optional(),
+      allowWrite: z.array(z.string()).optional().describe(omitAllowWriteSchemaDescription("cwd")),
       allowRead: z
         .union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)])
-        .optional(),
+        .optional()
+        .describe(omitAllowReadSchemaDescription("cwd")),
       denyRead: z.array(z.string()).optional(),
       denyWrite: z.array(z.string()).optional(),
       allowedDomains: z
@@ -356,7 +365,7 @@ export function createBashToolProvider(
       allowEnv: z
         .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
         .default([]),
-      tmpDir: z.string().optional(),
+      tmpDir: z.string().optional().describe(OMIT_TMP_DIR_SCHEMA_DESCRIPTION),
     }),
     listTools(): ToolProviderToolSummary[] {
       return [

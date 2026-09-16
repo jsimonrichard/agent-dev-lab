@@ -7,6 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
+import {
+  objectSchemaFieldDescription,
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+} from "../fs-bounds.ts";
 import { createFileToolProvider, type FileToolProviderContext } from "./provider";
 import { DEFAULT_MAX_BYTES } from "./tools";
 
@@ -172,5 +178,18 @@ describe("createFileToolProvider", () => {
       maxReadBytes: DEFAULT_MAX_BYTES,
       maxWriteBytes: DEFAULT_MAX_BYTES,
     });
+  });
+
+  it("describes omit-defaults that depend on root", () => {
+    const provider = createFileToolProvider({ root });
+    expect(objectSchemaFieldDescription(provider.contextSchema, "root")).toBe(
+      omitAnchorSchemaDescription("root"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowWrite")).toBe(
+      omitAllowWriteSchemaDescription("root"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowRead")).toBe(
+      omitAllowReadSchemaDescription("root"),
+    );
   });
 });

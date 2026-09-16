@@ -56,6 +56,13 @@ export interface ResolvedAsrtTmpDir {
 }
 
 /**
+ * Schema help for omitted `tmpDir`. Cannot be a Zod `.default()` — ASRT allocates a
+ * fresh owned directory per executor.
+ */
+export const OMIT_TMP_DIR_SCHEMA_DESCRIPTION =
+  "If omitted, ASRT creates an owned TMPDIR inside the sandbox (removed when the executor is disposed).";
+
+/**
  * Resolve the directory ASRT will set as `TMPDIR` inside the sandbox
  * (`CLAUDE_CODE_TMPDIR` on the supervisor). Omitted `requested` → a fresh
  * `mkdtemp` under `os.tmpdir()` that this executor owns and removes on dispose.

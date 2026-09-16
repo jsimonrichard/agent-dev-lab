@@ -9,6 +9,58 @@ import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
  */
 export type AllowReadInput = string[] | null | typeof UNBOUNDED_ALLOW_READ | undefined;
 
+/** Anchor field name in a provider `contextSchema` (`cwd` for bash/workspace, `root` for file). */
+export type SandboxAnchorField = "cwd" | "root";
+
+/**
+ * Schema help for omitted `allowWrite`. Cannot be a Zod `.default()` — the value is
+ * `[cwd]` / `[root]`, not a constant.
+ */
+export function omitAllowWriteSchemaDescription(anchor: SandboxAnchorField): string {
+  return `If omitted, defaults to [${anchor}]. Pass [] to allow no writes.`;
+}
+
+/**
+ * Schema help for omitted `allowRead`. Cannot be a Zod `.default()` — the value is
+ * `[cwd]` / `[root]`, not a constant.
+ */
+export function omitAllowReadSchemaDescription(anchor: SandboxAnchorField): string {
+  return (
+    `If omitted, defaults to [${anchor}]. Pass [] or null for no reads, or ` +
+    `"${UNBOUNDED_ALLOW_READ}" for host-wide reads.`
+  );
+}
+
+/**
+ * Schema help for omitted `cwd` / `root`. Cannot be a Zod `.default()` — the value is
+ * the provider constructor argument.
+ */
+export function omitAnchorSchemaDescription(anchor: SandboxAnchorField): string {
+  return `If omitted, uses the ${anchor} the provider was constructed with.`;
+}
+
+/**
+ * Read a Zod object field's `.description`. Duck-typed so this module stays Zod-free.
+ * Throws when the field or description is missing — omit-default help is required, not optional.
+ */
+export function objectSchemaFieldDescription(schema: unknown, name: string): string {
+  if (schema === null || typeof schema !== "object" || !("shape" in schema)) {
+    throw new Error("expected an object schema with a shape");
+  }
+  const shape: unknown = schema.shape;
+  if (shape === null || typeof shape !== "object") {
+    throw new Error("expected an object schema shape");
+  }
+  const field: unknown = (shape as Record<string, unknown>)[name];
+  if (field === null || typeof field !== "object") {
+    throw new Error(`missing schema field ${name}`);
+  }
+  if (!("description" in field) || typeof field.description !== "string") {
+    throw new Error(`schema field ${name} has no description`);
+  }
+  return field.description;
+}
+
 /** Resolved read bound: a root list (`[]` = deny all) or {@link UNBOUNDED_ALLOW_READ}. */
 export type ResolvedAllowRead = string[] | typeof UNBOUNDED_ALLOW_READ;
 

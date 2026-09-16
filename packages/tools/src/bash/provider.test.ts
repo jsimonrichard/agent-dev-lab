@@ -16,6 +16,13 @@ import {
 } from "./provider";
 import { DEFAULT_TIMEOUT_MS } from "./tools";
 import { DEFAULT_ALLOWED_DOMAINS } from "./executor-pool.ts";
+import { OMIT_TMP_DIR_SCHEMA_DESCRIPTION } from "./asrt/tmp-dir.ts";
+import {
+  objectSchemaFieldDescription,
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+} from "../fs-bounds.ts";
 
 const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
 
@@ -332,5 +339,21 @@ describe("createBashToolProvider", () => {
       allowNetwork: false,
       allowEnv: [],
     });
+  });
+
+  it("describes omit-defaults that depend on cwd", () => {
+    const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
+    expect(objectSchemaFieldDescription(provider.contextSchema, "cwd")).toBe(
+      omitAnchorSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowWrite")).toBe(
+      omitAllowWriteSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "allowRead")).toBe(
+      omitAllowReadSchemaDescription("cwd"),
+    );
+    expect(objectSchemaFieldDescription(provider.contextSchema, "tmpDir")).toBe(
+      OMIT_TMP_DIR_SCHEMA_DESCRIPTION,
+    );
   });
 });

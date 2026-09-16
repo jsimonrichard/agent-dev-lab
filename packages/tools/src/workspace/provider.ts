@@ -21,6 +21,7 @@ import {
 import {
   createBashToolProvider,
   describeBashAccess,
+  OMIT_TMP_DIR_SCHEMA_DESCRIPTION,
   resolveBashExecutorForCall,
   UNBOUNDED_ALLOW_READ,
   type BashAccessInfo,
@@ -36,6 +37,11 @@ import {
   type SearchTools,
 } from "../file/search";
 import { DEFAULT_MAX_BYTES, type FileAllowRead, type FileTools } from "../file/tools";
+import {
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
+} from "../fs-bounds.ts";
 import {
   createWebToolProvider,
   describeWebAccess,
@@ -331,12 +337,15 @@ export function createWorkspaceToolProvider(
   const heldKeys = new Set<string>();
 
   const workspaceOwnContextSchema = z.object({
-    cwd: z.string().optional(),
+    cwd: z.string().optional().describe(omitAnchorSchemaDescription("cwd")),
     bashTimeoutMs: z.number().default(DEFAULT_TIMEOUT_MS),
     maxReadBytes: z.number().default(DEFAULT_MAX_BYTES),
     maxWriteBytes: z.number().default(DEFAULT_MAX_BYTES),
-    allowWrite: z.array(z.string()).optional(),
-    allowRead: z.union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)]).optional(),
+    allowWrite: z.array(z.string()).optional().describe(omitAllowWriteSchemaDescription("cwd")),
+    allowRead: z
+      .union([z.array(z.string()), z.null(), z.literal(UNBOUNDED_ALLOW_READ)])
+      .optional()
+      .describe(omitAllowReadSchemaDescription("cwd")),
     denyRead: z.array(z.string()).optional(),
     denyWrite: z.array(z.string()).optional(),
     allowedDomains: z
@@ -351,7 +360,7 @@ export function createWorkspaceToolProvider(
     allowEnv: z
       .union([z.literal(true), z.array(z.union([z.string(), z.instanceof(RegExp)]))])
       .default([]),
-    tmpDir: z.string().optional(),
+    tmpDir: z.string().optional().describe(OMIT_TMP_DIR_SCHEMA_DESCRIPTION),
   });
 
   return {

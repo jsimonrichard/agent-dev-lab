@@ -7,6 +7,10 @@ import { describe, expect, it } from "bun:test";
 import {
   checkPathAccess,
   isWithinRoot,
+  objectSchemaFieldDescription,
+  omitAllowReadSchemaDescription,
+  omitAllowWriteSchemaDescription,
+  omitAnchorSchemaDescription,
   realpathOrResolve,
   realpathPathBound,
   resolveAllowReadList,
@@ -14,6 +18,29 @@ import {
   resolveDenyList,
 } from "./fs-bounds.ts";
 import { UNBOUNDED_ALLOW_READ } from "./unbounded-allow-read.ts";
+
+describe("omit-default schema descriptions", () => {
+  it("names the cwd/root anchor instead of inventing a constant default", () => {
+    expect(omitAllowWriteSchemaDescription("cwd")).toContain("[cwd]");
+    expect(omitAllowWriteSchemaDescription("root")).toContain("[root]");
+    expect(omitAllowReadSchemaDescription("cwd")).toContain("[cwd]");
+    expect(omitAllowReadSchemaDescription("cwd")).toContain(`"${UNBOUNDED_ALLOW_READ}"`);
+    expect(omitAnchorSchemaDescription("cwd")).toContain("cwd");
+    expect(omitAnchorSchemaDescription("root")).toContain("root");
+  });
+
+  it("throws when the schema or field description is missing", () => {
+    expect(() => objectSchemaFieldDescription(undefined, "cwd")).toThrow(
+      "expected an object schema with a shape",
+    );
+    expect(() => objectSchemaFieldDescription({ shape: {} }, "cwd")).toThrow(
+      "missing schema field cwd",
+    );
+    expect(() => objectSchemaFieldDescription({ shape: { cwd: {} } }, "cwd")).toThrow(
+      "schema field cwd has no description",
+    );
+  });
+});
 
 describe("resolveAllowWriteList", () => {
   it("defaults omitted to [anchor]", () => {
