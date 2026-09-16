@@ -60,6 +60,7 @@ export function SchemaFieldControl({
           description={field.description}
           presentation={jsonPresentation}
           optional={!field.required}
+          defaultValue={field.default}
           onChange={onChange}
           onValidityChange={onJsonValidityChange}
         />
@@ -77,6 +78,7 @@ export function SchemaFieldControl({
         value={jsonValueFromSchemaField(field, value)}
         jsonType={jsonTypeFromField(field)}
         optional={!field.required}
+        defaultValue={field.default}
         hideStaticType
         autoFocus={autoFocus}
         onChange={(next) => onChange(schemaFieldFromJsonValue(field, next))}

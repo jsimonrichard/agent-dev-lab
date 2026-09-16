@@ -38,6 +38,7 @@ import {
   composerNeedsText,
   defaultValueForJsonType,
   editorVariants,
+  fieldValueAction,
   isJsonObject,
   jsonTypeLabel,
   jsonTypeToZodText,
@@ -49,6 +50,7 @@ import {
   stringifyJsonValue,
   valueFromComposerDraft,
   valueMatchesJsonType,
+  type FieldValueAction,
   type JsonPath,
 } from "@/lib/json-editor";
 import { cn } from "@/lib/utils";
@@ -95,18 +97,24 @@ export function JsonEditor({
   }
 
   const showRaw = mode === "json" || rawParsed.isErr;
-  const canClear = value !== undefined || rawDraft.trim().length > 0;
+  const valueAction = fieldValueAction({
+    optional: true,
+    value: value !== undefined ? value : rawDraft.trim().length > 0 ? rawDraft : undefined,
+  });
 
   return (
     <EditorFrame
       mode={showRaw ? "json" : "document"}
       onModeChange={selectMode}
       documentDisabled={rawParsed.isErr}
-      onClear={
-        canClear
-          ? () => {
-              setRawDraft("");
-              onChange(undefined);
+      valueAction={
+        valueAction
+          ? {
+              label: "Clear",
+              onClick: () => {
+                setRawDraft("");
+                onChange(undefined);
+              },
             }
           : undefined
       }
@@ -151,6 +159,7 @@ export function JsonTextEditor({
   presentation = "dialog",
   fill = false,
   optional = false,
+  defaultValue,
   onValidityChange,
 }: {
   value: string;
@@ -165,6 +174,8 @@ export function JsonTextEditor({
   fill?: boolean;
   /** When true, the type selector includes `undefined` and unset stays omitted. */
   optional?: boolean;
+  /** Schema `.default()` — required fields reset to this instead of clearing. */
+  defaultValue?: JsonValue;
   onValidityChange?: (error: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -189,6 +200,7 @@ export function JsonTextEditor({
         jsonType={jsonType}
         fill={fill}
         optional={optional}
+        defaultValue={defaultValue}
         hideStaticType={paneHidesStaticType}
         onChange={onChange}
         onValidityChange={reportValidity}
@@ -253,6 +265,7 @@ export function JsonTextEditor({
                 jsonType={jsonType}
                 fill
                 optional={optional}
+                defaultValue={defaultValue}
                 hideStaticType={paneHidesStaticType}
                 onChange={setDraft}
                 onValidityChange={setNestedError}
@@ -329,6 +342,19 @@ export function JsonEditorSummary({
   );
 }
 
+function jsonValueFromEditorText(text: string): JsonValue | undefined {
+  const parsed = parseJsonText(text);
+  return parsed.isOk ? parsed.value : text;
+}
+
+function applyFieldValueActionToText(action: FieldValueAction, onChange: (value: string) => void) {
+  if (action.kind === "clear") {
+    onChange("");
+    return;
+  }
+  onChange(stringifyJsonValue(action.next));
+}
+
 function JsonTextEditorPane({
   value,
   onChange,
@@ -338,6 +364,7 @@ function JsonTextEditorPane({
   fill = false,
   hideStaticType = false,
   optional = false,
+  defaultValue,
   onValidityChange,
 }: {
   value: string;
@@ -348,6 +375,7 @@ function JsonTextEditorPane({
   fill?: boolean;
   hideStaticType?: boolean;
   optional?: boolean;
+  defaultValue?: JsonValue;
   onValidityChange?: (error: string | null) => void;
 }) {
   const parsed = parseJsonText(value);
@@ -389,6 +417,11 @@ function JsonTextEditorPane({
   }
 
   const showRaw = mode === "json" || parsed.isErr;
+  const valueAction = fieldValueAction({
+    optional,
+    defaultValue,
+    value: jsonValueFromEditorText(value),
+  });
 
   return (
     <NestedJsonValidityContext.Provider value={reportNestedError}>
@@ -397,7 +430,14 @@ function JsonTextEditorPane({
         onModeChange={selectMode}
         documentDisabled={parsed.isErr || nestedError !== null}
         fill={fill}
-        onClear={value.trim().length > 0 ? () => onChange("") : undefined}
+        valueAction={
+          valueAction
+            ? {
+                label: valueAction.kind === "clear" ? "Clear" : "Reset",
+                onClick: () => applyFieldValueActionToText(valueAction, onChange),
+              }
+            : undefined
+        }
       >
         {showRaw ? (
           <RawPane
@@ -430,14 +470,14 @@ function EditorFrame({
   mode,
   onModeChange,
   documentDisabled,
-  onClear,
+  valueAction,
   fill = false,
   children,
 }: {
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
   documentDisabled: boolean;
-  onClear?: () => void;
+  valueAction?: { label: "Clear" | "Reset"; onClick: () => void };
   fill?: boolean;
   children: ReactNode;
 }) {
@@ -450,15 +490,15 @@ function EditorFrame({
     >
       <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-1 border-b border-border/40 px-2 py-1.5">
         <ModeToggle mode={mode} onChange={onModeChange} documentDisabled={documentDisabled} />
-        {onClear ? (
+        {valueAction ? (
           <Button
             type="button"
             variant="ghost"
             size="xs"
             className="text-muted-foreground"
-            onClick={onClear}
+            onClick={valueAction.onClick}
           >
-            Clear
+            {valueAction.label}
           </Button>
         ) : null}
       </div>
@@ -693,6 +733,7 @@ export function JsonTypedEditor({
   jsonType,
   autoFocus,
   optional = false,
+  defaultValue,
   hideStaticType = false,
 }: {
   value: JsonValue | undefined;
@@ -700,6 +741,7 @@ export function JsonTypedEditor({
   jsonType: JsonSchemaType;
   autoFocus?: boolean;
   optional?: boolean;
+  defaultValue?: JsonValue;
   hideStaticType?: boolean;
 }) {
   return (
@@ -710,6 +752,7 @@ export function JsonTypedEditor({
       onChange={onChange}
       autoFocus={autoFocus}
       optional={optional}
+      defaultValue={defaultValue}
       hideStaticType={hideStaticType}
     />
   );
@@ -723,6 +766,7 @@ function TypedEditor({
   autoFocus,
   hideStaticType = false,
   optional = false,
+  defaultValue,
   showFieldClear = true,
 }: {
   value: JsonValue | undefined;
@@ -732,6 +776,7 @@ function TypedEditor({
   autoFocus?: boolean;
   hideStaticType?: boolean;
   optional?: boolean;
+  defaultValue?: JsonValue;
   showFieldClear?: boolean;
 }) {
   if (depth >= MAX_JSON_TREE_DEPTH && value !== undefined) {
@@ -789,6 +834,10 @@ function TypedEditor({
     <p className="font-mono text-xs text-muted-foreground">omitted</p>
   ) : null;
   const block = bodyType?.type === "array" || bodyType?.type === "object";
+  const valueAction =
+    !showFieldClear || (optional && showSelect)
+      ? undefined
+      : fieldValueAction({ optional, defaultValue, value });
 
   return (
     <div className="min-w-0 space-y-2">
@@ -799,17 +848,16 @@ function TypedEditor({
         </p>
       ) : null}
       <OptionalValueRow
-        optional={optional && !showSelect}
-        omitted={omitted}
-        showClear={showFieldClear}
+        valueAction={valueAction}
         typeHint={staticType}
         trailing={typeControl}
         align={block ? "start" : "center"}
-        onClear={() => {
-          if (!optional) {
-            throw new Error("json editor clear called on a required slot");
+        onAction={(action) => {
+          if (action.kind === "clear") {
+            onChange(undefined);
+            return;
           }
-          onChange(undefined);
+          onChange(action.next);
         }}
       >
         {body}
@@ -886,7 +934,13 @@ function TypedValue({
   );
 }
 
-function ClearFieldButton({ onClick }: { onClick: () => void }) {
+function FieldValueActionButton({
+  label,
+  onClick,
+}: {
+  label: "Clear" | "Reset";
+  onClick: () => void;
+}) {
   return (
     <Button
       type="button"
@@ -895,28 +949,24 @@ function ClearFieldButton({ onClick }: { onClick: () => void }) {
       className="shrink-0 text-muted-foreground"
       onClick={onClick}
     >
-      Clear
+      {label}
     </Button>
   );
 }
 
 function OptionalValueRow({
-  optional,
-  omitted,
-  onClear,
+  valueAction,
+  onAction,
   children,
   typeHint,
   trailing,
-  showClear = true,
   align = "start",
 }: {
-  optional: boolean;
-  omitted: boolean;
-  onClear: () => void;
+  valueAction?: FieldValueAction;
+  onAction: (action: FieldValueAction) => void;
   children: ReactNode;
   typeHint?: ReactNode;
   trailing?: ReactNode;
-  showClear?: boolean;
   align?: "start" | "center";
 }) {
   return (
@@ -924,7 +974,12 @@ function OptionalValueRow({
       <div className="min-w-0 flex-1">{children}</div>
       {typeHint}
       {trailing}
-      {showClear && optional && !omitted ? <ClearFieldButton onClick={onClear} /> : null}
+      {valueAction ? (
+        <FieldValueActionButton
+          label={valueAction.kind === "clear" ? "Clear" : "Reset"}
+          onClick={() => onAction(valueAction)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1111,6 +1166,7 @@ function ObjectEditor({
                   depth={depth + 1}
                   hideStaticType={field.required && field.schema.type !== "union"}
                   optional={!field.required}
+                  defaultValue={field.default}
                   onChange={(next) => setField(field.name, next)}
                 />
               </div>

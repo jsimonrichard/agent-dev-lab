@@ -32,6 +32,27 @@ export function defaultJsonValue(type: JsonInsertType): JsonValue {
   }
 }
 
+export function jsonValuesEqual(a: JsonValue | undefined, b: JsonValue | undefined): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export type FieldValueAction = { kind: "clear" } | { kind: "reset"; next: JsonValue };
+
+/** Clear omits an optional value. Reset restores a required field's schema default. */
+export function fieldValueAction(args: {
+  optional: boolean;
+  defaultValue?: JsonValue;
+  value: JsonValue | undefined;
+}): FieldValueAction | undefined {
+  if (args.optional) {
+    return args.value === undefined ? undefined : { kind: "clear" };
+  }
+  if (args.defaultValue === undefined || jsonValuesEqual(args.value, args.defaultValue)) {
+    return undefined;
+  }
+  return { kind: "reset", next: args.defaultValue };
+}
+
 export function defaultValueForJsonType(schema: JsonSchemaType): JsonValue {
   switch (schema.type) {
     case "string":

@@ -6,6 +6,7 @@ import {
   defaultJsonValue,
   defaultValueForJsonType,
   editorVariants,
+  fieldValueAction,
   getAtPath,
   insertArrayItem,
   jsonTypeFromFields,
@@ -37,6 +38,30 @@ describe("defaultJsonValue", () => {
     expect(defaultJsonValue("boolean")).toBe(false);
     expect(defaultJsonValue("object")).toEqual({});
     expect(defaultJsonValue("array")).toEqual([]);
+  });
+});
+
+describe("fieldValueAction", () => {
+  it("clears a present optional value and hides the action when omitted", () => {
+    expect(fieldValueAction({ optional: true, value: false })).toEqual({ kind: "clear" });
+    expect(fieldValueAction({ optional: true, value: undefined })).toBeUndefined();
+  });
+
+  it("resets a required defaulted field only when the value differs", () => {
+    expect(
+      fieldValueAction({ optional: false, defaultValue: ["*"], value: ["example.com"] }),
+    ).toEqual({ kind: "reset", next: ["*"] });
+    expect(
+      fieldValueAction({ optional: false, defaultValue: ["*"], value: ["*"] }),
+    ).toBeUndefined();
+    expect(fieldValueAction({ optional: false, defaultValue: false, value: true })).toEqual({
+      kind: "reset",
+      next: false,
+    });
+  });
+
+  it("does not offer Clear or Reset on a required field without a default", () => {
+    expect(fieldValueAction({ optional: false, value: "cwd" })).toBeUndefined();
   });
 });
 
