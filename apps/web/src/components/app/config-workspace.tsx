@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 export function ConfigWorkspace({
@@ -18,7 +17,7 @@ export function ConfigWorkspace({
   emptyMessage?: string;
 }) {
   return (
-    <div className="flex h-svh min-h-0 flex-col">
+    <div className="flex h-svh min-h-0 flex-col overflow-hidden">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
@@ -33,9 +32,9 @@ export function ConfigWorkspace({
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-auto">
           <div className="mx-auto w-full max-w-3xl space-y-8 p-6 md:p-8">{children}</div>
-        </ScrollArea>
+        </div>
       )}
     </div>
   );
