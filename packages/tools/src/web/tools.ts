@@ -45,6 +45,15 @@ export interface FetchUrlToolOptions {
    */
   allowedUrls?: readonly UrlPattern[];
   /**
+   * Hostname allowlist — see {@link AddressPolicy.allowedDomains}. Omitted means no
+   * allowlist. Empty denies every host. `"*"` allows any host.
+   */
+  allowedDomains?: readonly string[];
+  /**
+   * Hostname denylist — see {@link AddressPolicy.deniedDomains}.
+   */
+  deniedDomains?: readonly string[];
+  /**
    * Disables the address check entirely — see {@link AddressPolicy.allowPrivateNetwork}. Default
    * `false`. Never reachable from the model; discoverable via `describeWebEnv`.
    */
@@ -125,6 +134,8 @@ export function createFetchUrlTool(options: FetchUrlToolOptions = {}): FetchUrlT
 
   const policy: AddressPolicy = {
     allowedUrls: options.allowedUrls,
+    allowedDomains: options.allowedDomains,
+    deniedDomains: options.deniedDomains,
     allowPrivateNetwork: options.allowPrivateNetwork,
     resolver: options.resolver,
   };

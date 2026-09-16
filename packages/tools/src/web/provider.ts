@@ -29,6 +29,13 @@ export interface WebAccessInfo {
    * SDK turn serializes the tool result.
    */
   allowedUrls: readonly string[];
+  /**
+   * Hostname allowlist this call's `fetchUrl` enforces. Omitted when there is no allowlist
+   * (any host, still subject to {@link deniedDomains} and the address checks).
+   */
+  allowedDomains?: readonly string[];
+  /** Hostname denylist this call's `fetchUrl` enforces. Omitted when empty. */
+  deniedDomains?: readonly string[];
   /** `true` when this call's `fetchUrl` has the address check disabled entirely — see
    * `AddressPolicy.allowPrivateNetwork`. Its own field, not folded into `allowedUrls`. */
   allowPrivateNetwork: boolean;
@@ -46,10 +53,20 @@ export function describeWebAccess(
   timeoutMs: number,
   maxResponseBytes: number,
   maxRedirects: number,
+  domainLists: {
+    allowedDomains?: readonly string[];
+    deniedDomains?: readonly string[];
+  } = {},
 ): WebAccessInfo {
   return {
     allowedSchemes: ALLOWED_URL_SCHEMES,
     allowedUrls: allowedUrls.map((pattern) => String(pattern)),
+    ...(domainLists.allowedDomains !== undefined
+      ? { allowedDomains: [...domainLists.allowedDomains] }
+      : {}),
+    ...(domainLists.deniedDomains !== undefined && domainLists.deniedDomains.length > 0
+      ? { deniedDomains: [...domainLists.deniedDomains] }
+      : {}),
     allowPrivateNetwork,
     timeoutMs,
     maxResponseBytes,
@@ -78,6 +95,8 @@ export const webToolProviderContextSchema = z.object({
     .array(z.union([z.string(), z.instanceof(RegExp)]))
     .readonly()
     .default([]),
+  allowedDomains: z.array(z.string()).optional(),
+  deniedDomains: z.array(z.string()).optional(),
   allowPrivateNetwork: z.boolean().default(false),
   timeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS),
   maxResponseBytes: z.number().default(DEFAULT_MAX_RESPONSE_BYTES),
@@ -132,6 +151,8 @@ export function createWebToolProvider(
     },
     getTools(ctx) {
       const allowedUrls = ctx.toolProviderContext?.allowedUrls ?? options.allowedUrls ?? [];
+      const allowedDomains = ctx.toolProviderContext?.allowedDomains ?? options.allowedDomains;
+      const deniedDomains = ctx.toolProviderContext?.deniedDomains ?? options.deniedDomains;
       const allowPrivateNetwork =
         ctx.toolProviderContext?.allowPrivateNetwork ?? options.allowPrivateNetwork ?? false;
       const timeoutMs =
@@ -145,6 +166,8 @@ export function createWebToolProvider(
 
       const fetchUrl = createFetchUrlTool({
         allowedUrls,
+        allowedDomains,
+        deniedDomains,
         allowPrivateNetwork,
         resolver: options.resolver,
         timeoutMs,
@@ -162,6 +185,7 @@ export function createWebToolProvider(
             timeoutMs,
             maxResponseBytes,
             maxRedirects,
+            { allowedDomains, deniedDomains },
           ),
         }),
       });

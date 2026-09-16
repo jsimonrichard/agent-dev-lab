@@ -11,16 +11,17 @@ code, as the place that grows when a decision needs more explaining.
 
 ## Files
 
-| File                | Owns                                                                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `address-policy.ts` | The address guard: is this URL's destination safe to connect to?                                                                         |
-| `url-pattern.ts`    | The glob/`RegExp` matcher behind `allowedUrls` — pure string matching, no URLs or addresses.                                             |
-| `extract.ts`        | Reduces a response body to text/markdown; untrusted-content handling.                                                                    |
-| `fetch.ts`          | Transport: manual redirect loop, byte cap, timeout, `http:` IP pinning.                                                                  |
-| `tools.ts`          | The `fetchUrl` tool itself — wires the above together, owns the model-facing description.                                                |
-| `provider.ts`       | `createWebToolProvider` — per-call config via `toolProviderContext`, `describeWebEnv`. Also composed into `createWorkspaceToolProvider`. |
+| File                  | Owns                                                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `address-policy.ts`   | The address guard: is this URL's destination safe to connect to?                                                                         |
+| `domain-allowlist.ts` | Hostname allow/deny matching for `allowedDomains` / `deniedDomains` (ASRT pattern language).                                             |
+| `url-pattern.ts`      | The glob/`RegExp` matcher behind `allowedUrls` — pure string matching, no URLs or addresses.                                             |
+| `extract.ts`          | Reduces a response body to text/markdown; untrusted-content handling.                                                                    |
+| `fetch.ts`            | Transport: manual redirect loop, byte cap, timeout, `http:` IP pinning.                                                                  |
+| `tools.ts`            | The `fetchUrl` tool itself — wires the above together, owns the model-facing description.                                                |
+| `provider.ts`         | `createWebToolProvider` — per-call config via `toolProviderContext`, `describeWebEnv`. Also composed into `createWorkspaceToolProvider`. |
 
-Tests: `url-pattern.test.ts` and `address-policy.test.ts` are `node:test` (deliberately split —
+Tests: `url-pattern.test.ts`, `domain-allowlist.test.ts`, and `address-policy.test.ts` are `node:test` (deliberately split —
 see "Testing" below); `fetch.test.ts` and `fetch-url.test.ts` are `node:test` too (the former unit
 tests `issueViaPinnedAddress` directly, the latter is fixture-server end-to-end); `provider.test.ts`
 is `bun:test` (pure config wiring, no network surface).
@@ -49,9 +50,9 @@ redirect hop** (`fetch.ts` follows redirects by hand specifically so this can ha
 one is requested — relying on `fetch`'s own `redirect: "follow"` would fetch a hop before any
 policy of ours ever saw it).
 
-**Two checks, different in scope, checked in this order** (after the scheme allowlist, before
-either): `allowPrivateNetwork`, or a matching **concrete-host** `allowedUrls` entry, bypasses both.
-Host-wildcard `allowedUrls` alone do not.
+**Checks, in this order:** scheme allowlist → `allowedDomains` / `deniedDomains` (when set) →
+`allowPrivateNetwork`, or a matching **concrete-host** `allowedUrls` entry, bypasses the private-address
+checks. Host-wildcard `allowedUrls` alone do not.
 
 1. **A literal IP address in the hostname** (`http://127.0.0.1/x`) — no DNS involved — is checked
    **regardless of scheme**. There's no DNS-rebinding question here (nothing was resolved), so
@@ -81,6 +82,15 @@ multicast, broadcast, unspecified, reserved, the IPv4-in-IPv6 tunnel forms) is r
 anything that fails to parse, so a range nobody thought of is denied by default. IPv4-mapped IPv6
 (`::ffff:127.0.0.1`) is unwrapped and re-classified so it can't smuggle a loopback address past
 either check.
+
+### `allowedDomains` / `deniedDomains`
+
+Hostname allow/deny, same pattern language bash/ASRT uses (`*`, `*.example.com`, exact host,
+optional `:port`). Applied after the scheme check and **before** the private-address checks, on
+the initial URL and every redirect hop. Omitted `allowedDomains` means no allowlist (standalone
+`fetchUrl` / `createWebToolProvider` default). Empty denies every host. `createWorkspaceToolProvider`
+always passes the workspace `allowedDomains` field (default `["*"]`) so bash and `fetchUrl` share
+one list. `deniedDomains` wins over an allowlist match.
 
 ### `allowedUrls`
 

@@ -244,8 +244,6 @@ function bashPolicyFromWorkspace(
     allowRead: options.allowRead,
     denyRead: options.denyRead,
     denyWrite: options.denyWrite,
-    allowedDomains: options.allowedDomains,
-    deniedDomains: options.deniedDomains,
     allowEnv: options.allowEnv,
     tmpDir: options.tmpDir,
   };
@@ -257,17 +255,20 @@ function bashPolicyFromWorkspace(
         allowRead: context.allowRead,
         denyRead: context.denyRead,
         denyWrite: context.denyWrite,
-        allowedDomains: context.allowedDomains,
-        deniedDomains: context.deniedDomains,
         allowEnv: context.allowEnv,
         tmpDir: context.tmpDir,
       }
     : undefined;
-  // A supplied executor already encodes bash network policy; forwarding `allowNetwork`
-  // would be rejected as mixed executor+policy. The flag still gates `fetchUrl`.
+  // A supplied executor already encodes bash network policy; forwarding
+  // `allowNetwork` / domain lists would be rejected as mixed executor+policy.
+  // Those fields still gate `fetchUrl`.
   if (!options.executor) {
+    defaults.allowedDomains = options.allowedDomains;
+    defaults.deniedDomains = options.deniedDomains;
     defaults.allowNetwork = options.allowNetwork;
     if (bashContext) {
+      bashContext.allowedDomains = context?.allowedDomains;
+      bashContext.deniedDomains = context?.deniedDomains;
       bashContext.allowNetwork = context?.allowNetwork;
     }
   }
@@ -288,8 +289,10 @@ function bashPolicyFromWorkspace(
  * Pass either a pre-built `executor` or sandbox policy (`allowWrite`, …). `cwd` is set by the
  * workflow/host via `toolProviderContext`, never by the model directly — the file jail
  * re-scopes to it; bash write permissions come from the resolved executor's policy.
- * With a supplied `executor`, `allowNetwork` does not reconfigure bash (the executor already
- * has a network policy) and only gates whether `fetchUrl` is included.
+ * With a supplied `executor`, network policy (`allowNetwork`, `allowedDomains`,
+ * `deniedDomains`) does not reconfigure bash (the executor already has a network
+ * policy) and only gates whether `fetchUrl` is included and which hosts it may
+ * reach.
  */
 export function createWorkspaceToolProvider(
   options: WorkspaceToolProviderOptions,
@@ -355,7 +358,13 @@ export function createWorkspaceToolProvider(
     contextSchema: fetchUrlOptionEnabled
       ? workspaceOwnContextSchema
           .extend({ fetchTimeoutMs: z.number().default(DEFAULT_FETCH_TIMEOUT_MS) })
-          .extend(webToolProviderContextSchema.omit({ timeoutMs: true }).shape)
+          .extend(
+            webToolProviderContextSchema.omit({
+              timeoutMs: true,
+              allowedDomains: true,
+              deniedDomains: true,
+            }).shape,
+          )
       : workspaceOwnContextSchema,
     listTools(): ToolProviderToolSummary[] {
       const bashList = createBashToolProvider({
@@ -414,6 +423,11 @@ export function createWorkspaceToolProvider(
       const maxWriteBytes =
         ctx.toolProviderContext?.maxWriteBytes ?? options.maxWriteBytes ?? DEFAULT_MAX_BYTES;
       const allowedUrls = ctx.toolProviderContext?.allowedUrls ?? options.allowedUrls ?? [];
+      const allowedDomains =
+        ctx.toolProviderContext?.allowedDomains ??
+        options.allowedDomains ??
+        DEFAULT_ALLOWED_DOMAINS;
+      const deniedDomains = ctx.toolProviderContext?.deniedDomains ?? options.deniedDomains ?? [];
       const allowPrivateNetwork =
         ctx.toolProviderContext?.allowPrivateNetwork ?? options.allowPrivateNetwork ?? false;
       const fetchTimeoutMs =
@@ -481,6 +495,8 @@ export function createWorkspaceToolProvider(
               ...ctx,
               toolProviderContext: {
                 allowedUrls,
+                allowedDomains,
+                deniedDomains,
                 allowPrivateNetwork,
                 timeoutMs: fetchTimeoutMs,
                 maxResponseBytes,
@@ -522,6 +538,7 @@ export function createWorkspaceToolProvider(
                     fetchTimeoutMs,
                     maxResponseBytes,
                     maxRedirects,
+                    { allowedDomains, deniedDomains },
                   ),
                 ),
               }

@@ -74,7 +74,7 @@ Providers also expose a `describe*Env` tool so the model can see the resolved ro
 
 Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `toolProviderContext`. Pass the plain tool objects when the sandbox is fixed at construction.
 
-`fetchUrl` is included in the workspace provider when `allowNetwork` is true. It is omitted when `allowNetwork` is false (the default) or when constructed with `fetchUrl: false`. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool.
+`fetchUrl` is included in the workspace provider when `allowNetwork` is true. It is omitted when `allowNetwork` is false (the default) or when constructed with `fetchUrl: false`. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool. Workspace `allowedDomains` / `deniedDomains` apply to both bash and `fetchUrl`.
 
 This package does not search the web. Use your model provider's native search tool (for example `openai.tools.webSearch()`) for discovery; use `fetchUrl` when you already have an address.
 
@@ -120,7 +120,7 @@ for await (const update of tools.bash.execute({ command: "pwd" }, toolCallOption
 
 ## `fetchUrl`
 
-Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set a concrete-host `allowedUrls` entry or `allowPrivateNetwork: true`. Host-wildcard patterns like `**` alone do not bypass the address check. A non-2xx status is returned as data. Treat the body as untrusted third-party content.
+Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set a concrete-host `allowedUrls` entry or `allowPrivateNetwork: true`. Host-wildcard patterns like `**` alone do not bypass the address check. On the workspace provider, `allowedDomains` / `deniedDomains` also restrict which hosts `fetchUrl` may reach. A non-2xx status is returned as data. Treat the body as untrusted third-party content.
 
 ```ts
 import { createFetchUrlTool } from "@agent-dev-lab/tools";

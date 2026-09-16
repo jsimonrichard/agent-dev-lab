@@ -393,6 +393,45 @@ describe("assertAllowedUrl", () => {
       );
     });
   });
+
+  describe("allowedDomains / deniedDomains", () => {
+    it("omitted allowedDomains does not restrict public hosts", async () => {
+      const resolver = resolverFor({ "docs.example.com": ["93.184.216.34"] });
+      await assertAllowedUrl(new URL("https://docs.example.com/page"), { resolver });
+    });
+
+    it("rejects a host outside allowedDomains before the address check", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("http://127.0.0.1/x"), {
+          allowedDomains: ["example.com"],
+          allowPrivateNetwork: true,
+        }),
+        /allowedDomains/,
+      );
+    });
+
+    it("allows a listed host, still subject to the private-address check", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("http://127.0.0.1/x"), { allowedDomains: ["127.0.0.1"] }),
+        /not a public address/,
+      );
+      await assertAllowedUrl(new URL("http://127.0.0.1/x"), {
+        allowedDomains: ["127.0.0.1"],
+        allowPrivateNetwork: true,
+      });
+    });
+
+    it("deniedDomains rejects even when allowedDomains is *", async () => {
+      await assert.rejects(
+        assertAllowedUrl(new URL("https://blocked.example.com/"), {
+          allowedDomains: ["*"],
+          deniedDomains: ["blocked.example.com"],
+          resolver: unreachedResolver,
+        }),
+        /allowedDomains/,
+      );
+    });
+  });
 });
 
 describe("urlMatchCandidate", () => {

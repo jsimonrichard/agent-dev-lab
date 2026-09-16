@@ -109,6 +109,17 @@ describe("createWebToolProvider", () => {
     });
   });
 
+  it("enforces constructor allowedDomains on fetchUrl", async () => {
+    const provider = createWebToolProvider({ allowedDomains: ["example.com"] });
+    const { fetchUrl, describeWebEnv } = await provider.getTools(ctx());
+    expect(await describeWebEnv.execute?.({}, toolCallOptions)).toMatchObject({
+      webAccess: { allowedDomains: ["example.com"] },
+    });
+    await expect(
+      fetchUrl.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions),
+    ).rejects.toThrow(/allowedDomains/);
+  });
+
   it("overrides each option with its toolProviderContext counterpart per call", async () => {
     const provider = createWebToolProvider({
       allowedUrls: ["https://docs.internal:443/**"],

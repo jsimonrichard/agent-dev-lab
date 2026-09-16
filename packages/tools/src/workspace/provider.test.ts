@@ -198,6 +198,7 @@ describe("createWorkspaceToolProvider", () => {
       webAccess: {
         allowedSchemes: ["http", "https"],
         allowedUrls: [],
+        allowedDomains: DEFAULT_ALLOWED_DOMAINS,
         allowPrivateNetwork: false,
         fetchTimeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
         maxResponseBytes: DEFAULT_MAX_RESPONSE_BYTES,
@@ -413,6 +414,34 @@ describe("createWorkspaceToolProvider", () => {
     await expect(
       fetchUrl.execute?.({ url: "http://127.0.0.1:10/x" }, toolCallOptions),
     ).rejects.toThrow(/not a public address/);
+  });
+
+  it("carries allowedDomains from workspace context into the fetchUrl tool", async () => {
+    const provider = createWorkspaceToolProvider({
+      executor: stubExecutor(),
+      cwd: root,
+      allowNetwork: true,
+    });
+    const tools = await provider.getTools(ctx({ allowedDomains: ["example.com"] }));
+    expect(tools.fetchUrl).toBeDefined();
+    await expect(
+      tools.fetchUrl!.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions),
+    ).rejects.toThrow(/allowedDomains/);
+
+    const allowed = await provider.getTools(
+      ctx({
+        allowedDomains: ["127.0.0.1"],
+        allowedUrls: ["http://127.0.0.1:9/**"],
+      }),
+    );
+    let message = "";
+    try {
+      await allowed.fetchUrl!.execute?.({ url: "http://127.0.0.1:9/x" }, toolCallOptions);
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).not.toMatch(/allowedDomains/);
+    expect(message).not.toMatch(/not a public address/);
   });
 
   it("declares a contextSchema that accepts glob strings and RegExp allowedUrls entries", () => {

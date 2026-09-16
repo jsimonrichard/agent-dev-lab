@@ -3,6 +3,7 @@ import { lookup as dnsLookup } from "node:dns/promises";
 import { AdlError } from "@agent-dev-lab/core";
 import ipaddr from "ipaddr.js";
 
+import { hostAllowedByDomainLists } from "./domain-allowlist.ts";
 import { matchesUrlPattern, type UrlPattern } from "./url-pattern.ts";
 
 /**
@@ -51,6 +52,18 @@ export interface AddressPolicy {
    * Matched **per redirect hop** against {@link urlMatchCandidate}.
    */
   allowedUrls?: readonly UrlPattern[];
+  /**
+   * Hostname allowlist, same pattern language as bash/ASRT `allowedDomains`. Omitted means
+   * no allowlist (any host, still subject to {@link deniedDomains} and the address checks).
+   * Empty denies every host. `"*"` allows any host. Applied to the initial URL and every
+   * redirect hop, before the private-address checks.
+   */
+  allowedDomains?: readonly string[];
+  /**
+   * Hostname denylist, same pattern language as bash/ASRT `deniedDomains`. A match denies
+   * even when {@link allowedDomains} would have allowed the host.
+   */
+  deniedDomains?: readonly string[];
   /**
    * Disables both address checks entirely. Default `false`. Checked at the same decision point as
    * a concrete-host `allowedUrls` match (not a second enforcement path) — see `README.md`'s
@@ -220,6 +233,19 @@ export async function assertAllowedUrl(
       "INVALID_INPUT",
       `Refusing to fetch "${url.href}": scheme "${url.protocol}" is not allowed — only ` +
         `${[...ALLOWED_PROTOCOLS].join(" and ")} URLs can be fetched.`,
+    );
+  }
+
+  if (
+    !hostAllowedByDomainLists(url.hostname, Number(effectivePort(url)), {
+      allowedDomains: policy.allowedDomains,
+      deniedDomains: policy.deniedDomains,
+    })
+  ) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      `Refusing to fetch "${url.href}": host "${url.hostname}" is not permitted by ` +
+        `allowedDomains/deniedDomains.`,
     );
   }
 
