@@ -1,5 +1,13 @@
 # @agent-dev-lab/core
 
+## 0.0.5
+
+### Patch Changes
+
+- fcaf9ac: Record each episode's raw `toolProviderContext` on `agent_started` and project it onto `adl_agent_episodes` / `AgentEpisodeSummary` for inspection and fork seeding.
+- 118059f: Record the `streamText` `onError` payload on `agent_failed` when the model fails before producing a step, instead of the SDK's `NoOutputGeneratedError` wrapper.
+- ae70fad: Add inspector-only per-agent default `toolProviderContext` (`adl_inspector_agent_settings`) and a definition-page editor. `agent.run` never reads it.
+
 ## 0.0.4
 
 ### Patch Changes

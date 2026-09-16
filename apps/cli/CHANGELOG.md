@@ -1,5 +1,33 @@
 # @agent-dev-lab/cli
 
+## 0.0.7
+
+### Patch Changes
+
+- ab5d025: Pass `toolProviderContext` into standalone `adl agent run` via `--tool-context` / `-c` JSON. `adl agent list` marks agents whose tools are a ToolProvider.
+- Updated dependencies [fcaf9ac]
+- Updated dependencies [118059f]
+- Updated dependencies [ae70fad]
+- Updated dependencies [cd194cb]
+- Updated dependencies [900241e]
+- Updated dependencies [de3536e]
+- Updated dependencies [27b2714]
+- Updated dependencies [0a9f0c2]
+- Updated dependencies [ee5cb5f]
+- Updated dependencies [c3f4faa]
+- Updated dependencies [9bd9ac8]
+- Updated dependencies [caebce9]
+- Updated dependencies [4fbf026]
+- Updated dependencies [1ffacfa]
+- Updated dependencies [05ef9a7]
+- Updated dependencies [fa9faa7]
+- Updated dependencies [474994a]
+- Updated dependencies [a6bb3b8]
+- Updated dependencies [6ec8db1]
+- Updated dependencies [eacb604]
+  - @agent-dev-lab/core@0.0.5
+  - @agent-dev-lab/web@0.0.5
+
 ## 0.0.6
 
 ### Patch Changes
