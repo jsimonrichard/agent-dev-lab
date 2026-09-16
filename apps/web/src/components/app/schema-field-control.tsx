@@ -57,7 +57,7 @@ export function SchemaFieldControl({
             ? "false"
             : UNSET_SELECT_VALUE;
       return (
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           <SchemaFieldLabel htmlFor={id} field={field} />
           <Select
             value={selected}
@@ -97,7 +97,7 @@ export function SchemaFieldControl({
 
   if (field.options && field.options.length > 0) {
     return (
-      <div className="grid gap-2">
+      <div className="grid gap-3">
         <SchemaFieldLabel htmlFor={id} field={field} />
         <Select
           value={typeof value === "string" && value !== "" ? value : undefined}
@@ -124,7 +124,7 @@ export function SchemaFieldControl({
 
   if (field.kind === "json") {
     return (
-      <div className="grid gap-2">
+      <div className="grid gap-3">
         <SchemaFieldLabel htmlFor={id} field={field} />
         <JsonTextEditor
           id={id}
@@ -145,7 +145,7 @@ export function SchemaFieldControl({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       <SchemaFieldLabel htmlFor={id} field={field} />
       <Input
         id={id}

@@ -54,6 +54,9 @@ import { cn } from "@/lib/utils";
 
 type EditorMode = "document" | "json";
 
+/** Document-mode inputs/selects: taller than the old h-6 token rows, still under default h-9. */
+const EDITOR_CONTROL_CLASS = "h-8 min-w-0 px-2 font-mono text-xs shadow-none";
+
 type NestedValidityReporter = (id: string, error: string | null) => void;
 
 const NestedJsonValidityContext = createContext<NestedValidityReporter | null>(null);
@@ -224,7 +227,7 @@ export function JsonTextEditor({
           closeEditor();
         }}
       >
-        <DialogContent className="flex h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden sm:max-w-4xl">
+        <DialogContent className="flex h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl">
           <DialogHeader className="shrink-0 space-y-1 pr-8 text-left">
             <DialogTitle className="flex items-center gap-2 truncate font-mono text-base">
               {dialogTitle}
@@ -435,7 +438,7 @@ function EditorFrame({
         fill && "h-full min-h-0 flex-1",
       )}
     >
-      <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-1 border-b border-border/40 px-1.5 py-0.5">
+      <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-1 border-b border-border/40 px-2 py-1.5">
         <ModeToggle mode={mode} onChange={onModeChange} documentDisabled={documentDisabled} />
         {onClear ? (
           <Button
@@ -451,7 +454,7 @@ function EditorFrame({
       </div>
       <div
         className={cn(
-          "min-w-0 max-w-full p-2",
+          "min-w-0 max-w-full p-3",
           fill && "min-h-0 flex-1",
           fill && mode === "json" ? "flex flex-col overflow-hidden" : fill && "overflow-auto",
         )}
@@ -584,7 +587,7 @@ function NestedRawSwitch({
   }
 
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className="min-w-0 space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
         <ModeToggle mode={mode} onChange={selectMode} documentDisabled={error !== null} />
         {toolbar ? <span className="ml-auto shrink-0">{toolbar}</span> : null}
@@ -805,7 +808,7 @@ function TypedValue({
 
 function AddItemButton({ onClick, label = "Add item" }: { onClick: () => void; label?: string }) {
   return (
-    <Button type="button" variant="outline" size="xs" onClick={onClick}>
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
       <Plus />
       {label}
     </Button>
@@ -852,7 +855,7 @@ function ArrayEditor({
     >
       <div className="min-w-0">
         {items.length > 0 ? (
-          <div className="mb-1.5 flex flex-wrap items-center gap-1">
+          <div className="mb-2 flex flex-wrap items-center gap-1">
             <span className="font-mono text-[10px] text-muted-foreground">[{items.length}]</span>
             <span className="ml-auto shrink-0">{variantSelect}</span>
           </div>
@@ -871,15 +874,15 @@ function ArrayEditor({
             {variantSelect}
           </div>
         ) : (
-          <ol className="min-w-0 list-none space-y-2.5">
+          <ol className="min-w-0 list-none space-y-3">
             {items.map((item, index) => (
               <li key={index} className="flex min-w-0 items-start gap-2">
                 <span
                   className={cn(
                     "w-5 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground",
                     isJsonObject(item) || Array.isArray(item)
-                      ? "pt-0.5 leading-4"
-                      : "flex h-6 items-center justify-end leading-none",
+                      ? "pt-1.5 leading-4"
+                      : "flex h-8 items-center justify-end leading-none",
                   )}
                 >
                   {index}.
@@ -898,7 +901,7 @@ function ArrayEditor({
           </ol>
         )}
         {items.length > 0 ? (
-          <div className="mt-1.5">
+          <div className="mt-2">
             <AddItemButton onClick={addDefault} />
           </div>
         ) : null}
@@ -947,7 +950,7 @@ function ObjectEditor({
 
   return (
     <NestedRawSwitch enabled={depth > 0} value={obj} jsonType={schema} onChange={onChange}>
-      <div className="min-w-0 space-y-3">
+      <div className="min-w-0 space-y-6">
         {schema.fields.length === 0 && extraKeys.length === 0 ? (
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">{"{}"}</span>
@@ -960,7 +963,7 @@ function ObjectEditor({
           const child = obj[field.name];
           const nested = child !== undefined && (isJsonObject(child) || Array.isArray(child));
           return (
-            <section key={field.name} className="min-w-0 space-y-1.5">
+            <section key={field.name} className="min-w-0 space-y-2">
               <p className="flex items-center gap-1.5">
                 <span className={cn("min-w-0 truncate font-mono text-xs", JSON_TOKEN_CLASS.key)}>
                   {field.name}
@@ -994,7 +997,7 @@ function ObjectEditor({
                   </span>
                 ) : null}
               </p>
-              <div className={cn("min-w-0", nested && "pl-3.5")}>
+              <div className={cn("min-w-0", nested && "pl-4")}>
                 <TypedEditor
                   value={child}
                   jsonType={field.schema}
@@ -1054,7 +1057,7 @@ function FreeformField({
   }
 
   return (
-    <section className="min-w-0 space-y-1.5">
+    <section className="min-w-0 space-y-2">
       <p className="flex items-center gap-1.5">
         <KeyEditor name={name} error={renameError} onRename={rename} />
         <span className="ml-auto shrink-0">
@@ -1108,10 +1111,7 @@ function PrimitiveEditor({
           autoFocus={autoFocus}
           value={typeof value === "string" ? value : ""}
           onChange={(event) => onChange(event.target.value)}
-          className={cn(
-            "h-6 min-w-0 flex-1 px-1.5 font-mono text-[10px] shadow-none",
-            JSON_TOKEN_CLASS.string,
-          )}
+          className={cn(EDITOR_CONTROL_CLASS, "flex-1", JSON_TOKEN_CLASS.string)}
           spellCheck={false}
         />
         {variantSelect}
@@ -1159,7 +1159,7 @@ function PrimitiveEditor({
           <input
             type="checkbox"
             autoFocus={autoFocus}
-            className="size-3.5 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="size-4 rounded border border-input outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             checked={checked}
             onChange={(event) => onChange(event.target.checked)}
           />
@@ -1194,7 +1194,7 @@ function PrimitiveEditor({
           value={typeof value === "string" ? value : jsonType.options[0]}
           onValueChange={onChange}
         >
-          <SelectTrigger size="sm" className="h-6 px-1.5 font-mono text-[10px] shadow-none">
+          <SelectTrigger size="sm" className={cn(EDITOR_CONTROL_CLASS, "w-auto")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1217,10 +1217,7 @@ function PrimitiveEditor({
         autoFocus={autoFocus}
         value={text}
         onChange={(event) => onChange(event.target.value)}
-        className={cn(
-          "h-6 min-w-0 flex-1 px-1.5 font-mono text-[10px] shadow-none",
-          JSON_TOKEN_CLASS.string,
-        )}
+        className={cn(EDITOR_CONTROL_CLASS, "flex-1", JSON_TOKEN_CLASS.string)}
         spellCheck={false}
       />
       {variantSelect}
@@ -1284,7 +1281,7 @@ function ValueComposer({
                 commit();
               }
             }}
-            className="h-6 min-w-0 flex-1 px-1.5 font-mono text-[10px] shadow-none"
+            className={cn(EDITOR_CONTROL_CLASS, "flex-1")}
             spellCheck={false}
           />
         ) : null}
@@ -1348,7 +1345,7 @@ function ObjectAddRow({
               add();
             }
           }}
-          className="h-6 min-w-0 flex-1 px-1.5 font-mono text-[10px] shadow-none"
+          className={cn(EDITOR_CONTROL_CLASS, "flex-1")}
           spellCheck={false}
         />
         <TypeSelect
@@ -1362,7 +1359,7 @@ function ObjectAddRow({
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           className="text-muted-foreground"
           aria-label="Add key"
           onClick={add}
@@ -1434,7 +1431,7 @@ function TypeSelect({
       <SelectTrigger
         size="sm"
         aria-label="JSON type"
-        className="h-6 w-auto shrink-0 gap-1 px-1.5 font-mono text-[10px] shadow-none"
+        className={cn(EDITOR_CONTROL_CLASS, "w-auto shrink-0 gap-1")}
       >
         <SelectValue />
       </SelectTrigger>
@@ -1502,10 +1499,7 @@ function KeyEditor({
             event.currentTarget.blur();
           }
         }}
-        className={cn(
-          "h-6 min-w-0 max-w-40 px-1.5 font-mono text-xs shadow-none",
-          JSON_TOKEN_CLASS.key,
-        )}
+        className={cn(EDITOR_CONTROL_CLASS, "max-w-40", JSON_TOKEN_CLASS.key)}
         spellCheck={false}
       />
       {error ? (
@@ -1575,10 +1569,7 @@ function NumberEditor({
             event.currentTarget.blur();
           }
         }}
-        className={cn(
-          "h-6 min-w-0 px-1.5 font-mono text-[10px] shadow-none",
-          JSON_TOKEN_CLASS.number,
-        )}
+        className={cn(EDITOR_CONTROL_CLASS, JSON_TOKEN_CLASS.number)}
         spellCheck={false}
       />
       {error ? (
@@ -1595,7 +1586,7 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
     <Button
       type="button"
       variant="ghost"
-      size="icon-xs"
+      size="icon-sm"
       className="text-muted-foreground"
       aria-label={`Remove ${label}`}
       title={`Remove ${label}`}

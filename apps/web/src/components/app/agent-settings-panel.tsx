@@ -526,7 +526,7 @@ function ToolProviderContextSection({
   const jsonPresentation = "inline";
   const sourceToggle =
     editable && fields.length > 0 ? (
-      <div className="mb-3 shrink-0">
+      <div className="shrink-0">
         <ModeToggle
           mode={source === "form" ? "document" : "json"}
           documentDisabled={
@@ -539,7 +539,7 @@ function ToolProviderContextSection({
 
   const formFields =
     editable && fields.length > 0 && source === "form" ? (
-      <div className="grid gap-3">
+      <div className="grid gap-6">
         {fields.map((field, index) => (
           <SchemaFieldControl
             key={field.name}
@@ -623,7 +623,7 @@ function ToolProviderContextSection({
               closeEditor();
             }}
           >
-            <DialogContent className="flex h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-3 overflow-hidden sm:max-w-4xl">
+            <DialogContent className="flex h-[min(85vh,48rem)] min-h-0 w-[calc(100%-2rem)] flex-col gap-4 overflow-hidden sm:max-w-4xl">
               <DialogHeader className="shrink-0 space-y-1 pr-8 text-left">
                 <DialogTitle className="truncate font-mono text-base">
                   {purpose === "default" ? "Default tool context" : "Tool context"}
@@ -638,8 +638,8 @@ function ToolProviderContextSection({
                 key={editorEpoch}
                 className={
                   fields.length === 0 || source === "json"
-                    ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-                    : "flex min-h-0 flex-1 flex-col overflow-auto"
+                    ? "flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
+                    : "flex min-h-0 flex-1 flex-col gap-4 overflow-auto"
                 }
               >
                 {sourceToggle}
