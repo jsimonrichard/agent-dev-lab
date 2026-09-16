@@ -1,5 +1,32 @@
 # @agent-dev-lab/web
 
+## 0.0.5
+
+### Patch Changes
+
+- ae70fad: Add inspector-only per-agent default `toolProviderContext` (`adl_inspector_agent_settings`) and a definition-page editor. `agent.run` never reads it.
+- cd194cb: Surface mid-turn `agent_failed` errors in the standalone chat UI (SSE + call-events fetch) instead of only the server console.
+- 900241e: Fix standalone chat turn races: roll back optimistic messages on failed send, reseed tool context only on runId change, and clear held stream text when starting the next turn.
+- de3536e: Clear the standalone chat `agent_failed` banner when a later turn succeeds, instead of keeping the prior call's error after `latestAgentCallId` moves on.
+- 27b2714: Restore scrolling on agent and workflow definition pages so Agent Settings is not clipped by the overflow-hidden app shell.
+- 0a9f0c2: Keep the tool-context dialog's document/JSON switcher outside the scroll region so it stays visible while editing long forms.
+- ee5cb5f: Omitted array fields use "Create list" to initialize `[]`. "Add item" remains for an existing list.
+- c3f4faa: Inspect a historical episode's `toolProviderContext` via `?call=`, chat/event-log context menus, and the workflow step inspector; copy into the next-turn draft on editable chats.
+- 9bd9ac8: JSON raw fields use CodeMirror with the existing token colors so keys, strings, and punctuation are highlighted while editing.
+- caebce9: Inspection UI JSON fields use a structured document editor (add/remove array items and object keys) with a raw JSON escape hatch that fails closed on invalid paste.
+- 4fbf026: Optional boolean fields in inspector schema forms are omitted when unset instead of being serialized as `false`.
+- 1ffacfa: Required fields with a schema default use Reset (restore the default) instead of Clear (omit).
+- 05ef9a7: Tool-provider context schemas no longer wrap defaulted fields in `.partial()`. The inspection UI treats Zod `.default()` as a present value (not optional) and shows it in the schema display.
+- fa9faa7: Show Zod `.describe()` help under schema field labels (including nested object fields).
+- 474994a: Conversation tool-context form is an inspector-only draft seeded from the latest episode, fork source, or agent default.
+- a6bb3b8: Stand-alone dashboard chats can supply `toolProviderContext` from a ToolProvider's `contextSchema` (or a JSON field) instead of only workflow-driven `agent.run` calls.
+- 6ec8db1: Hold streamed assistant text until the transcript refresh lands after `agent_messages_committed`, and stop wiping the chat when only the tool-context draft seed changes — so the final reply after a tool loop stays visible without a reload.
+- eacb604: Show an animated three-dot typing indicator while an agent turn is in flight, including before the first streamed token.
+- Updated dependencies [fcaf9ac]
+- Updated dependencies [118059f]
+- Updated dependencies [ae70fad]
+  - @agent-dev-lab/core@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
