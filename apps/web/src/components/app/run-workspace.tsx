@@ -321,7 +321,7 @@ export function RunWorkspace({
     : null;
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
-  const canRetry = !offline && ownerView.steps.length > 0;
+  const canRetry = !offline && view.status !== "running" && ownerView.steps.length > 0;
 
   const workflowSelected =
     selectedStepId === null && selectedEpisodeId === null && selectedNestedRunId === null;

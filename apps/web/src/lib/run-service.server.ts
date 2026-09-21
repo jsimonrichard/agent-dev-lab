@@ -29,6 +29,7 @@ import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
 import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
 import { mapMessageIdsToAgentCallIds } from "#/lib/agent/agent-call-focus";
+import { findRunningForestRunId } from "#/lib/retry-forest-guard";
 import { sumEpisodeUsageByKey } from "#/lib/token-usage-rollups";
 import {
   createMemoryScope,
@@ -397,6 +398,14 @@ export async function retryWorkflowRun(args: {
       throw new Error(`Broken parent chain at ${root.parentWorkflowRunId}`);
     }
     root = parent;
+  }
+
+  const descendants = await store.listDescendantRuns(root.workflowRunId);
+  const liveRunId = findRunningForestRunId(root, descendants);
+  if (liveRunId) {
+    throw new Error(
+      `Cannot retry while workflow run ${liveRunId} is still running; cancel or wait for it to finish`,
+    );
   }
 
   const workflow = project.getWorkflow(root.workflowId);
