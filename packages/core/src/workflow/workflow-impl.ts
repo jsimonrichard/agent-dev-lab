@@ -139,6 +139,30 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
         if (retryAttempt && parentCtx && store) {
           const existing = await store.getRun(workflowRunId);
           if (existing?.replayOfRunId && existing.status === "ok") {
+            // Seed left parentStepId null when the spawn step is in the re-exec set
+            // (new runtime step id unknown at seed time). Patch without emitting
+            // workflow_started, which would reset status/output on the ok copy.
+            if (parentStepId != null && existing.parentStepId !== parentStepId) {
+              const [input, output] = await Promise.all([
+                store.getRunInput(workflowRunId),
+                store.getRunOutput(workflowRunId),
+              ]);
+              await store.materializeAttemptRun({
+                workflowRunId,
+                workflowId: existing.workflowId,
+                status: existing.status,
+                startedAt: existing.startedAt,
+                finishedAt: existing.finishedAt,
+                input: input ?? undefined,
+                output: output ?? undefined,
+                title: existing.title,
+                tags: [...existing.tags],
+                parentWorkflowRunId: parentWorkflowRunId ?? existing.parentWorkflowRunId ?? null,
+                parentStepId,
+                retriesFromRunId: existing.retriesFromRunId,
+                replayOfRunId: existing.replayOfRunId,
+              });
+            }
             const output = await store.getRunOutput(workflowRunId);
             return (
               this.definition.outputSchema ? this.definition.outputSchema.parse(output) : output

@@ -534,8 +534,8 @@ export async function seedRetryAttemptOnStore(
       if (priorRun.parentStepId) {
         if (reExecStepIds.has(priorRun.parentStepId)) {
           // Parent spawn re-executes — child run id is reserved; parentStepId
-          // will be the new runtime id. Leave null on the seeded row; runtime
-          // workflow_started will set it.
+          // will be the new runtime id. Leave null on the seeded row; nested
+          // replay short-circuit patches it via materializeAttemptRun.
           newParentStepId = null;
         } else {
           // Ensure spawn step is mapped

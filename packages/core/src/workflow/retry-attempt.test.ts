@@ -320,6 +320,77 @@ describe("retry attempt lineage", () => {
     expect(childAttempts).toBe(1);
   });
 
+  it("patches parentStepId on short-circuited nested replay when spawn re-executes", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+
+    let childRuns = 0;
+    const child = createWorkflow(runtime, {
+      id: "replay-child",
+      run: async () => {
+        childRuns += 1;
+        return { nested: true };
+      },
+    });
+
+    const parent = createWorkflow(runtime, {
+      id: "replay-parent",
+      run: async (_input, ctx) =>
+        ctx.step("container", async ({ ctx: stepCtx }) => {
+          await child.run({}).result;
+          await stepCtx.step("target", async () => "target");
+          return { ok: true };
+        }),
+    });
+
+    const first = parent.run({});
+    await first.result;
+    expect(childRuns).toBe(1);
+
+    const events = await store.listEvents({ workflowRunId: first.workflowRunId });
+    const target = events.find((e) => e.type === "step_finished" && e.name === "target");
+    expect(target?.type).toBe("step_finished");
+    if (target?.type !== "step_finished") {
+      throw new Error("expected target");
+    }
+
+    const priorChildren = await store.listRuns({ workflowId: "replay-child" });
+    expect(priorChildren).toHaveLength(1);
+    expect(priorChildren[0]?.parentStepId).toBeTruthy();
+
+    const attempt = await store.seedRetryAttempt({
+      fromWorkflowRunId: first.workflowRunId,
+      fromStepId: target.stepId,
+    });
+
+    const seededChildId = attempt.runIdMap.get(priorChildren[0]!.workflowRunId)!;
+    const seededBefore = await store.getRun(seededChildId);
+    expect(seededBefore?.replayOfRunId).toBe(priorChildren[0]!.workflowRunId);
+    expect(seededBefore?.status).toBe("ok");
+    expect(seededBefore?.parentStepId ?? null).toBeNull();
+
+    childRuns = 0;
+    await parent.run({}, { workflowRunId: attempt.newRootRunId, retryAttempt: attempt }).result;
+    expect(childRuns).toBe(0);
+
+    const after = await store.getRun(seededChildId);
+    expect(after?.status).toBe("ok");
+    expect(after?.replayOfRunId).toBe(priorChildren[0]!.workflowRunId);
+    expect(after?.parentStepId).toBeTruthy();
+
+    const container = (await store.listEvents({ workflowRunId: attempt.newRootRunId })).find(
+      (e) => e.type === "step_started" && e.name === "container",
+    );
+    expect(container?.type).toBe("step_started");
+    if (container?.type === "step_started") {
+      expect(after?.parentStepId).toBe(container.stepId);
+    }
+  });
+
   it("maps successive null-parentStepId nested calls FIFO", () => {
     const attempt: RetryAttempt = {
       newRootRunId: "new-root",
