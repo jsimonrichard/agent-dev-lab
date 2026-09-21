@@ -38,7 +38,7 @@ const phaseInput = z.object({
 
 /**
  * Mid-level sub-workflow: nests leaf workflows via `workflow.run()` (not `ctx.step`).
- * Registered so it shows up under Non-Root and as a parent of the leaves.
+ * Leaves hang under this phase as root-level nest siblings (no parent step).
  */
 export const nestPhase = adl.createWorkflow({
   id: "nest-phase",
@@ -70,8 +70,9 @@ const nestedDemoInput = z.object({
 });
 
 /**
- * Top-level demo: nests `nest-phase` (which nests leaves) and `demo-counter`.
- * Use Non-Root + parent/child links on the run page to walk the tree.
+ * Top-level demo: nests `nest-phase` inside a step (under-step placement) and
+ * `demo-counter` at the workflow root (sibling of root steps). Expand nests in
+ * the run tree; open a leaf via Non-Root for the parent back-link.
  */
 export const nestedDemo = adl.createWorkflow({
   id: "nested-demo",
@@ -89,7 +90,8 @@ export const nestedDemo = adl.createWorkflow({
       await ctx.setTitle(`Nested demo: ${label}`);
     }
 
-    const phase = await nestPhase.run({ label }).result;
+    const phase = await ctx.step("run-phase", async () => nestPhase.run({ label }).result);
+    // Root-level nest — appears under the workflow row among root steps.
     const counter = await demoCounter.run({ steps }).result;
 
     return { phase, counter };

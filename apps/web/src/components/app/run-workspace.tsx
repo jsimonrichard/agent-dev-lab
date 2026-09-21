@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, PanelRight } from "lucide-react";
 
-import { cancelInspectionWorkflowRun } from "#/lib/inspector/inspector-server";
+import {
+  cancelInspectionWorkflowRun,
+  fetchChildWorkflowRuns,
+  fetchMessagesForWorkflowRun,
+  fetchWorkflowRun,
+} from "#/lib/inspector/inspector-server";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
   buildRunViewState,
@@ -16,6 +21,7 @@ import type {
   InspectorRunSummary,
   PrefetchedRunMessages,
   RunEvent,
+  RunViewState,
 } from "@/lib/view-model/types";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { ErrorIndicator } from "@/components/app/error-details";
@@ -27,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow/workflow-location";
+import type { NestedRunTreeData } from "@/lib/workflow/workflow-waterfall";
 
 const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 
@@ -38,12 +45,18 @@ interface RunWorkspaceProps {
   childRuns?: InspectorRunSummary[];
 }
 
+type NestedCacheEntry = {
+  summary: InspectorRunSummary;
+  events: RunEvent[];
+  childRuns: InspectorRunSummary[];
+};
+
 export function RunWorkspace({
   summary,
   initialEvents,
   messagesPromise,
   parentSummary = null,
-  childRuns = [],
+  childRuns: initialChildRuns = [],
 }: RunWorkspaceProps) {
   const search = runRoute.useSearch();
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
@@ -71,44 +84,284 @@ export function RunWorkspace({
     }
   }, [events, router]);
 
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(
-    () =>
-      resolveRunSelection(view.steps, {
-        stepId: search.step,
-        episodeId: search.episode,
-      }).stepId,
+  const [pageChildRuns, setPageChildRuns] = useState(initialChildRuns);
+  useEffect(() => {
+    setPageChildRuns(initialChildRuns);
+  }, [summary.runId, initialChildRuns]);
+
+  const [expandedNestedRunIds, setExpandedNestedRunIds] = useState<Set<string>>(() =>
+    search.nested ? new Set([search.nested]) : new Set(),
   );
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(
-    () =>
-      resolveRunSelection(view.steps, {
-        stepId: search.step,
-        episodeId: search.episode,
-      }).episodeId,
+  const [nestedCache, setNestedCache] = useState<Map<string, NestedCacheEntry>>(() => new Map());
+  const [nestedMessages, setNestedMessages] = useState<Map<string, Promise<PrefetchedRunMessages>>>(
+    () => new Map(),
+  );
+  const nestedLoadingRef = useRef(new Set<string>());
+  const nestedCacheRef = useRef(nestedCache);
+  nestedCacheRef.current = nestedCache;
+
+  const selectedNestedRunId = search.nested ?? null;
+
+  // Deep links with ?nested= must expand that nest so step/episode rows are visible.
+  useEffect(() => {
+    if (!selectedNestedRunId) return;
+    setExpandedNestedRunIds((prev) => {
+      if (prev.has(selectedNestedRunId)) return prev;
+      const next = new Set(prev);
+      next.add(selectedNestedRunId);
+      return next;
+    });
+  }, [selectedNestedRunId]);
+
+  const neededNestedIds = useMemo(() => {
+    const ids = new Set(expandedNestedRunIds);
+    if (selectedNestedRunId) {
+      ids.add(selectedNestedRunId);
+    }
+    return ids;
+  }, [expandedNestedRunIds, selectedNestedRunId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    for (const runId of neededNestedIds) {
+      if (nestedCacheRef.current.has(runId) || nestedLoadingRef.current.has(runId)) continue;
+      nestedLoadingRef.current.add(runId);
+      void (async () => {
+        try {
+          const [data, children] = await Promise.all([
+            fetchWorkflowRun({ data: runId }),
+            fetchChildWorkflowRuns({ data: runId }),
+          ]);
+          if (cancelled || !data) return;
+          setNestedCache((prev) => {
+            if (prev.has(runId)) return prev;
+            const next = new Map(prev);
+            next.set(runId, {
+              summary: data.summary,
+              events: data.events,
+              childRuns: children,
+            });
+            return next;
+          });
+        } finally {
+          nestedLoadingRef.current.delete(runId);
+        }
+      })();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [neededNestedIds]);
+
+  const nestedByRunId = useMemo(() => {
+    const map = new Map<string, NestedRunTreeData>();
+    for (const [runId, entry] of nestedCache) {
+      map.set(runId, {
+        run: entry.summary,
+        view: buildRunViewState(runId, entry.events),
+        childRuns: entry.childRuns,
+      });
+    }
+    return map;
+  }, [nestedCache]);
+
+  // Parent (and expanded nest) SSE does not carry child workflow_started rows — poll
+  // listRuns while any watched run is still live so new nests appear in the tree.
+  const liveChildParentsKey = useMemo(() => {
+    const parents: string[] = [];
+    if (view.status === "running" && !offline) {
+      parents.push(summary.runId);
+    }
+    for (const runId of neededNestedIds) {
+      const nestedView = nestedByRunId.get(runId)?.view;
+      const status = nestedView?.status ?? nestedCache.get(runId)?.summary.status;
+      if (status === "running" && !offline) {
+        parents.push(runId);
+      }
+    }
+    return [...new Set(parents)].sort().join("\0");
+  }, [view.status, offline, summary.runId, neededNestedIds, nestedByRunId, nestedCache]);
+
+  const liveChildParentsRef = useRef<string[]>([]);
+  liveChildParentsRef.current = liveChildParentsKey ? liveChildParentsKey.split("\0") : [];
+
+  useEffect(() => {
+    if (!liveChildParentsKey) return;
+    let cancelled = false;
+
+    const refresh = async () => {
+      const parents = liveChildParentsRef.current;
+      const results = await Promise.all(
+        parents.map(async (parentId) => ({
+          parentId,
+          children: await fetchChildWorkflowRuns({ data: parentId }),
+        })),
+      );
+      if (cancelled) return;
+      for (const { parentId, children } of results) {
+        if (parentId === summary.runId) {
+          setPageChildRuns((prev) => (childRunListsEqual(prev, children) ? prev : children));
+          continue;
+        }
+        setNestedCache((prev) => {
+          const entry = prev.get(parentId);
+          if (!entry) return prev;
+          if (childRunListsEqual(entry.childRuns, children)) return prev;
+          const next = new Map(prev);
+          next.set(parentId, { ...entry, childRuns: children });
+          return next;
+        });
+      }
+    };
+
+    void refresh();
+    const id = window.setInterval(() => {
+      void refresh();
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [liveChildParentsKey, summary.runId]);
+
+  // Catch children that finish (or start) in the last moment before the run leaves "running".
+  useEffect(() => {
+    if (view.status === "running") return;
+    let cancelled = false;
+    void fetchChildWorkflowRuns({ data: summary.runId }).then((children) => {
+      if (cancelled) return;
+      setPageChildRuns((prev) => (childRunListsEqual(prev, children) ? prev : children));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view.status, summary.runId]);
+
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(() => {
+    if (search.nested) {
+      return search.step ?? null;
+    }
+    if (!search.step && !search.episode) return null;
+    return resolveRunSelection(view.steps, {
+      stepId: search.step,
+      episodeId: search.episode,
+    }).stepId;
+  });
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(() => {
+    if (search.nested) {
+      return search.episode ?? null;
+    }
+    if (!search.step && !search.episode) return null;
+    return resolveRunSelection(view.steps, {
+      stepId: search.step,
+      episodeId: search.episode,
+    }).episodeId;
+  });
+  const [selectedOwnerRunId, setSelectedOwnerRunId] = useState<string>(
+    () => search.nested ?? summary.runId,
   );
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
   useEffect(() => {
-    if (!search.step && !search.episode) {
+    if (search.nested && !search.step && !search.episode) {
+      setSelectedStepId(null);
+      setSelectedEpisodeId(null);
+      setSelectedOwnerRunId(search.nested);
       return;
     }
+    if (!search.step && !search.episode) {
+      setSelectedStepId(null);
+      setSelectedEpisodeId(null);
+      setSelectedOwnerRunId(summary.runId);
+      return;
+    }
+    const ownerId = search.nested ?? summary.runId;
+    // Never fall back to the page run's steps when resolving a nested selection —
+    // wait until the nested view is loaded.
+    const ownerSteps =
+      ownerId === summary.runId ? view.steps : (nestedByRunId.get(ownerId)?.view?.steps ?? []);
     if (search.episode) {
-      const found = findEpisodeInTree(view.steps, search.episode);
+      const found = findEpisodeInTree(ownerSteps, search.episode);
       setSelectedStepId(found?.step.stepId ?? search.step ?? null);
       setSelectedEpisodeId(search.episode);
+      setSelectedOwnerRunId(ownerId);
+      return;
+    }
+    if (ownerId !== summary.runId && ownerSteps.length === 0) {
+      // Nested view not loaded yet — keep URL step id without parent-tree fallback.
+      setSelectedStepId(search.step ?? null);
+      setSelectedEpisodeId(null);
+      setSelectedOwnerRunId(ownerId);
       return;
     }
     setSelectedStepId(search.step ?? null);
     setSelectedEpisodeId(null);
-  }, [search.episode, search.step, view.steps]);
+    setSelectedOwnerRunId(ownerId);
+  }, [search.episode, search.step, search.nested, view, nestedByRunId, summary.runId]);
 
-  const selectedStep = selectedStepId ? findStepInTree(view.steps, selectedStepId) : undefined;
+  const ownerView: RunViewState =
+    selectedOwnerRunId === summary.runId
+      ? view
+      : (nestedByRunId.get(selectedOwnerRunId)?.view ?? view);
+  const ownerSummary: InspectorRunSummary =
+    selectedOwnerRunId === summary.runId
+      ? summary
+      : (nestedCache.get(selectedOwnerRunId)?.summary ?? summary);
+  const ownerEvents: RunEvent[] =
+    selectedOwnerRunId === summary.runId
+      ? events
+      : (nestedCache.get(selectedOwnerRunId)?.events ?? events);
+
+  const selectedStep = selectedStepId ? findStepInTree(ownerView.steps, selectedStepId) : undefined;
   const activeEpisode = selectedEpisodeId
     ? (selectedStep?.agentEpisodes.find((e) => e.episodeId === selectedEpisodeId) ?? null)
     : null;
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
 
-  function setRunSearch(selection: { step?: string | null; episode?: string | null }) {
+  const workflowSelected =
+    selectedStepId === null && selectedEpisodeId === null && selectedNestedRunId === null;
+  const nestedRunSelected =
+    selectedNestedRunId !== null && selectedStepId === null && selectedEpisodeId === null;
+
+  const inspectorView = nestedRunSelected
+    ? (nestedByRunId.get(selectedNestedRunId!)?.view ?? null)
+    : ownerView;
+  const inspectorSummary = nestedRunSelected
+    ? (nestedCache.get(selectedNestedRunId!)?.summary ?? null)
+    : ownerSummary;
+  const inspectorEvents = nestedRunSelected
+    ? (nestedCache.get(selectedNestedRunId!)?.events ?? [])
+    : ownerEvents;
+
+  const messagesRunId = nestedRunSelected
+    ? selectedNestedRunId!
+    : selectedOwnerRunId === summary.runId
+      ? summary.runId
+      : selectedOwnerRunId;
+
+  useEffect(() => {
+    if (messagesRunId === summary.runId) return;
+    if (nestedMessages.has(messagesRunId)) return;
+    const promise = fetchMessagesForWorkflowRun({ data: messagesRunId });
+    setNestedMessages((prev) => {
+      if (prev.has(messagesRunId)) return prev;
+      const next = new Map(prev);
+      next.set(messagesRunId, promise);
+      return next;
+    });
+  }, [messagesRunId, summary.runId, nestedMessages]);
+
+  const activeMessagesPromise =
+    messagesRunId === summary.runId
+      ? messagesPromise
+      : (nestedMessages.get(messagesRunId) ?? messagesPromise);
+
+  function setRunSearch(selection: {
+    step?: string | null;
+    episode?: string | null;
+    nested?: string | null;
+  }) {
     void navigate({
       search: () => workflowRunSearch(selection),
       replace: true,
@@ -119,23 +372,78 @@ export function RunWorkspace({
   function handleSelectWorkflow() {
     setSelectedStepId(null);
     setSelectedEpisodeId(null);
+    setSelectedOwnerRunId(summary.runId);
     setRunSearch({});
   }
 
-  function handleSelectStep(stepId: string) {
+  function handleSelectStep(stepId: string, ownerRunId: string) {
     setSelectedStepId(stepId);
     setSelectedEpisodeId(null);
-    setRunSearch({ step: stepId });
+    setSelectedOwnerRunId(ownerRunId);
+    setRunSearch({
+      step: stepId,
+      nested: ownerRunId === summary.runId ? null : ownerRunId,
+    });
   }
 
-  function handleSelectEpisode(stepId: string, ep: AgentEpisode) {
+  function handleSelectEpisode(stepId: string, ep: AgentEpisode, ownerRunId: string) {
     setSelectedStepId(stepId);
     setSelectedEpisodeId(ep.episodeId);
-    setRunSearch({ step: stepId, episode: ep.episodeId });
+    setSelectedOwnerRunId(ownerRunId);
+    setRunSearch({
+      step: stepId,
+      episode: ep.episodeId,
+      nested: ownerRunId === summary.runId ? null : ownerRunId,
+    });
   }
+
+  function handleSelectNestedRun(runId: string) {
+    setSelectedStepId(null);
+    setSelectedEpisodeId(null);
+    setSelectedOwnerRunId(runId);
+    setExpandedNestedRunIds((prev) => {
+      if (prev.has(runId)) return prev;
+      const next = new Set(prev);
+      next.add(runId);
+      return next;
+    });
+    setRunSearch({ nested: runId });
+  }
+
+  const handleToggleNestedExpanded = useCallback((runId: string) => {
+    setExpandedNestedRunIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(runId)) next.delete(runId);
+      else next.add(runId);
+      return next;
+    });
+  }, []);
+
+  const handleNestedEvents = useCallback((runId: string, nextEvents: RunEvent[]) => {
+    setNestedCache((prev) => {
+      const entry = prev.get(runId);
+      if (!entry) return prev;
+      if (entry.events === nextEvents) return prev;
+      const next = new Map(prev);
+      next.set(runId, { ...entry, events: nextEvents });
+      return next;
+    });
+  }, []);
 
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
+      {Array.from(neededNestedIds).map((runId) => {
+        const entry = nestedCache.get(runId);
+        if (!entry) return null;
+        return (
+          <NestedRunEventsBridge
+            key={runId}
+            runId={runId}
+            seedEvents={entry.events}
+            onEvents={handleNestedEvents}
+          />
+        );
+      })}
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
         <InspectorSidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-6" />
@@ -242,22 +550,6 @@ export function RunWorkspace({
         </div>
       ) : null}
 
-      {childRuns.length > 0 ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/20 px-4 py-1.5 text-xs">
-          <span className="text-muted-foreground">Non-root runs</span>
-          {childRuns.map((child) => (
-            <Link
-              key={child.runId}
-              to="/workflows/$workflowId/run/$runId"
-              params={{ workflowId: child.workflowId, runId: child.runId }}
-              className="truncate font-medium text-foreground underline-offset-2 hover:underline"
-            >
-              {child.title?.trim() || child.workflowId}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-
       <ResizablePanelGroup
         orientation="horizontal"
         id="run-workspace-panels"
@@ -270,12 +562,18 @@ export function RunWorkspace({
         >
           <WorkflowTreePanel
             view={view}
+            childRuns={pageChildRuns}
+            nestedByRunId={nestedByRunId}
+            expandedNestedRunIds={expandedNestedRunIds}
             selectedStepId={selectedStepId}
             selectedEpisodeId={activeEpisode?.episodeId ?? null}
-            workflowSelected={selectedStepId === null}
+            selectedNestedRunId={nestedRunSelected ? selectedNestedRunId : null}
+            workflowSelected={workflowSelected}
             onSelectWorkflow={handleSelectWorkflow}
             onSelectStep={handleSelectStep}
             onSelectEpisode={handleSelectEpisode}
+            onSelectNestedRun={handleSelectNestedRun}
+            onToggleNestedExpanded={handleToggleNestedExpanded}
           />
         </ResizablePanel>
 
@@ -290,18 +588,32 @@ export function RunWorkspace({
               className="min-w-0 overflow-hidden"
             >
               <StepInspectorPanel
-                step={selectedStep}
-                episode={activeEpisode}
-                events={events}
-                messagesPromise={messagesPromise}
-                streamingText={streamingText}
-                workflowId={view.workflowId}
-                runId={view.runId}
-                tags={summary.tags}
-                workflowInput={view.input}
-                workflowOutput={view.output}
-                runStatus={view.status}
-                runError={view.error}
+                step={nestedRunSelected || workflowSelected ? undefined : selectedStep}
+                episode={nestedRunSelected || workflowSelected ? null : activeEpisode}
+                events={inspectorEvents}
+                messagesPromise={activeMessagesPromise}
+                streamingText={nestedRunSelected || workflowSelected ? null : streamingText}
+                workflowId={
+                  nestedRunSelected
+                    ? (inspectorSummary?.workflowId ?? view.workflowId)
+                    : (inspectorView?.workflowId ?? view.workflowId)
+                }
+                runId={
+                  nestedRunSelected ? selectedNestedRunId! : (inspectorView?.runId ?? view.runId)
+                }
+                tags={inspectorSummary?.tags ?? summary.tags}
+                workflowInput={inspectorView?.input}
+                workflowOutput={inspectorView?.output}
+                runStatus={inspectorView?.status ?? view.status}
+                runError={inspectorView?.error}
+                nestedRunLink={
+                  nestedRunSelected && selectedNestedRunId && inspectorSummary
+                    ? {
+                        workflowId: inspectorSummary.workflowId,
+                        runId: selectedNestedRunId,
+                      }
+                    : null
+                }
               />
             </ResizablePanel>
           </>
@@ -309,4 +621,39 @@ export function RunWorkspace({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function NestedRunEventsBridge({
+  runId,
+  seedEvents,
+  onEvents,
+}: {
+  runId: string;
+  seedEvents: RunEvent[];
+  onEvents: (runId: string, events: RunEvent[]) => void;
+}) {
+  const seedRef = useRef(seedEvents);
+  const events = useWorkflowRunEvents(runId, seedRef.current);
+  useEffect(() => {
+    onEvents(runId, events);
+  }, [runId, events, onEvents]);
+  return null;
+}
+
+function childRunListsEqual(a: InspectorRunSummary[], b: InspectorRunSummary[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i]!;
+    const right = b[i]!;
+    if (
+      left.runId !== right.runId ||
+      left.status !== right.status ||
+      left.finishedAt !== right.finishedAt ||
+      left.title !== right.title ||
+      left.parentStepId !== right.parentStepId
+    ) {
+      return false;
+    }
+  }
+  return true;
 }

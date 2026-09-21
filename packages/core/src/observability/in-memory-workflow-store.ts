@@ -48,6 +48,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           title: existing?.title,
           tags: event.tags ?? existing?.tags ?? [],
           parentWorkflowRunId: event.parentWorkflowRunId ?? null,
+          parentStepId: event.parentStepId ?? null,
         });
         this.runInputs.set(wfId, event.input);
       }
@@ -83,6 +84,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
             title: event.title,
             tags: [],
             parentWorkflowRunId: null,
+            parentStepId: null,
           });
         }
       }
@@ -242,6 +244,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       title,
       tags: [],
       parentWorkflowRunId: null,
+      parentStepId: null,
     });
   }
 
@@ -258,6 +261,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       startedAt: new Date().toISOString(),
       tags,
       parentWorkflowRunId: null,
+      parentStepId: null,
     });
   }
 

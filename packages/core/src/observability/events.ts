@@ -47,6 +47,11 @@ export type WorkflowStartedEvent = WorkflowRunEventBase & {
    * events recorded before nested runs got their own `workflowRunId`.
    */
   parentWorkflowRunId?: string | null;
+  /**
+   * Parent workflow's active `ctx.step` id when this nest started, or null when
+   * nested at the parent workflow root (or not nested). Absent on older events.
+   */
+  parentStepId?: string | null;
 };
 
 export type WorkflowFinishedEvent = WorkflowRunEventBase & {
@@ -315,6 +320,11 @@ export type WorkflowRunSummary = {
    * used a parent pointer (treat as root).
    */
   parentWorkflowRunId?: string | null;
+  /**
+   * Parent step that invoked this nest, or `null` when nested at the parent
+   * workflow root. Absent on older summaries (treat as root-level nest).
+   */
+  parentStepId?: string | null;
 };
 
 export type StepRecord = {

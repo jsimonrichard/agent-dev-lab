@@ -261,6 +261,7 @@ async function toInspectorRunSummary(
     tags: run.tags,
     ...(usage ? { usage } : {}),
     parentWorkflowRunId: run.parentWorkflowRunId ?? null,
+    parentStepId: run.parentStepId ?? null,
   };
 }
 

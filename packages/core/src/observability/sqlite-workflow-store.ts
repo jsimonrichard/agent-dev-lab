@@ -147,6 +147,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           finishedAt: workflowRuns.finishedAt,
           title: workflowRuns.title,
           parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
+          parentStepId: workflowRuns.parentStepId,
         })
         .from(workflowRuns)
         .where(eq(workflowRuns.workflowRunId, workflowRunId))
@@ -189,6 +190,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           finishedAt: workflowRuns.finishedAt,
           title: workflowRuns.title,
           parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
+          parentStepId: workflowRuns.parentStepId,
         })
         .from(workflowRuns)
         .where(conditions.length ? and(...conditions) : undefined)
@@ -360,6 +362,7 @@ function toSummary(
     finishedAt: string | null;
     title: string | null;
     parentWorkflowRunId: string | null;
+    parentStepId: string | null;
   },
   tags: string[],
 ): WorkflowRunSummary {
@@ -372,5 +375,6 @@ function toSummary(
     title: row.title ?? undefined,
     tags,
     parentWorkflowRunId: row.parentWorkflowRunId,
+    parentStepId: row.parentStepId,
   };
 }

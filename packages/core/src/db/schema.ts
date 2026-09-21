@@ -29,8 +29,13 @@ export const workflowRuns = sqliteTable(
     title: text("title"),
     /** Immediate parent run when this invocation nested; null for roots / isolated. */
     parentWorkflowRunId: text("parent_workflow_run_id"),
+    /** Parent step that invoked this nest; null when nested at workflow root. */
+    parentStepId: text("parent_step_id"),
   },
-  (table) => [index("adl_workflow_runs_parent").on(table.parentWorkflowRunId)],
+  (table) => [
+    index("adl_workflow_runs_parent").on(table.parentWorkflowRunId),
+    index("adl_workflow_runs_parent_step").on(table.parentStepId),
+  ],
 );
 
 export const runEvents = sqliteTable(

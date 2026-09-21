@@ -1,15 +1,19 @@
 export type WorkflowRunSearch = {
   step?: string;
   episode?: string;
+  nested?: string;
 };
 
 export function parseWorkflowRunSearch(search: Record<string, unknown>): WorkflowRunSearch {
   const step = typeof search.step === "string" && search.step.length > 0 ? search.step : undefined;
   const episode =
     typeof search.episode === "string" && search.episode.length > 0 ? search.episode : undefined;
+  const nested =
+    typeof search.nested === "string" && search.nested.length > 0 ? search.nested : undefined;
   return {
     ...(step ? { step } : {}),
     ...(episode ? { episode } : {}),
+    ...(nested ? { nested } : {}),
   };
 }
 
@@ -42,14 +46,19 @@ export function workflowRunLabel(run: { runId: string; title?: string }): string
   return title ? title : run.runId;
 }
 
-/** Search object for a run inspector selection (`?step=` / `?episode=`). */
+/**
+ * Search object for a run inspector selection (`?step=` / `?episode=` / `?nested=`).
+ * Passing `nested` without step/episode selects that nested-run row.
+ */
 export function workflowRunSearch(selection: {
   step?: string | null;
   episode?: string | null;
+  nested?: string | null;
 }): WorkflowRunSearch {
   return {
     ...(selection.step ? { step: selection.step } : {}),
     ...(selection.episode ? { episode: selection.episode } : {}),
+    ...(selection.nested ? { nested: selection.nested } : {}),
   };
 }
 

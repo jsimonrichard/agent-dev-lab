@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { AgentEpisode, StepNode } from "../view-model/types";
+import type { AgentEpisode, InspectorRunSummary, StepNode } from "../view-model/types";
 import {
   computeStepWaterfallBar,
   computeWaterfallScale,
@@ -52,10 +52,12 @@ describe("flattenWorkflowRows", () => {
       }),
     ];
     expect(
-      flattenWorkflowRows(tree, { depth: 1 }).map((row) =>
+      flattenWorkflowRows(tree, { depth: 1, ownerRunId: "run-1" }).map((row) =>
         row.kind === "step"
           ? `${row.depth}:step:${row.step.stepId}`
-          : `${row.depth}:ep:${row.episode.episodeId}`,
+          : row.kind === "episode"
+            ? `${row.depth}:ep:${row.episode.episodeId}`
+            : `${row.depth}:nest:${row.run.runId}`,
       ),
     ).toEqual([
       "1:step:search",
@@ -76,10 +78,57 @@ describe("flattenWorkflowRows", () => {
       step("synthesize"),
     ];
     expect(
-      flattenWorkflowRows(tree, { collapsedStepIds: new Set(["analyze"]) }).map((row) =>
-        row.kind === "step" ? row.step.stepId : row.episode.episodeId,
+      flattenWorkflowRows(tree, {
+        collapsedStepIds: new Set(["analyze"]),
+        ownerRunId: "run-1",
+      }).map((row) =>
+        row.kind === "step"
+          ? row.step.stepId
+          : row.kind === "episode"
+            ? row.episode.episodeId
+            : row.run.runId,
       ),
     ).toEqual(["analyze", "synthesize"]);
+  });
+
+  it("places nested runs under their parent step or as root siblings by startedAt", () => {
+    const early = step("first", {
+      startedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const late = step("second", {
+      startedAt: "2026-01-01T00:00:04.000Z",
+    });
+    const underFirst: InspectorRunSummary = {
+      runId: "nest-under",
+      workflowId: "child",
+      status: "completed",
+      startedAt: "2026-01-01T00:00:01.000Z",
+      inputPreview: "{}",
+      tags: [],
+      parentStepId: "first",
+    };
+    const rootNest: InspectorRunSummary = {
+      runId: "nest-root",
+      workflowId: "other",
+      status: "completed",
+      startedAt: "2026-01-01T00:00:02.000Z",
+      inputPreview: "{}",
+      tags: [],
+      parentStepId: null,
+    };
+    expect(
+      flattenWorkflowRows([early, late], {
+        depth: 1,
+        ownerRunId: "parent",
+        nestedRuns: [underFirst, rootNest],
+      }).map((row) =>
+        row.kind === "step"
+          ? `step:${row.step.stepId}`
+          : row.kind === "nested-run"
+            ? `nest:${row.run.runId}`
+            : `ep:${row.episode.episodeId}`,
+      ),
+    ).toEqual(["step:first", "nest:nest-under", "nest:nest-root", "step:second"]);
   });
 });
 

@@ -1,4 +1,11 @@
-import type { AgentEpisode, RunStatus, StepNode, StepNodeStatus } from "@/lib/view-model/types";
+import type {
+  AgentEpisode,
+  InspectorRunSummary,
+  RunStatus,
+  RunViewState,
+  StepNode,
+  StepNodeStatus,
+} from "@/lib/view-model/types";
 
 export interface WaterfallScale {
   originMs: number;
@@ -18,36 +25,178 @@ export type TimedSpan = {
   status: StepNodeStatus;
 };
 
+export type NestedRunTreeData = {
+  run: InspectorRunSummary;
+  view?: RunViewState;
+  childRuns?: InspectorRunSummary[];
+};
+
 export type WorkflowTreeRow =
-  | { kind: "step"; step: StepNode; depth: number }
-  | { kind: "episode"; step: StepNode; episode: AgentEpisode; depth: number };
+  | { kind: "step"; step: StepNode; depth: number; ownerRunId: string }
+  | { kind: "episode"; step: StepNode; episode: AgentEpisode; depth: number; ownerRunId: string }
+  | { kind: "nested-run"; run: InspectorRunSummary; depth: number };
+
+export type FlattenWorkflowRowsOptions = {
+  collapsedStepIds?: ReadonlySet<string>;
+  /** Nested runs start collapsed; only ids in this set expand inline. */
+  expandedNestedRunIds?: ReadonlySet<string>;
+  depth?: number;
+  ownerRunId: string;
+  /** Immediate child run summaries of `ownerRunId`. */
+  nestedRuns?: readonly InspectorRunSummary[];
+  /** Loaded views/children for nested runs (by run id). */
+  nestedByRunId?: ReadonlyMap<string, NestedRunTreeData>;
+};
 
 /** Depth-first walk used to keep tree rows and waterfall rows aligned. */
 export function flattenWorkflowRows(
   steps: StepNode[],
-  options: { collapsedStepIds?: ReadonlySet<string>; depth?: number } = {},
+  options: FlattenWorkflowRowsOptions,
 ): WorkflowTreeRow[] {
   const collapsedStepIds = options.collapsedStepIds;
+  const expandedNestedRunIds = options.expandedNestedRunIds;
   const depth = options.depth ?? 0;
+  const ownerRunId = options.ownerRunId;
+  const nestedRuns = options.nestedRuns ?? [];
+  const nestedByRunId = options.nestedByRunId;
   const out: WorkflowTreeRow[] = [];
-  for (const step of steps) {
-    out.push({ kind: "step", step, depth });
-    if (collapsedStepIds?.has(step.stepId)) continue;
-    for (const episode of step.agentEpisodes) {
-      out.push({ kind: "episode", step, episode, depth: depth + 1 });
-    }
-    out.push(
-      ...flattenWorkflowRows(step.children, {
+
+  const rootNests = nestedRuns.filter((run) => run.parentStepId == null);
+  const rootItems = interleaveByStartedAt(
+    steps.map((step) => ({ kind: "step" as const, step, at: step.startedAt ?? "" })),
+    rootNests.map((run) => ({ kind: "nested-run" as const, run, at: run.startedAt })),
+  );
+
+  for (const item of rootItems) {
+    if (item.kind === "step") {
+      appendStepRows(out, item.step, {
         collapsedStepIds,
-        depth: depth + 1,
-      }),
-    );
+        expandedNestedRunIds,
+        depth,
+        ownerRunId,
+        nestedRuns,
+        nestedByRunId,
+      });
+    } else {
+      appendNestedRunRows(out, item.run, {
+        collapsedStepIds,
+        expandedNestedRunIds,
+        depth,
+        nestedByRunId,
+      });
+    }
   }
+
   return out;
 }
 
-export function stepHasTreeChildren(step: StepNode): boolean {
-  return step.children.length > 0 || step.agentEpisodes.length > 0;
+function appendStepRows(
+  out: WorkflowTreeRow[],
+  step: StepNode,
+  options: {
+    collapsedStepIds?: ReadonlySet<string>;
+    expandedNestedRunIds?: ReadonlySet<string>;
+    depth: number;
+    ownerRunId: string;
+    nestedRuns: readonly InspectorRunSummary[];
+    nestedByRunId?: ReadonlyMap<string, NestedRunTreeData>;
+  },
+): void {
+  out.push({ kind: "step", step, depth: options.depth, ownerRunId: options.ownerRunId });
+  if (options.collapsedStepIds?.has(step.stepId)) return;
+
+  for (const episode of step.agentEpisodes) {
+    out.push({
+      kind: "episode",
+      step,
+      episode,
+      depth: options.depth + 1,
+      ownerRunId: options.ownerRunId,
+    });
+  }
+
+  const nestsHere = options.nestedRuns.filter((run) => run.parentStepId === step.stepId);
+  const childItems = interleaveByStartedAt(
+    step.children.map((child) => ({
+      kind: "step" as const,
+      step: child,
+      at: child.startedAt ?? "",
+    })),
+    nestsHere.map((run) => ({ kind: "nested-run" as const, run, at: run.startedAt })),
+  );
+
+  for (const item of childItems) {
+    if (item.kind === "step") {
+      appendStepRows(out, item.step, {
+        ...options,
+        depth: options.depth + 1,
+      });
+    } else {
+      appendNestedRunRows(out, item.run, {
+        collapsedStepIds: options.collapsedStepIds,
+        expandedNestedRunIds: options.expandedNestedRunIds,
+        depth: options.depth + 1,
+        nestedByRunId: options.nestedByRunId,
+      });
+    }
+  }
+}
+
+function appendNestedRunRows(
+  out: WorkflowTreeRow[],
+  run: InspectorRunSummary,
+  options: {
+    collapsedStepIds?: ReadonlySet<string>;
+    expandedNestedRunIds?: ReadonlySet<string>;
+    depth: number;
+    nestedByRunId?: ReadonlyMap<string, NestedRunTreeData>;
+  },
+): void {
+  out.push({ kind: "nested-run", run, depth: options.depth });
+  if (!options.expandedNestedRunIds?.has(run.runId)) return;
+
+  const loaded = options.nestedByRunId?.get(run.runId);
+  if (!loaded?.view) return;
+
+  out.push(
+    ...flattenWorkflowRows(loaded.view.steps, {
+      collapsedStepIds: options.collapsedStepIds,
+      expandedNestedRunIds: options.expandedNestedRunIds,
+      depth: options.depth + 1,
+      ownerRunId: run.runId,
+      nestedRuns: loaded.childRuns ?? [],
+      nestedByRunId: options.nestedByRunId,
+    }),
+  );
+}
+
+function interleaveByStartedAt<A extends { at: string }, B extends { at: string }>(
+  a: A[],
+  b: B[],
+): Array<A | B> {
+  const merged: Array<A | B> = [...a, ...b];
+  merged.sort((left, right) => {
+    if (left.at && right.at) return left.at.localeCompare(right.at);
+    if (left.at) return -1;
+    if (right.at) return 1;
+    return 0;
+  });
+  return merged;
+}
+
+export function stepHasTreeChildren(
+  step: StepNode,
+  nestedUnderStep: readonly InspectorRunSummary[] = [],
+): boolean {
+  return step.children.length > 0 || step.agentEpisodes.length > 0 || nestedUnderStep.length > 0;
+}
+
+export function nestedRunHasExpandableChildren(data: NestedRunTreeData | undefined): boolean {
+  if (!data?.view) {
+    // Until loaded, assume expand may reveal content.
+    return true;
+  }
+  return data.view.steps.length > 0 || (data.childRuns?.length ?? 0) > 0;
 }
 
 export function formatDuration(durationMs: number): string {
@@ -87,12 +236,30 @@ export function stepTimeRange(
   return spanTimeRange(step, nowMs);
 }
 
+export function runSummaryAsTimedSpan(run: InspectorRunSummary): TimedSpan {
+  return {
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    status: runStatusAsStepStatus(run.status),
+  };
+}
+
+export function runStatusAsStepStatus(status: RunStatus): StepNodeStatus {
+  if (status === "running") return "running";
+  if (status === "failed") return "failed";
+  return "completed";
+}
+
 export function computeWaterfallScale(opts: {
   runStartedAt: string;
   runFinishedAt?: string;
   runStatus: RunStatus;
   steps: StepNode[];
   nowMs: number;
+  ownerRunId?: string;
+  nestedRuns?: readonly InspectorRunSummary[];
+  nestedByRunId?: ReadonlyMap<string, NestedRunTreeData>;
+  expandedNestedRunIds?: ReadonlySet<string>;
 }): WaterfallScale {
   const parsedOrigin = Date.parse(opts.runStartedAt);
   const originMs = Number.isFinite(parsedOrigin) ? parsedOrigin : opts.nowMs;
@@ -105,8 +272,23 @@ export function computeWaterfallScale(opts: {
     if (Number.isFinite(finished)) endMs = Math.max(endMs, finished);
   }
 
-  for (const row of flattenWorkflowRows(opts.steps)) {
-    const span = row.kind === "step" ? row.step : row.episode;
+  const rows =
+    opts.ownerRunId != null
+      ? flattenWorkflowRows(opts.steps, {
+          ownerRunId: opts.ownerRunId,
+          nestedRuns: opts.nestedRuns,
+          nestedByRunId: opts.nestedByRunId,
+          expandedNestedRunIds: opts.expandedNestedRunIds,
+        })
+      : flattenWorkflowRows(opts.steps, { ownerRunId: "" });
+
+  for (const row of rows) {
+    const span =
+      row.kind === "step"
+        ? row.step
+        : row.kind === "episode"
+          ? row.episode
+          : runSummaryAsTimedSpan(row.run);
     const range = spanTimeRange(span, opts.nowMs);
     if (range) endMs = Math.max(endMs, range.endMs);
   }

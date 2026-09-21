@@ -80,6 +80,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     // Nested and top-level both get their own id — never inherit the parent's.
     const workflowRunId = options?.workflowRunId ?? createId();
     const parentWorkflowRunId = parentCtx?.workflowRunId ?? null;
+    const parentStepId = parentCtx?.stepId ?? null;
 
     let parsedInput = input as unknown as TInput;
     if (this.definition.inputSchema) {
@@ -123,6 +124,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           input: parsedInput,
           tags: withProjectVersionTag(options?.tags, effectiveServices.version),
           parentWorkflowRunId,
+          parentStepId,
         });
 
         try {

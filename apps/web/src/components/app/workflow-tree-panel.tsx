@@ -12,46 +12,69 @@ import {
 } from "react";
 import { ChevronRight, GitBranch, Layers, Loader2, MessageSquare } from "lucide-react";
 
-import { ErrorDetails, ErrorIndicator } from "@/components/app/error-details";
+import { ErrorIndicator } from "@/components/app/error-details";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/view-model/run-projection";
-import type { AgentEpisode, RunViewState, StepNode, StepNodeStatus } from "@/lib/view-model/types";
+import type {
+  AgentEpisode,
+  InspectorRunSummary,
+  RunViewState,
+  StepNode,
+  StepNodeStatus,
+} from "@/lib/view-model/types";
 import { cn } from "@/lib/utils";
 import { useInspectorConnection } from "#/lib/inspector-connection";
+import { workflowRunLabel } from "@/lib/workflow/workflow-location";
 import {
   computeSpanWaterfallBar,
   computeWaterfallScale,
   flattenWorkflowRows,
   formatDuration,
+  nestedRunHasExpandableChildren,
+  runStatusAsStepStatus,
+  runSummaryAsTimedSpan,
   stepHasTreeChildren,
   waterfallTickCount,
   waterfallTickMarks,
+  type NestedRunTreeData,
   type WaterfallBar,
+  type WorkflowTreeRow,
 } from "@/lib/workflow/workflow-waterfall";
 
 const WORKFLOW_ROW_ID = "__workflow__";
 const ROW_DIVIDER = "border-b border-border/40";
-const PANE_SPLIT = "border-r border-border";
 
 interface WorkflowTreePanelProps {
   view: RunViewState;
+  childRuns: InspectorRunSummary[];
+  nestedByRunId: ReadonlyMap<string, NestedRunTreeData>;
+  expandedNestedRunIds: ReadonlySet<string>;
   selectedStepId: string | null;
   selectedEpisodeId: string | null;
+  selectedNestedRunId: string | null;
   workflowSelected: boolean;
   onSelectWorkflow: () => void;
-  onSelectStep: (stepId: string) => void;
-  onSelectEpisode: (stepId: string, episode: AgentEpisode) => void;
+  onSelectStep: (stepId: string, ownerRunId: string) => void;
+  onSelectEpisode: (stepId: string, episode: AgentEpisode, ownerRunId: string) => void;
+  onSelectNestedRun: (runId: string) => void;
+  onToggleNestedExpanded: (runId: string) => void;
 }
 
 export function WorkflowTreePanel({
   view,
+  childRuns,
+  nestedByRunId,
+  expandedNestedRunIds,
   selectedStepId,
   selectedEpisodeId,
+  selectedNestedRunId,
   workflowSelected,
   onSelectWorkflow,
   onSelectStep,
   onSelectEpisode,
+  onSelectNestedRun,
+  onToggleNestedExpanded,
 }: WorkflowTreePanelProps) {
   const { offline } = useInspectorConnection();
   const live = view.status === "running" && !offline;
@@ -67,25 +90,57 @@ export function WorkflowTreePanel({
         runStatus: view.status,
         steps: view.steps,
         nowMs,
+        ownerRunId: view.runId,
+        nestedRuns: childRuns,
+        nestedByRunId,
+        expandedNestedRunIds,
       }),
-    [view.startedAt, view.finishedAt, view.status, view.steps, nowMs],
+    [
+      view.startedAt,
+      view.finishedAt,
+      view.status,
+      view.steps,
+      view.runId,
+      nowMs,
+      childRuns,
+      nestedByRunId,
+      expandedNestedRunIds,
+    ],
   );
   const ticks = waterfallTickMarks(scale, waterfallTickCount(zoom));
   const workflowCollapsed = collapsedStepIds.has(WORKFLOW_ROW_ID);
   const rows = useMemo(
     () =>
-      workflowCollapsed ? [] : flattenWorkflowRows(view.steps, { collapsedStepIds, depth: 1 }),
-    [view.steps, collapsedStepIds, workflowCollapsed],
+      workflowCollapsed
+        ? []
+        : flattenWorkflowRows(view.steps, {
+            collapsedStepIds,
+            expandedNestedRunIds,
+            depth: 1,
+            ownerRunId: view.runId,
+            nestedRuns: childRuns,
+            nestedByRunId,
+          }),
+    [
+      view.steps,
+      view.runId,
+      collapsedStepIds,
+      workflowCollapsed,
+      childRuns,
+      nestedByRunId,
+      expandedNestedRunIds,
+    ],
   );
   const workflowBar = computeSpanWaterfallBar(
     {
       startedAt: view.startedAt,
       finishedAt: view.finishedAt,
-      status: runStatusAsStep(view.status),
+      status: runStatusAsStepStatus(view.status),
     },
     scale,
     nowMs,
   );
+  const hiddenRootCount = rows.length;
 
   const toggleCollapsed = useCallback((stepId: string) => {
     setCollapsedStepIds((prev) => {
@@ -97,14 +152,80 @@ export function WorkflowTreePanel({
   }, []);
 
   const split = useColumnSplit();
-  const showSplit = view.steps.length > 0 || view.status === "running";
-  const empty = view.steps.length === 0;
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const waterfallScrollRef = useRef<HTMLDivElement>(null);
   const scrollbarGutter = useScrollbarGutter(waterfallScrollRef, zoom, rows.length);
-  const waterfallPaneWidth = useWaterfallPaneWidth(waterfallScrollRef, zoom, !empty);
-  useSyncedVerticalScroll(treeScrollRef, waterfallScrollRef, !empty);
-  useWaterfallZoom(waterfallScrollRef, zoom, setZoom, !empty);
+  const waterfallPaneWidth = useWaterfallPaneWidth(waterfallScrollRef, zoom, true);
+  useSyncedVerticalScroll(treeScrollRef, waterfallScrollRef, true);
+  useWaterfallZoom(waterfallScrollRef, zoom, setZoom, true);
+
+  const renderTreeRow = (row: WorkflowTreeRow, pane: "tree" | "waterfall") => {
+    if (row.kind === "step") {
+      const nestsUnder = childRunsForOwner(
+        row.ownerRunId,
+        view.runId,
+        childRuns,
+        nestedByRunId,
+      ).filter((run) => run.parentStepId === row.step.stepId);
+      return (
+        <StepRow
+          key={`step:${row.ownerRunId}:${row.step.stepId}:${pane}`}
+          pane={pane}
+          step={row.step}
+          depth={row.depth}
+          nestedUnderStep={nestsUnder}
+          bar={computeSpanWaterfallBar(row.step, scale, nowMs)}
+          ticks={ticks}
+          collapsed={collapsedStepIds.has(row.step.stepId)}
+          selected={
+            selectedStepId === row.step.stepId &&
+            selectedEpisodeId === null &&
+            selectedNestedRunId === null
+          }
+          hovered={hoveredRowId === row.step.stepId}
+          onHover={() => setHoveredRowId(row.step.stepId)}
+          onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
+          onSelect={() => onSelectStep(row.step.stepId, row.ownerRunId)}
+        />
+      );
+    }
+    if (row.kind === "episode") {
+      return (
+        <EpisodeRow
+          key={`ep:${row.ownerRunId}:${row.episode.episodeId}:${pane}`}
+          pane={pane}
+          episode={row.episode}
+          depth={row.depth}
+          runId={row.ownerRunId}
+          bar={computeSpanWaterfallBar(row.episode, scale, nowMs)}
+          ticks={ticks}
+          selected={selectedEpisodeId === row.episode.episodeId}
+          hovered={hoveredRowId === row.episode.episodeId}
+          onHover={() => setHoveredRowId(row.episode.episodeId)}
+          onSelect={() => onSelectEpisode(row.step.stepId, row.episode, row.ownerRunId)}
+        />
+      );
+    }
+    const nestedData = nestedByRunId.get(row.run.runId);
+    const expanded = expandedNestedRunIds.has(row.run.runId);
+    return (
+      <NestedRunRow
+        key={`nest:${row.run.runId}:${pane}`}
+        pane={pane}
+        run={row.run}
+        depth={row.depth}
+        bar={computeSpanWaterfallBar(runSummaryAsTimedSpan(row.run), scale, nowMs)}
+        ticks={ticks}
+        expanded={expanded}
+        expandable={nestedRunHasExpandableChildren(nestedData)}
+        selected={selectedNestedRunId === row.run.runId && selectedStepId === null}
+        hovered={hoveredRowId === row.run.runId}
+        onHover={() => setHoveredRowId(row.run.runId)}
+        onToggleExpanded={() => onToggleNestedExpanded(row.run.runId)}
+        onSelect={() => onSelectNestedRun(row.run.runId)}
+      />
+    );
+  };
 
   return (
     <div
@@ -115,148 +236,96 @@ export function WorkflowTreePanel({
       )}
       onMouseLeave={() => setHoveredRowId(null)}
     >
-      {empty ? (
-        <EmptyRunState status={view.status} error={view.error} />
-      ) : (
-        <TooltipProvider delayDuration={200}>
-          <div
-            ref={treeScrollRef}
-            className="h-full min-h-0 shrink-0 overflow-x-hidden overflow-y-auto scrollbar-none"
-            style={{ width: split.treeWidth ?? "40%" }}
-          >
-            <div className="flex min-h-full flex-col" style={{ paddingBottom: scrollbarGutter }}>
-              <StepsHeader />
-              <WorkflowRow
-                pane="tree"
-                workflowId={view.workflowId}
-                status={view.status}
-                selected={workflowSelected}
-                hovered={hoveredRowId === WORKFLOW_ROW_ID}
-                collapsed={workflowCollapsed}
-                hiddenCount={view.steps.length}
-                bar={workflowBar}
-                ticks={ticks}
-                onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
-                onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
-                onSelect={onSelectWorkflow}
-              />
-              {rows.map((row) =>
-                row.kind === "step" ? (
-                  <StepRow
-                    key={row.step.stepId}
-                    pane="tree"
-                    step={row.step}
-                    depth={row.depth}
-                    bar={computeSpanWaterfallBar(row.step, scale, nowMs)}
-                    ticks={ticks}
-                    collapsed={collapsedStepIds.has(row.step.stepId)}
-                    selected={selectedStepId === row.step.stepId && selectedEpisodeId === null}
-                    hovered={hoveredRowId === row.step.stepId}
-                    onHover={() => setHoveredRowId(row.step.stepId)}
-                    onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
-                    onSelect={() => onSelectStep(row.step.stepId)}
-                  />
-                ) : (
-                  <EpisodeRow
-                    key={row.episode.episodeId}
-                    pane="tree"
-                    episode={row.episode}
-                    depth={row.depth}
-                    runId={view.runId}
-                    bar={computeSpanWaterfallBar(row.episode, scale, nowMs)}
-                    ticks={ticks}
-                    selected={selectedEpisodeId === row.episode.episodeId}
-                    hovered={hoveredRowId === row.episode.episodeId}
-                    onHover={() => setHoveredRowId(row.episode.episodeId)}
-                    onSelect={() => onSelectEpisode(row.step.stepId, row.episode)}
-                  />
-                ),
-              )}
-              <div className="min-h-0 flex-1" />
-            </div>
+      <TooltipProvider delayDuration={200}>
+        <div
+          ref={treeScrollRef}
+          className="h-full min-h-0 shrink-0 overflow-x-hidden overflow-y-auto scrollbar-none"
+          style={{ width: split.treeWidth ?? "40%" }}
+        >
+          <div className="flex min-h-full flex-col" style={{ paddingBottom: scrollbarGutter }}>
+            <StepsHeader />
+            <WorkflowRow
+              pane="tree"
+              workflowId={view.workflowId}
+              status={view.status}
+              selected={workflowSelected}
+              hovered={hoveredRowId === WORKFLOW_ROW_ID}
+              collapsed={workflowCollapsed}
+              hiddenCount={hiddenRootCount}
+              bar={workflowBar}
+              ticks={ticks}
+              onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
+              onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
+              onSelect={onSelectWorkflow}
+            />
+            {rows.map((row) => renderTreeRow(row, "tree"))}
+            {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+              <WorkflowLoadingPlaceholder />
+            ) : null}
+            <div className="min-h-0 flex-1" />
           </div>
+        </div>
+        <div
+          ref={waterfallScrollRef}
+          className="h-full min-h-0 min-w-0 flex-1 overflow-auto overscroll-x-contain"
+        >
           <div
-            ref={waterfallScrollRef}
-            className="h-full min-h-0 min-w-0 flex-1 overflow-auto overscroll-x-contain"
+            className="relative flex min-h-full flex-col"
+            style={{
+              width:
+                waterfallPaneWidth > 0 ? waterfallPaneWidth * zoom : `${Math.max(zoom, 1) * 100}%`,
+            }}
           >
-            <div
-              className="relative flex min-h-full flex-col"
-              style={{
-                width:
-                  waterfallPaneWidth > 0
-                    ? waterfallPaneWidth * zoom
-                    : `${Math.max(zoom, 1) * 100}%`,
-              }}
-            >
-              <WaterfallHeader ticks={ticks} />
-              <WorkflowRow
-                pane="waterfall"
-                workflowId={view.workflowId}
-                status={view.status}
-                selected={workflowSelected}
-                hovered={hoveredRowId === WORKFLOW_ROW_ID}
-                collapsed={workflowCollapsed}
-                hiddenCount={view.steps.length}
-                bar={workflowBar}
-                ticks={ticks}
-                onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
-                onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
-                onSelect={onSelectWorkflow}
-              />
-              {rows.map((row) =>
-                row.kind === "step" ? (
-                  <StepRow
-                    key={row.step.stepId}
-                    pane="waterfall"
-                    step={row.step}
-                    depth={row.depth}
-                    bar={computeSpanWaterfallBar(row.step, scale, nowMs)}
-                    ticks={ticks}
-                    collapsed={collapsedStepIds.has(row.step.stepId)}
-                    selected={selectedStepId === row.step.stepId && selectedEpisodeId === null}
-                    hovered={hoveredRowId === row.step.stepId}
-                    onHover={() => setHoveredRowId(row.step.stepId)}
-                    onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
-                    onSelect={() => onSelectStep(row.step.stepId)}
-                  />
-                ) : (
-                  <EpisodeRow
-                    key={row.episode.episodeId}
-                    pane="waterfall"
-                    episode={row.episode}
-                    depth={row.depth}
-                    runId={view.runId}
-                    bar={computeSpanWaterfallBar(row.episode, scale, nowMs)}
-                    ticks={ticks}
-                    selected={selectedEpisodeId === row.episode.episodeId}
-                    hovered={hoveredRowId === row.episode.episodeId}
-                    onHover={() => setHoveredRowId(row.episode.episodeId)}
-                    onSelect={() => onSelectEpisode(row.step.stepId, row.episode)}
-                  />
-                ),
-              )}
-              <div className="relative min-h-0 flex-1 px-3">
-                <div className="relative h-full min-h-0">
-                  <WaterfallGridLines ticks={ticks} />
-                </div>
+            <WaterfallHeader ticks={ticks} />
+            <WorkflowRow
+              pane="waterfall"
+              workflowId={view.workflowId}
+              status={view.status}
+              selected={workflowSelected}
+              hovered={hoveredRowId === WORKFLOW_ROW_ID}
+              collapsed={workflowCollapsed}
+              hiddenCount={hiddenRootCount}
+              bar={workflowBar}
+              ticks={ticks}
+              onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
+              onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
+              onSelect={onSelectWorkflow}
+            />
+            {rows.map((row) => renderTreeRow(row, "waterfall"))}
+            {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+              <div className={cn("h-9 shrink-0", ROW_DIVIDER)} aria-hidden />
+            ) : null}
+            <div className="relative min-h-0 flex-1 px-3">
+              <div className="relative h-full min-h-0">
+                <WaterfallGridLines ticks={ticks} />
               </div>
             </div>
           </div>
-        </TooltipProvider>
-      )}
-      {showSplit ? (
-        <ColumnResizeHandle
-          left={split.handleLeft}
-          dragging={split.dragging}
-          onPointerDown={split.onPointerDown}
-          onPointerMove={split.onPointerMove}
-          onPointerUp={split.onPointerUp}
-          onKeyDown={split.onKeyDown}
-          onDoubleClick={split.onReset}
-        />
-      ) : null}
+        </div>
+      </TooltipProvider>
+      <ColumnResizeHandle
+        left={split.handleLeft}
+        dragging={split.dragging}
+        onPointerDown={split.onPointerDown}
+        onPointerMove={split.onPointerMove}
+        onPointerUp={split.onPointerUp}
+        onKeyDown={split.onKeyDown}
+        onDoubleClick={split.onReset}
+      />
     </div>
   );
+}
+
+function childRunsForOwner(
+  ownerRunId: string,
+  pageRunId: string,
+  pageChildRuns: InspectorRunSummary[],
+  nestedByRunId: ReadonlyMap<string, NestedRunTreeData>,
+): InspectorRunSummary[] {
+  if (ownerRunId === pageRunId) {
+    return pageChildRuns;
+  }
+  return nestedByRunId.get(ownerRunId)?.childRuns ?? [];
 }
 
 function StepsHeader() {
@@ -303,9 +372,7 @@ function rowToneClass(selected: boolean, hovered: boolean) {
 }
 
 function runStatusAsStep(status: RunViewState["status"]): StepNodeStatus {
-  if (status === "running") return "running";
-  if (status === "failed") return "failed";
-  return "completed";
+  return runStatusAsStepStatus(status);
 }
 
 function WorkflowRow({
@@ -373,6 +440,7 @@ function StepRow({
   pane,
   step,
   depth,
+  nestedUnderStep,
   bar,
   ticks,
   collapsed,
@@ -385,6 +453,7 @@ function StepRow({
   pane: "tree" | "waterfall";
   step: StepNode;
   depth: number;
+  nestedUnderStep: InspectorRunSummary[];
   bar: WaterfallBar | null;
   ticks: { pct: number; label: string }[];
   collapsed: boolean;
@@ -395,8 +464,8 @@ function StepRow({
   onSelect: () => void;
 }) {
   const label = formatStepLabel(step.name, step.key);
-  const hasChildren = stepHasTreeChildren(step);
-  const hiddenCount = step.children.length + step.agentEpisodes.length;
+  const hasChildren = stepHasTreeChildren(step, nestedUnderStep);
+  const hiddenCount = step.children.length + step.agentEpisodes.length + nestedUnderStep.length;
 
   return (
     <GridRow
@@ -429,6 +498,69 @@ function StepRow({
       ) : null}
       {step.status === "failed" && step.error ? (
         <ErrorIndicator error={step.error} className="min-w-0 text-[10px]" />
+      ) : null}
+    </GridRow>
+  );
+}
+
+function NestedRunRow({
+  pane,
+  run,
+  depth,
+  bar,
+  ticks,
+  expanded,
+  expandable,
+  selected,
+  hovered,
+  onHover,
+  onToggleExpanded,
+  onSelect,
+}: {
+  pane: "tree" | "waterfall";
+  run: InspectorRunSummary;
+  depth: number;
+  bar: WaterfallBar | null;
+  ticks: { pct: number; label: string }[];
+  expanded: boolean;
+  expandable: boolean;
+  selected: boolean;
+  hovered: boolean;
+  onHover: () => void;
+  onToggleExpanded: () => void;
+  onSelect: () => void;
+}) {
+  const label = workflowRunLabel({ runId: run.runId, title: run.title }) || run.workflowId;
+  const status = runStatusAsStepStatus(run.status);
+
+  return (
+    <GridRow
+      pane={pane}
+      selected={selected}
+      hovered={hovered}
+      onHover={onHover}
+      onSelect={onSelect}
+      ariaLabel={`${run.workflowId} nested run duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
+      bar={bar}
+      ticks={ticks}
+      status={status}
+      label={label}
+      barSize="step"
+      leading={
+        <CollapseToggle
+          expanded={expanded}
+          disabled={!expandable}
+          label={run.workflowId}
+          onToggle={onToggleExpanded}
+        />
+      }
+      trailing={<RowStatusIcon status={status} kind="step" />}
+      depth={depth}
+    >
+      <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="truncate font-mono font-medium">{run.workflowId}</span>
+      {run.title?.trim() ? (
+        <span className="truncate text-[10px] text-muted-foreground">{run.title.trim()}</span>
       ) : null}
     </GridRow>
   );
@@ -724,75 +856,16 @@ function RowStatusIcon({
   );
 }
 
-function EmptyRunState({ status, error }: { status: RunViewState["status"]; error?: unknown }) {
-  if (status === "failed") {
-    return (
-      <div className="space-y-3 p-4">
-        <p className="text-sm font-medium text-destructive">
-          This run failed before any steps started.
-        </p>
-        <ErrorDetails error={error ?? "Workflow run failed."} compact />
-      </div>
-    );
-  }
-  if (status === "cancelled") {
-    return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        Run cancelled before any steps started.
-      </p>
-    );
-  }
-  if (status === "completed") {
-    return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        No steps recorded for this run.
-      </p>
-    );
-  }
-  return <WorkflowLoadingSkeleton />;
-}
-
-function WorkflowLoadingSkeleton() {
-  const placeholders = [
-    { depth: 1, width: "w-28" },
-    { depth: 2, width: "w-24" },
-    { depth: 1, width: "w-32" },
-  ];
-
+function WorkflowLoadingPlaceholder() {
   return (
     <div
-      className="flex h-full min-h-0 w-full"
+      className={cn("flex h-9 shrink-0 items-center gap-2 pr-2", ROW_DIVIDER)}
+      style={{ paddingLeft: 8 + 16 }}
       aria-busy="true"
       aria-label="Waiting for workflow steps"
     >
-      <div className={cn("w-[40%] shrink-0", PANE_SPLIT)}>
-        <div className={cn("flex h-8 items-center px-4", ROW_DIVIDER)}>
-          <Skeleton className="h-3 w-12" />
-        </div>
-        <div
-          className={cn("flex h-9 items-center gap-2 pr-2", ROW_DIVIDER)}
-          style={{ paddingLeft: 8 }}
-        >
-          <ChevronRight className="size-3.5 shrink-0 rotate-90 text-muted-foreground" aria-hidden />
-          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <Skeleton className="h-3 w-36" />
-        </div>
-        {placeholders.map((row, index) => (
-          <div
-            key={index}
-            className={cn("flex h-9 items-center gap-2 pr-2", ROW_DIVIDER)}
-            style={{ paddingLeft: 8 + row.depth * 16 }}
-          >
-            <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-            <Skeleton className={cn("h-3", row.width)} />
-          </div>
-        ))}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className={cn("flex h-8 items-center px-3", ROW_DIVIDER)}>
-          <span className="text-[10px] text-muted-foreground">Duration</span>
-        </div>
-      </div>
+      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+      <Skeleton className="h-3 w-28" />
     </div>
   );
 }

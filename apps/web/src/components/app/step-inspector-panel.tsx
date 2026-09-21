@@ -1,5 +1,5 @@
 import { CatchBoundary, Link } from "@tanstack/react-router";
-import { Bot, GitBranch, Layers, MessageSquare } from "lucide-react";
+import { Bot, ExternalLink, GitBranch, Layers, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type {
@@ -48,6 +48,8 @@ interface StepInspectorPanelProps {
   workflowOutput: unknown;
   runStatus: RunStatus;
   runError?: unknown;
+  /** When set, the workflow inspector links to this nested run's dedicated page. */
+  nestedRunLink?: { workflowId: string; runId: string } | null;
 }
 
 export function StepInspectorPanel({
@@ -63,6 +65,7 @@ export function StepInspectorPanel({
   workflowOutput,
   runStatus,
   runError,
+  nestedRunLink = null,
 }: StepInspectorPanelProps) {
   const body = !step ? (
     <WorkflowInspector
@@ -71,6 +74,7 @@ export function StepInspectorPanel({
       output={workflowOutput}
       status={runStatus}
       error={runError}
+      nestedRunLink={nestedRunLink}
     />
   ) : episode ? (
     <ConversationInspector
@@ -529,12 +533,14 @@ function WorkflowInspector({
   output,
   status,
   error,
+  nestedRunLink,
 }: {
   workflowId: string;
   input: unknown;
   output: unknown;
   status: RunStatus;
   error?: unknown;
+  nestedRunLink?: { workflowId: string; runId: string } | null;
 }) {
   const hasOutput = output !== undefined;
   const outputError = status === "failed" && error ? <ErrorDetails error={error} compact /> : null;
@@ -546,7 +552,22 @@ function WorkflowInspector({
           <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
           {workflowId}
         </p>
-        <p className="text-[10px] text-muted-foreground capitalize">{status}</p>
+        <div className="mt-0.5 flex min-w-0 items-center gap-2">
+          <p className="text-[10px] text-muted-foreground capitalize">{status}</p>
+          {nestedRunLink ? (
+            <Link
+              to="/workflows/$workflowId/run/$runId"
+              params={{
+                workflowId: nestedRunLink.workflowId,
+                runId: nestedRunLink.runId,
+              }}
+              className="inline-flex min-w-0 items-center gap-1 text-[10px] font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              <ExternalLink className="size-2.5 shrink-0" aria-hidden />
+              <span className="truncate">Open run</span>
+            </Link>
+          ) : null}
+        </div>
       </div>
       {hasOutput ? (
         <InspectorStack id="workflow-inspector-sections">

@@ -51,6 +51,11 @@ export interface InspectorRunSummary {
   usage?: TokenUsage;
   /** Immediate parent run when nested; null/omitted for roots and isolated. */
   parentWorkflowRunId?: string | null;
+  /**
+   * Parent step that invoked this nest, or null when nested at the parent
+   * workflow root. Absent on older summaries (treat as root-level nest).
+   */
+  parentStepId?: string | null;
 }
 
 export type RunEventType =

@@ -47,19 +47,20 @@ To expose an agent as a workflow that takes a **string** user message, use `adl.
 
 ## Nested and Isolated Runs
 
-By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), allocates a **new** `workflowRunId`, and records `parentWorkflowRunId` on the child. The child's steps and agents bind to the child run (own step cache and event stream). Abort is linked to the parent.
+By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), allocates a **new** `workflowRunId`, and records `parentWorkflowRunId` on the child (plus `parentStepId` when the call happens inside an active `ctx.step`). The child's steps and agents bind to the child run (own step cache and event stream). Abort is linked to the parent.
 
 `{ isolated: true }` starts an **unlinked** run (no parent pointer):
 
-|                 | Nested (default)                                             | `{ isolated: true }`                                         |
-| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Parent          | Joins ALS / `parentCtx`                                      | Ignores parent                                               |
-| `workflowRunId` | New id                                                       | New id                                                       |
-| Parent link     | `parentWorkflowRunId` = parent's id                          | `null`                                                       |
-| Persistence     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
-| Inspector       | Own tree; listed as a child of the parent run                | Own tree; not in another run's child list                    |
+|                 | Nested (default)                                                                                                | `{ isolated: true }`                                         |
+| --------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Parent          | Joins ALS / `parentCtx`                                                                                         | Ignores parent                                               |
+| `workflowRunId` | New id                                                                                                          | New id                                                       |
+| Parent link     | `parentWorkflowRunId` = parent's id                                                                             | `null`                                                       |
+| Step link       | `parentStepId` = calling step, or `null` at workflow root                                                       | `null`                                                       |
+| Persistence     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/)                                                    | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
+| Inspector       | Inline under the calling step (or under the workflow row when called at root); expand to load the child's steps | Own tree; not in another run's child list                    |
 
-Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array. Non-root (nested) child runs can be hidden from the main run list (roots-only) via the Non-Root toggle.
+Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array. Non-root (nested) child runs can be hidden from the main run list (roots-only) via the Non-Root toggle. Opening a non-root run page still shows a parent back-link.
 
 ```ts
 // Inside a parent workflow (or an agent episode that happens to be in one):

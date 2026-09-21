@@ -125,9 +125,59 @@ describe("workflow.run", () => {
     const childRun = await store.getRun(childRunId!);
     expect(childRun?.workflowId).toBe("child");
     expect(childRun?.parentWorkflowRunId).toBe(parentHandle.workflowRunId);
+    expect(childRun?.parentStepId).toBeTruthy();
     const parentRun = await store.getRun(parentHandle.workflowRunId);
     expect(parentRun?.workflowId).toBe("parent");
     expect(parentRun?.parentWorkflowRunId).toBeNull();
+  });
+
+  it("records parentStepId when nested inside ctx.step", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    let nestedStepId: string | null = null;
+    const child = createWorkflow(runtime, {
+      id: "child",
+      run: async () => ({ nested: true }),
+    });
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async (_input, ctx) => {
+        return ctx.step("wrap-nest", async ({ ctx: stepCtx }) => {
+          nestedStepId = stepCtx.stepId;
+          await child.run({}).result;
+          return { ok: true };
+        });
+      },
+    });
+
+    const handle = parent.run({});
+    await handle.result;
+    const children = await store.listRuns({ parentWorkflowRunId: handle.workflowRunId });
+    expect(children).toHaveLength(1);
+    expect(nestedStepId).toBeTruthy();
+    expect(children[0]?.parentStepId).toBe(nestedStepId);
+  });
+
+  it("records null parentStepId when nested at the workflow root", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    const child = createWorkflow(runtime, {
+      id: "child",
+      run: async () => ({ nested: true }),
+    });
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async () => {
+        await child.run({}).result;
+        return { ok: true };
+      },
+    });
+
+    const handle = parent.run({});
+    await handle.result;
+    const children = await store.listRuns({ parentWorkflowRunId: handle.workflowRunId });
+    expect(children).toHaveLength(1);
+    expect(children[0]?.parentStepId).toBeNull();
   });
 
   it("keeps the parent run row while a nested child finishes first", async () => {
