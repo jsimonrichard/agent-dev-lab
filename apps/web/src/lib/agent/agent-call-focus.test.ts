@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { agentCallMessageRange, lastMessageIdForAgentCall } from "./agent-call-focus";
+import {
+  agentCallMessageRange,
+  lastMessageIdForAgentCall,
+  mapMessageIdsToAgentCallIds,
+} from "./agent-call-focus";
 
 const messages = [
   { id: "sys", role: "system" as const },
@@ -85,5 +89,27 @@ describe("agentCallMessageRange", () => {
     expect(
       agentCallMessageRange(messages, [{ type: "agent_started" }], { fallbackToLast: true }),
     ).toEqual({ startIndex: 3, endIndex: 4 });
+  });
+});
+
+describe("mapMessageIdsToAgentCallIds", () => {
+  it("assigns each turn's messages to the committing call", () => {
+    expect(
+      mapMessageIdsToAgentCallIds(messages, [
+        {
+          agentCallId: "call-1",
+          commits: [{ type: "agent_messages_committed", total: 3, count: 1 }],
+        },
+        {
+          agentCallId: "call-2",
+          commits: [{ type: "agent_messages_committed", total: 5, count: 1 }],
+        },
+      ]),
+    ).toEqual({
+      "user-1": "call-1",
+      "asst-1": "call-1",
+      "user-2": "call-2",
+      "asst-2": "call-2",
+    });
   });
 });

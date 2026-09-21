@@ -170,6 +170,7 @@ export function collectToolCallIds(messages: InspectorMessage[]): Set<string> {
 export type ChatDisplayTextItem = {
   type: "text";
   key: string;
+  messageId: string;
   role: InspectorMessage["role"];
   text: string;
 };
@@ -177,6 +178,7 @@ export type ChatDisplayTextItem = {
 export type ChatDisplayJsonItem = {
   type: "json";
   key: string;
+  messageId: string;
   role: InspectorMessage["role"];
   value: unknown;
 };
@@ -184,6 +186,7 @@ export type ChatDisplayJsonItem = {
 export type ChatDisplayToolCallItem = {
   type: "tool-call";
   key: string;
+  messageId: string;
   call: ChatToolCallPart;
   pending: boolean;
 };
@@ -191,6 +194,7 @@ export type ChatDisplayToolCallItem = {
 export type ChatDisplayToolResultItem = {
   type: "tool-result";
   key: string;
+  messageId: string;
   result: ChatToolResultPart;
 };
 
@@ -251,10 +255,22 @@ export function toChatDisplayItems(messages: InspectorMessage[]): ChatDisplayIte
       }
       const json = message.role === "assistant" ? parseStructuredJson(text) : undefined;
       if (json !== undefined) {
-        items.push({ type: "json", key: textKey, role: message.role, value: json });
+        items.push({
+          type: "json",
+          key: textKey,
+          messageId: message.id,
+          role: message.role,
+          value: json,
+        });
         return;
       }
-      items.push({ type: "text", key: textKey, role: message.role, text });
+      items.push({
+        type: "text",
+        key: textKey,
+        messageId: message.id,
+        role: message.role,
+        text,
+      });
     };
 
     for (const [partIndex, part] of parts.entries()) {
@@ -275,6 +291,7 @@ export function toChatDisplayItems(messages: InspectorMessage[]): ChatDisplayIte
         items.push({
           type: "tool-call",
           key: `${message.id}-call-${part.toolCallId}`,
+          messageId: message.id,
           call: resolveDisplayedToolCall(part, result),
           pending: result == null,
         });
@@ -285,6 +302,7 @@ export function toChatDisplayItems(messages: InspectorMessage[]): ChatDisplayIte
       items.push({
         type: "tool-result",
         key: `${message.id}-result-${part.toolCallId || partIndex}`,
+        messageId: message.id,
         result: resolveDisplayedToolResult(part, call),
       });
     }

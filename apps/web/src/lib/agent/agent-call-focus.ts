@@ -61,6 +61,27 @@ export function messageIdsForAgentCall(
 }
 
 /**
+ * Map stored message ids to the agent call that committed them.
+ * Callers should pass episodes in chronological order; later episodes overwrite
+ * on overlap so a subsequent turn on the same scope wins.
+ */
+export function mapMessageIdsToAgentCallIds(
+  messages: ReadonlyArray<{ id: string; role?: string }>,
+  episodes: ReadonlyArray<{
+    agentCallId: string;
+    commits: ReadonlyArray<AgentCallCommitFields>;
+  }>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const episode of episodes) {
+    for (const id of messageIdsForAgentCall(messages, episode.commits)) {
+      result[id] = episode.agentCallId;
+    }
+  }
+  return result;
+}
+
+/**
  * Last stored transcript message produced by a specific agent call.
  * Uses `agent_messages_committed.total`, which is the conversation length after that call.
  */

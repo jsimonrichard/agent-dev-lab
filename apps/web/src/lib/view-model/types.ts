@@ -281,6 +281,16 @@ export interface ResolvedAgentConversation {
    * Absent when no finished episode reported usage.
    */
   usage?: TokenUsage;
+  /**
+   * Per-episode token usage keyed by `agentCallId`, for the inspect panel's
+   * "This call" column without a second round-trip.
+   */
+  episodeUsageByCallId: Record<string, TokenUsage>;
+  /**
+   * Stored transcript message id → `agentCallId` for episode Inspect links.
+   * Built from each episode's `agent_messages_committed` totals.
+   */
+  messageAgentCallIds: Record<string, string>;
   forkSession: ForkedAgentSession | null;
   workflowLink: ConversationWorkflowLink | null;
 }

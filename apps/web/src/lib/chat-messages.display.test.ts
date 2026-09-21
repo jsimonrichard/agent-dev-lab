@@ -33,17 +33,25 @@ describe("toChatDisplayItems", () => {
     ];
 
     expect(toChatDisplayItems(messages)).toEqual([
-      { type: "text", key: "msg-0-text-0", role: "user", text: "Find papers" },
-      { type: "text", key: "msg-1-text-0", role: "assistant", text: "Looking that up." },
+      { type: "text", key: "msg-0-text-0", messageId: "msg-0", role: "user", text: "Find papers" },
+      {
+        type: "text",
+        key: "msg-1-text-0",
+        messageId: "msg-1",
+        role: "assistant",
+        text: "Looking that up.",
+      },
       {
         type: "tool-call",
         key: "msg-1-call-c1",
+        messageId: "msg-1",
         pending: false,
         call: { type: "tool-call", toolCallId: "c1", toolName: "search", args: { q: "ALS" } },
       },
       {
         type: "tool-result",
         key: "msg-2-result-c1",
+        messageId: "msg-2",
         result: {
           type: "tool-result",
           toolCallId: "c1",
@@ -52,7 +60,13 @@ describe("toChatDisplayItems", () => {
           isError: false,
         },
       },
-      { type: "text", key: "msg-3-text-0", role: "assistant", text: "Here they are." },
+      {
+        type: "text",
+        key: "msg-3-text-0",
+        messageId: "msg-3",
+        role: "assistant",
+        text: "Here they are.",
+      },
     ]);
   });
 
@@ -130,6 +144,7 @@ describe("toChatDisplayItems", () => {
       {
         type: "tool-call",
         key: "msg-0-call-c1",
+        messageId: "msg-0",
         pending: true,
         call: { type: "tool-call", toolCallId: "c1", toolName: "search", args: {} },
       },
@@ -173,6 +188,7 @@ describe("toChatDisplayItems", () => {
       {
         type: "tool-call",
         key: "msg-0-call-ws_1",
+        messageId: "msg-0",
         pending: false,
         call: {
           type: "tool-call",
@@ -186,6 +202,7 @@ describe("toChatDisplayItems", () => {
       {
         type: "tool-result",
         key: "msg-0-result-ws_1",
+        messageId: "msg-0",
         result: {
           type: "tool-result",
           toolCallId: "ws_1",
@@ -275,6 +292,7 @@ describe("toChatDisplayItems", () => {
       {
         type: "json",
         key: "msg-0-text-0",
+        messageId: "msg-0",
         role: "assistant",
         value: {
           title: "CRISPR delivery",
@@ -299,6 +317,7 @@ describe("toChatDisplayItems", () => {
       {
         type: "json",
         key: "msg-0-text-0",
+        messageId: "msg-0",
         role: "assistant",
         value: { score: 8, verdict: "ship" },
       },

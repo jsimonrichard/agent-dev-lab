@@ -5,6 +5,7 @@ import {
   type AgentRunHandle,
   type ModelMessage,
   type RunEvent as CoreRunEvent,
+  type TokenUsage,
   type WorkflowRunHandle,
 } from "@agent-dev-lab/core";
 import {
@@ -26,6 +27,7 @@ import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messa
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
 import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
+import { mapMessageIdsToAgentCallIds } from "#/lib/agent/agent-call-focus";
 import { sumEpisodeUsageByKey } from "#/lib/token-usage-rollups";
 import {
   createMemoryScope,
@@ -588,6 +590,33 @@ export async function resolveAgentConversation(
     memoryScope,
   );
 
+  const episodeUsageByCallId: Record<string, TokenUsage> = {};
+  for (const episode of scopeEpisodes) {
+    if (episode.usage) {
+      episodeUsageByCallId[episode.agentCallId] = episode.usage;
+    }
+  }
+
+  const episodeCommits = await Promise.all(
+    scopeEpisodes.map(async (episode) => {
+      const events = await store.listEvents(
+        { agentCallId: episode.agentCallId },
+        { type: "agent_messages_committed" },
+      );
+      return {
+        agentCallId: episode.agentCallId,
+        startedAt: episode.startedAt,
+        commits: events.map((event) => ({
+          type: event.type,
+          total: event.type === "agent_messages_committed" ? event.total : undefined,
+          count: event.type === "agent_messages_committed" ? event.count : undefined,
+        })),
+      };
+    }),
+  );
+  episodeCommits.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const messageAgentCallIds = mapMessageIdsToAgentCallIds(messages, episodeCommits);
+
   return {
     runId: memoryScope,
     agentId: viewAgentId,
@@ -602,6 +631,8 @@ export async function resolveAgentConversation(
       ? { latestEpisodeToolProviderContext: latestEpisodeContext as JsonValue }
       : {}),
     ...(usage ? { usage } : {}),
+    episodeUsageByCallId,
+    messageAgentCallIds,
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {

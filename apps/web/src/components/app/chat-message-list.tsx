@@ -1,5 +1,7 @@
 import type { ReactNode, Ref } from "react";
 import { Fragment, useEffect, useRef } from "react";
+import { Link } from "@tanstack/react-router";
+import { MoreHorizontal, Search } from "lucide-react";
 import type { Result } from "@agent-dev-lab/core/result";
 
 import { cn } from "@/lib/utils";
@@ -9,6 +11,19 @@ import { ChatToolCall } from "@/components/app/chat-tool-call";
 import { ErrorDetails } from "@/components/app/error-details";
 import { JsonPreview } from "@/components/app/json-preview";
 import { MarkdownContent } from "@/components/app/markdown-content";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export type MessageInspectLink = {
+  to: "/agent/$agentId/run/$runId";
+  params: { agentId: string; runId: string };
+  search: { call?: string };
+};
 
 interface ChatMessageListProps {
   messages: InspectorMessage[];
@@ -32,6 +47,8 @@ interface ChatMessageListProps {
   focusMessageIds?: ReadonlySet<string>;
   /** When true, include the live streaming bubble in the same call highlight. */
   focusStreaming?: boolean;
+  /** Episode Inspect link for an agent message (`?call=`). Absent when the message has no mapped call. */
+  inspectLinkForMessage?: (messageId: string) => MessageInspectLink | undefined;
 }
 
 export function ChatMessageList({
@@ -45,6 +62,7 @@ export function ChatMessageList({
   systemPrompt,
   focusMessageIds,
   focusStreaming = false,
+  inspectLinkForMessage,
 }: ChatMessageListProps) {
   const hasStoredSystem = messages[0]?.role === "system";
   const items = toChatDisplayItems(messages);
@@ -75,6 +93,7 @@ export function ChatMessageList({
         item={item}
         compact={compact}
         rowRef={lastFocusKey === item.key ? focusRef : undefined}
+        inspectLink={inspectLinkForMessage?.(item.messageId)}
       />
     );
   }
@@ -203,14 +222,21 @@ function ChatDisplayItemView({
   item,
   compact,
   rowRef,
+  inspectLink,
 }: {
   item: ChatDisplayItem;
   compact: boolean;
   rowRef?: Ref<HTMLDivElement>;
+  inspectLink?: MessageInspectLink;
 }) {
+  const actions =
+    inspectLink && isAgentDisplayItem(item) ? (
+      <MessageActionsMenu inspectLink={inspectLink} />
+    ) : null;
+
   if (item.type === "text") {
     return (
-      <ChatBubble role={item.role} compact={compact} rowRef={rowRef}>
+      <ChatBubble role={item.role} compact={compact} rowRef={rowRef} actions={actions}>
         <MarkdownContent
           content={item.text}
           compact={compact}
@@ -221,7 +247,7 @@ function ChatDisplayItemView({
   }
   if (item.type === "json") {
     return (
-      <ChatBubble role={item.role} compact={compact} structured rowRef={rowRef}>
+      <ChatBubble role={item.role} compact={compact} structured rowRef={rowRef} actions={actions}>
         <JsonPreview
           value={item.value}
           label="Structured Output"
@@ -233,15 +259,48 @@ function ChatDisplayItemView({
   }
   if (item.type === "tool-call") {
     return (
-      <ToolMessage compact={compact} rowRef={rowRef}>
+      <ToolMessage compact={compact} rowRef={rowRef} actions={actions}>
         <ChatToolCall call={item.call} pending={item.pending} compact={compact} />
       </ToolMessage>
     );
   }
   return (
-    <ToolMessage compact={compact} rowRef={rowRef}>
+    <ToolMessage compact={compact} rowRef={rowRef} actions={actions}>
       <ChatToolCall result={item.result} compact={compact} />
     </ToolMessage>
+  );
+}
+
+function isAgentDisplayItem(item: ChatDisplayItem): boolean {
+  if (item.type === "tool-call" || item.type === "tool-result") {
+    return true;
+  }
+  return item.role === "assistant";
+}
+
+function MessageActionsMenu({ inspectLink }: { inspectLink: MessageInspectLink }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label="Message actions"
+        >
+          <MoreHorizontal className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem asChild>
+          <Link to={inspectLink.to} params={inspectLink.params} search={inspectLink.search}>
+            <Search className="size-3.5" />
+            Inspect
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -266,16 +325,29 @@ function ToolMessage({
   children,
   compact,
   rowRef,
+  actions,
 }: {
   children: ReactNode;
   compact?: boolean;
   rowRef?: Ref<HTMLDivElement>;
+  actions?: ReactNode;
 }) {
   return (
-    <div ref={rowRef} className={cn("flex w-full min-w-0 justify-start", ASSISTANT_GUTTER)}>
+    <div
+      ref={rowRef}
+      className={cn(
+        "group/message flex w-full min-w-0 items-start gap-1 justify-start",
+        ASSISTANT_GUTTER,
+      )}
+    >
       <div className={cn("min-w-0 w-full max-w-full", !compact && "max-w-[min(100%,42rem)]")}>
         {children}
       </div>
+      {actions ? (
+        <div className="mt-0.5 opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100 has-data-[state=open]:opacity-100">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -287,6 +359,7 @@ function ChatBubble({
   compact = false,
   structured = false,
   rowRef,
+  actions,
 }: {
   role: InspectorMessage["role"];
   children: ReactNode;
@@ -295,6 +368,7 @@ function ChatBubble({
   /** Structured JSON fills the blob width and must not overflow it. */
   structured?: boolean;
   rowRef?: Ref<HTMLDivElement>;
+  actions?: ReactNode;
 }) {
   const isUser = role === "user";
 
@@ -310,7 +384,7 @@ function ChatBubble({
     <div
       ref={rowRef}
       className={cn(
-        "flex w-full min-w-0",
+        "group/message flex w-full min-w-0 items-start gap-1",
         isUser ? cn("justify-end", USER_GUTTER) : cn("justify-start", ASSISTANT_GUTTER),
       )}
     >
@@ -333,6 +407,11 @@ function ChatBubble({
           </span>
         ) : null}
       </div>
+      {actions ? (
+        <div className="mt-1 opacity-0 transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100 has-data-[state=open]:opacity-100">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }
