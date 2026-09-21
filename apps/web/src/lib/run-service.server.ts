@@ -263,6 +263,8 @@ async function toInspectorRunSummary(
     ...(usage ? { usage } : {}),
     parentWorkflowRunId: run.parentWorkflowRunId ?? null,
     parentStepId: run.parentStepId ?? null,
+    retriesFromRunId: run.retriesFromRunId ?? null,
+    replayOfRunId: run.replayOfRunId ?? null,
   };
 }
 

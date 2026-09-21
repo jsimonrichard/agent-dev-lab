@@ -25,6 +25,7 @@ import { Route as AppAgentAgentIdIndexRouteImport } from './routes/_app/agent/$a
 import { Route as AppWorkflowsWorkflowIdIndexRouteImport } from './routes/_app/workflows/$workflowId/index'
 import { Route as ApiAgentRunsMemoryScopeEventsRouteImport } from './routes/api/agent-runs/$memoryScope/events'
 import { Route as ApiRunsRunIdEventsRouteImport } from './routes/api/runs/$runId/events'
+import { Route as ApiRunsRunIdRetryRouteImport } from './routes/api/runs/$runId/retry'
 import { Route as AppAgentAgentIdRunRunIdRouteImport } from './routes/_app/agent/$agentId/run/$runId'
 import { Route as AppWorkflowsWorkflowIdRunRunIdRouteImport } from './routes/_app/workflows/$workflowId/run/$runId'
 
@@ -109,6 +110,11 @@ const ApiRunsRunIdEventsRoute = ApiRunsRunIdEventsRouteImport.update({
   path: '/events',
   getParentRoute: () => ApiRunsRunIdRoute,
 } as any)
+const ApiRunsRunIdRetryRoute = ApiRunsRunIdRetryRouteImport.update({
+  id: '/retry',
+  path: '/retry',
+  getParentRoute: () => ApiRunsRunIdRoute,
+} as any)
 const AppAgentAgentIdRunRunIdRoute = AppAgentAgentIdRunRunIdRouteImport.update({
   id: '/agent/$agentId/run/$runId',
   path: '/agent/$agentId/run/$runId',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/workflows/': typeof AppWorkflowsIndexRoute
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
+  '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
   '/agent/$agentId/': typeof AppAgentAgentIdIndexRoute
   '/workflows/$workflowId/': typeof AppWorkflowsWorkflowIdIndexRoute
   '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/workflows': typeof AppWorkflowsIndexRoute
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
+  '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
   '/agent/$agentId': typeof AppAgentAgentIdIndexRoute
   '/workflows/$workflowId': typeof AppWorkflowsWorkflowIdIndexRoute
   '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_app/workflows/': typeof AppWorkflowsIndexRoute
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
+  '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
   '/_app/agent/$agentId/': typeof AppAgentAgentIdIndexRoute
   '/_app/workflows/$workflowId/': typeof AppWorkflowsWorkflowIdIndexRoute
   '/_app/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/workflows/'
     | '/api/agent-runs/$memoryScope/events'
     | '/api/runs/$runId/events'
+    | '/api/runs/$runId/retry'
     | '/agent/$agentId/'
     | '/workflows/$workflowId/'
     | '/agent/$agentId/run/$runId'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/workflows'
     | '/api/agent-runs/$memoryScope/events'
     | '/api/runs/$runId/events'
+    | '/api/runs/$runId/retry'
     | '/agent/$agentId'
     | '/workflows/$workflowId'
     | '/agent/$agentId/run/$runId'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/_app/workflows/'
     | '/api/agent-runs/$memoryScope/events'
     | '/api/runs/$runId/events'
+    | '/api/runs/$runId/retry'
     | '/_app/agent/$agentId/'
     | '/_app/workflows/$workflowId/'
     | '/_app/agent/$agentId/run/$runId'
@@ -364,6 +376,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRunsRunIdEventsRouteImport
       parentRoute: typeof ApiRunsRunIdRoute
     }
+    '/api/runs/$runId/retry': {
+      id: '/api/runs/$runId/retry'
+      path: '/retry'
+      fullPath: '/api/runs/$runId/retry'
+      preLoaderRoute: typeof ApiRunsRunIdRetryRouteImport
+      parentRoute: typeof ApiRunsRunIdRoute
+    }
     '/_app/agent/$agentId/run/$runId': {
       id: '/_app/agent/$agentId/run/$runId'
       path: '/agent/$agentId/run/$runId'
@@ -421,10 +440,12 @@ const ApiProjectRouteWithChildren = ApiProjectRoute._addFileChildren(
 
 interface ApiRunsRunIdRouteChildren {
   ApiRunsRunIdEventsRoute: typeof ApiRunsRunIdEventsRoute
+  ApiRunsRunIdRetryRoute: typeof ApiRunsRunIdRetryRoute
 }
 
 const ApiRunsRunIdRouteChildren: ApiRunsRunIdRouteChildren = {
   ApiRunsRunIdEventsRoute: ApiRunsRunIdEventsRoute,
+  ApiRunsRunIdRetryRoute: ApiRunsRunIdRetryRoute,
 }
 
 const ApiRunsRunIdRouteWithChildren = ApiRunsRunIdRoute._addFileChildren(

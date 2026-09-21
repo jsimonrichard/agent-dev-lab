@@ -7,8 +7,9 @@ import { listWorkflowRunSummaries, startWorkflowRun } from "#/lib/run-service.se
 export const Route = createFileRoute("/api/runs")({
   server: {
     handlers: {
-      GET: async () => {
-        const runs = await listWorkflowRunSummaries();
+      GET: async ({ request }) => {
+        const rootsOnly = new URL(request.url).searchParams.get("rootsOnly") !== "false";
+        const runs = await listWorkflowRunSummaries({ rootsOnly });
         return json({ runs });
       },
       POST: async ({ request }) => {

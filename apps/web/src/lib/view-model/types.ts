@@ -56,6 +56,10 @@ export interface InspectorRunSummary {
    * workflow root. Absent on older summaries (treat as root-level nest).
    */
   parentStepId?: string | null;
+  /** Prior forest root when this run is a new attempt (`seedRetryAttempt`). */
+  retriesFromRunId?: string | null;
+  /** Prior run id when this nested run is a fully-replayed copy. */
+  replayOfRunId?: string | null;
 }
 
 export type RunEventType =

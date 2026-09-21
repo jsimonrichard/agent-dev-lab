@@ -82,6 +82,10 @@ export default defineConfig(({ mode }) => {
     customLogger: createAdlViteLogger(),
     envDir: projectRoot,
     envPrefix: "ADL_",
+    server: {
+      // Playwright / --serve: keep error overlays from eating clicks mid-test.
+      ...(process.env.ADL_PROJECT_WATCH === "0" ? { hmr: { overlay: false } } : {}),
+    },
     ...(process.env.ADL_VITE_DISABLE_OPTIMIZE === "1"
       ? { optimizeDeps: { noDiscovery: true, include: [] } }
       : {}),
