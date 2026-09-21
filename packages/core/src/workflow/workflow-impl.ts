@@ -7,7 +7,7 @@ import { serializeError } from "../internal/serialize-error";
 import { withProjectVersionTag } from "../project/version-tag";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { createWorkflowContext, refreshWorkflowContext } from "./context";
+import { createWorkflowContext } from "./context";
 import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
 import type {
   Workflow,
@@ -77,7 +77,9 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     abortController?: AbortController,
   ): Promise<TOutput> {
     const parentCtx = resolveParentContext(this.services, options);
-    const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
+    // Nested and top-level both get their own id — never inherit the parent's.
+    const workflowRunId = options?.workflowRunId ?? createId();
+    const parentWorkflowRunId = parentCtx?.workflowRunId ?? null;
 
     let parsedInput = input as unknown as TInput;
     if (this.definition.inputSchema) {
@@ -95,18 +97,17 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     const effectiveServices = servicesForRun(this.services, options);
     const runRecorder = new RunRecorder(effectiveServices);
 
-    const rootCtx = parentCtx
-      ? refreshWorkflowContext(parentCtx, effectiveServices, runRecorder, controller.signal)
-      : createWorkflowContext({
-          workflowRunId,
-          services: effectiveServices,
-          stepId: null,
-          parentStepId: null,
-          stepPath: [],
-          registryParentKey: workflowRunId,
-          runRecorder,
-          signal: controller.signal,
-        });
+    const rootCtx = createWorkflowContext({
+      workflowRunId,
+      parentWorkflowRunId,
+      services: effectiveServices,
+      stepId: null,
+      parentStepId: null,
+      stepPath: [],
+      registryParentKey: workflowRunId,
+      runRecorder,
+      signal: controller.signal,
+    });
 
     return withActiveSpan(
       "workflow.run",
@@ -121,6 +122,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           workflowId: this.definition.id,
           input: parsedInput,
           tags: withProjectVersionTag(options?.tags, effectiveServices.version),
+          parentWorkflowRunId,
         });
 
         try {
@@ -171,7 +173,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     options?: WorkflowRunStartOptions,
   ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
     const parentCtx = resolveParentContext(this.services, options);
-    const workflowRunId = options?.workflowRunId ?? parentCtx?.workflowRunId ?? createId();
+    const workflowRunId = options?.workflowRunId ?? createId();
     const abortController = linkAbortController(parentCtx?.signal);
     return {
       workflowRunId,

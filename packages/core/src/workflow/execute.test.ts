@@ -93,27 +93,127 @@ describe("workflow.run", () => {
   });
 
   it("nests under the active workflow context when parentCtx is omitted", async () => {
-    const runtime = createAdlRuntime();
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
     const child = createWorkflow(runtime, {
       id: "child",
-      run: async () => ({ nested: true }),
+      run: async (_input, ctx) => {
+        expect(ctx.parentWorkflowRunId).toBeTruthy();
+        return { nested: true };
+      },
     });
     let childRunId: string | undefined;
     const parent = createWorkflow(runtime, {
       id: "parent",
-      run: async (_input, ctx) =>
-        ctx.step("invoke-child", async () => {
+      run: async (_input, ctx) => {
+        expect(ctx.parentWorkflowRunId).toBeNull();
+        return ctx.step("invoke-child", async () => {
           const handle = child.run({});
           childRunId = handle.workflowRunId;
           return handle.result;
-        }),
+        });
+      },
     });
 
     const parentHandle = parent.run({});
     const output = await parentHandle.result;
 
     expect(output).toEqual({ nested: true });
-    expect(childRunId).toBe(parentHandle.workflowRunId);
+    expect(childRunId).toBeTruthy();
+    expect(childRunId).not.toBe(parentHandle.workflowRunId);
+
+    const childRun = await store.getRun(childRunId!);
+    expect(childRun?.workflowId).toBe("child");
+    expect(childRun?.parentWorkflowRunId).toBe(parentHandle.workflowRunId);
+    const parentRun = await store.getRun(parentHandle.workflowRunId);
+    expect(parentRun?.workflowId).toBe("parent");
+    expect(parentRun?.parentWorkflowRunId).toBeNull();
+  });
+
+  it("keeps the parent run row while a nested child finishes first", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    const child = createWorkflow(runtime, {
+      id: "child-wf",
+      run: async (input: { from: string }) => {
+        expect(input.from).toBe("parent");
+        return { childSaid: "done" };
+      },
+    });
+    const parent = createWorkflow(runtime, {
+      id: "parent-wf",
+      run: async (input: { topic: string }) => {
+        expect(input.topic).toBe("the real input");
+        await child.run({ from: "parent" }).result;
+        await new Promise((r) => setTimeout(r, 20));
+        return { parentSaid: "the real output" };
+      },
+    });
+
+    const handle = parent.run({ topic: "the real input" });
+    await new Promise((r) => setTimeout(r, 5));
+    const midRun = await store.getRun(handle.workflowRunId);
+    expect(midRun?.workflowId).toBe("parent-wf");
+    expect(midRun?.status).toBe("running");
+
+    await handle.result;
+    expect(await store.getRunInput(handle.workflowRunId)).toEqual({ topic: "the real input" });
+    expect(await store.getRunOutput(handle.workflowRunId)).toEqual({
+      parentSaid: "the real output",
+    });
+    expect(await store.listRuns({ workflowId: "parent-wf" })).toHaveLength(1);
+    expect(await store.listRuns({ workflowId: "child-wf" })).toHaveLength(1);
+    expect(await store.listRuns({ rootsOnly: true })).toHaveLength(1);
+    expect(await store.listRuns({ parentWorkflowRunId: handle.workflowRunId })).toHaveLength(1);
+  });
+
+  it("gives each bare nested invocation its own step-cache namespace", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    let executions = 0;
+    const leaf = createWorkflow(runtime, {
+      id: "leaf",
+      run: async (_i, ctx) => ctx.step("iteration", async () => ++executions, { key: "1" }),
+    });
+    const bare = createWorkflow(runtime, {
+      id: "bare",
+      run: async () => {
+        const a = await leaf.run({}).result;
+        const b = await leaf.run({}).result;
+        return { a, b };
+      },
+    });
+
+    await expect(bare.run({}).result).resolves.toEqual({ a: 1, b: 2 });
+    expect(executions).toBe(2);
+  });
+
+  it("listDescendantRuns walks from a mid-level node", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    const leaf = createWorkflow(runtime, {
+      id: "leaf",
+      run: async () => ({ ok: true }),
+    });
+    const mid = createWorkflow(runtime, {
+      id: "mid",
+      run: async () => leaf.run({}).result,
+    });
+    const root = createWorkflow(runtime, {
+      id: "root",
+      run: async () => mid.run({}).result,
+    });
+
+    const handle = root.run({});
+    await handle.result;
+
+    const midRuns = await store.listRuns({ workflowId: "mid" });
+    expect(midRuns).toHaveLength(1);
+    const midId = midRuns[0]!.workflowRunId;
+    const fromRoot = await store.listDescendantRuns(handle.workflowRunId);
+    expect(fromRoot.map((r) => r.workflowId).sort()).toEqual(["leaf", "mid"]);
+    const fromMid = await store.listDescendantRuns(midId);
+    expect(fromMid.map((r) => r.workflowId)).toEqual(["leaf"]);
   });
 
   it("exposes the input schema for hosts to collect run input", async () => {
@@ -245,6 +345,8 @@ describe("workflow.run", () => {
     expect(runs.map((run) => run.workflowId).sort()).toEqual(["helper", "parent"]);
     const helperRun = runs.find((run) => run.workflowId === "helper");
     expect(helperRun?.workflowRunId).not.toBe(parentHandle.workflowRunId);
+    expect(helperRun?.parentWorkflowRunId).toBeNull();
+    expect(runs.find((run) => run.workflowId === "parent")?.parentWorkflowRunId).toBeNull();
 
     const parentEvents = await store.listEvents({ workflowRunId: parentHandle.workflowRunId });
     expect(

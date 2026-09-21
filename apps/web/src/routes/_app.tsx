@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_app")({
   loader: async () => {
     const [project, runs, sessions] = await Promise.all([
       fetchProjectMeta(),
-      fetchWorkflowRuns(),
+      fetchWorkflowRuns({ data: { rootsOnly: true } }),
       fetchAgentSessions(),
     ]);
     return { project, runs, sessions };

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { GitBranch, Plus } from "lucide-react";
 
@@ -5,7 +6,7 @@ import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { SidebarBackFooter } from "@/components/app/sidebar-back-footer";
 import { ItemActionsMenu } from "@/components/app/item-actions-menu";
 import { StartWorkflowButton } from "@/components/app/start-workflow-dialog";
-import type { RunStatus } from "@/lib/view-model/types";
+import type { InspectorRunSummary, RunStatus } from "@/lib/view-model/types";
 import {
   parseWorkflowLocation,
   workflowRunLabel,
@@ -14,11 +15,16 @@ import {
 import { formatTokenUsageLabel } from "@/lib/format-token-usage";
 import {
   deleteInspectionWorkflowRun,
+  fetchWorkflowRuns,
   renameInspectionWorkflowRun,
 } from "#/lib/inspector/inspector-server";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { cn } from "@/lib/utils";
+import {
+  useShowNestedWorkflowRuns,
+  useShowNestedWorkflowRunsStorageSync,
+} from "@/lib/workflow/show-nested-runs";
 import { ContextSidebar } from "@/components/app/context-sidebar";
 import {
   SidebarContent,
@@ -40,9 +46,30 @@ const devModeLabel = {
 export function WorkflowRunsSidebar() {
   const navigate = useNavigate();
   const router = useRouter();
-  const { project, runs } = useAppLoaderData();
+  const { project, runs: loaderRuns } = useAppLoaderData();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { workflowId: selectedWorkflowId, runId: activeRunId } = parseWorkflowLocation(pathname);
+  const { showNested, setShowNested } = useShowNestedWorkflowRuns();
+  useShowNestedWorkflowRunsStorageSync();
+  const [nestedRuns, setNestedRuns] = useState<InspectorRunSummary[] | null>(null);
+
+  useEffect(() => {
+    if (!showNested) {
+      setNestedRuns(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchWorkflowRuns({ data: { rootsOnly: false } }).then((runs) => {
+      if (!cancelled) {
+        setNestedRuns(runs);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showNested, loaderRuns]);
+
+  const runs = showNested && nestedRuns ? nestedRuns : loaderRuns;
   const selectedRuns = selectedWorkflowId
     ? runs.filter((run) => run.workflowId === selectedWorkflowId)
     : [];
@@ -89,18 +116,29 @@ export function WorkflowRunsSidebar() {
       <SidebarContent>
         {selectedWorkflowId ? (
           <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center justify-between">
+            <SidebarGroupLabel className="flex items-center justify-between gap-2">
               <span>Runs</span>
-              <StartWorkflowButton
-                variant="ghost"
-                size="icon"
-                className="size-6"
-                title="Start Workflow"
-                workflowId={selectedWorkflowId}
-              >
-                <Plus className="size-3.5" />
-                <span className="sr-only">New Run</span>
-              </StartWorkflowButton>
+              <div className="flex items-center gap-1">
+                <label className="flex cursor-pointer items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="size-3"
+                    checked={showNested}
+                    onChange={(event) => setShowNested(event.target.checked)}
+                  />
+                  Nested
+                </label>
+                <StartWorkflowButton
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  title="Start Workflow"
+                  workflowId={selectedWorkflowId}
+                >
+                  <Plus className="size-3.5" />
+                  <span className="sr-only">New Run</span>
+                </StartWorkflowButton>
+              </div>
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1.5">
@@ -160,6 +198,7 @@ export function WorkflowRunsSidebar() {
                                 <span className="truncate text-[11px] text-muted-foreground">
                                   {run.status} · {workflowRunSubtitle(run)}
                                   {usageLabel ? ` · ${usageLabel}` : ""}
+                                  {run.parentWorkflowRunId ? " · nested" : ""}
                                 </span>
                               </div>
                               <RunStatusDot status={run.status} />

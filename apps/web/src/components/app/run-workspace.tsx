@@ -34,9 +34,17 @@ interface RunWorkspaceProps {
   summary: InspectorRunSummary;
   initialEvents: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
+  parentSummary?: InspectorRunSummary | null;
+  childRuns?: InspectorRunSummary[];
 }
 
-export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWorkspaceProps) {
+export function RunWorkspace({
+  summary,
+  initialEvents,
+  messagesPromise,
+  parentSummary = null,
+  childRuns = [],
+}: RunWorkspaceProps) {
   const search = runRoute.useSearch();
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const router = useRouter();
@@ -213,6 +221,39 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
             <p key={warning} className="text-xs text-amber-800 dark:text-amber-200" title={warning}>
               {warning}
             </p>
+          ))}
+        </div>
+      ) : null}
+
+      {summary.parentWorkflowRunId ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/30 px-4 py-1.5 text-xs">
+          <span className="text-muted-foreground">Parent</span>
+          {parentSummary ? (
+            <Link
+              to="/workflows/$workflowId/run/$runId"
+              params={{ workflowId: parentSummary.workflowId, runId: parentSummary.runId }}
+              className="truncate font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              {parentSummary.title?.trim() || parentSummary.workflowId}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">Parent run not found</span>
+          )}
+        </div>
+      ) : null}
+
+      {childRuns.length > 0 ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/20 px-4 py-1.5 text-xs">
+          <span className="text-muted-foreground">Nested runs</span>
+          {childRuns.map((child) => (
+            <Link
+              key={child.runId}
+              to="/workflows/$workflowId/run/$runId"
+              params={{ workflowId: child.workflowId, runId: child.runId }}
+              className="truncate font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              {child.title?.trim() || child.workflowId}
+            </Link>
           ))}
         </div>
       ) : null}

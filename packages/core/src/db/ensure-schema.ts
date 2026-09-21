@@ -18,7 +18,8 @@ const TABLES = [
     finished_at TEXT,
     input_json TEXT,
     output_json TEXT,
-    title TEXT
+    title TEXT,
+    parent_workflow_run_id TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS adl_run_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +106,8 @@ const INDEXES = [
     ON adl_run_events (type)`,
   `CREATE INDEX IF NOT EXISTS adl_workflow_run_tags_tag
     ON adl_workflow_run_tags (tag)`,
+  `CREATE INDEX IF NOT EXISTS adl_workflow_runs_parent
+    ON adl_workflow_runs (parent_workflow_run_id)`,
   `CREATE INDEX IF NOT EXISTS adl_agent_episodes_started_at
     ON adl_agent_episodes (started_at)`,
   `CREATE INDEX IF NOT EXISTS adl_agent_episodes_agent_started_at
@@ -115,6 +118,7 @@ const INDEXES = [
 
 const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = [
   { table: "adl_workflow_runs", column: "title", sqlType: "TEXT" },
+  { table: "adl_workflow_runs", column: "parent_workflow_run_id", sqlType: "TEXT" },
   { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
   { table: "adl_run_events", column: "memory_scope", sqlType: "TEXT" },
   { table: "adl_agent_episodes", column: "tool_provider_context_json", sqlType: "TEXT" },

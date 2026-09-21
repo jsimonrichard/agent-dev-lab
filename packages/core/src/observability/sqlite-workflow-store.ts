@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
 import { applyProjections, stepSlotKey } from "../db/projections";
@@ -146,6 +146,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           startedAt: workflowRuns.startedAt,
           finishedAt: workflowRuns.finishedAt,
           title: workflowRuns.title,
+          parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
         })
         .from(workflowRuns)
         .where(eq(workflowRuns.workflowRunId, workflowRunId))
@@ -170,6 +171,11 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
       const conditions = [
         filter?.workflowId ? eq(workflowRuns.workflowId, filter.workflowId) : undefined,
+        filter?.rootsOnly
+          ? isNull(workflowRuns.parentWorkflowRunId)
+          : filter?.parentWorkflowRunId !== undefined
+            ? eq(workflowRuns.parentWorkflowRunId, filter.parentWorkflowRunId)
+            : undefined,
         // inArray([]) compiles to a `false` predicate, matching "no run has any of these tags".
         tagMatchedRunIds ? inArray(workflowRuns.workflowRunId, tagMatchedRunIds) : undefined,
       ].filter((condition) => condition !== undefined);
@@ -182,6 +188,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           startedAt: workflowRuns.startedAt,
           finishedAt: workflowRuns.finishedAt,
           title: workflowRuns.title,
+          parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
         })
         .from(workflowRuns)
         .where(conditions.length ? and(...conditions) : undefined)
@@ -196,6 +203,24 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
         return list.slice(-filter.limit);
       }
       return list;
+    },
+
+    async listDescendantRuns(workflowRunId) {
+      const descendants: WorkflowRunSummary[] = [];
+      const queue = [workflowRunId];
+      const seen = new Set<string>([workflowRunId]);
+      while (queue.length > 0) {
+        const parentId = queue.shift()!;
+        for (const child of await this.listRuns({ parentWorkflowRunId: parentId })) {
+          if (seen.has(child.workflowRunId)) {
+            continue;
+          }
+          seen.add(child.workflowRunId);
+          descendants.push(child);
+          queue.push(child.workflowRunId);
+        }
+      }
+      return descendants;
     },
 
     async getRunInput(workflowRunId) {
@@ -334,6 +359,7 @@ function toSummary(
     startedAt: string;
     finishedAt: string | null;
     title: string | null;
+    parentWorkflowRunId: string | null;
   },
   tags: string[],
 ): WorkflowRunSummary {
@@ -345,5 +371,6 @@ function toSummary(
     finishedAt: row.finishedAt ?? undefined,
     title: row.title ?? undefined,
     tags,
+    parentWorkflowRunId: row.parentWorkflowRunId,
   };
 }

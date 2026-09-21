@@ -10,6 +10,7 @@ import {
   getWorkflowRunSummary,
   getWorkflowRunUiEvents,
   listWorkflowRunSummaries,
+  listChildWorkflowRunSummaries,
   loadMessagesForScope,
   loadMessagesForWorkflowRun,
   resolveAgentConversation,
@@ -49,8 +50,16 @@ export const fetchRuntimeInfo = createServerFn({ method: "GET" })
 
 export const fetchWorkflowRuns = createServerFn({ method: "GET" })
   .middleware([noStore])
-  .handler(async () => {
-    return listWorkflowRunSummaries();
+  .validator((payload: { rootsOnly?: boolean } | undefined) => payload ?? {})
+  .handler(async ({ data }) => {
+    return listWorkflowRunSummaries({ rootsOnly: data.rootsOnly !== false });
+  });
+
+export const fetchChildWorkflowRuns = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .validator((parentWorkflowRunId: string) => parentWorkflowRunId)
+  .handler(async ({ data: parentWorkflowRunId }) => {
+    return listChildWorkflowRunSummaries(parentWorkflowRunId);
   });
 
 export const fetchWorkflowRun = createServerFn({ method: "GET" })

@@ -41,6 +41,12 @@ export type WorkflowStartedEvent = WorkflowRunEventBase & {
   input: unknown;
   /** Set from {@link WorkflowRunStartOptions.tags}. Omitted on events recorded before this field existed. */
   tags?: string[];
+  /**
+   * Immediate parent run when this invocation nested under another workflow.
+   * Omitted (or null) for top-level and `{ isolated: true }` runs. Absent on
+   * events recorded before nested runs got their own `workflowRunId`.
+   */
+  parentWorkflowRunId?: string | null;
 };
 
 export type WorkflowFinishedEvent = WorkflowRunEventBase & {
@@ -303,6 +309,12 @@ export type WorkflowRunSummary = {
   title?: string;
   /** Freeform labels for filtering/organizing runs. Empty until tagged. */
   tags: string[];
+  /**
+   * Immediate parent run when this invocation nested; `null` for roots and
+   * isolated runs. Absent on summaries from DBs/events recorded before nesting
+   * used a parent pointer (treat as root).
+   */
+  parentWorkflowRunId?: string | null;
 };
 
 export type StepRecord = {

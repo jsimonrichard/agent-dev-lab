@@ -45,20 +45,21 @@ Calling `searchPapers.run` **without** `step` is valid when you do not need an e
 
 To expose an agent as a workflow that takes a **string** user message, use `adl.createWorkflowFromAgent(agent)` (optional `{ id }`; default `${agent.id}-as-workflow`). That is the workflow-shaped counterpart of `adl agent run`.
 
-## Isolated Runs
+## Nested and Isolated Runs
 
-By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), shares that `workflowRunId`, and records inner steps on the parent's event stream — they show up in that run's inspector tree.
+By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), allocates a **new** `workflowRunId`, and records `parentWorkflowRunId` on the child. The child's steps and agents bind to the child run (own step cache and event stream). Abort is linked to the parent.
 
-`{ isolated: true }` starts a **separate** run instead of nesting:
+`{ isolated: true }` starts an **unlinked** run (no parent pointer):
 
-|                 | Nested (default)             | `{ isolated: true }`                                         |
-| --------------- | ---------------------------- | ------------------------------------------------------------ |
-| Parent          | Joins ALS / `parentCtx`      | Ignores parent                                               |
-| `workflowRunId` | Shared with parent           | New id                                                       |
-| Persistence     | Events on the parent run     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
-| Inspector tree  | Inner steps under the parent | Own tree, not folded into the caller                         |
+|                 | Nested (default)                                             | `{ isolated: true }`                                         |
+| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Parent          | Joins ALS / `parentCtx`                                      | Ignores parent                                               |
+| `workflowRunId` | New id                                                       | New id                                                       |
+| Parent link     | `parentWorkflowRunId` = parent's id                          | `null`                                                       |
+| Persistence     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
+| Inspector       | Own tree; listed as a child of the parent run                | Own tree; not in another run's child list                    |
 
-Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array.
+Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array. Nested child runs can be hidden from the main run list (roots-only) via a UI toggle.
 
 ```ts
 // Inside a parent workflow (or an agent episode that happens to be in one):

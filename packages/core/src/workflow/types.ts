@@ -35,6 +35,11 @@ export type StepIdentity = {
 export interface WorkflowContext {
   /** Id of this workflow invocation (shared by all steps/agents in the run). */
   readonly workflowRunId: string;
+  /**
+   * Immediate parent run when this invocation nested under another workflow;
+   * `null` for top-level and `{ isolated: true }` runs.
+   */
+  readonly parentWorkflowRunId: string | null;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -124,9 +129,13 @@ export type WorkflowRunStartOptions = {
   /** Pre-allocate a run id so subscribers can connect before execution finishes. */
   workflowRunId?: string;
   /**
-   * Nest under an existing workflow run (shared `workflowRunId`, step cache, event stream).
-   * When omitted inside a workflow body or step, the active {@link WorkflowContext} is read
-   * from the runtime's scoped ALS — same pattern as `agent.run` workflow linkage.
+   * Nest under an existing workflow run. When omitted inside a workflow body or
+   * step, the active {@link WorkflowContext} is read from the runtime's scoped
+   * ALS — same pattern as `agent.run` workflow linkage.
+   *
+   * Nested runs allocate their **own** `workflowRunId`, record
+   * `parentWorkflowRunId` on the child, and link abort to the parent. Steps and
+   * agents bind to the child run (separate step cache and event stream).
    */
   parentCtx?: WorkflowContext;
   /** Merged with runtime observers for this invocation only. */
@@ -135,17 +144,16 @@ export type WorkflowRunStartOptions = {
     agents?: AgentObservers;
   };
   /**
-   * When true, start a **separate** workflow run instead of nesting under the caller.
+   * When true, start an **unlinked** workflow run (no parent pointer).
    *
-   * Default (omitted / `false`): inside a workflow body or step, `run()` joins the
-   * active parent via ALS (or {@link parentCtx} when passed). The child shares that
-   * `workflowRunId`, step cache, and event stream — inner steps show up on the
-   * parent's inspector tree.
+   * Default (omitted / `false`): inside a workflow body or step, `run()` nests
+   * under the active parent via ALS (or {@link parentCtx} when passed): new
+   * `workflowRunId`, `parentWorkflowRunId` set, abort linked to the parent.
    *
    * `{ isolated: true }`:
    * - Ignores ALS and {@link parentCtx}; allocates a new `workflowRunId`
+   * - `parentWorkflowRunId` is null (not in another run's child list)
    * - Still recorded on {@link WorkflowStore} (own run row, events, step cache)
-   * - Does not appear in another run's tree
    *
    * Inspection UI lists runs only for workflows in the project's `workflows` array.
    * Leave a helper out of that array to persist it without listing it as a startable
@@ -174,8 +182,9 @@ export interface Workflow<TInput, TOutput, TRawInput = TInput> {
   /**
    * Start a workflow run. The bound runtime creates {@link WorkflowContext} internally.
    * Use {@link workflowRunId} on the handle to subscribe before `result` settles.
-   * Nested `run()` inside another workflow joins the parent; pass
-   * {@link WorkflowRunStartOptions.isolated} for a separate persisted run.
+   * Nested `run()` inside another workflow gets its own run id linked via
+   * `parentWorkflowRunId`; pass {@link WorkflowRunStartOptions.isolated} for an
+   * unlinked separate run.
    * {@link WorkflowRunHandle.cancel} aborts `ctx.signal`, in-flight `ctx.step`
    * callbacks, and child `agent.run` / `streamText` calls on the same run.
    */

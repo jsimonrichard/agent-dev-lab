@@ -47,6 +47,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           startedAt: event.at,
           title: existing?.title,
           tags: event.tags ?? existing?.tags ?? [],
+          parentWorkflowRunId: event.parentWorkflowRunId ?? null,
         });
         this.runInputs.set(wfId, event.input);
       }
@@ -81,6 +82,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
             startedAt: event.at,
             title: event.title,
             tags: [],
+            parentWorkflowRunId: null,
           });
         }
       }
@@ -165,10 +167,17 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     workflowId?: string;
     limit?: number;
     tags?: string[];
+    parentWorkflowRunId?: string;
+    rootsOnly?: boolean;
   }): Promise<WorkflowRunSummary[]> {
     let list = [...this.runs.values()];
     if (filter?.workflowId) {
       list = list.filter((r) => r.workflowId === filter.workflowId);
+    }
+    if (filter?.rootsOnly) {
+      list = list.filter((r) => r.parentWorkflowRunId == null);
+    } else if (filter?.parentWorkflowRunId !== undefined) {
+      list = list.filter((r) => r.parentWorkflowRunId === filter.parentWorkflowRunId);
     }
     if (filter?.tags?.length) {
       const tags = filter.tags;
@@ -178,6 +187,24 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       list = list.slice(-filter.limit);
     }
     return list;
+  }
+
+  async listDescendantRuns(workflowRunId: string): Promise<WorkflowRunSummary[]> {
+    const descendants: WorkflowRunSummary[] = [];
+    const queue = [workflowRunId];
+    const seen = new Set<string>([workflowRunId]);
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      for (const child of await this.listRuns({ parentWorkflowRunId: parentId })) {
+        if (seen.has(child.workflowRunId)) {
+          continue;
+        }
+        seen.add(child.workflowRunId);
+        descendants.push(child);
+        queue.push(child.workflowRunId);
+      }
+    }
+    return descendants;
   }
 
   async getRunInput(workflowRunId: string): Promise<unknown | null> {
@@ -214,6 +241,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       startedAt: new Date().toISOString(),
       title,
       tags: [],
+      parentWorkflowRunId: null,
     });
   }
 
@@ -229,6 +257,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       status: "running",
       startedAt: new Date().toISOString(),
       tags,
+      parentWorkflowRunId: null,
     });
   }
 

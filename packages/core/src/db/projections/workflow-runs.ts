@@ -15,6 +15,7 @@ import type { RunEvent } from "../../observability/events";
 export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
   if (event.type === "workflow_started") {
     const inputJson = JSON.stringify(event.input);
+    const parentWorkflowRunId = event.parentWorkflowRunId ?? null;
     db.insert(workflowRuns)
       .values({
         workflowRunId: event.workflowRunId,
@@ -24,6 +25,7 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
         finishedAt: null,
         inputJson,
         outputJson: null,
+        parentWorkflowRunId,
       })
       .onConflictDoUpdate({
         target: workflowRuns.workflowRunId,
@@ -34,6 +36,7 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
           finishedAt: null,
           inputJson,
           outputJson: null,
+          parentWorkflowRunId,
         },
       })
       .run();
@@ -75,6 +78,7 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
         status: "running",
         startedAt: event.at,
         title: event.title,
+        parentWorkflowRunId: null,
       })
       .onConflictDoUpdate({
         target: workflowRuns.workflowRunId,

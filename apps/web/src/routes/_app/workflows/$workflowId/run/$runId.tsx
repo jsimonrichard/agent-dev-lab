@@ -4,7 +4,11 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 import { RunWorkspace } from "@/components/app/run-workspace";
 import { RunWorkspaceError } from "@/components/app/run-workspace-error";
 import { RunWorkspacePending } from "@/components/app/run-workspace-pending";
-import { fetchMessagesForWorkflowRun, fetchWorkflowRun } from "#/lib/inspector/inspector-server";
+import {
+  fetchChildWorkflowRuns,
+  fetchMessagesForWorkflowRun,
+  fetchWorkflowRun,
+} from "#/lib/inspector/inspector-server";
 import { parseWorkflowRunSearch } from "@/lib/workflow/workflow-location";
 
 export const Route = createFileRoute("/_app/workflows/$workflowId/run/$runId")({
@@ -19,7 +23,14 @@ export const Route = createFileRoute("/_app/workflows/$workflowId/run/$runId")({
     if (!data || data.summary.workflowId !== params.workflowId) {
       throw notFound();
     }
-    return { ...data, messagesPromise };
+    const parentId = data.summary.parentWorkflowRunId;
+    const [parentSummary, childRuns] = await Promise.all([
+      parentId
+        ? fetchWorkflowRun({ data: parentId }).then((parent) => parent?.summary ?? null)
+        : Promise.resolve(null),
+      fetchChildWorkflowRuns({ data: params.runId }),
+    ]);
+    return { ...data, messagesPromise, parentSummary, childRuns };
   },
   component: WorkflowRunPage,
 });
@@ -30,13 +41,15 @@ function WorkflowRunError({ error }: ErrorComponentProps) {
 }
 
 function WorkflowRunPage() {
-  const { summary, events, messagesPromise } = Route.useLoaderData();
+  const { summary, events, messagesPromise, parentSummary, childRuns } = Route.useLoaderData();
   return (
     <RunWorkspace
       key={summary.runId}
       summary={summary}
       initialEvents={events}
       messagesPromise={messagesPromise}
+      parentSummary={parentSummary}
+      childRuns={childRuns}
     />
   );
 }

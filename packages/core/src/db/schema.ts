@@ -16,16 +16,22 @@ export const messages = sqliteTable("adl_messages", {
 /** Matches {@link WorkflowRunSummary.status} in `observability/events.ts`. */
 export const WORKFLOW_RUN_STATUSES = ["running", "ok", "error", "cancelled"] as const;
 
-export const workflowRuns = sqliteTable("adl_workflow_runs", {
-  workflowRunId: text("workflow_run_id").primaryKey(),
-  workflowId: text("workflow_id").notNull(),
-  status: text("status", { enum: WORKFLOW_RUN_STATUSES }).notNull(),
-  startedAt: text("started_at").notNull(),
-  finishedAt: text("finished_at"),
-  inputJson: text("input_json"),
-  outputJson: text("output_json"),
-  title: text("title"),
-});
+export const workflowRuns = sqliteTable(
+  "adl_workflow_runs",
+  {
+    workflowRunId: text("workflow_run_id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    status: text("status", { enum: WORKFLOW_RUN_STATUSES }).notNull(),
+    startedAt: text("started_at").notNull(),
+    finishedAt: text("finished_at"),
+    inputJson: text("input_json"),
+    outputJson: text("output_json"),
+    title: text("title"),
+    /** Immediate parent run when this invocation nested; null for roots / isolated. */
+    parentWorkflowRunId: text("parent_workflow_run_id"),
+  },
+  (table) => [index("adl_workflow_runs_parent").on(table.parentWorkflowRunId)],
+);
 
 export const runEvents = sqliteTable(
   "adl_run_events",

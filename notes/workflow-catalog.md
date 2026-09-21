@@ -21,7 +21,7 @@ export default {
 
 `loadAdlProject` indexes that array by `id` (duplicate ids throw). The inspection sidebar, `adl workflow list`, and `adl workflow run <id>` all read this list. IDs are opaque slugs; routes are `/workflows/$workflowId` and `/workflows/$workflowId/run/$runId` (one path segment).
 
-Nested workflows are ordinary TypeScript imports: `otherWorkflow.run(...)` inherits the parent `WorkflowContext` via ALS and shares `workflowRunId`. Helpers **do not** need to be in `workflows: []` to be callable. They appear in the UI list only when they are also registered.
+Nested workflows are ordinary TypeScript imports: `otherWorkflow.run(...)` inherits the parent via ALS, allocates a **new** `workflowRunId`, and sets `parentWorkflowRunId`. Helpers **do not** need to be in `workflows: []` to be callable. They appear in the UI list only when they are also registered (and when the Nested runs toggle is on, for non-root runs).
 
 Until a catalog feature exists, the intended pattern is: **register entry workflows**; keep compose-only helpers as imported modules.
 

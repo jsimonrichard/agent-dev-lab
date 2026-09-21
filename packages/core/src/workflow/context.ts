@@ -8,6 +8,7 @@ import type { StepOptions, WorkflowContext } from "./types";
 
 export type WorkflowContextOptions = {
   workflowRunId: string;
+  parentWorkflowRunId: string | null;
   services: RuntimeServices;
   stepId: string | null;
   parentStepId: string | null;
@@ -19,6 +20,7 @@ export type WorkflowContextOptions = {
 
 export class WorkflowContextImpl implements WorkflowContext {
   readonly workflowRunId: string;
+  readonly parentWorkflowRunId: string | null;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -32,6 +34,7 @@ export class WorkflowContextImpl implements WorkflowContext {
 
   constructor(options: WorkflowContextOptions) {
     this.workflowRunId = options.workflowRunId;
+    this.parentWorkflowRunId = options.parentWorkflowRunId;
     this.services = options.services;
     this.stepId = options.stepId;
     this.parentStepId = options.parentStepId;
@@ -178,6 +181,7 @@ export function createChildWorkflowContext(
 ): WorkflowContextImpl {
   return new WorkflowContextImpl({
     workflowRunId: parent.workflowRunId,
+    parentWorkflowRunId: parent.parentWorkflowRunId,
     services: parent.services,
     stepId: step.stepId,
     parentStepId: step.parentStepId,
@@ -201,6 +205,7 @@ export function refreshWorkflowContext(
   const impl = asWorkflowContextImpl(ctx);
   return new WorkflowContextImpl({
     workflowRunId: impl.workflowRunId,
+    parentWorkflowRunId: impl.parentWorkflowRunId,
     services,
     stepId: impl.stepId,
     parentStepId: impl.parentStepId,

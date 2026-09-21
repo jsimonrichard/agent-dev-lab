@@ -74,12 +74,25 @@ export interface WorkflowStore {
   ): Promise<RunEventOfType<T> | null>;
 
   getRun(workflowRunId: string): Promise<WorkflowRunSummary | null>;
-  /** `tags` matches runs carrying **any** of the given tags (OR semantics). */
+  /**
+   * List workflow runs, **oldest first** (contrast {@link listAgentEpisodes}, newest first).
+   * `tags` matches runs carrying **any** of the given tags (OR semantics).
+   * `parentWorkflowRunId` filters to immediate children of that run.
+   * `rootsOnly` keeps only runs with no parent (top-level and isolated).
+   */
   listRuns(filter?: {
     workflowId?: string;
     limit?: number;
     tags?: string[];
+    parentWorkflowRunId?: string;
+    rootsOnly?: boolean;
   }): Promise<WorkflowRunSummary[]>;
+  /**
+   * All nested runs under `workflowRunId` at any depth (BFS over
+   * {@link WorkflowRunSummary.parentWorkflowRunId}). Does not include the
+   * starting run. Works when `workflowRunId` is a mid-tree node.
+   */
+  listDescendantRuns(workflowRunId: string): Promise<WorkflowRunSummary[]>;
   getRunInput(workflowRunId: string): Promise<unknown | null>;
   getRunOutput(workflowRunId: string): Promise<unknown | null>;
   getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null>;

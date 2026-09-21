@@ -220,11 +220,14 @@ export async function setInspectorAgentToolContextDefault(
   return { agentId };
 }
 
-export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]> {
+export async function listWorkflowRunSummaries(options?: {
+  rootsOnly?: boolean;
+}): Promise<InspectorRunSummary[]> {
   const project = await getLoadedAdlProject();
   const listedWorkflowIds = new Set(project.listWorkflowIds());
   const store = await getWorkflowStore();
-  const runs = await store.listRuns();
+  const rootsOnly = options?.rootsOnly !== false;
+  const runs = await store.listRuns(rootsOnly ? { rootsOnly: true } : undefined);
   const episodes = await store.listAgentEpisodes();
   const usageByRunId = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId);
   const summaries: InspectorRunSummary[] = [];
@@ -245,6 +248,7 @@ export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]>
       title: run.title,
       tags: run.tags,
       ...(usage ? { usage } : {}),
+      parentWorkflowRunId: run.parentWorkflowRunId ?? null,
     });
   }
 
@@ -270,7 +274,31 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
     title: run.title,
     tags: run.tags,
     ...(usage ? { usage } : {}),
+    parentWorkflowRunId: run.parentWorkflowRunId ?? null,
   };
+}
+
+export async function listChildWorkflowRunSummaries(
+  parentWorkflowRunId: string,
+): Promise<InspectorRunSummary[]> {
+  const store = await getWorkflowStore();
+  const runs = await store.listRuns({ parentWorkflowRunId });
+  const summaries: InspectorRunSummary[] = [];
+  for (const run of runs) {
+    const input = await store.getRunInput(run.workflowRunId);
+    summaries.push({
+      runId: run.workflowRunId,
+      workflowId: run.workflowId,
+      status: mapWorkflowRunStatus(run.status),
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      inputPreview: formatInputPreview(input),
+      title: run.title,
+      tags: run.tags,
+      parentWorkflowRunId: run.parentWorkflowRunId ?? null,
+    });
+  }
+  return summaries.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 
 export async function getWorkflowRunEvents(runId: string): Promise<CoreRunEvent[]> {

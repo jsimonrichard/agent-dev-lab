@@ -49,6 +49,8 @@ export interface InspectorRunSummary {
    * Absent when no episode reported usage.
    */
   usage?: TokenUsage;
+  /** Immediate parent run when nested; null/omitted for roots and isolated. */
+  parentWorkflowRunId?: string | null;
 }
 
 export type RunEventType =
