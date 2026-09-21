@@ -121,8 +121,10 @@ export function RunWorkspace({
     return ids;
   }, [expandedNestedRunIds, selectedNestedRunId]);
 
+  // Always commit successful fetches. Cancelling on neededNestedIds churn (another
+  // expand/selection) previously discarded in-flight results and left the expand
+  // spinner stuck until a later click re-ran this effect.
   useEffect(() => {
-    let cancelled = false;
     for (const runId of neededNestedIds) {
       if (nestedCacheRef.current.has(runId) || nestedLoadingRef.current.has(runId)) continue;
       nestedLoadingRef.current.add(runId);
@@ -132,7 +134,7 @@ export function RunWorkspace({
             fetchWorkflowRun({ data: runId }),
             fetchChildWorkflowRuns({ data: runId }),
           ]);
-          if (cancelled || !data) return;
+          if (!data) return;
           setNestedCache((prev) => {
             if (prev.has(runId)) return prev;
             const next = new Map(prev);
@@ -148,9 +150,6 @@ export function RunWorkspace({
         }
       })();
     }
-    return () => {
-      cancelled = true;
-    };
   }, [neededNestedIds]);
 
   const nestedByRunId = useMemo(() => {
