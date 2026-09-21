@@ -54,6 +54,7 @@ import {
 import { registerShutdownRunHooks } from "#/lib/server-shutdown.server";
 import type { InspectorRunSummary, InspectorMessage, JsonValue } from "#/lib/view-model/types";
 import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow/workflow-input-schema";
+import { resolveWorkflowCancel } from "#/lib/resolve-workflow-cancel";
 
 export type { ProjectInspectorMeta };
 
@@ -367,12 +368,21 @@ async function applyRunTitleWhenReady(runId: string, title: string): Promise<voi
   await store.setRunTitle(runId, title);
 }
 
-export function cancelWorkflowRun(runId: string): { cancelled: boolean } {
-  const handle = activeWorkflowRuns.get(runId);
-  if (!handle) {
+export async function cancelWorkflowRun(runId: string): Promise<{ cancelled: boolean }> {
+  const direct = activeWorkflowRuns.get(runId);
+  if (direct) {
+    direct.cancel();
+    return { cancelled: true };
+  }
+
+  const store = await getWorkflowStore();
+  const cancel = await resolveWorkflowCancel(runId, activeWorkflowRuns, async (id) => {
+    return (await store.getRun(id))?.parentWorkflowRunId ?? null;
+  });
+  if (!cancel) {
     return { cancelled: false };
   }
-  handle.cancel();
+  cancel();
   return { cancelled: true };
 }
 
