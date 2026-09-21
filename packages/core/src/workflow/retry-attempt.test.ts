@@ -3,6 +3,8 @@ import { describe, expect, it } from "bun:test";
 import { createAdlRuntime } from "../runtime/create";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import { createWorkflow } from "./create";
+import { resolveAttemptChildRunId } from "./retry-attempt";
+import type { RetryAttempt } from "./retry-attempt";
 
 describe("retry attempt lineage", () => {
   it("seeds an attempt that skips prefix and re-runs the target", async () => {
@@ -253,5 +255,121 @@ describe("retry attempt lineage", () => {
     // Parent step re-executed → isolated helper runs fresh
     expect(isolatedCount).toBe(1);
     expect(targetStepId).toBeTruthy();
+  });
+
+  it("re-runs failed nested children when the parent spawn re-enters", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+
+    let childAttempts = 0;
+    let childShouldFail = true;
+    const child = createWorkflow(runtime, {
+      id: "fail-then-ok-child",
+      // Fail before any steps so the child has an empty re-exec set but is still
+      // a still-valid-copy candidate when the parent spawn re-enters.
+      run: async () => {
+        childAttempts += 1;
+        if (childShouldFail) {
+          throw new Error("child boom");
+        }
+        return { ok: true };
+      },
+    });
+
+    const parent = createWorkflow(runtime, {
+      id: "fail-child-parent",
+      run: async (_input, ctx) => {
+        const out = await ctx.step("spawn", async () => child.run({}).result);
+        return out;
+      },
+    });
+
+    const first = parent.run({});
+    await expect(first.result).rejects.toThrow(/child boom/);
+    expect(childAttempts).toBe(1);
+
+    const events = await store.listEvents({ workflowRunId: first.workflowRunId });
+    const spawnStep = events.find((e) => e.type === "step_failed" && e.name === "spawn");
+    expect(spawnStep?.type).toBe("step_failed");
+    if (spawnStep?.type !== "step_failed") {
+      throw new Error("expected spawn step_failed");
+    }
+
+    const attempt = await store.seedRetryAttempt({
+      fromWorkflowRunId: first.workflowRunId,
+      fromStepId: spawnStep.stepId,
+    });
+
+    const childRuns = await store.listRuns({ workflowId: "fail-then-ok-child" });
+    const priorChild = childRuns.find((r) => r.parentWorkflowRunId === first.workflowRunId);
+    expect(priorChild).toBeTruthy();
+    const seededChildId = attempt.runIdMap.get(priorChild!.workflowRunId)!;
+    const seededChild = await store.getRun(seededChildId);
+    expect(seededChild?.replayOfRunId ?? null).toBeNull();
+    expect(seededChild?.status).toBe("error");
+
+    childAttempts = 0;
+    childShouldFail = false;
+    await expect(
+      parent.run({}, { workflowRunId: attempt.newRootRunId, retryAttempt: attempt }).result,
+    ).resolves.toEqual({ ok: true });
+    expect(childAttempts).toBe(1);
+  });
+
+  it("maps successive null-parentStepId nested calls FIFO", () => {
+    const attempt: RetryAttempt = {
+      newRootRunId: "new-root",
+      retriesFromRunId: "root",
+      runIdMap: new Map([
+        ["root", "new-root"],
+        ["c1", "nc1"],
+        ["c2", "nc2"],
+      ]),
+      stepIdMap: new Map(),
+      reExecStepIds: new Set(),
+      priorChildLinks: [
+        {
+          priorParentRunId: "root",
+          priorParentStepId: null,
+          priorParentStepPath: [],
+          priorChildRunId: "c1",
+          workflowId: "leaf",
+        },
+        {
+          priorParentRunId: "root",
+          priorParentStepId: null,
+          priorParentStepPath: [],
+          priorChildRunId: "c2",
+          workflowId: "leaf",
+        },
+      ],
+      rootSpawnCursor: new Map(),
+    };
+
+    expect(
+      resolveAttemptChildRunId(attempt, {
+        parentWorkflowRunId: "new-root",
+        parentStepId: null,
+        workflowId: "leaf",
+      }),
+    ).toBe("nc1");
+    expect(
+      resolveAttemptChildRunId(attempt, {
+        parentWorkflowRunId: "new-root",
+        parentStepId: null,
+        workflowId: "leaf",
+      }),
+    ).toBe("nc2");
+    expect(
+      resolveAttemptChildRunId(attempt, {
+        parentWorkflowRunId: "new-root",
+        parentStepId: null,
+        workflowId: "leaf",
+      }),
+    ).toBeUndefined();
   });
 });

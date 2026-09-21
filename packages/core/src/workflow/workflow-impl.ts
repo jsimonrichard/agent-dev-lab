@@ -133,6 +133,19 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
         "adl.workflow_id": this.definition.id,
       },
       async () => {
+        const store = effectiveServices.stores.workflow;
+        // Successful fully-replayed nested child: return seeded output without re-running.
+        // Error/cancelled copies keep their status but must re-execute if re-entered.
+        if (retryAttempt && parentCtx && store) {
+          const existing = await store.getRun(workflowRunId);
+          if (existing?.replayOfRunId && existing.status === "ok") {
+            const output = await store.getRunOutput(workflowRunId);
+            return (
+              this.definition.outputSchema ? this.definition.outputSchema.parse(output) : output
+            ) as TOutput;
+          }
+        }
+
         await runRecorder.emit({
           type: "workflow_started",
           workflowRunId,

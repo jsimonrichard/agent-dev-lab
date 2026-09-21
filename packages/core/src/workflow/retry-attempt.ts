@@ -164,30 +164,17 @@ async function loadForestSnapshot(
     }
 
     if (run.parentWorkflowRunId != null) {
-      const parentStep = run.parentStepId ? stepById.get(run.parentStepId) : undefined;
-      // parent step may live in parent run — look there
-      let parentStepPath: string[] = [];
-      if (run.parentStepId) {
-        const fromParent = stepsByRun
-          .get(run.parentWorkflowRunId)
-          ?.find((s) => s.stepId === run.parentStepId);
-        if (fromParent) {
-          parentStepPath = fromParent.path;
-        } else if (parentStep) {
-          parentStepPath = parentStep.path;
-        }
-      }
       childLinks.push({
         priorParentRunId: run.parentWorkflowRunId,
         priorParentStepId: run.parentStepId ?? null,
-        priorParentStepPath: parentStepPath,
+        priorParentStepPath: [],
         priorChildRunId: run.workflowRunId,
         workflowId: run.workflowId,
       });
     }
   }
 
-  // Second pass: fill parent step paths once all runs are loaded
+  // Fill parent step paths once all runs are loaded
   for (const link of childLinks) {
     if (link.priorParentStepId == null) {
       continue;
@@ -458,8 +445,15 @@ export function resolveAttemptChildRunId(
   }
 
   if (args.parentStepId === null) {
-    const match = candidates.find((link) => link.priorParentStepId === null);
-    return match ? attempt.runIdMap.get(match.priorChildRunId) : undefined;
+    const nullCandidates = candidates.filter((link) => link.priorParentStepId === null);
+    const key = `${priorParentRunId}\0${args.workflowId}`;
+    const idx = attempt.rootSpawnCursor.get(key) ?? 0;
+    const match = nullCandidates[idx];
+    if (!match) {
+      return undefined;
+    }
+    attempt.rootSpawnCursor.set(key, idx + 1);
+    return attempt.runIdMap.get(match.priorChildRunId);
   }
 
   const priorStepId = reverseStep.get(args.parentStepId);
@@ -493,31 +487,8 @@ export async function seedRetryAttemptOnStore(
 ): Promise<RetryAttempt> {
   const snapshot = await loadForestSnapshot(store, args.fromWorkflowRunId);
 
-  // Confirm step exists (getStepById also works if events missed)
-  const record = await store.getStepById(args.fromWorkflowRunId, args.fromStepId);
-  if (!record && !snapshot.stepById.has(args.fromStepId)) {
+  if (!snapshot.stepById.has(args.fromStepId)) {
     throw new Error(`seedRetryAttempt: unknown stepId "${args.fromStepId}"`);
-  }
-  if (!snapshot.stepById.has(args.fromStepId) && record) {
-    // Reconstruct minimal step from record for compute (no events — fail closed on times)
-    snapshot.stepById.set(args.fromStepId, {
-      workflowRunId: args.fromWorkflowRunId,
-      stepId: record.stepId,
-      parentStepId: record.parentStepId,
-      path: record.path,
-      name: record.name,
-      key: record.key,
-      startedAt: new Date(0).toISOString(),
-      startedRunSeq: 0,
-      endedAt: new Date(0).toISOString(),
-      endedRunSeq: 0,
-      output: record.output,
-      status: record.status,
-      pure: record.pure !== false,
-    });
-    const list = snapshot.stepsByRun.get(args.fromWorkflowRunId) ?? [];
-    list.push(snapshot.stepById.get(args.fromStepId)!);
-    snapshot.stepsByRun.set(args.fromWorkflowRunId, list);
   }
 
   const reExecStepIds = computeReExecStepIds(snapshot, args.fromWorkflowRunId, args.fromStepId);
@@ -533,7 +504,6 @@ export async function seedRetryAttemptOnStore(
     }
   }
 
-  // Map parent step ids for nested runs onto new step ids when those steps are replayed
   const attempt: RetryAttempt = {
     newRootRunId,
     retriesFromRunId: snapshot.rootRunId,
@@ -541,6 +511,7 @@ export async function seedRetryAttemptOnStore(
     stepIdMap,
     reExecStepIds,
     priorChildLinks: snapshot.childLinks,
+    rootSpawnCursor: new Map(),
   };
 
   // Materialize each run
@@ -550,8 +521,11 @@ export async function seedRetryAttemptOnStore(
     const runHasReExec = steps.some((s) => reExecStepIds.has(s.stepId));
     const isRoot = priorRunId === snapshot.rootRunId;
 
-    // Fully still-valid non-root run with no re-exec steps → replay copy
-    const fullyReplayed = !runHasReExec && !isRoot;
+    // Still-valid successful non-root run with no re-exec steps → replay copy.
+    // Failed/cancelled siblings stay projected without replayOf so a re-entry re-runs.
+    const isStillValidCopy = !runHasReExec && !isRoot;
+    const fullyReplayedOk =
+      isStillValidCopy && priorRun.status === "ok" && priorRun.finishedAt != null;
 
     let newParentWorkflowRunId: string | null = null;
     let newParentStepId: string | null = null;
@@ -576,20 +550,30 @@ export async function seedRetryAttemptOnStore(
     const input = snapshot.runInputs.get(priorRunId);
     const output = snapshot.runOutputs.get(priorRunId);
 
+    let copyStatus: WorkflowRunSummary["status"] = "running";
+    let copyFinishedAt: string | undefined;
+    if (fullyReplayedOk) {
+      copyStatus = "ok";
+      copyFinishedAt = priorRun.finishedAt;
+    } else if (isStillValidCopy) {
+      copyStatus = priorRun.status === "running" ? "error" : priorRun.status;
+      copyFinishedAt = priorRun.finishedAt;
+    }
+
     await store.materializeAttemptRun({
       workflowRunId: newRunId,
       workflowId: priorRun.workflowId,
-      status: fullyReplayed ? (priorRun.status === "running" ? "ok" : priorRun.status) : "running",
+      status: copyStatus,
       startedAt: priorRun.startedAt,
-      finishedAt: fullyReplayed ? priorRun.finishedAt : undefined,
+      finishedAt: copyFinishedAt,
       input: input ?? undefined,
-      output: fullyReplayed ? (output ?? undefined) : undefined,
+      output: fullyReplayedOk ? (output ?? undefined) : undefined,
       title: priorRun.title,
       tags: [...priorRun.tags],
       parentWorkflowRunId: newParentWorkflowRunId,
       parentStepId: newParentStepId,
       retriesFromRunId: isRoot ? snapshot.rootRunId : null,
-      replayOfRunId: fullyReplayed ? priorRunId : null,
+      replayOfRunId: fullyReplayedOk ? priorRunId : null,
     });
 
     // Seed step copies for non-re-exec steps with ok output
