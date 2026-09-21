@@ -19,13 +19,14 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 | Steps, `memoryScope`, `ctx.emit(name, payload?)`      | LLM workflows                                                                                                                                                                                                                                                 |
 | SQLite persistence                                    | `src/adl.ts` — `.data/agent-dev-lab.sqlite`                                                                                                                                                                                                                   |
 | No-LLM workflow (baseline)                            | `src/workflows/demo-counter.ts`                                                                                                                                                                                                                               |
+| Nested workflows (`parentWorkflowRunId`)              | `src/workflows/nested-demo.ts` — `nested-demo` → `nest-phase` → leaves, plus nested `demo-counter` (no LLM; `workflow.run()`, not step nesting)                                                                                                               |
 
 ### Registry
 
 `adl.config.ts` registers everything so the inspection UI and CLI can discover it:
 
 - **agents:** `outliner`, `writer`, `editor`, `drafter`, `reviser`, `research-assistant`, `researcher`, `critic`, `sandbox-agent`, `sandbox-agent-native`
-- **workflows:** `demo-counter`, `write-article`, `answer-question`, `literature-review`, `shared-scope`, `sandbox-demo`, `fetch-url-demo`
+- **workflows:** `demo-counter`, `nested-demo`, `nest-phase`, `nest-leaf-alpha`, `nest-leaf-beta`, `write-article`, `answer-question`, `literature-review`, `shared-scope`, `sandbox-demo`, `fetch-url-demo`
 - **templates:** `outliner`, `article-brief`, `draft-request`, `revise-request`
 
 ## Model & API key

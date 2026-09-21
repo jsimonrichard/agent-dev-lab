@@ -19,6 +19,7 @@ import { answerQuestion } from "./src/workflows/answer-question";
 import { demoCounter } from "./src/workflows/demo-counter";
 import { fetchUrlDemo } from "./src/workflows/fetch-url-demo";
 import { literatureReview } from "./src/workflows/literature-review";
+import { nestLeafAlpha, nestLeafBeta, nestPhase, nestedDemo } from "./src/workflows/nested-demo";
 import { sandboxDemo } from "./src/workflows/sandbox-demo";
 import { sharedScope } from "./src/workflows/shared-scope";
 import { writeArticle } from "./src/workflows/write-article";
@@ -53,6 +54,10 @@ export default {
   agents,
   workflows: [
     demoCounter,
+    nestedDemo,
+    nestPhase,
+    nestLeafAlpha,
+    nestLeafBeta,
     writeArticle,
     answerQuestion,
     literatureReview,
