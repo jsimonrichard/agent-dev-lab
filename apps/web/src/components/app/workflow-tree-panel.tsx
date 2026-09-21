@@ -208,6 +208,7 @@ export function WorkflowTreePanel({
     }
     const nestedData = nestedByRunId.get(row.run.runId);
     const expanded = expandedNestedRunIds.has(row.run.runId);
+    const loading = expanded && nestedData?.view == null;
     return (
       <NestedRunRow
         key={`nest:${row.run.runId}:${pane}`}
@@ -218,6 +219,7 @@ export function WorkflowTreePanel({
         ticks={ticks}
         expanded={expanded}
         expandable={nestedRunHasExpandableChildren(nestedData)}
+        loading={loading}
         selected={selectedNestedRunId === row.run.runId && selectedStepId === null}
         hovered={hoveredRowId === row.run.runId}
         onHover={() => setHoveredRowId(row.run.runId)}
@@ -511,6 +513,7 @@ function NestedRunRow({
   ticks,
   expanded,
   expandable,
+  loading,
   selected,
   hovered,
   onHover,
@@ -524,6 +527,7 @@ function NestedRunRow({
   ticks: { pct: number; label: string }[];
   expanded: boolean;
   expandable: boolean;
+  loading: boolean;
   selected: boolean;
   hovered: boolean;
   onHover: () => void;
@@ -550,6 +554,7 @@ function NestedRunRow({
         <CollapseToggle
           expanded={expanded}
           disabled={!expandable}
+          loading={loading}
           label={run.workflowId}
           onToggle={onToggleExpanded}
         />
@@ -711,14 +716,33 @@ function GridRow({
 function CollapseToggle({
   expanded,
   disabled,
+  loading = false,
   label,
   onToggle,
 }: {
   expanded: boolean;
   disabled: boolean;
+  loading?: boolean;
   label: string;
   onToggle: () => void;
 }) {
+  if (loading) {
+    return (
+      <button
+        type="button"
+        aria-busy="true"
+        aria-expanded={expanded}
+        aria-label={`Loading ${label}`}
+        onClick={onToggle}
+        className={cn(
+          "flex size-3.5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground",
+          treeControlFocusClass,
+        )}
+      >
+        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+      </button>
+    );
+  }
   if (disabled) {
     return <span className="size-3.5 shrink-0" aria-hidden />;
   }

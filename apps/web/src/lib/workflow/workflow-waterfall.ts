@@ -156,6 +156,9 @@ function appendNestedRunRows(
   if (!options.expandedNestedRunIds?.has(run.runId)) return;
 
   const loaded = options.nestedByRunId?.get(run.runId);
+  // Still fetching this nest's events/children — NestedRunRow shows a spinner on
+  // the expand control; do not insert a placeholder row (layout would flash when
+  // the nest has no children).
   if (!loaded?.view) return;
 
   out.push(

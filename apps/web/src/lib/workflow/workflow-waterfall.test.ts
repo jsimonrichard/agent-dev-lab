@@ -130,6 +130,26 @@ describe("flattenWorkflowRows", () => {
       ),
     ).toEqual(["step:first", "nest:nest-under", "nest:nest-root", "step:second"]);
   });
+
+  it("does not insert placeholder rows while an expanded nest is still loading", () => {
+    const nest: InspectorRunSummary = {
+      runId: "nest-1",
+      workflowId: "child",
+      status: "running",
+      startedAt: "2026-01-01T00:00:01.000Z",
+      inputPreview: "{}",
+      tags: [],
+      parentStepId: null,
+    };
+    expect(
+      flattenWorkflowRows([], {
+        depth: 1,
+        ownerRunId: "parent",
+        nestedRuns: [nest],
+        expandedNestedRunIds: new Set(["nest-1"]),
+      }).map((row) => (row.kind === "nested-run" ? `nest:${row.run.runId}` : row.kind)),
+    ).toEqual(["nest:nest-1"]);
+  });
 });
 
 describe("computeWaterfallScale + bars", () => {
