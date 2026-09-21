@@ -443,6 +443,11 @@ describe("adl_agent_episodes", () => {
       "model_id",
       "model_provider",
       "tool_provider_context_json",
+      "input_tokens",
+      "output_tokens",
+      "total_tokens",
+      "cached_input_tokens",
+      "reasoning_tokens",
     ]);
     const indexes = indexNames(sqlite, "adl_agent_episodes");
     expect(indexes).toContain("adl_agent_episodes_started_at");
@@ -467,6 +472,32 @@ describe("adl_agent_episodes", () => {
     `);
     ensureAdlSchema(sqlite);
     expect(columnNames(sqlite, "adl_agent_episodes")).toContain("tool_provider_context_json");
+  });
+
+  it("adds token columns to a pre-existing episodes table", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.exec(`
+      CREATE TABLE adl_agent_episodes (
+        agent_call_id TEXT PRIMARY KEY NOT NULL,
+        agent_id TEXT NOT NULL,
+        memory_scope TEXT NOT NULL,
+        workflow_run_id TEXT,
+        step_id TEXT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        status TEXT NOT NULL,
+        model_id TEXT,
+        model_provider TEXT,
+        tool_provider_context_json TEXT
+      )
+    `);
+    ensureAdlSchema(sqlite);
+    const names = columnNames(sqlite, "adl_agent_episodes");
+    expect(names).toContain("input_tokens");
+    expect(names).toContain("output_tokens");
+    expect(names).toContain("total_tokens");
+    expect(names).toContain("cached_input_tokens");
+    expect(names).toContain("reasoning_tokens");
   });
 });
 

@@ -123,6 +123,12 @@ export const agentEpisodes = sqliteTable(
     modelProvider: text("model_provider"),
     /** JSON of `agent_started.toolProviderContext`; null when omitted / pre-field episodes. */
     toolProviderContextJson: text("tool_provider_context_json"),
+    /** Provider-reported tokens from `agent_finished.usage`; null until finished or when absent. */
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    cachedInputTokens: integer("cached_input_tokens"),
+    reasoningTokens: integer("reasoning_tokens"),
   },
   (table) => [
     index("adl_agent_episodes_started_at").on(table.startedAt),

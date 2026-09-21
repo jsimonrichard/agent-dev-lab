@@ -25,6 +25,7 @@ import type {
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
+import { toTokenUsage } from "./token-usage";
 import type { SqliteStoreOptions } from "../stores/sqlite";
 
 function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, string[]> {
@@ -300,6 +301,13 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 }
 
 function toEpisodeSummary(row: typeof agentEpisodes.$inferSelect): AgentEpisodeSummary {
+  const usage = toTokenUsage({
+    inputTokens: row.inputTokens ?? undefined,
+    outputTokens: row.outputTokens ?? undefined,
+    totalTokens: row.totalTokens ?? undefined,
+    cachedInputTokens: row.cachedInputTokens ?? undefined,
+    reasoningTokens: row.reasoningTokens ?? undefined,
+  });
   return {
     agentCallId: row.agentCallId,
     agentId: row.agentId,
@@ -314,6 +322,7 @@ function toEpisodeSummary(row: typeof agentEpisodes.$inferSelect): AgentEpisodeS
     ...(row.toolProviderContextJson !== null
       ? { toolProviderContext: JSON.parse(row.toolProviderContextJson) as unknown }
       : {}),
+    ...(usage ? { usage } : {}),
   };
 }
 

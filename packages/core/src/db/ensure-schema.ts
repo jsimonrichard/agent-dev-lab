@@ -82,7 +82,12 @@ const TABLES = [
     status TEXT NOT NULL,
     model_id TEXT,
     model_provider TEXT,
-    tool_provider_context_json TEXT
+    tool_provider_context_json TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    total_tokens INTEGER,
+    cached_input_tokens INTEGER,
+    reasoning_tokens INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS adl_inspector_agent_settings (
     agent_id TEXT PRIMARY KEY NOT NULL,
@@ -113,6 +118,11 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
   { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
   { table: "adl_run_events", column: "memory_scope", sqlType: "TEXT" },
   { table: "adl_agent_episodes", column: "tool_provider_context_json", sqlType: "TEXT" },
+  { table: "adl_agent_episodes", column: "input_tokens", sqlType: "INTEGER" },
+  { table: "adl_agent_episodes", column: "output_tokens", sqlType: "INTEGER" },
+  { table: "adl_agent_episodes", column: "total_tokens", sqlType: "INTEGER" },
+  { table: "adl_agent_episodes", column: "cached_input_tokens", sqlType: "INTEGER" },
+  { table: "adl_agent_episodes", column: "reasoning_tokens", sqlType: "INTEGER" },
 ];
 
 /**

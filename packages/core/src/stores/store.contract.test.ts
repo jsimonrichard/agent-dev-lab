@@ -273,10 +273,24 @@ describe("sqlite stores share a file", () => {
       runSeq: 2,
       at: "2026-01-01T00:00:05.000Z",
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      usage: {
+        inputTokens: 10,
+        outputTokens: 4,
+        totalTokens: 14,
+        cachedInputTokens: 2,
+        reasoningTokens: 1,
+      },
     });
     const afterFinish = await reopened.listAgentEpisodes();
     expect(afterFinish[0]?.status).toBe("ok");
     expect(afterFinish[0]?.finishedAt).toBe("2026-01-01T00:00:05.000Z");
+    expect(afterFinish[0]?.usage).toEqual({
+      inputTokens: 10,
+      outputTokens: 4,
+      totalTokens: 14,
+      cachedInputTokens: 2,
+      reasoningTokens: 1,
+    });
   });
 
   it("projects toolProviderContext from agent_started onto the episode summary", async () => {

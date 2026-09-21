@@ -6,6 +6,7 @@ import type {
   StepSlot,
   WorkflowRunSummary,
 } from "./events";
+import type { TokenUsage } from "./token-usage";
 
 /** One `agent.run()` episode, used to rebuild inspector chats after restart. */
 export type AgentEpisodeSummary = {
@@ -26,6 +27,11 @@ export type AgentEpisodeSummary = {
    * Absent when the caller did not pass one (or for episodes recorded before this field).
    */
   toolProviderContext?: unknown;
+  /**
+   * Provider-reported token totals from `agent_finished.usage`.
+   * Absent while running, on failure, or when the provider omitted usage.
+   */
+  usage?: TokenUsage;
 };
 
 /**
