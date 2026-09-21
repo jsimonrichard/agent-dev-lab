@@ -1,5 +1,6 @@
-import { Await, CatchBoundary, Link } from "@tanstack/react-router";
+import { CatchBoundary, Link } from "@tanstack/react-router";
 import { Bot, GitBranch, Layers, MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import type {
   AgentEpisode,
@@ -270,6 +271,27 @@ function ConversationPanel({
   runId: string;
   agentRegistered: boolean;
 }) {
+  // Keep the last resolved prefetch while a replacement promise loads (e.g. after
+  // `router.invalidate` on run settle). Remounting `<Await>` into its settled
+  // fallback was flashing "No conversation recorded." over a visible transcript.
+  const [prefetched, setPrefetched] = useState<PrefetchedRunMessages | null>(null);
+
+  useEffect(() => {
+    setPrefetched(null);
+  }, [runId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void messagesPromise.then((next) => {
+      if (!cancelled) {
+        setPrefetched(next);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [messagesPromise]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
       <CatchBoundary
@@ -280,29 +302,21 @@ function ConversationPanel({
           </div>
         )}
       >
-        <Await
-          key={runId}
-          promise={messagesPromise}
-          fallback={
-            runSettled || episode.status === "failed" ? (
-              <SettledConversationFallback error={episodeError} />
-            ) : (
-              <ConversationSkeleton />
-            )
-          }
-        >
-          {(prefetched) => (
-            <EpisodeConversation
-              prefetched={prefetched}
-              events={events}
-              episode={episode}
-              runId={runId}
-              streamingText={streamingText}
-              fallbackError={episodeError}
-              agentRegistered={agentRegistered}
-            />
-          )}
-        </Await>
+        {prefetched ? (
+          <EpisodeConversation
+            prefetched={prefetched}
+            events={events}
+            episode={episode}
+            runId={runId}
+            streamingText={streamingText}
+            fallbackError={episodeError}
+            agentRegistered={agentRegistered}
+          />
+        ) : runSettled || episode.status === "failed" ? (
+          <SettledConversationFallback error={episodeError} />
+        ) : (
+          <ConversationSkeleton />
+        )}
       </CatchBoundary>
     </div>
   );
@@ -344,14 +358,28 @@ function EpisodeConversation({
     commitTotalOffset: storedSystemPrompt ? 1 : 0,
   });
   const episodeFailed = episode.status === "failed";
+  const hasStoredTranscript = prior.length > 0 || current.length > 0 || later.length > 0;
+  // Parent clears `streamingText` when status leaves "running". Hold the episode's
+  // accumulated deltas until stored messages replace them so we do not flash empty.
+  const liveStreaming = episodeFailed
+    ? null
+    : streamingText?.trim()
+      ? streamingText
+      : hasStoredTranscript
+        ? null
+        : episode.streamingText.trim()
+          ? episode.streamingText
+          : null;
+  const hasTranscript = hasStoredTranscript || Boolean(liveStreaming);
+  const hasCommitForEpisode = events.some(
+    (event) => event.type === "messages_committed" && event.episodeId === episode.episodeId,
+  );
   const waitingForScope =
     !episodeFailed &&
-    pendingScopes.has(episode.memoryScope) &&
-    messages.length === 0 &&
-    !streamingText;
-  const liveStreaming = episodeFailed ? null : streamingText;
-  const hasTranscript =
-    prior.length > 0 || current.length > 0 || later.length > 0 || Boolean(liveStreaming);
+    !hasTranscript &&
+    (pendingScopes.has(episode.memoryScope) ||
+      episode.status === "running" ||
+      (episode.status === "completed" && hasCommitForEpisode));
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ScrollArea className="min-h-0 min-w-0 flex-1">
