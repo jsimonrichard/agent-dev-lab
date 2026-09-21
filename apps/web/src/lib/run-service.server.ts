@@ -373,6 +373,76 @@ export async function cancelWorkflowRun(runId: string): Promise<{ cancelled: boo
   return { cancelled: true };
 }
 
+/**
+ * Seed a new attempt forest from `stepId` on `runId` and re-enter the forest root
+ * workflow with the prior root input.
+ */
+export async function retryWorkflowRun(args: {
+  runId: string;
+  stepId: string;
+}): Promise<{ runId: string; workflowId: string }> {
+  const store = await getWorkflowStore();
+  const project = await getLoadedAdlProject();
+  await getAdlRuntime();
+
+  const targetRun = await store.getRun(args.runId);
+  if (!targetRun) {
+    throw new Error(`Unknown workflow run: ${args.runId}`);
+  }
+
+  let root = targetRun;
+  while (root.parentWorkflowRunId) {
+    const parent = await store.getRun(root.parentWorkflowRunId);
+    if (!parent) {
+      throw new Error(`Broken parent chain at ${root.parentWorkflowRunId}`);
+    }
+    root = parent;
+  }
+
+  const workflow = project.getWorkflow(root.workflowId);
+  if (!workflow) {
+    throw new Error(`Unknown workflow: ${root.workflowId}`);
+  }
+
+  const rootInput = await store.getRunInput(root.workflowRunId);
+  const attempt = await store.seedRetryAttempt({
+    fromWorkflowRunId: args.runId,
+    fromStepId: args.stepId,
+  });
+
+  let parsedInput: unknown = rootInput ?? {};
+  if (workflow.inputSchema) {
+    const parsed = workflow.inputSchema.safeParse(parsedInput);
+    if (!parsed.success) {
+      throw new AdlError(
+        "INVALID_INPUT",
+        `Invalid input for workflow "${root.workflowId}": ${parsed.error.message}`,
+      );
+    }
+    parsedInput = parsed.data;
+  }
+
+  const handle = workflow.run(parsedInput, {
+    workflowRunId: attempt.newRootRunId,
+    retryAttempt: attempt,
+  });
+  activeWorkflowRuns.set(handle.workflowRunId, handle);
+  void handle.result
+    .catch((error) => {
+      void error;
+    })
+    .finally(() => {
+      activeWorkflowRuns.delete(handle.workflowRunId);
+    });
+
+  const priorTitle = root.title?.trim();
+  if (priorTitle) {
+    await applyRunTitleWhenReady(handle.workflowRunId, `${priorTitle} (retry)`);
+  }
+
+  return { runId: handle.workflowRunId, workflowId: root.workflowId };
+}
+
 export async function getAgentRunEvents(agentCallId: string): Promise<CoreRunEvent[]> {
   const store = await getWorkflowStore();
   return store.listEvents({ agentCallId });

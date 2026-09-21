@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { findEpisodeInTree, resolveRunSelection, collectRunWarnings } from "./run-projection";
+import {
+  findEpisodeInTree,
+  resolveRunSelection,
+  collectRunWarnings,
+  resolveRetryStepId,
+} from "./run-projection";
 import type { AgentEpisode, StepNode } from "./types";
 
 function episode(id: string): AgentEpisode {
@@ -89,5 +94,19 @@ describe("resolveRunSelection", () => {
       stepId: "research",
       episodeId: null,
     });
+  });
+});
+
+describe("resolveRetryStepId", () => {
+  it("prefers the selected step, else the first failed step", () => {
+    const tree = [step("a"), step("b", { status: "failed" }), step("c", { status: "failed" })];
+    expect(resolveRetryStepId(tree, "c")).toBe("c");
+    expect(resolveRetryStepId(tree, null)).toBe("b");
+    expect(resolveRetryStepId(tree, "missing")).toBe("b");
+  });
+
+  it("falls back to the first completed step when nothing failed", () => {
+    const tree = [step("a"), step("b")];
+    expect(resolveRetryStepId(tree)).toBe("a");
   });
 });

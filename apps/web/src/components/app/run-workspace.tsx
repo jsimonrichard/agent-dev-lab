@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, PanelRight } from "lucide-react";
+import { ArrowLeft, PanelRight, RotateCcw } from "lucide-react";
 
 import {
   cancelInspectionWorkflowRun,
   fetchChildWorkflowRuns,
   fetchMessagesForWorkflowRun,
   fetchWorkflowRun,
+  retryInspectionWorkflowRun,
 } from "#/lib/inspector/inspector-server";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
@@ -14,6 +15,7 @@ import {
   collectRunWarnings,
   findEpisodeInTree,
   findStepInTree,
+  resolveRetryStepId,
   resolveRunSelection,
 } from "@/lib/view-model/run-projection";
 import type {
@@ -260,6 +262,8 @@ export function RunWorkspace({
     () => search.nested ?? summary.runId,
   );
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
     if (search.nested && !search.step && !search.episode) {
@@ -317,6 +321,7 @@ export function RunWorkspace({
     : null;
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
+  const canRetry = !offline && ownerView.steps.length > 0;
 
   const workflowSelected =
     selectedStepId === null && selectedEpisodeId === null && selectedNestedRunId === null;
@@ -430,6 +435,34 @@ export function RunWorkspace({
     });
   }, []);
 
+  async function handleRetry(fromStepId?: string | null) {
+    const stepId = resolveRetryStepId(ownerView.steps, fromStepId ?? selectedStepId);
+    if (!stepId) {
+      setRetryError("No step available to retry from.");
+      return;
+    }
+    setRetryBusy(true);
+    setRetryError(null);
+    try {
+      const result = await retryInspectionWorkflowRun({
+        data: { runId: selectedOwnerRunId, stepId },
+      });
+      if (result.isErr) {
+        setRetryError(result.error);
+        return;
+      }
+      await navigate({
+        to: "/workflows/$workflowId/run/$runId",
+        params: {
+          workflowId: result.value.workflowId,
+          runId: result.value.runId,
+        },
+      });
+    } finally {
+      setRetryBusy(false);
+    }
+  }
+
   return (
     <div className="flex h-svh min-h-0 w-full flex-col">
       {Array.from(neededNestedIds).map((runId) => {
@@ -488,6 +521,20 @@ export function RunWorkspace({
             Cancel
           </Button>
         ) : null}
+        {canRetry ? (
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="retry-workflow-run"
+            disabled={retryBusy}
+            onClick={() => {
+              void handleRetry();
+            }}
+          >
+            <RotateCcw className="mr-2 size-4" />
+            {retryBusy ? "Retrying…" : "Retry"}
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
@@ -498,6 +545,15 @@ export function RunWorkspace({
           {inspectorOpen ? "Hide inspector" : "Show inspector"}
         </Button>
       </header>
+
+      {retryError ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-1.5">
+          <span className="text-[10px] font-medium tracking-wide text-destructive uppercase">
+            Retry failed
+          </span>
+          <ErrorIndicator error={retryError} className="min-w-0 flex-1" />
+        </div>
+      ) : null}
 
       {view.status === "failed" ? (
         <div className="flex shrink-0 items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-1.5">
@@ -614,6 +670,15 @@ export function RunWorkspace({
                         runId: selectedNestedRunId,
                       }
                     : null
+                }
+                canRetry={canRetry}
+                retryBusy={retryBusy}
+                onRetryFromStep={
+                  selectedStep
+                    ? () => {
+                        void handleRetry(selectedStep.stepId);
+                      }
+                    : undefined
                 }
               />
             </ResizablePanel>

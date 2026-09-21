@@ -19,7 +19,7 @@ User-facing overview: [workflows guide — Resumability](../apps/docs/src/conten
 | Attempt lineage (`seedRetryAttempt`, `replayOf*`, `retriesFromRunId`) | Shipped                           |
 | Same-`runId` in-place mutate                                          | **Superseded** by attempt lineage |
 | Crash mid-closure / checkpoints / episode `cacheable`                 | Deferred                          |
-| Inspector Retry button                                                | Host follow-up                    |
+| Inspector Retry button                                                | Shipped (host)                    |
 
 ---
 
@@ -129,7 +129,6 @@ Same `memoryScope` on a later `agent.run` is ordinary memory. On step re-exec, c
 - Crash-safe re-entry without calling `run` again; `ctx.checkpoint`
 - Agent episode cache (`cacheable: true`)
 - Mid-stream token resume
-- Full inspector Retry UI (data model above is the host contract)
 
 ---
 

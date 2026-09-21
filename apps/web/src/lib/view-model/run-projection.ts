@@ -237,6 +237,37 @@ export function findStepInTree(steps: StepNode[], stepId: string): StepNode | un
   return undefined;
 }
 
+/** Prefer an explicit step, else the first failed step, else the first step in the tree. */
+export function resolveRetryStepId(
+  steps: StepNode[],
+  preferredStepId?: string | null,
+): string | null {
+  if (preferredStepId && findStepInTree(steps, preferredStepId)) {
+    return preferredStepId;
+  }
+  const failed = findFirstStepByStatus(steps, "failed");
+  if (failed) {
+    return failed.stepId;
+  }
+  return findFirstStepByStatus(steps, "completed")?.stepId ?? steps[0]?.stepId ?? null;
+}
+
+function findFirstStepByStatus(
+  steps: StepNode[],
+  status: StepNode["status"],
+): StepNode | undefined {
+  for (const step of steps) {
+    if (step.status === status) {
+      return step;
+    }
+    const nested = findFirstStepByStatus(step.children, status);
+    if (nested) {
+      return nested;
+    }
+  }
+  return undefined;
+}
+
 export function findEpisodeInTree(
   steps: StepNode[],
   episodeId: string,

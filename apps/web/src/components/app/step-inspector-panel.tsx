@@ -53,6 +53,9 @@ interface StepInspectorPanelProps {
   nestedRunLink?: { workflowId: string; runId: string } | null;
   /** Nested run (or other deferred view) selected but events not in cache yet. */
   loading?: boolean;
+  canRetry?: boolean;
+  retryBusy?: boolean;
+  onRetryFromStep?: () => void;
 }
 
 export function StepInspectorPanel({
@@ -70,6 +73,9 @@ export function StepInspectorPanel({
   runError,
   nestedRunLink = null,
   loading = false,
+  canRetry = false,
+  retryBusy = false,
+  onRetryFromStep,
 }: StepInspectorPanelProps) {
   const body = loading ? (
     <WorkflowInspectorSkeleton />
@@ -92,9 +98,18 @@ export function StepInspectorPanel({
       runStatus={runStatus}
       runError={runError}
       runId={runId}
+      canRetry={canRetry}
+      retryBusy={retryBusy}
+      onRetryFromStep={onRetryFromStep}
     />
   ) : (
-    <StepOutputInspector step={step} runError={runError} />
+    <StepOutputInspector
+      step={step}
+      runError={runError}
+      canRetry={canRetry}
+      retryBusy={retryBusy}
+      onRetryFromStep={onRetryFromStep}
+    />
   );
 
   return (
@@ -105,7 +120,19 @@ export function StepInspectorPanel({
   );
 }
 
-function StepOutputInspector({ step, runError }: { step: StepNode; runError?: unknown }) {
+function StepOutputInspector({
+  step,
+  runError,
+  canRetry,
+  retryBusy,
+  onRetryFromStep,
+}: {
+  step: StepNode;
+  runError?: unknown;
+  canRetry?: boolean;
+  retryBusy?: boolean;
+  onRetryFromStep?: () => void;
+}) {
   const stepLabel = formatStepLabel(step.name, step.key);
   const stepError = step.error ?? (step.status === "failed" ? runError : undefined);
   const outputEmpty =
@@ -117,12 +144,27 @@ function StepOutputInspector({ step, runError }: { step: StepNode; runError?: un
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
-      <div className="shrink-0 border-b border-border/40 px-3 py-2.5">
-        <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs font-semibold">
-          <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-          {stepLabel}
-        </p>
-        <p className="text-[10px] text-muted-foreground">Step Output</p>
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/40 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs font-semibold">
+            <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+            {stepLabel}
+          </p>
+          <p className="text-[10px] text-muted-foreground">Step Output</p>
+        </div>
+        {canRetry && onRetryFromStep ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            data-testid="retry-from-step"
+            disabled={retryBusy}
+            onClick={onRetryFromStep}
+          >
+            <GitBranch className="mr-1.5 size-3.5" />
+            {retryBusy ? "Retrying…" : "Retry from here"}
+          </Button>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 p-2">
         {step.output !== undefined || !stepError ? (
@@ -154,6 +196,9 @@ function ConversationInspector({
   runStatus,
   runError,
   runId,
+  canRetry,
+  retryBusy,
+  onRetryFromStep,
 }: {
   step: StepNode;
   episode: AgentEpisode;
@@ -163,6 +208,9 @@ function ConversationInspector({
   runStatus: RunStatus;
   runError?: unknown;
   runId: string;
+  canRetry?: boolean;
+  retryBusy?: boolean;
+  onRetryFromStep?: () => void;
 }) {
   const { project } = useAppLoaderData();
   const agentRegistered = project.agentIds.includes(episode.agentId);
@@ -185,43 +233,58 @@ function ConversationInspector({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
-      <div className="shrink-0 space-y-1.5 border-b border-border/40 px-3 py-2.5">
-        <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs font-semibold">
-          <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-          {agentRegistered ? (
-            <Link
-              to="/agent/$agentId/run/$runId"
-              params={{ agentId: episode.agentId, runId: episode.memoryScope }}
-              search={agentRunSearch({ call: episode.episodeId })}
-              className="min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
-              title={episode.memoryScope}
-            >
-              {scopeLabel}
-            </Link>
-          ) : (
-            scopeLabel
-          )}
-        </p>
-        <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
-          {agentRegistered ? (
-            <Link
-              to="/agent/$agentId"
-              params={{ agentId: episode.agentId }}
-              className="group max-w-full min-w-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-            >
-              {agentLabel}
-            </Link>
-          ) : (
-            agentLabel
-          )}
-          <InspectorNoun icon={Layers} noun="Step" title={stepLabel}>
-            {stepLabel}
-          </InspectorNoun>
-        </p>
-        {usageDetail ? (
-          <p className="truncate text-[11px] text-muted-foreground" title={usageDetail}>
-            Tokens · {usageDetail}
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/40 px-3 py-2.5">
+        <div className="min-w-0 space-y-1.5">
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs font-semibold">
+            <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+            {agentRegistered ? (
+              <Link
+                to="/agent/$agentId/run/$runId"
+                params={{ agentId: episode.agentId, runId: episode.memoryScope }}
+                search={agentRunSearch({ call: episode.episodeId })}
+                className="min-w-0 truncate rounded-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+                title={episode.memoryScope}
+              >
+                {scopeLabel}
+              </Link>
+            ) : (
+              scopeLabel
+            )}
           </p>
+          <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+            {agentRegistered ? (
+              <Link
+                to="/agent/$agentId"
+                params={{ agentId: episode.agentId }}
+                className="group max-w-full min-w-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              >
+                {agentLabel}
+              </Link>
+            ) : (
+              agentLabel
+            )}
+            <InspectorNoun icon={Layers} noun="Step" title={stepLabel}>
+              {stepLabel}
+            </InspectorNoun>
+          </p>
+          {usageDetail ? (
+            <p className="truncate text-[11px] text-muted-foreground" title={usageDetail}>
+              Tokens · {usageDetail}
+            </p>
+          ) : null}
+        </div>
+        {canRetry && onRetryFromStep ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            data-testid="retry-from-step"
+            disabled={retryBusy}
+            onClick={onRetryFromStep}
+          >
+            <GitBranch className="mr-1.5 size-3.5" />
+            {retryBusy ? "Retrying…" : "Retry from here"}
+          </Button>
         ) : null}
       </div>
       {episode.warnings.length > 0 ? (
