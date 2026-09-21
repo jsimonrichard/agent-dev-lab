@@ -1,4 +1,4 @@
-import { Output, streamText, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
+import { Output, streamText, type LanguageModel, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
 
 import { createAsyncChannel, type AsyncChannel } from "../async-channel";
 import { AdlError } from "../errors";
@@ -258,7 +258,6 @@ export class AgentImpl<
           }
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
-          const telemetry = this.services.telemetry;
 
           const { tools, toolProviderContext } = await resolveAgentTools({
             agentId: this.definition.id,
@@ -324,111 +323,26 @@ export class AgentImpl<
           };
 
           throwIfAborted(abortSignal);
-          // streamText puts model failures on fullStream error parts and calls
-          // onError; awaiting `.text` / `.steps` then rejects with
-          // NoOutputGeneratedError ("check the stream for errors"). Keep the
-          // onError payload so agent_failed records the model error, not the wrapper.
-          const streamResult = streamText({
+          const streamed = await this.consumeModelStream({
             model,
-            ...(system ? { system } : {}),
-            allowSystemInMessages: false,
+            system,
             tools,
-            messages: messages.filter(
-              (message): message is Exclude<ModelMessage, { role: "system" }> =>
-                message.role !== "system",
-            ),
-            experimental_context: toolProviderContext,
+            toolProviderContext,
+            messages,
             abortSignal,
             stopWhen,
-            onError: ({ error }) => {
+            outputSchema,
+            agentCallId,
+            workflowRunId,
+            stepId,
+            runRecorder,
+            textChannel,
+            fullChannel,
+            persistResponseMessages,
+            onStreamError: (error) => {
               streamError ??= error;
             },
-            experimental_telemetry: {
-              isEnabled: telemetry?.isEnabled !== false,
-              ...(telemetry?.recordInputs !== undefined
-                ? { recordInputs: telemetry.recordInputs }
-                : {}),
-              ...(telemetry?.recordOutputs !== undefined
-                ? { recordOutputs: telemetry.recordOutputs }
-                : {}),
-              functionId: telemetry?.functionId ?? this.definition.id,
-              metadata: {
-                "adl.agent_id": this.definition.id,
-                "adl.agent_call_id": agentCallId,
-                ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
-                ...(stepId ? { "adl.step_id": stepId } : {}),
-                ...telemetry?.metadata,
-              },
-            },
-            ...(outputSchema
-              ? {
-                  experimental_output: Output.object({
-                    schema: outputSchema,
-                  }),
-                }
-              : {}),
-            onStepFinish: async (step) => {
-              await persistResponseMessages(step.response.messages);
-            },
-            onChunk: ({ chunk }) => {
-              if (chunk.type === "text-delta" && "text" in chunk) {
-                const delta = chunk.text;
-                textChannel?.push(delta);
-                void runRecorder.emit({
-                  type: "agent_text_delta",
-                  agentCallId,
-                  workflowRunId,
-                  stepId,
-                  delta,
-                });
-              }
-              if (chunk.type === "tool-call") {
-                void runRecorder.emit({
-                  type: "agent_tool_call",
-                  agentCallId,
-                  workflowRunId,
-                  stepId,
-                  agentId: this.definition.id,
-                  toolCallId: chunk.toolCallId,
-                  toolName: chunk.toolName,
-                });
-              }
-              if (chunk.type === "tool-result") {
-                void runRecorder.emit({
-                  type: "agent_tool_result",
-                  agentCallId,
-                  workflowRunId,
-                  stepId,
-                  agentId: this.definition.id,
-                  toolCallId: chunk.toolCallId,
-                  toolName: chunk.toolName,
-                  result: chunk.output,
-                  preliminary: chunk.preliminary,
-                });
-              }
-            },
-          }) as unknown as StreamTextResult<Tools, TOutput>;
-
-          const structuredPromise = outputSchema
-            ? readStructuredOutputFromStream(
-                streamResult as unknown as StreamTextResult<ToolSet, unknown>,
-              )
-            : undefined;
-
-          if (fullChannel) {
-            for await (const part of streamResult.fullStream) {
-              fullChannel.push(part);
-            }
-          } else {
-            await streamResult.text;
-          }
-
-          const lastText = await streamResult.text;
-          const lastSdk = streamResult;
-          const turns = (await streamResult.steps).length;
-          const lastOutput = outputSchema
-            ? (outputSchema.parse(await structuredPromise) as TOutput)
-            : (lastText as TOutput);
+          });
 
           if (!isGeneratingConversationTitle()) {
             await this.maybeSetConversationTitle({
@@ -451,13 +365,13 @@ export class AgentImpl<
           });
 
           turnResult = {
-            text: lastText,
-            output: lastOutput,
+            text: streamed.text,
+            output: streamed.output,
             messages,
             newMessages: allNewMessages,
-            turns,
+            turns: streamed.turns,
             memoryScope,
-            sdk: lastSdk,
+            sdk: streamed.sdk,
           };
         } catch (error) {
           turnError = abortSignal.aborted ? abortError(abortSignal) : (streamError ?? error);
@@ -490,6 +404,166 @@ export class AgentImpl<
         return turnResult;
       },
     );
+  }
+
+  /**
+   * Runs `streamText`, drains the stream, persists step messages via
+   * `onStepFinish`, and returns the episode text/output/turns. Emit
+   * `agent_finished` / title updates in the caller after this resolves.
+   * `persistResponseMessages` may mutate caller message locals via closure.
+   */
+  private async consumeModelStream(options: {
+    model: LanguageModel;
+    system: string | undefined;
+    tools: Tools | undefined;
+    toolProviderContext: unknown;
+    messages: ModelMessage[];
+    abortSignal: AbortSignal;
+    stopWhen: AgentStopWhen;
+    outputSchema: AgentDefinition<ToolProviderContext, Tools, TOutput>["outputSchema"];
+    agentCallId: string;
+    workflowRunId: string | undefined;
+    stepId: string | null;
+    runRecorder: RunRecorder;
+    textChannel?: AsyncChannel<string>;
+    fullChannel?: AsyncChannel<FullStreamPart>;
+    persistResponseMessages: (responseMessages: ModelMessage[]) => Promise<void>;
+    onStreamError: (error: unknown) => void;
+  }): Promise<{
+    text: string;
+    output: TOutput;
+    turns: number;
+    sdk: StreamTextResult<Tools, TOutput>;
+  }> {
+    const {
+      model,
+      system,
+      tools,
+      toolProviderContext,
+      messages,
+      abortSignal,
+      stopWhen,
+      outputSchema,
+      agentCallId,
+      workflowRunId,
+      stepId,
+      runRecorder,
+      textChannel,
+      fullChannel,
+      persistResponseMessages,
+      onStreamError,
+    } = options;
+    const telemetry = this.services.telemetry;
+
+    // streamText puts model failures on fullStream error parts and calls
+    // onError; awaiting `.text` / `.steps` then rejects with
+    // NoOutputGeneratedError ("check the stream for errors"). Keep the
+    // onError payload so agent_failed records the model error, not the wrapper.
+    const streamResult = streamText({
+      model,
+      ...(system ? { system } : {}),
+      allowSystemInMessages: false,
+      tools,
+      messages: messages.filter(
+        (message): message is Exclude<ModelMessage, { role: "system" }> =>
+          message.role !== "system",
+      ),
+      experimental_context: toolProviderContext,
+      abortSignal,
+      stopWhen,
+      onError: ({ error }) => {
+        onStreamError(error);
+      },
+      experimental_telemetry: {
+        isEnabled: telemetry?.isEnabled !== false,
+        ...(telemetry?.recordInputs !== undefined ? { recordInputs: telemetry.recordInputs } : {}),
+        ...(telemetry?.recordOutputs !== undefined
+          ? { recordOutputs: telemetry.recordOutputs }
+          : {}),
+        functionId: telemetry?.functionId ?? this.definition.id,
+        metadata: {
+          "adl.agent_id": this.definition.id,
+          "adl.agent_call_id": agentCallId,
+          ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+          ...(stepId ? { "adl.step_id": stepId } : {}),
+          ...telemetry?.metadata,
+        },
+      },
+      ...(outputSchema
+        ? {
+            experimental_output: Output.object({
+              schema: outputSchema,
+            }),
+          }
+        : {}),
+      onStepFinish: async (step) => {
+        await persistResponseMessages(step.response.messages);
+      },
+      onChunk: ({ chunk }) => {
+        if (chunk.type === "text-delta" && "text" in chunk) {
+          const delta = chunk.text;
+          textChannel?.push(delta);
+          void runRecorder.emit({
+            type: "agent_text_delta",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            delta,
+          });
+        }
+        if (chunk.type === "tool-call") {
+          void runRecorder.emit({
+            type: "agent_tool_call",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+            toolCallId: chunk.toolCallId,
+            toolName: chunk.toolName,
+          });
+        }
+        if (chunk.type === "tool-result") {
+          void runRecorder.emit({
+            type: "agent_tool_result",
+            agentCallId,
+            workflowRunId,
+            stepId,
+            agentId: this.definition.id,
+            toolCallId: chunk.toolCallId,
+            toolName: chunk.toolName,
+            result: chunk.output,
+            preliminary: chunk.preliminary,
+          });
+        }
+      },
+    }) as unknown as StreamTextResult<Tools, TOutput>;
+
+    const structuredPromise = outputSchema
+      ? readStructuredOutputFromStream(
+          streamResult as unknown as StreamTextResult<ToolSet, unknown>,
+        )
+      : undefined;
+
+    if (fullChannel) {
+      for await (const part of streamResult.fullStream) {
+        fullChannel.push(part);
+      }
+    } else {
+      await streamResult.text;
+    }
+
+    const text = await streamResult.text;
+    const turns = (await streamResult.steps).length;
+    const output = outputSchema
+      ? (outputSchema.parse(await structuredPromise) as TOutput)
+      : (text as TOutput);
+
+    return {
+      text,
+      output,
+      turns,
+      sdk: streamResult,
+    };
   }
 
   private async maybeSetConversationTitle(options: {
