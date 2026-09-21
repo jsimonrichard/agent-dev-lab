@@ -333,6 +333,7 @@ export function RunWorkspace({
   const inspectorEvents = nestedRunSelected
     ? (nestedCache.get(selectedNestedRunId!)?.events ?? [])
     : ownerEvents;
+  const inspectorLoading = nestedRunSelected && inspectorView === null;
 
   const messagesRunId = nestedRunSelected
     ? selectedNestedRunId!
@@ -606,6 +607,7 @@ export function RunWorkspace({
                 workflowOutput={inspectorView?.output}
                 runStatus={inspectorView?.status ?? view.status}
                 runError={inspectorView?.error}
+                loading={inspectorLoading}
                 nestedRunLink={
                   nestedRunSelected && selectedNestedRunId && inspectorSummary
                     ? {

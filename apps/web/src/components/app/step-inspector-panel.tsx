@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RunTagsFooter } from "@/components/app/run-tags-footer";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatStepLabel } from "@/lib/view-model/run-projection";
 import {
@@ -50,6 +51,8 @@ interface StepInspectorPanelProps {
   runError?: unknown;
   /** When set, the workflow inspector links to this nested run's dedicated page. */
   nestedRunLink?: { workflowId: string; runId: string } | null;
+  /** Nested run (or other deferred view) selected but events not in cache yet. */
+  loading?: boolean;
 }
 
 export function StepInspectorPanel({
@@ -66,8 +69,11 @@ export function StepInspectorPanel({
   runStatus,
   runError,
   nestedRunLink = null,
+  loading = false,
 }: StepInspectorPanelProps) {
-  const body = !step ? (
+  const body = loading ? (
+    <WorkflowInspectorSkeleton />
+  ) : !step ? (
     <WorkflowInspector
       workflowId={workflowId}
       input={workflowInput}
@@ -605,6 +611,25 @@ function WorkflowInputPane({ input }: { input: unknown }) {
         fill
         className="bg-card/80"
       />
+    </div>
+  );
+}
+
+function WorkflowInspectorSkeleton() {
+  return (
+    <div
+      className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10"
+      aria-busy="true"
+      aria-label="Loading workflow inspector"
+    >
+      <div className="shrink-0 space-y-1.5 border-b border-border/40 px-3 py-2.5">
+        <Skeleton className="h-3.5 w-40" />
+        <Skeleton className="h-2.5 w-16" />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="min-h-0 flex-1 w-full" />
+      </div>
     </div>
   );
 }
