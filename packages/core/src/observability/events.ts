@@ -10,8 +10,8 @@ import type { TokenUsage } from "./token-usage";
  * which is process-global on the in-memory event log.
  */
 
-/** Current persisted {@link RunEvent} schema. Bump when the wire shape changes. */
-export const EVENT_SCHEMA_VERSION = 2;
+/** Current persisted {@link RunEvent} schema. Bump only for breaking wire changes. */
+export const EVENT_SCHEMA_VERSION = 1;
 
 /** Workflow + step events (always tied to a workflow invocation). */
 export type WorkflowRunEventBase = {
