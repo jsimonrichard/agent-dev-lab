@@ -31,6 +31,8 @@ type AdlProjectProcessHost = {
   inspectorListedAgentIds: Set<string>;
   inspectorEventLog?: InMemoryEventLog;
   inspectorEventLogHydrated: boolean;
+  /** In-flight one-shot fill; concurrent callers await the same attempt. */
+  inspectorEventLogHydrateInFlight?: Promise<void>;
 };
 
 const HOST_KEY = Symbol.for("@agent-dev-lab/core:adlProjectProcessHost");
@@ -70,6 +72,7 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   host.inspectorListedAgentIds = new Set();
   host.inspectorEventLog = undefined;
   host.inspectorEventLogHydrated = false;
+  host.inspectorEventLogHydrateInFlight = undefined;
   if (previous) {
     await previous.dispose();
   }
@@ -229,14 +232,32 @@ export function getInspectorEventLog(): InMemoryEventLog {
   return host.inspectorEventLog;
 }
 
-/** True the first time per process-host generation; later calls are no-ops. */
-export function markInspectorEventLogHydrated(): boolean {
+/** Whether the process inspection log has finished its one-shot store hydrate. */
+export function isInspectorEventLogHydrated(): boolean {
+  return getHost().inspectorEventLogHydrated;
+}
+
+/**
+ * Run `fill` once per process-host generation. Concurrent callers share the
+ * same in-flight attempt. On failure the gate stays open so a later call can
+ * retry; success sets {@link isInspectorEventLogHydrated}.
+ */
+export async function ensureInspectorEventLogHydrated(fill: () => Promise<void>): Promise<void> {
   const host = getHost();
   if (host.inspectorEventLogHydrated) {
-    return false;
+    return;
   }
-  host.inspectorEventLogHydrated = true;
-  return true;
+  if (!host.inspectorEventLogHydrateInFlight) {
+    host.inspectorEventLogHydrateInFlight = (async () => {
+      try {
+        await fill();
+        host.inspectorEventLogHydrated = true;
+      } finally {
+        host.inspectorEventLogHydrateInFlight = undefined;
+      }
+    })();
+  }
+  await host.inspectorEventLogHydrateInFlight;
 }
 
 /** Drop watchers and the cached project. For tests only. */
@@ -255,6 +276,7 @@ export async function resetAdlProjectProcessHost(): Promise<void> {
   host.inspectorListedAgentIds = new Set();
   host.inspectorEventLog = undefined;
   host.inspectorEventLogHydrated = false;
+  host.inspectorEventLogHydrateInFlight = undefined;
   if (previous) {
     await previous.dispose();
   }

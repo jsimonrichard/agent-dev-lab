@@ -165,4 +165,56 @@ describe("hydrateEventLogFromWorkflowStore", () => {
     await hydrateEventLogFromWorkflowStore(store, processLog);
     expect(processLog.list().map((e) => e.event.workflowRunId)).toEqual(["run-a"]);
   });
+
+  it("shares one in-flight process hydrate across concurrent callers", async () => {
+    const { resetAdlProjectProcessHost } = await import("@agent-dev-lab/core/project");
+    await resetAdlProjectProcessHost();
+
+    let listRunsCalls = 0;
+    const store = inMemoryWorkflowStore();
+    await store.recordEvent(started(1, "run-a"));
+    const originalListRuns = store.listRuns.bind(store);
+    store.listRuns = async (opts) => {
+      listRunsCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return originalListRuns(opts);
+    };
+
+    const processLog = getEventLog();
+    await Promise.all([
+      hydrateEventLogFromWorkflowStore(store, processLog),
+      hydrateEventLogFromWorkflowStore(store, processLog),
+      hydrateEventLogFromWorkflowStore(store, processLog),
+    ]);
+
+    expect(listRunsCalls).toBe(1);
+    expect(processLog.list().map((e) => e.event.workflowRunId)).toEqual(["run-a"]);
+  });
+
+  it("retries process hydrate after a failed attempt", async () => {
+    const { resetAdlProjectProcessHost } = await import("@agent-dev-lab/core/project");
+    await resetAdlProjectProcessHost();
+
+    let listRunsCalls = 0;
+    const store = inMemoryWorkflowStore();
+    await store.recordEvent(started(1, "run-a"));
+    const originalListRuns = store.listRuns.bind(store);
+    store.listRuns = async (opts) => {
+      listRunsCalls += 1;
+      if (listRunsCalls === 1) {
+        throw new Error("store unavailable");
+      }
+      return originalListRuns(opts);
+    };
+
+    const processLog = getEventLog();
+    await expect(hydrateEventLogFromWorkflowStore(store, processLog)).rejects.toThrow(
+      /store unavailable/,
+    );
+    expect(processLog.list()).toEqual([]);
+
+    await hydrateEventLogFromWorkflowStore(store, processLog);
+    expect(listRunsCalls).toBe(2);
+    expect(processLog.list().map((e) => e.event.workflowRunId)).toEqual(["run-a"]);
+  });
 });

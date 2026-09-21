@@ -6,7 +6,7 @@ import {
   type RunEvent,
   type WorkflowStore,
 } from "@agent-dev-lab/core";
-import { getInspectorEventLog, markInspectorEventLogHydrated } from "@agent-dev-lab/core/project";
+import { ensureInspectorEventLogHydrated, getInspectorEventLog } from "@agent-dev-lab/core/project";
 
 import type { EventLogSnapshotEntry } from "#/lib/event-log/event-log-snapshot";
 
@@ -32,12 +32,11 @@ export async function hydrateEventLogFromWorkflowStore(
 ): Promise<void> {
   const isProcessLog = eventLog === getEventLog();
   if (isProcessLog) {
-    if (!markInspectorEventLogHydrated()) {
-      return;
-    }
-    for (const event of await collectStoredRunEvents(store)) {
-      eventLog.onEvent(event);
-    }
+    await ensureInspectorEventLogHydrated(async () => {
+      for (const event of await collectStoredRunEvents(store)) {
+        eventLog.onEvent(event);
+      }
+    });
     return;
   }
 
