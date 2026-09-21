@@ -11,6 +11,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useId, useRef, useState } from "react";
 
+import type { TokenUsage } from "@agent-dev-lab/core";
 import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
 import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
@@ -52,6 +53,7 @@ import {
   type ContextEditorSource,
 } from "@/lib/json-editor";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
+import { formatTokenCount, tokenUsageSettingRows } from "@/lib/format-token-usage";
 
 export interface ToolProviderContextFormState {
   values: Record<string, string | boolean>;
@@ -82,6 +84,8 @@ interface AgentSettingsPanelProps {
   conversation?: ResolvedAgentConversation;
   contextForm?: ToolProviderContextFormState;
   episodeToolContext?: EpisodeToolProviderContextView;
+  /** Provider-reported usage for the focused agent call (`?call=` / latest). */
+  episodeUsage?: TokenUsage | null;
 }
 
 export function AgentSettingsPanel({
@@ -89,6 +93,7 @@ export function AgentSettingsPanel({
   conversation,
   contextForm,
   episodeToolContext,
+  episodeUsage,
 }: AgentSettingsPanelProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
@@ -104,6 +109,7 @@ export function AgentSettingsPanel({
             conversation={conversation}
             contextForm={contextForm}
             episodeToolContext={episodeToolContext}
+            episodeUsage={episodeUsage}
           />
         </div>
       </ScrollArea>
@@ -117,11 +123,13 @@ export function AgentConfigBody({
   conversation,
   contextForm,
   episodeToolContext,
+  episodeUsage,
 }: {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
   contextForm?: ToolProviderContextFormState;
   episodeToolContext?: EpisodeToolProviderContextView;
+  episodeUsage?: TokenUsage | null;
 }) {
   const fork = conversation?.forkSession;
   const workflowLink = conversation?.workflowLink;
@@ -132,6 +140,9 @@ export function AgentConfigBody({
   const promptText = prompt.isOk ? prompt.value.trim() : "";
   const showPromptSection =
     !conversation && (Boolean(settings.systemPromptPath) || promptText.length > 0 || prompt.isErr);
+  const conversationUsageRows = tokenUsageSettingRows(conversation?.usage);
+  const episodeUsageRows = tokenUsageSettingRows(episodeUsage ?? undefined);
+  const showUsage = conversationUsageRows.length > 0 || episodeUsageRows.length > 0;
 
   return (
     <div className="space-y-5">
@@ -144,6 +155,57 @@ export function AgentConfigBody({
                 <SettingRow label="Provider" value={settings.model.provider} mono />
               ) : null}
             </dl>
+          </SettingsSection>
+
+          <Separator className="bg-border/40" />
+        </>
+      ) : null}
+
+      {showUsage ? (
+        <>
+          <SettingsSection icon={SlidersHorizontal} title="Usage">
+            <div
+              className={
+                conversationUsageRows.length > 0 && episodeUsageRows.length > 0
+                  ? "grid grid-cols-2 gap-x-4 gap-y-2"
+                  : "space-y-2"
+              }
+            >
+              {conversationUsageRows.length > 0 ? (
+                <div className="min-w-0 space-y-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">Conversation</p>
+                  <dl className="space-y-2 text-xs">
+                    {conversationUsageRows.map((row) => (
+                      <SettingRow
+                        key={`conversation-${row.label}`}
+                        label={row.label}
+                        value={row.value}
+                      />
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+              {episodeUsageRows.length > 0 ? (
+                <div className="min-w-0 space-y-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">This call</p>
+                  <dl className="space-y-2 text-xs">
+                    {episodeUsageRows.map((row) => (
+                      <SettingRow
+                        key={`episode-${row.label}`}
+                        label={row.label}
+                        value={row.value}
+                      />
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+            </div>
+            {conversation?.usage && typeof conversation.usage.totalTokens === "number" ? (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {formatTokenCount(conversation.usage.totalTokens)} tokens across finished turns
+                (provider-reported; cache/reasoning omitted when the provider does not send them).
+              </p>
+            ) : null}
           </SettingsSection>
 
           <Separator className="bg-border/40" />

@@ -21,6 +21,7 @@ import type {
   JsonValue,
   ResolvedAgentConversation,
 } from "@/lib/view-model/types";
+import type { TokenUsage } from "@agent-dev-lab/core";
 import { messageIdsForAgentCall } from "@/lib/agent/agent-call-focus";
 import { agentRunSearch } from "@/lib/agent/agent-location";
 import { ChatMessageList } from "@/components/app/chat-message-list";
@@ -74,6 +75,7 @@ export function AgentRunWorkspace({
     Array<{ type: string; total?: number; count?: number }>
   >([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [episodeUsage, setEpisodeUsage] = useState<TokenUsage | null>(null);
   const [inspectedToolContext, setInspectedToolContext] = useState<unknown | null | undefined>(
     undefined,
   );
@@ -103,6 +105,7 @@ export function AgentRunWorkspace({
     setForking(false);
     setStreamEnabled(false);
     setWarnings([]);
+    setEpisodeUsage(null);
   }, [conversation.runId]);
 
   useEffect(() => {
@@ -125,12 +128,14 @@ export function AgentRunWorkspace({
         warnings: string[];
         error: JsonValue | null;
         toolProviderContext: unknown | null;
+        usage: TokenUsage | null;
       },
       inspect: boolean,
     ) => {
       setCallEvents(payload.commits);
       setWarnings(payload.warnings);
       setError(payload.error);
+      setEpisodeUsage(payload.usage);
       setInspectedToolContext(inspect ? payload.toolProviderContext : undefined);
     },
     [],
@@ -141,6 +146,7 @@ export function AgentRunWorkspace({
       setCallEvents([]);
       setWarnings([]);
       setError(null);
+      setEpisodeUsage(null);
       setInspectedToolContext(undefined);
       return;
     }
@@ -501,6 +507,7 @@ export function AgentRunWorkspace({
                 settings={settings}
                 conversation={conversation}
                 episodeToolContext={episodeToolContext}
+                episodeUsage={episodeUsage}
                 contextForm={
                   workflowLink
                     ? undefined

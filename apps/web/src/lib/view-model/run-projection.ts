@@ -139,6 +139,9 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
           ep.status = "completed";
           ep.finishedAt = event.at;
           ep.durationMs = durationFromSpan(ep.startedAt, event.at, event.durationMs);
+          if (event.usage) {
+            ep.usage = event.usage;
+          }
         }
         break;
       }

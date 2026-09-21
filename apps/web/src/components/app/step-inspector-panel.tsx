@@ -28,6 +28,7 @@ import {
   conversationMessagesWithoutSystem,
 } from "@/lib/chat-messages";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
+import { formatTokenUsageDetail } from "@/lib/format-token-usage";
 import { partitionScopeTranscript } from "@/lib/scope-transcript";
 import { InspectorNoun } from "@/components/app/inspector-noun";
 import { useLiveRunMessages } from "@/hooks/use-live-run-messages";
@@ -169,6 +170,7 @@ function ConversationInspector({
       {episode.agentId}
     </InspectorNoun>
   );
+  const usageDetail = formatTokenUsageDetail(episode.usage);
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
@@ -205,6 +207,11 @@ function ConversationInspector({
             {stepLabel}
           </InspectorNoun>
         </p>
+        {usageDetail ? (
+          <p className="truncate text-[11px] text-muted-foreground" title={usageDetail}>
+            Tokens · {usageDetail}
+          </p>
+        ) : null}
       </div>
       {episode.warnings.length > 0 ? (
         <div

@@ -45,7 +45,9 @@ export function toTokenUsage(raw: unknown): TokenUsage | undefined {
  * Sum token usage across episodes. Each field is present only when at least one
  * input defined it; missing fields stay absent (not coerced to 0).
  */
-export function sumTokenUsage(usages: ReadonlyArray<TokenUsage | undefined | null>): TokenUsage | undefined {
+export function sumTokenUsage(
+  usages: ReadonlyArray<TokenUsage | undefined | null>,
+): TokenUsage | undefined {
   const sums: Record<(typeof USAGE_KEYS)[number], number | undefined> = {
     inputTokens: undefined,
     outputTokens: undefined,

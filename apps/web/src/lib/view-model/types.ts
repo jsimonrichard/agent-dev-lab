@@ -1,5 +1,7 @@
 /** Production inspector UI view-model shapes (not test fixtures). */
 
+import type { TokenUsage } from "@agent-dev-lab/core";
+
 /** JSON-serializable value — used for fields crossing the server-function boundary. */
 export type JsonValue =
   | string
@@ -42,6 +44,11 @@ export interface InspectorRunSummary {
   inputPreview: string;
   title?: string;
   tags: string[];
+  /**
+   * Sum of finished agent-episode token usage for this workflow run.
+   * Absent when no episode reported usage.
+   */
+  usage?: TokenUsage;
 }
 
 export type RunEventType =
@@ -104,6 +111,8 @@ export interface AgentFinishedEvent extends RunEventBase {
   stepId: string;
   episodeId: string;
   durationMs: number;
+  /** Provider-reported token totals when present on the core event. */
+  usage?: TokenUsage;
 }
 
 export interface TextDeltaEvent extends RunEventBase {
@@ -213,6 +222,8 @@ export interface AgentEpisode {
   warnings: string[];
   /** Raw `toolProviderContext` recorded on `agent_started`, when present. */
   toolProviderContext?: JsonValue;
+  /** Provider-reported token totals from `agent_finished`, when present. */
+  usage?: TokenUsage;
 }
 
 export interface ForkedAgentSession {
@@ -265,6 +276,11 @@ export interface ResolvedAgentConversation {
    * the loader supplies one). Absent when never recorded.
    */
   latestEpisodeToolProviderContext?: JsonValue;
+  /**
+   * Sum of finished episode token usage for this conversation's `memoryScope`.
+   * Absent when no finished episode reported usage.
+   */
+  usage?: TokenUsage;
   forkSession: ForkedAgentSession | null;
   workflowLink: ConversationWorkflowLink | null;
 }

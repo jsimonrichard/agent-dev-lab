@@ -12,6 +12,7 @@ import { deleteAgentConversation, renameAgentConversation } from "#/lib/inspecto
 import { isWorkflowLinkedConversation } from "@/lib/agent/agent-sessions";
 import { latestTimestampById, sortByLastUsedThenAlpha } from "@/lib/nav-sort";
 import { formatRunTimestamp } from "@/lib/workflow/workflow-location";
+import { formatTokenUsageLabel } from "@/lib/format-token-usage";
 import {
   SidebarContent,
   SidebarGroup,
@@ -100,6 +101,7 @@ export function AgentConversationsSidebar() {
                   </p>
                 ) : (
                   selectedSessions.map((session) => {
+                    const usageLabel = formatTokenUsageLabel(session.usage);
                     return (
                       <SidebarMenuItem key={`${session.agentId}:${session.memoryScope}`}>
                         <ItemActionsMenu
@@ -156,6 +158,7 @@ export function AgentConversationsSidebar() {
                                 <span className="truncate text-[10px] text-muted-foreground">
                                   {formatRunTimestamp(session.updatedAt)}
                                   {session.fork ? " · Forked" : ""}
+                                  {usageLabel ? ` · ${usageLabel}` : ""}
                                 </span>
                               </div>
                             </Link>

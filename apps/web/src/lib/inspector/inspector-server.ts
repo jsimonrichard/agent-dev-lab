@@ -116,6 +116,16 @@ export const fetchAgentCallEvents = createServerFn({ method: "GET" })
         started && started.type === "agent_started" && started.toolProviderContext !== undefined
           ? started.toolProviderContext
           : null,
+      /** Provider-reported token totals from `agent_finished`, when present. */
+      usage: (() => {
+        for (let i = events.length - 1; i >= 0; i -= 1) {
+          const event = events[i];
+          if (event?.type === "agent_finished" && event.usage) {
+            return event.usage;
+          }
+        }
+        return null;
+      })(),
     };
   });
 

@@ -277,9 +277,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         ...(started.toolProviderContext !== undefined
           ? { toolProviderContext: started.toolProviderContext }
           : {}),
-        ...(finished?.type === "agent_finished" && finished.usage
-          ? { usage: finished.usage }
-          : {}),
+        ...(finished?.type === "agent_finished" && finished.usage ? { usage: finished.usage } : {}),
       });
     }
     episodes.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

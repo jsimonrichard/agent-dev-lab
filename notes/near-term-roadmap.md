@@ -2,7 +2,7 @@
 
 Open work after the published core/web **0.0.3** / cli **0.0.5** surface. Design notes for deferred areas live in the linked files.
 
-Last reconciled: **2026-09-15**.
+Last reconciled: **2026-09-21**.
 
 ---
 
@@ -55,8 +55,8 @@ Run tagging and `version:` / `commit:` provenance are shipped (inspector footer;
 
 | Item                                             | Where                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage / cost per agent call                      | here                                             | Token counts + estimate in the inspector; pairs with model switching and datasets                                                                                                                                                                                                                                                                                                                                            |
-| Split `AgentImpl#executeTurn`                    | `packages/core/src/agent/agent-impl.ts`          | ~300-line nested closures; do this before more model/telemetry work lands in the same function                                                                                                                                                                                                                                                                                                                               |
+| Usage / cost per agent call                      | here                                             | **Tokens shipped** (`agent_finished.usage` → episode columns; conversation + workflow-run rollups in sidebars). **$ estimates still open** (no pricing table / Gateway billing).                                                                                                                                                                                                                                             |
+| Split `AgentImpl#executeTurn`                    | `packages/core/src/agent/agent-impl.ts`          | Done (stream consume extracted before usage capture).                                                                                                                                                                                                                                                                                                                                                                        |
 | Live streaming / preliminary tool-result UI      | [`inspection-ui.md`](./inspection-ui.md)         | Core already emits `preliminary` `agent_tool_result`; chat shows a spinner until the final                                                                                                                                                                                                                                                                                                                                   |
 | Loading animation while an agent turn is running | `apps/web` chat (`agent-run-workspace.tsx`)      | Composer disables while `sending` or `isRunning`. "Streaming…" / tool-row `Loader2` only appear after a text delta or a committed tool-call part. Between send and the first of those (first token, or a tool round with no assistant text yet) the transcript looks idle. Wanted: a visible running indicator for the whole turn, not only once stream/tool chrome exists. Distinct from the preliminary-result tail above. |
 | Human approval (`ctx.requestApproval`)           | [`future-extensions.md`](./future-extensions.md) | Workflow-level pause; needs resume                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -80,15 +80,15 @@ One long run should combine: nested + isolated workflows, parallel keyed steps, 
 
 ## Priority
 
-| Priority | Item                                                                 |
-| -------- | -------------------------------------------------------------------- |
-| **P1**   | Per-call model override + episode `{ modelId, provider }` (§1)       |
-| **P1**   | MCP client `ToolProvider` (§2)                                       |
-| **P1**   | Approval dispatcher for file/bash (§2)                               |
-| **P2**   | Model catalog + inspector picker (§1)                                |
-| **P2**   | Todo tool — after core-vs-tools placement (§2)                       |
-| **P2**   | Datasets / batch compare — after organizational-vs-evals (§3)        |
-| **P2**   | Usage/cost tracking; `executeTurn` split (§4)                        |
-| **P2**   | Live preliminary tool-result UI                                      |
-| **P2**   | Loading animation while an agent turn is running (§4)                |
-| **P3**   | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above |
+| Priority | Item                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| **P1**   | Per-call model override + episode `{ modelId, provider }` (§1)                                   |
+| **P1**   | MCP client `ToolProvider` (§2)                                                                   |
+| **P1**   | Approval dispatcher for file/bash (§2)                                                           |
+| **P2**   | Model catalog + inspector picker (§1)                                                            |
+| **P2**   | Todo tool — after core-vs-tools placement (§2)                                                   |
+| **P2**   | `$` estimates for usage (pricing table / overrides); datasets after organizational-vs-evals (§3) |
+| **P2**   | Todo tool — after core-vs-tools placement (§2)                                                   |
+| **P2**   | Live preliminary tool-result UI                                                                  |
+| **P2**   | Loading animation while an agent turn is running (§4)                                            |
+| **P3**   | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                             |

@@ -46,6 +46,23 @@ export function RunWorkspace({ summary, initialEvents, messagesPromise }: RunWor
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
+  // Refresh sidebar run totals once the workflow settles. Do not invalidate on
+  // every agent_finished — that remounts this route's loaders and flashes the
+  // step inspector between the transcript and "No conversation recorded."
+  useEffect(() => {
+    const last = events[events.length - 1];
+    if (!last) {
+      return;
+    }
+    if (
+      last.type === "run_finished" ||
+      last.type === "run_failed" ||
+      last.type === "run_cancelled"
+    ) {
+      void router.invalidate();
+    }
+  }, [events, router]);
+
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
     () =>
       resolveRunSelection(view.steps, {

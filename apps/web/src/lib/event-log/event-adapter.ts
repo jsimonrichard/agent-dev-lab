@@ -119,6 +119,7 @@ export function adaptCoreEventsForWorkflowRun(
           stepId: event.stepId,
           episodeId: event.agentCallId,
           durationMs: 0,
+          ...(event.usage ? { usage: event.usage } : {}),
         });
         break;
       case "agent_text_delta":

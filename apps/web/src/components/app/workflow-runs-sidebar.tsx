@@ -11,6 +11,7 @@ import {
   workflowRunLabel,
   workflowRunSubtitle,
 } from "@/lib/workflow/workflow-location";
+import { formatTokenUsageLabel } from "@/lib/format-token-usage";
 import {
   deleteInspectionWorkflowRun,
   renameInspectionWorkflowRun,
@@ -108,62 +109,66 @@ export function WorkflowRunsSidebar() {
                     No runs yet. Start this workflow with the + button.
                   </p>
                 ) : (
-                  selectedRuns.map((run) => (
-                    <SidebarMenuItem key={run.runId}>
-                      <ItemActionsMenu
-                        name={workflowRunLabel(run)}
-                        onRename={async (title) => {
-                          const result = await renameInspectionWorkflowRun({
-                            data: { runId: run.runId, title },
-                          });
-                          if (result.isErr) {
-                            throw new Error(result.error);
-                          }
-                          await router.invalidate();
-                        }}
-                        onDelete={async () => {
-                          const result = await deleteInspectionWorkflowRun({ data: run.runId });
-                          if (result.isErr) {
-                            throw new Error(result.error);
-                          }
-                          if (activeRunId === run.runId) {
-                            await navigate({
-                              to: "/workflows/$workflowId",
-                              params: { workflowId: run.workflowId },
+                  selectedRuns.map((run) => {
+                    const usageLabel = formatTokenUsageLabel(run.usage);
+                    return (
+                      <SidebarMenuItem key={run.runId}>
+                        <ItemActionsMenu
+                          name={workflowRunLabel(run)}
+                          onRename={async (title) => {
+                            const result = await renameInspectionWorkflowRun({
+                              data: { runId: run.runId, title },
                             });
-                          }
-                          await router.invalidate();
-                        }}
-                      >
-                        <SidebarMenuButton
-                          asChild
-                          isActive={activeRunId === run.runId}
-                          tooltip={run.runId}
-                          className="h-auto min-h-10 py-2"
+                            if (result.isErr) {
+                              throw new Error(result.error);
+                            }
+                            await router.invalidate();
+                          }}
+                          onDelete={async () => {
+                            const result = await deleteInspectionWorkflowRun({ data: run.runId });
+                            if (result.isErr) {
+                              throw new Error(result.error);
+                            }
+                            if (activeRunId === run.runId) {
+                              await navigate({
+                                to: "/workflows/$workflowId",
+                                params: { workflowId: run.workflowId },
+                              });
+                            }
+                            await router.invalidate();
+                          }}
                         >
-                          <Link
-                            to="/workflows/$workflowId/run/$runId"
-                            params={{ workflowId: run.workflowId, runId: run.runId }}
+                          <SidebarMenuButton
+                            asChild
+                            isActive={activeRunId === run.runId}
+                            tooltip={run.runId}
+                            className="h-auto min-h-10 py-2"
                           >
-                            <GitBranch className="size-4 shrink-0" />
-                            <div className="grid min-w-0 flex-1 gap-0.5 text-left">
-                              <span
-                                className={
-                                  run.title ? "truncate text-xs" : "truncate font-mono text-xs"
-                                }
-                              >
-                                {workflowRunLabel(run)}
-                              </span>
-                              <span className="truncate text-[11px] text-muted-foreground">
-                                {run.status} · {workflowRunSubtitle(run)}
-                              </span>
-                            </div>
-                            <RunStatusDot status={run.status} />
-                          </Link>
-                        </SidebarMenuButton>
-                      </ItemActionsMenu>
-                    </SidebarMenuItem>
-                  ))
+                            <Link
+                              to="/workflows/$workflowId/run/$runId"
+                              params={{ workflowId: run.workflowId, runId: run.runId }}
+                            >
+                              <GitBranch className="size-4 shrink-0" />
+                              <div className="grid min-w-0 flex-1 gap-0.5 text-left">
+                                <span
+                                  className={
+                                    run.title ? "truncate text-xs" : "truncate font-mono text-xs"
+                                  }
+                                >
+                                  {workflowRunLabel(run)}
+                                </span>
+                                <span className="truncate text-[11px] text-muted-foreground">
+                                  {run.status} · {workflowRunSubtitle(run)}
+                                  {usageLabel ? ` · ${usageLabel}` : ""}
+                                </span>
+                              </div>
+                              <RunStatusDot status={run.status} />
+                            </Link>
+                          </SidebarMenuButton>
+                        </ItemActionsMenu>
+                      </SidebarMenuItem>
+                    );
+                  })
                 )}
               </SidebarMenu>
             </SidebarGroupContent>

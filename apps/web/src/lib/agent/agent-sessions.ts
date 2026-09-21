@@ -1,4 +1,4 @@
-import type { ConversationMetadataRecord, RunEvent } from "@agent-dev-lab/core";
+import type { ConversationMetadataRecord, RunEvent, TokenUsage } from "@agent-dev-lab/core";
 
 import { displayConversationTitle } from "../memory-scope-label";
 
@@ -19,6 +19,11 @@ export interface AgentSession {
     sourceAgentCallId: string;
     sourceMemoryScope: string;
   };
+  /**
+   * Sum of finished episode token usage for this `memoryScope`.
+   * Absent when no finished episode reported usage.
+   */
+  usage?: TokenUsage;
 }
 
 /** Workflow registry id when this conversation is tied to a workflow (in-run or fork). */

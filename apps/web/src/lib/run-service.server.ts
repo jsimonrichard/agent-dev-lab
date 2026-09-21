@@ -26,6 +26,7 @@ import { coreMessageToInspector, inspectorMessageToCore } from "#/lib/chat-messa
 import { generatedForkTitle } from "#/lib/memory-scope-label";
 import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
 import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
+import { sumEpisodeUsageByKey } from "#/lib/token-usage-rollups";
 import {
   createMemoryScope,
   getAgentSessionByMemoryScope,
@@ -222,6 +223,8 @@ export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]>
   const listedWorkflowIds = new Set(project.listWorkflowIds());
   const store = await getWorkflowStore();
   const runs = await store.listRuns();
+  const episodes = await store.listAgentEpisodes();
+  const usageByRunId = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId);
   const summaries: InspectorRunSummary[] = [];
 
   for (const run of runs) {
@@ -229,6 +232,7 @@ export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]>
       continue;
     }
     const input = await store.getRunInput(run.workflowRunId);
+    const usage = usageByRunId.get(run.workflowRunId);
     summaries.push({
       runId: run.workflowRunId,
       workflowId: run.workflowId,
@@ -238,6 +242,7 @@ export async function listWorkflowRunSummaries(): Promise<InspectorRunSummary[]>
       inputPreview: formatInputPreview(input),
       title: run.title,
       tags: run.tags,
+      ...(usage ? { usage } : {}),
     });
   }
 
@@ -251,6 +256,8 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
     return null;
   }
   const input = await store.getRunInput(runId);
+  const episodes = await store.listAgentEpisodes();
+  const usage = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId).get(runId);
   return {
     runId: run.workflowRunId,
     workflowId: run.workflowId,
@@ -260,6 +267,7 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
     inputPreview: formatInputPreview(input),
     title: run.title,
     tags: run.tags,
+    ...(usage ? { usage } : {}),
   };
 }
 
@@ -490,6 +498,7 @@ export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
   const listedAgentIds = new Set(project.listAgentIds());
   const store = await getWorkflowStore();
   const episodes = await store.listAgentEpisodes();
+  const usageByScope = sumEpisodeUsageByKey(episodes, (episode) => episode.memoryScope);
 
   const participantsByScope = new Map<string, Set<string>>();
   for (const episode of episodes) {
@@ -514,11 +523,13 @@ export async function listAgentSessionsForUi(): Promise<AgentSession[]> {
           ? [session.agentId]
           : [];
     const title = sessionDisplayTitle(session);
+    const usage = usageByScope.get(session.memoryScope);
     for (const agentId of agentIds) {
       expanded.push({
         ...session,
         agentId,
         title,
+        ...(usage ? { usage } : {}),
       });
     }
   }
@@ -570,6 +581,13 @@ export async function resolveAgentConversation(
         ? forkSourceContext
         : agentDefault;
 
+  const scopeEpisodes = (await store.listAgentEpisodes()).filter(
+    (episode) => episode.memoryScope === memoryScope,
+  );
+  const usage = sumEpisodeUsageByKey(scopeEpisodes, (episode) => episode.memoryScope).get(
+    memoryScope,
+  );
+
   return {
     runId: memoryScope,
     agentId: viewAgentId,
@@ -583,6 +601,7 @@ export async function resolveAgentConversation(
     ...(latestEpisodeContext !== undefined
       ? { latestEpisodeToolProviderContext: latestEpisodeContext as JsonValue }
       : {}),
+    ...(usage ? { usage } : {}),
     workflowLink: await resolveWorkflowLink(session),
     forkSession: session.fork
       ? {

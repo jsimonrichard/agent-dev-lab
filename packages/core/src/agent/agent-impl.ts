@@ -1,4 +1,12 @@
-import { Output, streamText, type LanguageModel, type ModelMessage, type StreamTextResult, type ToolSet } from "ai";
+import {
+  Output,
+  streamText,
+  type LanguageModel,
+  type ModelMessage,
+  type StreamTextResult,
+  type ToolSet,
+} from "ai";
+import type { z } from "zod";
 
 import { createAsyncChannel, type AsyncChannel } from "../async-channel";
 import { AdlError } from "../errors";
@@ -332,7 +340,7 @@ export class AgentImpl<
             messages,
             abortSignal,
             stopWhen,
-            outputSchema,
+            outputSchema: outputSchema as z.ZodType<TOutput> | undefined,
             agentCallId,
             workflowRunId,
             stepId,
@@ -418,12 +426,12 @@ export class AgentImpl<
   private async consumeModelStream(options: {
     model: LanguageModel;
     system: string | undefined;
-    tools: Tools | undefined;
+    tools: ToolSet | undefined;
     toolProviderContext: unknown;
     messages: ModelMessage[];
     abortSignal: AbortSignal;
     stopWhen: AgentStopWhen;
-    outputSchema: AgentDefinition<ToolProviderContext, Tools, TOutput>["outputSchema"];
+    outputSchema: z.ZodType<TOutput> | undefined;
     agentCallId: string;
     workflowRunId: string | undefined;
     stepId: string | null;
