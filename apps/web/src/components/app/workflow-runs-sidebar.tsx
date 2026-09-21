@@ -126,7 +126,7 @@ export function WorkflowRunsSidebar() {
                     checked={showNested}
                     onChange={(event) => setShowNested(event.target.checked)}
                   />
-                  Nested
+                  Non-Root
                 </label>
                 <StartWorkflowButton
                   variant="ghost"

@@ -244,7 +244,7 @@ export function RunWorkspace({
 
       {childRuns.length > 0 ? (
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/20 px-4 py-1.5 text-xs">
-          <span className="text-muted-foreground">Nested runs</span>
+          <span className="text-muted-foreground">Non-root runs</span>
           {childRuns.map((child) => (
             <Link
               key={child.runId}

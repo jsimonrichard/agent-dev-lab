@@ -59,7 +59,7 @@ By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via
 | Persistence     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
 | Inspector       | Own tree; listed as a child of the parent run                | Own tree; not in another run's child list                    |
 
-Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array. Nested child runs can be hidden from the main run list (roots-only) via a UI toggle.
+Isolated runs are always persisted, but whether they appear in the inspection UI is determined by the project config. To leave a workflow out of the UI, do not include it in the project config's workflow array. Non-root (nested) child runs can be hidden from the main run list (roots-only) via the Non-Root toggle.
 
 ```ts
 // Inside a parent workflow (or an agent episode that happens to be in one):
