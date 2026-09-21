@@ -133,7 +133,7 @@ describe("hydrateEventLogFromWorkflowStore", () => {
     expect(log.list().filter((entry) => entry.event.type === "agent_started")).toHaveLength(1);
   });
 
-  it("merges standalone episodes recorded after the first hydrate", async () => {
+  it("merges standalone episodes into a non-process log on a later hydrate", async () => {
     const store = inMemoryWorkflowStore();
     await store.recordEvent(started(1, "run-a"));
     const log = inMemoryEventLog();
@@ -149,5 +149,20 @@ describe("hydrateEventLogFromWorkflowStore", () => {
       "agent_started",
       "agent_finished",
     ]);
+  });
+
+  it("does not re-scan the store for the process log after the first hydrate", async () => {
+    const { resetAdlProjectProcessHost } = await import("@agent-dev-lab/core/project");
+    await resetAdlProjectProcessHost();
+
+    const store = inMemoryWorkflowStore();
+    await store.recordEvent(started(1, "run-a"));
+    const processLog = getEventLog();
+    await hydrateEventLogFromWorkflowStore(store, processLog);
+    expect(processLog.list().map((e) => e.event.workflowRunId)).toEqual(["run-a"]);
+
+    await store.recordEvent(started(1, "run-b"));
+    await hydrateEventLogFromWorkflowStore(store, processLog);
+    expect(processLog.list().map((e) => e.event.workflowRunId)).toEqual(["run-a"]);
   });
 });

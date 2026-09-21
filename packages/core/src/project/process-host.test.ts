@@ -11,6 +11,7 @@ import { AgentImpl } from "../agent/agent-impl";
 import {
   acquireAdlProject,
   ensureAdlProjectFileWatch,
+  getAdlProjectLoadCount,
   requestAdlProjectReload,
   resetAdlProjectProcessHost,
   subscribeAdlProjectHostReload,
@@ -107,6 +108,7 @@ describe("adl project process host", () => {
       const fixture = await createHostProject();
       try {
         const first = await acquireAdlProject(fixture.root);
+        expect(getAdlProjectLoadCount()).toBe(1);
         const reloaded = Promise.withResolvers<number>();
         const unsubscribe = subscribeAdlProjectHostReload((event) => {
           if (event.type === "reload") {
@@ -122,6 +124,7 @@ describe("adl project process host", () => {
 
           const second = await acquireAdlProject(fixture.root);
           expect(second).toBe(first);
+          expect(getAdlProjectLoadCount()).toBe(1);
           expect(second.generation).toBe(1);
           expect((second.getAgent("test-agent") as AgentImpl).definition.systemPrompt).toBe(
             "VERSION_B",
@@ -135,6 +138,20 @@ describe("adl project process host", () => {
     },
     { timeout: 15_000 },
   );
+
+  it("loads the project only once across sequential acquires", async () => {
+    const fixture = await createHostProject();
+    try {
+      const first = await acquireAdlProject(fixture.root);
+      const second = await acquireAdlProject(fixture.root);
+      const third = await acquireAdlProject(fixture.root);
+      expect(second).toBe(first);
+      expect(third).toBe(first);
+      expect(getAdlProjectLoadCount()).toBe(1);
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true });
+    }
+  });
 
   it("requestAdlProjectReload bumps generation and notifies subscribers", async () => {
     const fixture = await createHostProject();

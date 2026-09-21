@@ -22,23 +22,26 @@ export function getEventLog(): InMemoryEventLog {
 
 /**
  * Fill an empty in-memory log from persisted runs so a process restart still
- * shows history. Runs once per process-host generation (Clear must stick).
+ * shows history. For the process-wide log, runs **once** per process-host
+ * generation (Clear must stick; later page loads must not re-scan the store).
+ * Live observers cover events after the first fill.
  */
 export async function hydrateEventLogFromWorkflowStore(
   store: WorkflowStore,
   eventLog: InMemoryEventLog = getEventLog(),
 ): Promise<void> {
   const isProcessLog = eventLog === getEventLog();
-  if (isProcessLog && !markInspectorEventLogHydrated()) {
-    // Already filled this process. An empty log means the user cleared — leave it.
-    // A non-empty log may be missing episodes that persisted after the first fill
-    // (standalone agent.run while observers were not yet attached).
-    if (eventLog.list().length === 0) {
+  if (isProcessLog) {
+    if (!markInspectorEventLogHydrated()) {
       return;
     }
-    await mergeStoredRunEvents(store, eventLog);
+    for (const event of await collectStoredRunEvents(store)) {
+      eventLog.onEvent(event);
+    }
     return;
   }
+
+  // Non-process logs (unit tests): fill empty, otherwise merge new store rows.
   if (eventLog.list().length > 0) {
     await mergeStoredRunEvents(store, eventLog);
     return;

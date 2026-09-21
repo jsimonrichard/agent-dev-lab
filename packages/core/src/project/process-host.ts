@@ -20,6 +20,8 @@ import { watchAdlProject, type AdlProjectReloadInfo, type AdlProjectWatchHandler
  */
 type AdlProjectProcessHost = {
   project?: LoadedAdlProject;
+  /** How many times {@link loadAdlProject} ran for this host (resets on {@link resetAdlProjectProcessHost}). */
+  projectLoadCount: number;
   watchDispose?: () => void;
   watchedRoot?: string;
   watchReady?: Promise<void>;
@@ -37,6 +39,7 @@ function getHost(): AdlProjectProcessHost {
   const g = process as typeof process & { [HOST_KEY]?: AdlProjectProcessHost };
   if (!g[HOST_KEY]) {
     g[HOST_KEY] = {
+      projectLoadCount: 0,
       listeners: {},
       reloadSubscribers: new Set(),
       inspectorAgentObserverAttached: false,
@@ -70,8 +73,14 @@ export async function acquireAdlProject(root: string): Promise<LoadedAdlProject>
   if (previous) {
     await previous.dispose();
   }
+  host.projectLoadCount = (host.projectLoadCount ?? 0) + 1;
   host.project = await loadAdlProject({ root: resolved });
   return host.project;
+}
+
+/** How many times this process has called {@link loadAdlProject} via {@link acquireAdlProject}. */
+export function getAdlProjectLoadCount(): number {
+  return getHost().projectLoadCount ?? 0;
 }
 
 /** Replace watch-side callbacks. Subscribers use {@link subscribeAdlProjectHostReload}. */
@@ -239,6 +248,7 @@ export async function resetAdlProjectProcessHost(): Promise<void> {
   host.watchReady = undefined;
   const previous = host.project;
   host.project = undefined;
+  host.projectLoadCount = 0;
   host.listeners = {};
   host.reloadSubscribers.clear();
   host.inspectorAgentObserverAttached = false;

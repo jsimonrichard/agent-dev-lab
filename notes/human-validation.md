@@ -30,6 +30,7 @@ Confirm `#adl` imports, `.env.example`, SQLite under `.data/`. In the UI: start 
 - Default dashboard prints `[adl] watching` and reloads registry edits (no browser required).
 - `--serve` sets `ADL_PROJECT_WATCH=0` — no project reload. In this monorepo the UI is still Vite unless `--prebuilt`.
 - Packed / published web is Nitro. Confirm project reload **without** `--serve`. `.env*` always needs a restart.
+- **Warm navigations must stay cheap:** after the first `/workflows` (or `/api/project`), repeat loads should not re-import the project module graph or re-scan the full event store into the in-memory log. If page loads climb toward multi-second with growing `node_modules`/sqlite history, the process-host memo or one-shot event-log hydrate regressed.
 
 ## Docs
 
