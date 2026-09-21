@@ -7,6 +7,12 @@ import type {
   WorkflowRunSummary,
 } from "./events";
 import type { TokenUsage } from "./token-usage";
+import type {
+  AttemptRunMaterialization,
+  AttemptStepMaterialization,
+  RetryAttempt,
+  SeedRetryAttemptArgs,
+} from "../workflow/retry-attempt";
 
 /** One `agent.run()` episode, used to rebuild inspector chats after restart. */
 export type AgentEpisodeSummary = {
@@ -107,4 +113,16 @@ export interface WorkflowStore {
 
   /** Standalone and in-workflow agent episodes, newest first. */
   listAgentEpisodes(filter?: { agentId?: string; limit?: number }): Promise<AgentEpisodeSummary[]>;
+
+  /**
+   * Seed a new attempt forest from a prior `(fromWorkflowRunId, fromStepId)`.
+   * Throws if `fromStepId` is unknown. Does not mutate the prior attempt.
+   */
+  seedRetryAttempt(args: SeedRetryAttemptArgs): Promise<RetryAttempt>;
+
+  /** Write a seeded run projection (no event-log duplication). */
+  materializeAttemptRun(run: AttemptRunMaterialization): Promise<void>;
+
+  /** Write a seeded step projection + path-stable output slot. */
+  materializeAttemptStep(step: AttemptStepMaterialization): Promise<void>;
 }

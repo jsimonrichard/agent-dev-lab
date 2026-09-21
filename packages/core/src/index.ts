@@ -70,8 +70,13 @@ export type {
 
 export { createWorkflow, createWorkflowFromAgent } from "./workflow";
 export type {
+  AttemptRunMaterialization,
+  AttemptStepMaterialization,
   CreateWorkflowFromAgentOptions,
   CustomWorkflowEvent,
+  PriorChildLink,
+  RetryAttempt,
+  SeedRetryAttemptArgs,
   StepFn,
   StepIdentity,
   StepOptions,
@@ -81,6 +86,11 @@ export type {
   WorkflowRunHandle,
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
+} from "./workflow";
+export {
+  computeReExecStepIds,
+  resolveAttemptChildRunId,
+  seedRetryAttemptOnStore,
 } from "./workflow";
 
 export {

@@ -29,8 +29,12 @@ export const workflowRuns = sqliteTable(
     title: text("title"),
     /** Immediate parent run when this invocation nested; null for roots / isolated. */
     parentWorkflowRunId: text("parent_workflow_run_id"),
-    /** Parent step that invoked this nest; null when nested at workflow root. */
+    /** Parent step that spawned this nested run; null when nested at workflow root. */
     parentStepId: text("parent_step_id"),
+    /** Prior root this attempt retries. */
+    retriesFromRunId: text("retries_from_run_id"),
+    /** Prior run this row replays. */
+    replayOfRunId: text("replay_of_run_id"),
   },
   (table) => [
     index("adl_workflow_runs_parent").on(table.parentWorkflowRunId),
@@ -92,6 +96,10 @@ export const stepRecords = sqliteTable(
     parentStepId: text("parent_step_id"),
     outputJson: text("output_json"),
     status: text("status", { enum: STEP_RECORD_STATUSES }).notNull(),
+    /** 1 when pure (default); 0 when `{ pure: false }`. */
+    pure: integer("pure").notNull().default(1),
+    /** Prior step this record replays. */
+    replayOfStepId: text("replay_of_step_id"),
   },
   (table) => [primaryKey({ columns: [table.workflowRunId, table.stepId] })],
 );

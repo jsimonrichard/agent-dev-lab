@@ -20,7 +20,9 @@ const TABLES = [
     output_json TEXT,
     title TEXT,
     parent_workflow_run_id TEXT,
-    parent_step_id TEXT
+    parent_step_id TEXT,
+    retries_from_run_id TEXT,
+    replay_of_run_id TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS adl_run_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +50,8 @@ const TABLES = [
     parent_step_id TEXT,
     output_json TEXT,
     status TEXT NOT NULL,
+    pure INTEGER NOT NULL DEFAULT 1,
+    replay_of_step_id TEXT,
     PRIMARY KEY (workflow_run_id, step_id)
   )`,
   `CREATE TABLE IF NOT EXISTS adl_workflow_run_tags (
@@ -123,6 +127,10 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
   { table: "adl_workflow_runs", column: "title", sqlType: "TEXT" },
   { table: "adl_workflow_runs", column: "parent_workflow_run_id", sqlType: "TEXT" },
   { table: "adl_workflow_runs", column: "parent_step_id", sqlType: "TEXT" },
+  { table: "adl_workflow_runs", column: "retries_from_run_id", sqlType: "TEXT" },
+  { table: "adl_workflow_runs", column: "replay_of_run_id", sqlType: "TEXT" },
+  { table: "adl_step_records", column: "pure", sqlType: "INTEGER NOT NULL DEFAULT 1" },
+  { table: "adl_step_records", column: "replay_of_step_id", sqlType: "TEXT" },
   { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
   { table: "adl_run_events", column: "memory_scope", sqlType: "TEXT" },
   { table: "adl_agent_episodes", column: "tool_provider_context_json", sqlType: "TEXT" },
@@ -131,6 +139,18 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
   { table: "adl_agent_episodes", column: "total_tokens", sqlType: "INTEGER" },
   { table: "adl_agent_episodes", column: "cached_input_tokens", sqlType: "INTEGER" },
   { table: "adl_agent_episodes", column: "reasoning_tokens", sqlType: "INTEGER" },
+];
+
+/** One-time keyed migrations recorded in `adl_schema_migrations`. */
+const KEYED_MIGRATIONS: { id: string; run: (db: AdlDb) => void }[] = [
+  {
+    // Path-stable step slots changed `slot_key` encoding; old UUID-parent keys
+    // must not dual-read. Clear outputs — events remain the source of truth.
+    id: "2026-09-path-stable-step-slots",
+    run: (db) => {
+      db.run(sql.raw(`DELETE FROM adl_step_outputs`));
+    },
+  },
 ];
 
 /**
@@ -334,9 +354,26 @@ export function ensureAdlSchema(sqlite: AdlSqliteDatabase): void {
     for (const statement of INDEXES) {
       tx.run(sql.raw(statement));
     }
+    runKeyedMigrations(tx);
     // Last: the projections it rebuilds need their tables and indexes to exist,
     // and it only does work for a table that is empty while the log holds
     // events for it — i.e. once, right after the migration that added it.
     backfillProjections(tx);
   });
+}
+
+function runKeyedMigrations(db: AdlDb): void {
+  const applied = new Set(
+    db.all<{ id: string }>(sql.raw(`SELECT id FROM adl_schema_migrations`)).map((row) => row.id),
+  );
+  const appliedAt = new Date().toISOString();
+  for (const migration of KEYED_MIGRATIONS) {
+    if (applied.has(migration.id)) {
+      continue;
+    }
+    migration.run(db);
+    db.run(
+      sql`INSERT INTO adl_schema_migrations (id, applied_at) VALUES (${migration.id}, ${appliedAt})`,
+    );
+  }
 }

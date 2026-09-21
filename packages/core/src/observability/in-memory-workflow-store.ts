@@ -12,13 +12,14 @@ import type {
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
+import type {
+  AttemptRunMaterialization,
+  AttemptStepMaterialization,
+} from "../workflow/retry-attempt";
+import { seedRetryAttemptOnStore } from "../workflow/retry-attempt";
+import { stepSlotKey } from "../db/projections/step-records";
 
 type StepKey = string;
-
-function stepSlotKey(slot: StepSlot): StepKey {
-  const keyPart = slot.key ?? "";
-  return `${slot.parentStepId ?? "root"}:${slot.name}:${keyPart}`;
-}
 
 export class InMemoryWorkflowStore implements WorkflowStore {
   private readonly eventsByWorkflowRun = new Map<string, RunEvent[]>();
@@ -49,6 +50,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           tags: event.tags ?? existing?.tags ?? [],
           parentWorkflowRunId: event.parentWorkflowRunId ?? null,
           parentStepId: event.parentStepId ?? null,
+          retriesFromRunId: event.retriesFromRunId ?? null,
+          replayOfRunId: event.replayOfRunId ?? null,
         });
         this.runInputs.set(wfId, event.input);
       }
@@ -89,11 +92,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         }
       }
       if (event.type === "step_finished") {
-        const slot: StepSlot = {
-          parentStepId: event.parentStepId,
-          name: event.name,
-          key: event.key,
-        };
+        const slot: StepSlot = { path: event.path };
         const map = this.stepOutputs.get(wfId) ?? new Map();
         map.set(stepSlotKey(slot), event.output);
         this.stepOutputs.set(wfId, map);
@@ -107,6 +106,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           parentStepId: event.parentStepId,
           output: event.output,
           status: "ok",
+          pure: event.pure === false ? false : true,
+          replayOfStepId: event.replayOfStepId,
         });
         this.stepRecords.set(wfId, records);
       }
@@ -119,6 +120,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           path: event.path,
           parentStepId: event.parentStepId,
           status: "error",
+          pure: event.pure === false ? false : true,
+          replayOfStepId: event.replayOfStepId,
         });
         this.stepRecords.set(wfId, records);
       }
@@ -293,8 +296,6 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       if (filter?.agentId && started.agentId !== filter.agentId) {
         continue;
       }
-      // Same terminal-event lookup the SQLite projection encodes into a row:
-      // "running" until an agent_finished/agent_failed shows up for this call.
       const finished = list.find(
         (event) => event.type === "agent_finished" || event.type === "agent_failed",
       );
@@ -318,6 +319,54 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       return episodes.slice(0, filter.limit);
     }
     return episodes;
+  }
+
+  seedRetryAttempt(args: Parameters<WorkflowStore["seedRetryAttempt"]>[0]) {
+    return seedRetryAttemptOnStore(this, args);
+  }
+
+  async materializeAttemptRun(run: AttemptRunMaterialization): Promise<void> {
+    this.runs.set(run.workflowRunId, {
+      workflowRunId: run.workflowRunId,
+      workflowId: run.workflowId,
+      status: run.status,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+      title: run.title,
+      tags: [...run.tags],
+      parentWorkflowRunId: run.parentWorkflowRunId ?? null,
+      parentStepId: run.parentStepId ?? null,
+      retriesFromRunId: run.retriesFromRunId ?? null,
+      replayOfRunId: run.replayOfRunId ?? null,
+    });
+    if (run.input !== undefined) {
+      this.runInputs.set(run.workflowRunId, run.input);
+    }
+    if (run.output !== undefined) {
+      this.runOutputs.set(run.workflowRunId, run.output);
+    }
+  }
+
+  async materializeAttemptStep(step: AttemptStepMaterialization): Promise<void> {
+    const records = this.stepRecords.get(step.workflowRunId) ?? new Map();
+    records.set(step.stepId, {
+      stepId: step.stepId,
+      name: step.name,
+      key: step.key,
+      path: step.path,
+      parentStepId: step.parentStepId,
+      output: step.output,
+      status: step.status,
+      pure: step.pure,
+      replayOfStepId: step.replayOfStepId,
+    });
+    this.stepRecords.set(step.workflowRunId, records);
+
+    if (step.status === "ok" && step.output !== undefined) {
+      const map = this.stepOutputs.get(step.workflowRunId) ?? new Map();
+      map.set(stepSlotKey({ path: step.path }), step.output);
+      this.stepOutputs.set(step.workflowRunId, map);
+    }
   }
 }
 

@@ -136,13 +136,17 @@ for (const topic of topics) {
 
 ## Resumability
 
-**Resume** here means **re-entering a workflow run**: skip completed steps via cached output, re-run the rest. That uses [`WorkflowStore`](/api/interfaces/workflowstore/). Inspection replay also reads this store; it does not re-execute the workflow.
+**Resume** means starting a **new attempt** after failure (or an explicit retry-from-step): still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback); work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
 
 [`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
 
+### Nesting and attempt forests
+
+Each `workflow.run()` gets its own `workflowRunId`. Nested (non-isolated) invocations record `parentWorkflowRunId` and `parentStepId` (the parent `ctx.stepId` at nest time, or `null` at workflow root). `{ isolated: true }` detaches — no parent link — and stays **out of** attempt cascade (e.g. `titleWorkflow`). Re-entering a path that calls an isolated helper again always starts a fresh run.
+
 ### Steps Are Atomic Retry Units
 
-A **`ctx.step` callback is one atomic unit** from the framework’s point of view. On retry, ADL can only:
+A **`ctx.step` callback is one atomic unit** from the framework’s point of view. On a new attempt, ADL can only:
 
 - **Skip** the step entirely — return a stored output without running the callback, or
 - **Re-run** the whole callback from the first line.
@@ -159,33 +163,51 @@ await ctx.step("search", async ({ ctx }) => {
 });
 ```
 
-Code **between** steps (top-level `run` body, loops, variables in closure) is **not** persisted. Only step **return values** are stored. Design workflows so retry-relevant state flows through step outputs or explicit inputs, not mutable closure variables alone.
+Code **between** steps (top-level `run` body, loops, variables in closure) is **not** persisted. Only step **return values** are stored. Design workflows so retry-relevant state flows through step outputs or explicit inputs, not mutable closure variables alone. Steps are **pure by default**: do not mutate captured closures; anything a later step needs must appear in an earlier step’s output (or run input).
 
-### Step Output Cache (Skip-on-Retry)
+### Path-stable step slots
 
-Return value from the callback is persisted as step **output** on `WorkflowStore` and mirrored in `step_finished` events.
+Step output cache keys are the logical **`path`** segments (`name` or `name:key`), not ephemeral parent step UUIDs. Re-entering an ancestor can still skip prefix siblings under that ancestor.
 
-When re-running with the **same `workflowRunId`**, **`ctx.step`** checks the store **before** invoking the callback:
-
-- If `getStepOutput` hits → emit `step_skipped`, return cached output (closure body does not re-run).
-- Otherwise run callback, `recordStepComplete`, return output.
+### Attempt lineage (retry from a step)
 
 ```ts
 const first = workflow.run(input);
-await first.result.catch(() => {}); // failed mid-run
+await first.result.catch(() => {});
 
-// Retry: same run id — completed steps are skipped, failed step re-runs
-const retry = workflow.run(input, { workflowRunId: first.workflowRunId });
+const failed = await store.getLatestEvent({ workflowRunId: first.workflowRunId }, "step_failed");
+const attempt = await store.seedRetryAttempt({
+  fromWorkflowRunId: first.workflowRunId,
+  fromStepId: failed!.stepId,
+});
+
+const retry = workflow.run(input, {
+  workflowRunId: attempt.newRootRunId,
+  retryAttempt: attempt,
+});
 await retry.result;
 ```
 
-You can also start a **new** run with the same input (new `workflowRunId`) — that is a fresh execution with no step skip unless you implement your own policy.
+Seeding copies still-valid run/step **projections** with `replayOf*` links and seeds the new attempt’s skip cache. The target step, its descendants, path/`parentWorkflowRunId` ancestors, time-subsequent steps (`step_started.at` > `T_end`), and `{ pure: false }` steps re-execute. Unknown `fromStepId` throws.
 
-### Force a Step to Re-Run
+Same-`workflowRunId` re-entry (without seeding) still skips via the path-stable cache when outputs remain — useful for simple mid-run retries, but superseded for forest retry by attempt lineage.
 
-Pass `{ force: true }` to ignore cached output for one step:
+### Pure vs force
+
+| Option        | Scope                | Behavior                                                                         |
+| ------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `force: true` | This call only       | Bypass skip cache for this invocation                                            |
+| `pure: false` | Declared on the step | On every **new attempt** that reaches this path: always re-exec; never skip/copy |
 
 ```ts
+await ctx.step(
+  "upload",
+  async () => {
+    /* side effect */
+  },
+  { pure: false },
+);
+
 await ctx.step(
   "search",
   async ({ ctx }) => {
@@ -194,8 +216,6 @@ await ctx.step(
   { force: true },
 );
 ```
-
-Use this when inputs changed, you need to invalidate a prior success, or you are debugging.
 
 ### Agents on Retry
 
@@ -217,6 +237,7 @@ On step retry, choose a policy explicitly:
 | Checkpoints (`ctx.checkpoint`)          | Deferred                                                     |
 | Agent episode cache (`cacheable: true`) | Deferred                                                     |
 | Mid-stream token resume                 | Not a goal                                                   |
+| Inspector Retry button                  | Host follow-up (data model above is the contract)            |
 | Durable crash resume without re-entry   | SQLite stores persist I/O; mid-closure resume still deferred |
 
 ## WorkflowContext

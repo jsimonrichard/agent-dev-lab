@@ -8,6 +8,8 @@ import { withProjectVersionTag } from "../project/version-tag";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { createWorkflowContext } from "./context";
+import type { WorkflowContextImpl } from "./context";
+import { resolveAttemptChildRunId } from "./retry-attempt";
 import { WorkflowRunEventChannel } from "./workflow-run-event-channel";
 import type {
   Workflow,
@@ -77,8 +79,21 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     abortController?: AbortController,
   ): Promise<TOutput> {
     const parentCtx = resolveParentContext(this.services, options);
-    // Nested and top-level both get their own id — never inherit the parent's.
-    const workflowRunId = options?.workflowRunId ?? createId();
+    const retryAttempt =
+      options?.retryAttempt ??
+      (parentCtx ? (parentCtx as WorkflowContextImpl).retryAttempt : undefined);
+
+    let workflowRunId = options?.workflowRunId;
+    if (!workflowRunId && parentCtx && retryAttempt) {
+      workflowRunId = resolveAttemptChildRunId(retryAttempt, {
+        parentWorkflowRunId: parentCtx.workflowRunId,
+        parentStepId: parentCtx.stepId,
+        parentStepPath: parentCtx.stepPath,
+        workflowId: this.definition.id,
+      });
+    }
+    workflowRunId = workflowRunId ?? createId();
+
     const parentWorkflowRunId = parentCtx?.workflowRunId ?? null;
     const parentStepId = parentCtx?.stepId ?? null;
 
@@ -108,6 +123,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
       registryParentKey: workflowRunId,
       runRecorder,
       signal: controller.signal,
+      retryAttempt,
     });
 
     return withActiveSpan(
@@ -124,7 +140,12 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
           input: parsedInput,
           tags: withProjectVersionTag(options?.tags, effectiveServices.version),
           parentWorkflowRunId,
-          parentStepId,
+          parentStepId: parentCtx ? parentStepId : undefined,
+          ...(retryAttempt && !parentCtx
+            ? {
+                retriesFromRunId: retryAttempt.retriesFromRunId,
+              }
+            : {}),
         });
 
         try {
@@ -175,11 +196,25 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     options?: WorkflowRunStartOptions,
   ): { workflowRunId: string; result: Promise<TOutput>; cancel: () => void } {
     const parentCtx = resolveParentContext(this.services, options);
-    const workflowRunId = options?.workflowRunId ?? createId();
+    const retryAttempt =
+      options?.retryAttempt ??
+      (parentCtx ? (parentCtx as WorkflowContextImpl).retryAttempt : undefined);
+
+    let workflowRunId = options?.workflowRunId;
+    if (!workflowRunId && parentCtx && retryAttempt) {
+      workflowRunId = resolveAttemptChildRunId(retryAttempt, {
+        parentWorkflowRunId: parentCtx.workflowRunId,
+        parentStepId: parentCtx.stepId,
+        parentStepPath: parentCtx.stepPath,
+        workflowId: this.definition.id,
+      });
+    }
+    workflowRunId = workflowRunId ?? createId();
+
     const abortController = linkAbortController(parentCtx?.signal);
     return {
       workflowRunId,
-      result: this.#executeRun(input, { ...options, workflowRunId }, abortController),
+      result: this.#executeRun(input, { ...options, workflowRunId, retryAttempt }, abortController),
       cancel: () => abortController.abort(),
     };
   }

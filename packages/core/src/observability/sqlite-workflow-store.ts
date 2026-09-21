@@ -27,6 +27,11 @@ import type {
 } from "./workflow-store";
 import { toTokenUsage } from "./token-usage";
 import type { SqliteStoreOptions } from "../stores/sqlite";
+import type {
+  AttemptRunMaterialization,
+  AttemptStepMaterialization,
+} from "../workflow/retry-attempt";
+import { seedRetryAttemptOnStore } from "../workflow/retry-attempt";
 
 function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, string[]> {
   const tagsByRun = new Map<string, string[]>();
@@ -148,6 +153,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           title: workflowRuns.title,
           parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
           parentStepId: workflowRuns.parentStepId,
+          retriesFromRunId: workflowRuns.retriesFromRunId,
+          replayOfRunId: workflowRuns.replayOfRunId,
         })
         .from(workflowRuns)
         .where(eq(workflowRuns.workflowRunId, workflowRunId))
@@ -191,6 +198,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           title: workflowRuns.title,
           parentWorkflowRunId: workflowRuns.parentWorkflowRunId,
           parentStepId: workflowRuns.parentStepId,
+          retriesFromRunId: workflowRuns.retriesFromRunId,
+          replayOfRunId: workflowRuns.replayOfRunId,
         })
         .from(workflowRuns)
         .where(conditions.length ? and(...conditions) : undefined)
@@ -283,6 +292,8 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
         parentStepId: row.parentStepId,
         output: row.outputJson ? (JSON.parse(row.outputJson) as unknown) : undefined,
         status: row.status,
+        pure: row.pure === 0 ? false : true,
+        replayOfStepId: row.replayOfStepId,
       };
       return record;
     },
@@ -324,6 +335,95 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
       const rows = (filter?.limit !== undefined ? query.limit(filter.limit) : query).all();
       return rows.map(toEpisodeSummary);
     },
+
+    seedRetryAttempt(args) {
+      return seedRetryAttemptOnStore(this, args);
+    },
+
+    async materializeAttemptRun(run: AttemptRunMaterialization) {
+      db.insert(workflowRuns)
+        .values({
+          workflowRunId: run.workflowRunId,
+          workflowId: run.workflowId,
+          status: run.status,
+          startedAt: run.startedAt,
+          finishedAt: run.finishedAt ?? null,
+          inputJson: run.input !== undefined ? JSON.stringify(run.input) : null,
+          outputJson: run.output !== undefined ? JSON.stringify(run.output) : null,
+          title: run.title ?? null,
+          parentWorkflowRunId: run.parentWorkflowRunId ?? null,
+          parentStepId: run.parentStepId ?? null,
+          retriesFromRunId: run.retriesFromRunId ?? null,
+          replayOfRunId: run.replayOfRunId ?? null,
+        })
+        .onConflictDoUpdate({
+          target: workflowRuns.workflowRunId,
+          set: {
+            workflowId: run.workflowId,
+            status: run.status,
+            startedAt: run.startedAt,
+            finishedAt: run.finishedAt ?? null,
+            inputJson: run.input !== undefined ? JSON.stringify(run.input) : null,
+            outputJson: run.output !== undefined ? JSON.stringify(run.output) : null,
+            title: run.title ?? null,
+            parentWorkflowRunId: run.parentWorkflowRunId ?? null,
+            parentStepId: run.parentStepId ?? null,
+            retriesFromRunId: run.retriesFromRunId ?? null,
+            replayOfRunId: run.replayOfRunId ?? null,
+          },
+        })
+        .run();
+      for (const tag of run.tags) {
+        db.insert(workflowRunTags)
+          .values({ workflowRunId: run.workflowRunId, tag })
+          .onConflictDoNothing()
+          .run();
+      }
+    },
+
+    async materializeAttemptStep(step: AttemptStepMaterialization) {
+      const pathJson = JSON.stringify(step.path);
+      const outputJson = step.output !== undefined ? JSON.stringify(step.output) : null;
+      const pure = step.pure === false ? 0 : 1;
+      db.insert(stepRecords)
+        .values({
+          workflowRunId: step.workflowRunId,
+          stepId: step.stepId,
+          name: step.name,
+          key: step.key ?? null,
+          pathJson,
+          parentStepId: step.parentStepId,
+          outputJson,
+          status: step.status,
+          pure,
+          replayOfStepId: step.replayOfStepId ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [stepRecords.workflowRunId, stepRecords.stepId],
+          set: {
+            name: step.name,
+            key: step.key ?? null,
+            pathJson,
+            parentStepId: step.parentStepId,
+            outputJson,
+            status: step.status,
+            pure,
+            replayOfStepId: step.replayOfStepId ?? null,
+          },
+        })
+        .run();
+      if (step.status === "ok" && step.output !== undefined) {
+        const slotKey = stepSlotKey({ path: step.path });
+        const out = JSON.stringify(step.output);
+        db.insert(stepOutputs)
+          .values({ workflowRunId: step.workflowRunId, slotKey, outputJson: out })
+          .onConflictDoUpdate({
+            target: [stepOutputs.workflowRunId, stepOutputs.slotKey],
+            set: { outputJson: out },
+          })
+          .run();
+      }
+    },
   };
 }
 
@@ -363,6 +463,8 @@ function toSummary(
     title: string | null;
     parentWorkflowRunId: string | null;
     parentStepId: string | null;
+    retriesFromRunId: string | null;
+    replayOfRunId: string | null;
   },
   tags: string[],
 ): WorkflowRunSummary {
@@ -376,5 +478,7 @@ function toSummary(
     tags,
     parentWorkflowRunId: row.parentWorkflowRunId,
     parentStepId: row.parentStepId,
+    retriesFromRunId: row.retriesFromRunId,
+    replayOfRunId: row.replayOfRunId,
   };
 }

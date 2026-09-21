@@ -10,16 +10,16 @@ User-facing overview: [workflows guide — Resumability](../apps/docs/src/conten
 
 ## Status
 
-| Capability | Status |
-| ---------- | ------ |
-| Nested runs with own `workflowRunId` + `parentWorkflowRunId` | Shipped (`te7187f90` stack) |
-| `parentStepId` on child runs (spawn link) | Required for forest retry |
-| Path-stable step output slots | Required (lookup key) |
-| `StepOptions.pure` (default true) | Required |
-| Attempt lineage (`seedRetryAttempt`, `replayOf*`, `retriesFromRunId`) | Target of this note |
-| Same-`runId` in-place mutate | **Superseded** by attempt lineage |
-| Crash mid-closure / checkpoints / episode `cacheable` | Deferred |
-| Inspector Retry button | Host follow-up |
+| Capability                                                            | Status                            |
+| --------------------------------------------------------------------- | --------------------------------- |
+| Nested runs with own `workflowRunId` + `parentWorkflowRunId`          | Shipped (`te7187f90` stack)       |
+| `parentStepId` on child runs (spawn link)                             | Shipped                           |
+| Path-stable step output slots                                         | Shipped                           |
+| `StepOptions.pure` (default true)                                     | Shipped                           |
+| Attempt lineage (`seedRetryAttempt`, `replayOf*`, `retriesFromRunId`) | Shipped                           |
+| Same-`runId` in-place mutate                                          | **Superseded** by attempt lineage |
+| Crash mid-closure / checkpoints / episode `cacheable`                 | Deferred                          |
+| Inspector Retry button                                                | Host follow-up                    |
 
 ---
 
@@ -39,12 +39,18 @@ Each `workflow.run()` gets its own `workflowRunId`. Nested (non-isolated) invoca
 Steps are **pure by default**: they must not mutate captured closures; anything a later step needs must appear in an earlier step’s **output** (or run input).
 
 ```ts
-await ctx.step("upload", async () => { /* side effect */ }, { pure: false });
+await ctx.step(
+  "upload",
+  async () => {
+    /* side effect */
+  },
+  { pure: false },
+);
 ```
 
-| Option | Scope | Behavior |
-| ------ | ----- | -------- |
-| `force: true` | This call only | Bypass skip cache for this invocation |
+| Option        | Scope                | Behavior                                                                         |
+| ------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `force: true` | This call only       | Bypass skip cache for this invocation                                            |
 | `pure: false` | Declared on the step | On every **new attempt** that reaches this path: always re-exec; never skip/copy |
 
 `pure: false` is persisted on step events/records so attempt seeding can see it from the log.
@@ -69,11 +75,11 @@ Also re-exec:
 
 ## Attempt lineage (UX)
 
-| Kind of node in new attempt | Identity | Execution |
-| --------------------------- | -------- | --------- |
+| Kind of node in new attempt      | Identity                                                 | Execution                                                                 |
+| -------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Still valid (not in re-exec set) | New row ids + `replayOfRunId` / `replayOfStepId` → prior | Do not run callback; output from prior via seeded cache / `ctx.step` skip |
-| Re-exec set | New IDs | Fully re-execute |
-| Original attempt | Unchanged | Never rewritten |
+| Re-exec set                      | New IDs                                                  | Fully re-execute                                                          |
+| Original attempt                 | Unchanged                                                | Never rewritten                                                           |
 
 New root records `retriesFromRunId` → prior root (or the root of the forest containing the retry target).
 

@@ -23,7 +23,7 @@ Run locally: `bun run dev:docs` (port 4321).
 | [`tool-sandboxing.md`](./tool-sandboxing.md)     | `@agent-dev-lab/tools` threat model, remaining approval / macOS work |
 | [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, deferred streaming-tool UI               |
 | [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry                                       |
-| [`resumability.md`](./resumability.md)           | Step skip (shipped) vs crash-safe resume (not)                       |
+| [`resumability.md`](./resumability.md)           | Attempt lineage + path-stable skip (shipped); crash resume deferred  |
 | [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred message shaping                                             |
 | [`future-extensions.md`](./future-extensions.md) | Approvals, hooks, HTTP host                                          |
 | [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing                                |

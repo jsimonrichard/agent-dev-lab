@@ -48,10 +48,14 @@ export type WorkflowStartedEvent = WorkflowRunEventBase & {
    */
   parentWorkflowRunId?: string | null;
   /**
-   * Parent workflow's active `ctx.step` id when this nest started, or null when
-   * nested at the parent workflow root (or not nested). Absent on older events.
+   * Parent `ctx.stepId` at nest time, or `null` when nested at workflow root.
+   * Omitted on events recorded before spawn-step linking existed.
    */
   parentStepId?: string | null;
+  /** Prior root this attempt retries; set on new-attempt roots only. */
+  retriesFromRunId?: string | null;
+  /** Prior run this row replays (copy); omitted when the run re-executes. */
+  replayOfRunId?: string | null;
 };
 
 export type WorkflowFinishedEvent = WorkflowRunEventBase & {
@@ -75,6 +79,10 @@ export type StepStartedEvent = WorkflowRunEventBase & {
   name: string;
   key?: string;
   path: string[];
+  /** Present only when the step was declared `{ pure: false }`. */
+  pure?: false;
+  /** Prior step this invocation replays; set on seeded skip/copy rows. */
+  replayOfStepId?: string;
 };
 
 export type StepFinishedEvent = WorkflowRunEventBase & {
@@ -87,6 +95,9 @@ export type StepFinishedEvent = WorkflowRunEventBase & {
   status: "ok";
   durationMs: number;
   output: unknown;
+  /** Present only when the step was declared `{ pure: false }`. */
+  pure?: false;
+  replayOfStepId?: string;
 };
 
 export type StepSkippedEvent = WorkflowRunEventBase & {
@@ -97,6 +108,7 @@ export type StepSkippedEvent = WorkflowRunEventBase & {
   key?: string;
   path: string[];
   output: unknown;
+  replayOfStepId?: string;
 };
 
 export type StepFailedEvent = WorkflowRunEventBase & {
@@ -107,6 +119,9 @@ export type StepFailedEvent = WorkflowRunEventBase & {
   key?: string;
   path: string[];
   error: unknown;
+  /** Present only when the step was declared `{ pure: false }`. */
+  pure?: false;
+  replayOfStepId?: string;
 };
 
 export type WorkflowCustomEvent = WorkflowRunEventBase & {
@@ -320,11 +335,12 @@ export type WorkflowRunSummary = {
    * used a parent pointer (treat as root).
    */
   parentWorkflowRunId?: string | null;
-  /**
-   * Parent step that invoked this nest, or `null` when nested at the parent
-   * workflow root. Absent on older summaries (treat as root-level nest).
-   */
+  /** Parent step that spawned this nested run; `null` when nested at workflow root. */
   parentStepId?: string | null;
+  /** Prior root this attempt retries. */
+  retriesFromRunId?: string | null;
+  /** Prior run this summary replays. */
+  replayOfRunId?: string | null;
 };
 
 export type StepRecord = {
@@ -336,10 +352,16 @@ export type StepRecord = {
   input?: unknown;
   output?: unknown;
   status: "ok" | "error";
+  /** `false` when declared impure; omitted/`true` when pure (default). */
+  pure?: boolean;
+  /** Prior step this record replays. */
+  replayOfStepId?: string | null;
 };
 
+/**
+ * Path-stable address for a step output within a run.
+ * Segments are `name` or `name:key` (same as {@link StepStartedEvent.path}).
+ */
 export type StepSlot = {
-  parentStepId: string | null;
-  name: string;
-  key?: string;
+  path: string[];
 };

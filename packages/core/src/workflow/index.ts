@@ -13,3 +13,15 @@ export type {
   WorkflowRunStartOptions,
   WorkflowStreamHandle,
 } from "./types";
+export type {
+  AttemptRunMaterialization,
+  AttemptStepMaterialization,
+  PriorChildLink,
+  RetryAttempt,
+  SeedRetryAttemptArgs,
+} from "./retry-attempt";
+export {
+  computeReExecStepIds,
+  resolveAttemptChildRunId,
+  seedRetryAttemptOnStore,
+} from "./retry-attempt";

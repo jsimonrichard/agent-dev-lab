@@ -17,6 +17,8 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
     const inputJson = JSON.stringify(event.input);
     const parentWorkflowRunId = event.parentWorkflowRunId ?? null;
     const parentStepId = event.parentStepId ?? null;
+    const retriesFromRunId = event.retriesFromRunId ?? null;
+    const replayOfRunId = event.replayOfRunId ?? null;
     db.insert(workflowRuns)
       .values({
         workflowRunId: event.workflowRunId,
@@ -28,6 +30,8 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
         outputJson: null,
         parentWorkflowRunId,
         parentStepId,
+        retriesFromRunId,
+        replayOfRunId,
       })
       .onConflictDoUpdate({
         target: workflowRuns.workflowRunId,
@@ -40,6 +44,8 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
           outputJson: null,
           parentWorkflowRunId,
           parentStepId,
+          retriesFromRunId,
+          replayOfRunId,
         },
       })
       .run();

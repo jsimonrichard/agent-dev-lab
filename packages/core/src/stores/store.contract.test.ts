@@ -71,8 +71,7 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(events.some((event) => event.type === "step_finished")).toBe(true);
 
       const cached = await store.getStepOutput(handle.workflowRunId, {
-        parentStepId: null,
-        name: "add",
+        path: ["add"],
       });
       expect(cached).toBe(2);
     });

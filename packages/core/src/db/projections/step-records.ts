@@ -8,8 +8,7 @@ import type { RunEvent, StepSlot } from "../../observability/events";
  * Read back by `getStepOutput`, so a change here is a schema change.
  */
 export function stepSlotKey(slot: StepSlot): string {
-  const keyPart = slot.key ?? "";
-  return `${slot.parentStepId ?? "root"}:${slot.name}:${keyPart}`;
+  return slot.path.join("\0");
 }
 
 /**
@@ -18,12 +17,9 @@ export function stepSlotKey(slot: StepSlot): string {
  */
 export function projectStepRecord(db: AdlDb, event: RunEvent): void {
   if (event.type === "step_finished") {
-    const slot = stepSlotKey({
-      parentStepId: event.parentStepId,
-      name: event.name,
-      key: event.key,
-    });
+    const slot = stepSlotKey({ path: event.path });
     const outputJson = JSON.stringify(event.output);
+    const pure = event.pure === false ? 0 : 1;
     db.insert(stepOutputs)
       .values({ workflowRunId: event.workflowRunId, slotKey: slot, outputJson })
       .onConflictDoUpdate({
@@ -43,6 +39,8 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         parentStepId: event.parentStepId,
         outputJson,
         status: "ok",
+        pure,
+        replayOfStepId: event.replayOfStepId ?? null,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -53,6 +51,8 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           parentStepId: event.parentStepId,
           outputJson,
           status: "ok",
+          pure,
+          replayOfStepId: event.replayOfStepId ?? null,
         },
       })
       .run();
@@ -60,6 +60,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
 
   if (event.type === "step_failed") {
     const pathJson = JSON.stringify(event.path);
+    const pure = event.pure === false ? 0 : 1;
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -70,6 +71,8 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         parentStepId: event.parentStepId,
         outputJson: null,
         status: "error",
+        pure,
+        replayOfStepId: event.replayOfStepId ?? null,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -80,6 +83,8 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           parentStepId: event.parentStepId,
           outputJson: null,
           status: "error",
+          pure,
+          replayOfStepId: event.replayOfStepId ?? null,
         },
       })
       .run();

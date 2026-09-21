@@ -1,6 +1,7 @@
 import type { RunEvent } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
 import type { z } from "zod";
+import type { RetryAttempt } from "./retry-attempt";
 
 /**
  * Author-emitted run event. Persisted as `type: "custom"` — system event types
@@ -14,7 +15,13 @@ export type CustomWorkflowEvent = {
 export type StepOptions = {
   key?: string;
   allowDuplicateName?: boolean;
+  /** Bypass skip cache for this invocation only. */
   force?: boolean;
+  /**
+   * Default `true`. When `false`, the step is never skip/copied on a new
+   * attempt — always re-executed when the attempt reaches this path.
+   */
+  pure?: boolean;
 };
 
 export type StepIdentity = {
@@ -173,6 +180,12 @@ export type WorkflowRunStartOptions = {
    * uncommitted work. Pass `version: false` on the runtime to skip that lookup.
    */
   tags?: string[];
+  /**
+   * Seeded attempt from {@link WorkflowStore.seedRetryAttempt}. Pass the attempt
+   * (and usually `workflowRunId: attempt.newRootRunId`) so nested `child.run`
+   * resolves mapped child ids and skip cache applies to replayed prefixes.
+   */
+  retryAttempt?: RetryAttempt;
 };
 
 export interface Workflow<TInput, TOutput, TRawInput = TInput> {

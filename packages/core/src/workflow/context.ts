@@ -5,6 +5,7 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { StepOptions, WorkflowContext } from "./types";
+import type { RetryAttempt } from "./retry-attempt";
 
 export type WorkflowContextOptions = {
   workflowRunId: string;
@@ -16,6 +17,7 @@ export type WorkflowContextOptions = {
   registryParentKey: string;
   runRecorder: RunRecorder;
   signal: AbortSignal;
+  retryAttempt?: RetryAttempt;
 };
 
 export class WorkflowContextImpl implements WorkflowContext {
@@ -26,6 +28,7 @@ export class WorkflowContextImpl implements WorkflowContext {
   readonly parentStepId: string | null;
   readonly signal: AbortSignal;
   readonly runRecorder: RunRecorder;
+  readonly retryAttempt: RetryAttempt | undefined;
 
   readonly services: RuntimeServices;
 
@@ -42,6 +45,7 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.signal = options.signal;
     this.registryParentKey = options.registryParentKey;
     this.runRecorder = options.runRecorder;
+    this.retryAttempt = options.retryAttempt;
     this.registry = new StepRegistry(this.registryParentKey);
   }
 
@@ -82,16 +86,15 @@ export class WorkflowContextImpl implements WorkflowContext {
     const key = options?.key;
     this.registry.register(name, key, options?.allowDuplicateName);
 
+    const pathSegment = formatStepPathSegment(name, key);
+    const path = [...this.stepPath, pathSegment];
+    const impure = options?.pure === false;
+
     const store = this.services.stores.workflow;
     if (store && !options?.force) {
-      const cached = await store.getStepOutput(this.workflowRunId, {
-        parentStepId: parentId,
-        name,
-        key,
-      });
+      const cached = await store.getStepOutput(this.workflowRunId, { path });
       if (cached !== null) {
         const skippedStepId = createId();
-        const skippedPath = [...this.stepPath, formatStepPathSegment(name, key)];
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
@@ -99,7 +102,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           parentStepId: parentId,
           name,
           key,
-          path: skippedPath,
+          path,
           output: cached,
         });
         return cached as T;
@@ -107,8 +110,6 @@ export class WorkflowContextImpl implements WorkflowContext {
     }
 
     const stepId = createId();
-    const pathSegment = formatStepPathSegment(name, key);
-    const path = [...this.stepPath, pathSegment];
     const startedAt = Date.now();
 
     await this.runRecorder.emit({
@@ -119,6 +120,7 @@ export class WorkflowContextImpl implements WorkflowContext {
       name,
       key,
       path,
+      ...(impure ? { pure: false as const } : {}),
     });
 
     const childCtx = createChildWorkflowContext(this, {
@@ -152,6 +154,7 @@ export class WorkflowContextImpl implements WorkflowContext {
         status: "ok",
         durationMs,
         output,
+        ...(impure ? { pure: false as const } : {}),
       });
       return output;
     } catch (error) {
@@ -164,6 +167,7 @@ export class WorkflowContextImpl implements WorkflowContext {
         key,
         path,
         error: serializeError(error),
+        ...(impure ? { pure: false as const } : {}),
       });
       throw error;
     }
@@ -189,6 +193,7 @@ export function createChildWorkflowContext(
     registryParentKey: `${parent.workflowRunId}|${step.stepId}`,
     runRecorder: parent.runRecorder,
     signal: parent.signal,
+    retryAttempt: parent.retryAttempt,
   });
 }
 
@@ -213,6 +218,7 @@ export function refreshWorkflowContext(
     registryParentKey: impl.stepId ?? impl.workflowRunId,
     runRecorder,
     signal: signal ?? impl.signal,
+    retryAttempt: impl.retryAttempt,
   });
 }
 
