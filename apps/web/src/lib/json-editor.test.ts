@@ -130,6 +130,7 @@ describe("schema-driven defaults", () => {
           name: "allowWrite",
           kind: "json",
           required: false,
+          description: "Paths the tool may write",
           jsonType: { type: "array", items: { type: "string" } },
         },
       ]),
@@ -140,6 +141,7 @@ describe("schema-driven defaults", () => {
         {
           name: "allowWrite",
           required: false,
+          description: "Paths the tool may write",
           schema: { type: "array", items: { type: "string" } },
         },
       ],

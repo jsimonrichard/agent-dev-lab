@@ -1131,8 +1131,8 @@ function ObjectEditor({
           const nested = child !== undefined && (isJsonObject(child) || Array.isArray(child));
           return (
             <section key={field.name} className="min-w-0 space-y-2">
-              <p className="flex items-center gap-1.5">
-                <span className={cn("min-w-0 truncate font-mono text-xs", JSON_TOKEN_CLASS.key)}>
+              <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className={cn("shrink-0 font-mono text-xs", JSON_TOKEN_CLASS.key)}>
                   {field.name}
                 </span>
                 {field.schema.type === "union" || !field.required ? null : (
@@ -1141,7 +1141,7 @@ function ObjectEditor({
                   </span>
                 )}
                 {field.default !== undefined ? (
-                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                  <span className="min-w-0 break-all font-mono text-[10px] text-muted-foreground">
                     default {JSON.stringify(field.default)}
                   </span>
                 ) : field.required ? null : (

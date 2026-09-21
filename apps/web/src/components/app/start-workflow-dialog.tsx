@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState, type ComponentProps, type FormEven
 
 import { useAppLoaderData } from "@/hooks/use-app-loader-data";
 import { ErrorDetails } from "@/components/app/error-details";
-import { SchemaFieldControl } from "@/components/app/schema-field-control";
+import { JsonTextEditor } from "@/components/app/json-editor";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,11 +23,25 @@ import {
 } from "@/components/ui/select";
 import { startInspectionWorkflowRun, fetchProjectMeta } from "#/lib/inspector/inspector-server";
 import type { WorkflowInspectorMeta } from "#/lib/inspector/inspector-types";
+import type { JsonValue } from "#/lib/view-model/types";
 import {
-  buildWorkflowInput,
-  workflowInputValuesFromSample,
-} from "#/lib/workflow/workflow-input-schema";
-import { workflowJsonFieldsError } from "@/lib/json-editor";
+  jsonTextError,
+  jsonTypeFromFields,
+  parseJsonText,
+  stringifyJsonValue,
+} from "@/lib/json-editor";
+
+function workflowInputRawJson(sample: JsonValue | undefined): string {
+  return sample === undefined ? "{}" : stringifyJsonValue(sample);
+}
+
+/** Empty editor text is treated as `{}` so required fields still fail closed. */
+function workflowInputJsonError(
+  rawJson: string,
+  inputType: ReturnType<typeof jsonTypeFromFields>,
+): string | null {
+  return jsonTextError(rawJson.trim().length === 0 ? "{}" : rawJson, inputType);
+}
 
 async function startWorkflowAndOpen(workflowId: string, input: unknown = {}, title?: string) {
   const result = await startInspectionWorkflowRun({
@@ -112,7 +126,7 @@ export function StartWorkflowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[min(85vh,48rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-3xl">
         <StartWorkflowForm
           key={`${workflowId}:${project.generation}`}
           workflows={resolvedWorkflows}
@@ -156,12 +170,13 @@ export function StartWorkflowForm({
     [workflows, lockedId, selectedId],
   );
   const fields = selected?.inputFields ?? [];
-  const [values, setValues] = useState<Record<string, string | boolean>>(() =>
-    workflowInputValuesFromSample(fields, selected?.inputSample),
-  );
+  const inputType = fields.length > 0 ? jsonTypeFromFields(fields) : undefined;
+  const [rawJson, setRawJson] = useState(() => workflowInputRawJson(selected?.inputSample));
+  const [jsonFieldError, setJsonFieldError] = useState<string | null>(null);
   const description = startWorkflowDescription(lockedId, fields.length);
   const autoFocus = variant === "dialog";
-  const jsonError = workflowJsonFieldsError(fields, values);
+  const jsonError =
+    inputType === undefined ? null : (workflowInputJsonError(rawJson, inputType) ?? jsonFieldError);
 
   useEffect(() => {
     if (!active) {
@@ -170,7 +185,8 @@ export function StartWorkflowForm({
     const workflow = workflows.find((item) => item.id === (lockedId ?? workflows[0]?.id ?? ""));
     setSelectedId(lockedId ?? workflows[0]?.id ?? "");
     setRunName("");
-    setValues(workflowInputValuesFromSample(workflow?.inputFields ?? [], workflow?.inputSample));
+    setRawJson(workflowInputRawJson(workflow?.inputSample));
+    setJsonFieldError(null);
     setError(null);
     setSubmitting(false);
   }, [active, lockedId, workflows, project.generation]);
@@ -189,7 +205,14 @@ export function StartWorkflowForm({
     setSubmitting(true);
     setError(null);
     try {
-      const input = buildWorkflowInput(fields, values);
+      let input: unknown = {};
+      if (fields.length > 0) {
+        const parsed = parseJsonText(rawJson.trim().length === 0 ? "{}" : rawJson);
+        if (parsed.isErr) {
+          throw new Error(parsed.error);
+        }
+        input = parsed.value ?? {};
+      }
       const title = runName.trim() || undefined;
       await startWorkflowAndOpen(selected.id, input, title);
     } catch (caught) {
@@ -243,7 +266,8 @@ export function StartWorkflowForm({
             onValueChange={(value) => {
               const next = workflows.find((workflow) => workflow.id === value);
               setSelectedId(value);
-              setValues(workflowInputValuesFromSample(next?.inputFields ?? [], next?.inputSample));
+              setRawJson(workflowInputRawJson(next?.inputSample));
+              setJsonFieldError(null);
               setError(null);
             }}
           >
@@ -276,16 +300,21 @@ export function StartWorkflowForm({
         </p>
       </div>
 
-      {fields.map((field, index) => (
-        <SchemaFieldControl
-          key={field.name}
-          idPrefix={formId}
-          field={field}
-          autoFocus={autoFocus && index === 0}
-          value={values[field.name]}
-          onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
-        />
-      ))}
+      {inputType ? (
+        <div className="grid gap-2">
+          <Label htmlFor={`${formId}-input`}>Input</Label>
+          <JsonTextEditor
+            id={`${formId}-input`}
+            autoFocus={autoFocus}
+            title="Workflow input"
+            presentation="inline"
+            jsonType={inputType}
+            value={rawJson}
+            onChange={setRawJson}
+            onValidityChange={setJsonFieldError}
+          />
+        </div>
+      ) : null}
 
       {error || jsonError ? <ErrorDetails error={error ?? jsonError} compact /> : null}
 

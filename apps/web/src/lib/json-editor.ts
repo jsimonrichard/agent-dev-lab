@@ -214,6 +214,7 @@ export function jsonTypeFromFields(fields: WorkflowInputField[]): JsonSchemaType
       required: field.required,
       schema: jsonTypeFromField(field),
       ...(field.default !== undefined ? { default: field.default } : {}),
+      ...(field.description !== undefined ? { description: field.description } : {}),
     })),
   };
 }
