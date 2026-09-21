@@ -741,6 +741,106 @@ function finalTextStream(text: string) {
   };
 }
 
+describe("AgentImpl token usage", () => {
+  it("records streamText.totalUsage on agent_finished and AgentRunResult", async () => {
+    const adl = createTestRuntime({
+      defaults: { model: mockTextModel("briefing") },
+    });
+    const agent = adl.createAgent({
+      id: "researcher",
+      systemPrompt: "Be brief.",
+    });
+
+    const result = await agent.run({ memoryScope: "notes", user: "hi" }).result;
+    expect(result.usage).toEqual({ inputTokens: 1, outputTokens: 1, totalTokens: 2 });
+
+    const finished = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: (await adl.services.stores.workflow.listAgentEpisodes())![0]!.agentCallId },
+      "agent_finished",
+    );
+    expect(finished?.usage).toEqual({ inputTokens: 1, outputTokens: 1, totalTokens: 2 });
+  });
+
+  it("sums multi-step tool-loop usage into episode totalUsage", async () => {
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return {
+                stream: convertArrayToReadableStream([
+                  { type: "stream-start" as const, warnings: [] },
+                  { type: "tool-input-start" as const, id: "call-1", toolName: "lookup" },
+                  { type: "tool-input-delta" as const, id: "call-1", delta: "{}" },
+                  { type: "tool-input-end" as const, id: "call-1" },
+                  {
+                    type: "tool-call" as const,
+                    toolCallId: "call-1",
+                    toolName: "lookup",
+                    input: "{}",
+                  },
+                  {
+                    type: "finish" as const,
+                    finishReason: "tool-calls" as const,
+                    usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 },
+                  },
+                ]),
+              };
+            }
+            return {
+              stream: convertArrayToReadableStream([
+                { type: "stream-start" as const, warnings: [] },
+                { type: "text-start" as const, id: "text-1" },
+                { type: "text-delta" as const, id: "text-1", delta: "done" },
+                { type: "text-end" as const, id: "text-1" },
+                {
+                  type: "finish" as const,
+                  finishReason: "stop" as const,
+                  usage: {
+                    inputTokens: 5,
+                    outputTokens: 3,
+                    totalTokens: 8,
+                    cachedInputTokens: 4,
+                  },
+                },
+              ]),
+            };
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "usage-tools",
+      systemPrompt: "Use tools.",
+      tools: {
+        lookup: tool({
+          description: "lookup",
+          inputSchema: z.object({}),
+          execute: async () => "ok",
+        }),
+      },
+    });
+
+    const result = await agent.run({ memoryScope: "usage-notes", user: "go" }).result;
+    expect(result.turns).toBe(2);
+    expect(result.usage).toEqual({
+      inputTokens: 15,
+      outputTokens: 5,
+      totalTokens: 20,
+      cachedInputTokens: 4,
+    });
+
+    const episodes = await adl.services.stores.workflow?.listAgentEpisodes();
+    const finished = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: episodes![0]!.agentCallId },
+      "agent_finished",
+    );
+    expect(finished?.usage).toEqual(result.usage);
+  });
+});
+
 describe("AgentImpl tools", () => {
   it("resolves a ToolProvider on AgentDefinition.tools and executes its tool", async () => {
     let call = 0;

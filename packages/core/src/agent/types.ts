@@ -10,6 +10,7 @@ import type { z } from "zod";
 
 import type { MessageStore } from "../stores/types";
 import type { Result } from "../result";
+import type { TokenUsage } from "../observability/token-usage";
 import type { Template } from "../template/types";
 import type { ToolProvider } from "../tools/provider";
 import type { Workflow } from "../workflow/types";
@@ -214,6 +215,11 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
   memoryScope: string;
   /** Raw AI SDK stream result for this episode. */
   sdk: StreamTextResult<Tools, TOutput>;
+  /**
+   * Provider-reported token totals for this episode (`streamText.totalUsage`).
+   * Absent when the provider did not report usage.
+   */
+  usage?: TokenUsage;
 };
 
 export type AgentStreamInput<ToolProviderContext = unknown> = AgentRunInput<ToolProviderContext>;

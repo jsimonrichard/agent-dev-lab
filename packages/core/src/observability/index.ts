@@ -54,3 +54,5 @@ export type {
   WorkflowStore,
 } from "./workflow-store";
 export { EVENT_SCHEMA_VERSION } from "./events";
+export { sumTokenUsage, toTokenUsage } from "./token-usage";
+export type { TokenUsage } from "./token-usage";

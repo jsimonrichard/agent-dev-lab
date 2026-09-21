@@ -1,3 +1,5 @@
+import type { TokenUsage } from "./token-usage";
+
 /**
  * Append-only event union for waterfall UI and {@link WorkflowStore.listEvents}.
  *
@@ -9,7 +11,7 @@
  */
 
 /** Current persisted {@link RunEvent} schema. Bump when the wire shape changes. */
-export const EVENT_SCHEMA_VERSION = 1;
+export const EVENT_SCHEMA_VERSION = 2;
 
 /** Workflow + step events (always tied to a workflow invocation). */
 export type WorkflowRunEventBase = {
@@ -128,6 +130,11 @@ export type AgentStartedEvent = AgentEventBase & {
 export type AgentFinishedEvent = AgentEventBase & {
   type: "agent_finished";
   agentId: string;
+  /**
+   * Provider-reported token totals for this episode (`streamText.totalUsage`).
+   * Omitted when the provider did not report usage.
+   */
+  usage?: TokenUsage;
 };
 
 export type AgentFailedEvent = AgentEventBase & {

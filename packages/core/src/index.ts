@@ -139,12 +139,15 @@ export {
   InMemoryEventLog,
   inMemoryWorkflowStore,
   sqliteWorkflowStore,
+  sumTokenUsage,
+  toTokenUsage,
 } from "./observability";
 export type {
   AgentEpisodeSummary,
   EventLog,
   InMemoryEventLogOptions,
   LoggedRunEvent,
+  TokenUsage,
 } from "./observability";
 
 export type {

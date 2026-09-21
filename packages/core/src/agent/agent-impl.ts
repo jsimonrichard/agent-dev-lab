@@ -10,6 +10,7 @@ import { inspectMessageStoreKind } from "../stores/inspect";
 import type { Result } from "../result";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import { toTokenUsage, type TokenUsage } from "../observability/token-usage";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import type { ToolProvider } from "../tools/provider";
@@ -362,6 +363,7 @@ export class AgentImpl<
             workflowRunId,
             stepId,
             agentId: this.definition.id,
+            ...(streamed.usage ? { usage: streamed.usage } : {}),
           });
 
           turnResult = {
@@ -372,6 +374,7 @@ export class AgentImpl<
             turns: streamed.turns,
             memoryScope,
             sdk: streamed.sdk,
+            ...(streamed.usage ? { usage: streamed.usage } : {}),
           };
         } catch (error) {
           turnError = abortSignal.aborted ? abortError(abortSignal) : (streamError ?? error);
@@ -434,6 +437,7 @@ export class AgentImpl<
     output: TOutput;
     turns: number;
     sdk: StreamTextResult<Tools, TOutput>;
+    usage?: TokenUsage;
   }> {
     const {
       model,
@@ -558,11 +562,20 @@ export class AgentImpl<
       ? (outputSchema.parse(await structuredPromise) as TOutput)
       : (text as TOutput);
 
+    let usage: TokenUsage | undefined;
+    try {
+      usage = toTokenUsage(await streamResult.totalUsage);
+    } catch {
+      // Provider/SDK failed to report usage — finish the episode without fabricating counts.
+      usage = undefined;
+    }
+
     return {
       text,
       output,
       turns,
       sdk: streamResult,
+      ...(usage ? { usage } : {}),
     };
   }
 
