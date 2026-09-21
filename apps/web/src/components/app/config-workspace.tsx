@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trigger";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 export function ConfigWorkspace({
   title,
@@ -9,12 +10,15 @@ export function ConfigWorkspace({
   actions,
   children,
   emptyMessage,
+  contentClassName,
 }: {
   title: ReactNode;
   subtitle?: string;
   actions?: ReactNode;
   children?: ReactNode;
   emptyMessage?: string;
+  /** Overrides the default `max-w-3xl` content width. */
+  contentClassName?: string;
 }) {
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-hidden">
@@ -33,7 +37,11 @@ export function ConfigWorkspace({
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-3xl space-y-8 p-6 md:p-8">{children}</div>
+          <div
+            className={cn("mx-auto w-full space-y-8 p-6 md:p-8", contentClassName ?? "max-w-3xl")}
+          >
+            {children}
+          </div>
         </div>
       )}
     </div>

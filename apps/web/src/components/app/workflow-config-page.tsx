@@ -19,6 +19,7 @@ export function WorkflowDefinitionPage({ workflowId }: { workflowId: string }) {
     <ConfigWorkspace
       title={<span className="font-mono">{workflow.id}</span>}
       subtitle="No run selected. Start a run below or pick one from the sidebar."
+      contentClassName="max-w-4xl"
     >
       <StartWorkflowCard workflowId={workflow.id} />
     </ConfigWorkspace>
@@ -29,8 +30,8 @@ function StartWorkflowCard({ workflowId }: { workflowId?: string }) {
   const { project } = useAppLoaderData();
 
   return (
-    <Card className="max-w-lg border-border/40">
-      <CardContent>
+    <Card className="w-full border-border/40">
+      <CardContent className="pt-6">
         <StartWorkflowForm key={`${workflowId}:${project.generation}`} workflowId={workflowId} />
       </CardContent>
     </Card>

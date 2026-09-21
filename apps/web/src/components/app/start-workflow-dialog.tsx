@@ -30,6 +30,7 @@ import {
   parseJsonText,
   stringifyJsonValue,
 } from "@/lib/json-editor";
+import { cn } from "@/lib/utils";
 
 function workflowInputRawJson(sample: JsonValue | undefined): string {
   return sample === undefined ? "{}" : stringifyJsonValue(sample);
@@ -303,16 +304,19 @@ export function StartWorkflowForm({
       {inputType ? (
         <div className="grid gap-2">
           <Label htmlFor={`${formId}-input`}>Input</Label>
-          <JsonTextEditor
-            id={`${formId}-input`}
-            autoFocus={autoFocus}
-            title="Workflow input"
-            presentation="inline"
-            jsonType={inputType}
-            value={rawJson}
-            onChange={setRawJson}
-            onValidityChange={setJsonFieldError}
-          />
+          <div className={cn(variant === "page" && "flex min-h-[min(24rem,50vh)] flex-col")}>
+            <JsonTextEditor
+              id={`${formId}-input`}
+              autoFocus={autoFocus}
+              title="Workflow input"
+              presentation="inline"
+              fill={variant === "page"}
+              jsonType={inputType}
+              value={rawJson}
+              onChange={setRawJson}
+              onValidityChange={setJsonFieldError}
+            />
+          </div>
         </div>
       ) : null}
 
