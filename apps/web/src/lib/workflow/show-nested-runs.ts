@@ -33,7 +33,7 @@ function getServerSnapshot(): boolean {
   return false;
 }
 
-/** Client preference: when true, the run list includes nested (non-root) runs. Default off. */
+/** Client preference: when true, the run list includes non-root runs. Default off. */
 export function useShowNestedWorkflowRuns(): {
   showNested: boolean;
   setShowNested: (value: boolean) => void;
@@ -44,11 +44,6 @@ export function useShowNestedWorkflowRuns(): {
     emit();
   }, []);
   return { showNested, setShowNested };
-}
-
-/** One-shot read for loaders that run only on the client after mount. */
-export function getShowNestedWorkflowRuns(): boolean {
-  return readShowNested();
 }
 
 /** Keep preference in sync across tabs. */

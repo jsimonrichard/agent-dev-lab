@@ -198,7 +198,7 @@ export function WorkflowRunsSidebar() {
                                 <span className="truncate text-[11px] text-muted-foreground">
                                   {run.status} · {workflowRunSubtitle(run)}
                                   {usageLabel ? ` · ${usageLabel}` : ""}
-                                  {run.parentWorkflowRunId ? " · nested" : ""}
+                                  {run.parentWorkflowRunId ? " · non-root" : ""}
                                 </span>
                               </div>
                               <RunStatusDot status={run.status} />

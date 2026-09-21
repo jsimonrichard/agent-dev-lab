@@ -7,6 +7,7 @@ import {
   type RunEvent as CoreRunEvent,
   type TokenUsage,
   type WorkflowRunHandle,
+  type WorkflowRunSummary,
 } from "@agent-dev-lab/core";
 import {
   resolveAdlSqlitePath,
@@ -237,34 +238,18 @@ export async function listWorkflowRunSummaries(options?: {
     if (!listedWorkflowIds.has(run.workflowId)) {
       continue;
     }
-    const input = await store.getRunInput(run.workflowRunId);
-    const usage = usageByRunId.get(run.workflowRunId);
-    summaries.push({
-      runId: run.workflowRunId,
-      workflowId: run.workflowId,
-      status: mapWorkflowRunStatus(run.status),
-      startedAt: run.startedAt,
-      finishedAt: run.finishedAt,
-      inputPreview: formatInputPreview(input),
-      title: run.title,
-      tags: run.tags,
-      ...(usage ? { usage } : {}),
-      parentWorkflowRunId: run.parentWorkflowRunId ?? null,
-    });
+    summaries.push(await toInspectorRunSummary(store, run, usageByRunId.get(run.workflowRunId)));
   }
 
   return summaries.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
-export async function getWorkflowRunSummary(runId: string): Promise<InspectorRunSummary | null> {
-  const store = await getWorkflowStore();
-  const run = await store.getRun(runId);
-  if (!run) {
-    return null;
-  }
-  const input = await store.getRunInput(runId);
-  const episodes = await store.listAgentEpisodes();
-  const usage = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId).get(runId);
+async function toInspectorRunSummary(
+  store: Awaited<ReturnType<typeof getWorkflowStore>>,
+  run: WorkflowRunSummary,
+  usage?: TokenUsage,
+): Promise<InspectorRunSummary> {
+  const input = await store.getRunInput(run.workflowRunId);
   return {
     runId: run.workflowRunId,
     workflowId: run.workflowId,
@@ -279,26 +264,27 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
   };
 }
 
+export async function getWorkflowRunSummary(runId: string): Promise<InspectorRunSummary | null> {
+  const store = await getWorkflowStore();
+  const run = await store.getRun(runId);
+  if (!run) {
+    return null;
+  }
+  const episodes = await store.listAgentEpisodes();
+  const usage = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId).get(runId);
+  return toInspectorRunSummary(store, run, usage);
+}
+
 export async function listChildWorkflowRunSummaries(
   parentWorkflowRunId: string,
 ): Promise<InspectorRunSummary[]> {
   const store = await getWorkflowStore();
   const runs = await store.listRuns({ parentWorkflowRunId });
-  const summaries: InspectorRunSummary[] = [];
-  for (const run of runs) {
-    const input = await store.getRunInput(run.workflowRunId);
-    summaries.push({
-      runId: run.workflowRunId,
-      workflowId: run.workflowId,
-      status: mapWorkflowRunStatus(run.status),
-      startedAt: run.startedAt,
-      finishedAt: run.finishedAt,
-      inputPreview: formatInputPreview(input),
-      title: run.title,
-      tags: run.tags,
-      parentWorkflowRunId: run.parentWorkflowRunId ?? null,
-    });
-  }
+  const episodes = await store.listAgentEpisodes();
+  const usageByRunId = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId);
+  const summaries = await Promise.all(
+    runs.map((run) => toInspectorRunSummary(store, run, usageByRunId.get(run.workflowRunId))),
+  );
   return summaries.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 

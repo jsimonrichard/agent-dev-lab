@@ -40,21 +40,15 @@ describe("resolveWorkflowCancel", () => {
       ],
     ]);
 
-    const cancel = await resolveWorkflowCancel(
-      "child",
-      active,
-      async (id) => parents[id] ?? null,
-    );
+    const cancel = await resolveWorkflowCancel("child", active, async (id) => parents[id] ?? null);
     expect(cancel).not.toBeNull();
     cancel!();
     expect(cancelled).toEqual(["root"]);
   });
 
   it("returns null when no active ancestor exists", async () => {
-    const cancel = await resolveWorkflowCancel(
-      "orphan",
-      new Map(),
-      async (id) => (id === "orphan" ? "missing-parent" : null),
+    const cancel = await resolveWorkflowCancel("orphan", new Map(), async (id) =>
+      id === "orphan" ? "missing-parent" : null,
     );
     expect(cancel).toBeNull();
   });
