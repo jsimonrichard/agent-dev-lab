@@ -1511,18 +1511,18 @@ function CollapseToggle({
 }
 
 /**
- * Copied time on the re-run's clock. Dotted border: prior timing that can
- * overlap re-executed bars, so that overlap is not this attempt's event order.
- * Prefix copies use a solid border of the same blue.
+ * Copied time on the re-run's clock. Dashed border, same weight as the solid
+ * prefix copy: prior timing that can overlap re-executed bars, so that overlap
+ * is not this attempt's event order.
  */
 const COPIED_PREFIX_BAR_CLASS =
   "border border-solid border-sky-400/80 bg-sky-500/20 dark:bg-sky-400/15";
 const COPIED_AFTER_ANCHOR_BAR_CLASS =
-  "border-2 border-dotted border-sky-300/90 bg-sky-500/20 dark:bg-sky-400/15";
+  "border border-dashed border-sky-400/80 bg-sky-500/20 dark:bg-sky-400/15";
 
 function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
   if (bar.afterAnchor) {
-    return `${label}: copied ${formatDuration(bar.durationMs)} from the prior attempt. Placed from prior timing after the retry point — order versus re-executed steps is not meaningful.`;
+    return `${label}: copied ${formatDuration(bar.durationMs)} from the prior attempt. Placed after the retry point — order in comparison with re-executed steps is not meaningful.`;
   }
   if (bar.copied) {
     const parts = [
