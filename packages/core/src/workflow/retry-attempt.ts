@@ -46,6 +46,7 @@ export type AttemptStepMaterialization = {
   status: StepRecord["status"];
   pure?: boolean;
   replayOfStepId?: string | null;
+  memoryScopes?: readonly string[];
 };
 
 /**
@@ -83,6 +84,7 @@ type ForestStep = {
   output?: unknown;
   status: "ok" | "error" | "running";
   pure: boolean;
+  memoryScopes?: readonly string[];
 };
 
 type ForestSnapshot = {
@@ -221,6 +223,7 @@ function collectStepsFromEvents(events: RunEvent[]): ForestStep[] {
         output: event.output,
         status: "ok",
         pure: event.pure !== false,
+        memoryScopes: event.memoryScopes,
       });
     } else if (event.type === "step_failed") {
       const existing = byId.get(event.stepId);
@@ -237,6 +240,7 @@ function collectStepsFromEvents(events: RunEvent[]): ForestStep[] {
         endedRunSeq: event.runSeq,
         status: "error",
         pure: event.pure !== false,
+        memoryScopes: event.memoryScopes,
       });
     } else if (event.type === "step_skipped") {
       if (!byId.has(event.stepId)) {
@@ -254,6 +258,7 @@ function collectStepsFromEvents(events: RunEvent[]): ForestStep[] {
           output: event.output,
           status: "ok",
           pure: true,
+          memoryScopes: event.memoryScopes,
         });
       }
     }
@@ -611,6 +616,7 @@ export async function seedRetryAttemptOnStore(
         status: "ok",
         pure: step.pure,
         replayOfStepId: step.stepId,
+        memoryScopes: step.memoryScopes,
       });
     }
   }

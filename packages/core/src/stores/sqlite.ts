@@ -3,6 +3,7 @@ import type { ModelMessage } from "ai";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
 import { messages } from "../db/schema";
+import { AdlError } from "../errors";
 
 import type { MessageStore } from "./types";
 
@@ -39,6 +40,37 @@ export function sqliteMessageStore(options: SqliteStoreOptions = {}): MessageSto
         .onConflictDoUpdate({
           target: messages.memoryScope,
           set: { messagesJson: JSON.stringify(transcript), updatedAt },
+        })
+        .run();
+    },
+    async copy(fromScope, toScope) {
+      if (fromScope === toScope) {
+        return;
+      }
+      const source = db
+        .select({ messagesJson: messages.messagesJson })
+        .from(messages)
+        .where(eq(messages.memoryScope, fromScope))
+        .get();
+      if (!source) {
+        throw new AdlError("INVALID_INPUT", `MessageStore.copy: no transcript for "${fromScope}"`);
+      }
+      const destination = db
+        .select({ memoryScope: messages.memoryScope })
+        .from(messages)
+        .where(eq(messages.memoryScope, toScope))
+        .get();
+      if (destination) {
+        throw new AdlError(
+          "INVALID_INPUT",
+          `MessageStore.copy: "${toScope}" already has a transcript`,
+        );
+      }
+      db.insert(messages)
+        .values({
+          memoryScope: toScope,
+          messagesJson: source.messagesJson,
+          updatedAt: new Date().toISOString(),
         })
         .run();
     },

@@ -41,6 +41,27 @@ function messageStoreContract(name: string, createStore: () => Promise<MessageSt
       expect(await store.load("s1")).toEqual([]);
       expect(await store.listScopes()).toEqual(["s2"]);
     });
+
+    it("copies a transcript onto an empty scope", async () => {
+      const store = await createStore();
+      await store.save("from", [{ role: "user", content: "hello" }]);
+      await store.copy("from", "to");
+      expect(await store.load("to")).toEqual([{ role: "user", content: "hello" }]);
+
+      await store.save("from", [{ role: "user", content: "changed" }]);
+      expect(await store.load("to")).toEqual([{ role: "user", content: "hello" }]);
+    });
+
+    it("rejects a missing source and an occupied destination", async () => {
+      const store = await createStore();
+      await expect(store.copy("missing", "to")).rejects.toThrow(/no transcript/);
+      await store.save("from", [{ role: "user", content: "hello" }]);
+      await store.save("to", [{ role: "user", content: "already" }]);
+      await expect(store.copy("from", "to")).rejects.toThrow(/already has a transcript/);
+      expect(await store.load("to")).toEqual([{ role: "user", content: "already" }]);
+      await store.copy("from", "from");
+      expect(await store.load("from")).toEqual([{ role: "user", content: "hello" }]);
+    });
   });
 }
 

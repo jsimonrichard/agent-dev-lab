@@ -33,6 +33,13 @@ export interface MessageStore {
   /** Replace the transcript after the runner merges new messages. */
   save(memoryScope: string, messages: ModelMessage[]): Promise<void>;
 
+  /**
+   * Copy `fromScope`'s saved transcript onto `toScope`.
+   * `toScope` must not already have a transcript. Same-scope is a no-op.
+   * Throws when `fromScope` has no saved transcript.
+   */
+  copy(fromScope: string, toScope: string): Promise<void>;
+
   /** Drop the transcript for this scope. */
   delete(memoryScope: string): Promise<void>;
 

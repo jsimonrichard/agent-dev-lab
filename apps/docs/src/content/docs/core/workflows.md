@@ -138,7 +138,7 @@ for (const topic of topics) {
 
 **Resume** starts a **new attempt** after a failure. **Retry from a step** uses the same mechanism: you choose the step, and ADL starts a new attempt from there. Still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback). Work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
 
-[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
+[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`. `MessageStore.copy` copies one scope's transcript onto an empty scope. A step records each scope the runtime message store loads, saves, copies, or deletes.
 
 ### Nesting and attempt forests
 

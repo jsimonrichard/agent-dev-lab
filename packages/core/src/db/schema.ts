@@ -100,6 +100,8 @@ export const stepRecords = sqliteTable(
     pure: integer("pure").notNull().default(1),
     /** Prior step this record replays. */
     replayOfStepId: text("replay_of_step_id"),
+    /** JSON string array of memory scopes this step accessed. Null when none. */
+    memoryScopesJson: text("memory_scopes_json"),
   },
   (table) => [primaryKey({ columns: [table.workflowRunId, table.stepId] })],
 );

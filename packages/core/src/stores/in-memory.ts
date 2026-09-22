@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 
+import { AdlError } from "../errors";
 import type { MessageStore } from "./types";
 
 /**
@@ -16,6 +17,22 @@ export function inMemoryMessageStore(): MessageStore {
     },
     async save(memoryScope, messages) {
       scopes.set(memoryScope, [...messages]);
+    },
+    async copy(fromScope, toScope) {
+      if (fromScope === toScope) {
+        return;
+      }
+      const source = scopes.get(fromScope);
+      if (source === undefined) {
+        throw new AdlError("INVALID_INPUT", `MessageStore.copy: no transcript for "${fromScope}"`);
+      }
+      if (scopes.has(toScope)) {
+        throw new AdlError(
+          "INVALID_INPUT",
+          `MessageStore.copy: "${toScope}" already has a transcript`,
+        );
+      }
+      scopes.set(toScope, structuredClone(source));
     },
     async delete(memoryScope) {
       scopes.delete(memoryScope);

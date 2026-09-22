@@ -1,5 +1,6 @@
 import type { AgentMemoryConfig } from "../agent/types";
 import { inMemoryMessageStore } from "../stores/in-memory";
+import { trackMessageStoreAccess } from "../stores/track-access";
 import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
 import { TemplateEngine } from "../template/engine";
 import { WorkflowContextScope } from "../workflow/workflow-context-scope";
@@ -18,7 +19,7 @@ export function resolveDefinitionServices(
     ...services,
     stores: {
       ...services.stores,
-      message: messageStore,
+      message: trackMessageStoreAccess(messageStore, services.workflowContextScope),
     },
     defaults: services.defaults,
     tools: services.tools,
@@ -28,9 +29,13 @@ export function resolveDefinitionServices(
 }
 
 export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServices {
+  const workflowContextScope = new WorkflowContextScope();
   return {
     stores: {
-      message: config.stores?.message ?? inMemoryMessageStore(),
+      message: trackMessageStoreAccess(
+        config.stores?.message ?? inMemoryMessageStore(),
+        workflowContextScope,
+      ),
       workflow: config.stores?.workflow ?? inMemoryWorkflowStore(),
     },
     observers: {
@@ -38,7 +43,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
       agents: config.observers?.agents ?? [],
     },
     templateEngine: new TemplateEngine(),
-    workflowContextScope: new WorkflowContextScope(),
+    workflowContextScope,
     defaults: config.defaults ?? {},
     tools: config.tools ?? {},
     telemetry: config.telemetry,
@@ -58,7 +63,9 @@ export function resolveRuntimeOverrides(
 
   return {
     stores: {
-      message: overrides.stores?.message ?? base.stores.message,
+      message: overrides.stores?.message
+        ? trackMessageStoreAccess(overrides.stores.message, base.workflowContextScope)
+        : base.stores.message,
       workflow: overrides.stores?.workflow ?? base.stores.workflow,
     },
     observers: {

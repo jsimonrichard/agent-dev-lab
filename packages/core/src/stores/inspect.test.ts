@@ -18,6 +18,7 @@ function unlabeledStore(): MessageStore {
     },
     async save() {},
     async delete() {},
+    async copy() {},
     async listScopes() {
       return [];
     },

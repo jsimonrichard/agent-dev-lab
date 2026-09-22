@@ -70,6 +70,15 @@ export interface WorkflowContext {
   readonly memoryScopeWithSuffix: (suffix: string) => string;
 
   /**
+   * Scopes this frame has loaded, saved, copied, or deleted through the runtime
+   * message store. A step frame's list is also stored on that step's record.
+   */
+  accessedMemoryScopes(): readonly string[];
+
+  /** Record a scope this frame touched. The runtime message store calls this. */
+  noteMemoryScopeAccessed(memoryScope: string): void;
+
+  /**
    * Emit a custom run event (`type: "custom"`). `stepId` on the persisted event is
    * omitted at workflow root (when {@link WorkflowContext.stepId} is null).
    * System lifecycle events cannot be authored this way.

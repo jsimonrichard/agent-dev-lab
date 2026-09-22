@@ -11,6 +11,21 @@ export function stepSlotKey(slot: StepSlot): string {
   return slot.path.join("\0");
 }
 
+export function encodeMemoryScopes(scopes: readonly string[] | undefined): string | null {
+  return scopes && scopes.length > 0 ? JSON.stringify(scopes) : null;
+}
+
+export function decodeMemoryScopes(json: string | null): string[] | undefined {
+  if (json === null) {
+    return undefined;
+  }
+  const parsed: unknown = JSON.parse(json);
+  if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== "string")) {
+    throw new Error("adl_step_records.memory_scopes_json is not a string array");
+  }
+  return parsed;
+}
+
 /**
  * Projects step terminal events into `adl_step_outputs` and `adl_step_records`.
  * Read model only — see {@link projectWorkflowRun}.
@@ -29,6 +44,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
       .run();
 
     const pathJson = JSON.stringify(event.path);
+    const memoryScopesJson = encodeMemoryScopes(event.memoryScopes);
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -41,6 +57,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         status: "ok",
         pure,
         replayOfStepId: event.replayOfStepId ?? null,
+        memoryScopesJson,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -53,6 +70,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           status: "ok",
           pure,
           replayOfStepId: event.replayOfStepId ?? null,
+          memoryScopesJson,
         },
       })
       .run();
@@ -70,6 +88,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
       .run();
 
     const pathJson = JSON.stringify(event.path);
+    const memoryScopesJson = encodeMemoryScopes(event.memoryScopes);
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -82,6 +101,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         status: "ok",
         pure: 1,
         replayOfStepId: event.replayOfStepId ?? null,
+        memoryScopesJson,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -93,6 +113,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           outputJson,
           status: "ok",
           replayOfStepId: event.replayOfStepId ?? null,
+          memoryScopesJson,
         },
       })
       .run();
@@ -101,6 +122,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
   if (event.type === "step_failed") {
     const pathJson = JSON.stringify(event.path);
     const pure = event.pure === false ? 0 : 1;
+    const memoryScopesJson = encodeMemoryScopes(event.memoryScopes);
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -113,6 +135,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         status: "error",
         pure,
         replayOfStepId: event.replayOfStepId ?? null,
+        memoryScopesJson,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -125,6 +148,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           status: "error",
           pure,
           replayOfStepId: event.replayOfStepId ?? null,
+          memoryScopesJson,
         },
       })
       .run();

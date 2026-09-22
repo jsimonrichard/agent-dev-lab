@@ -6,7 +6,9 @@ Attempt lineage copies workflow projections. It does not carry a step's other mu
 
 ## What a seed copies today
 
-`seedRetryAttempt` writes run and step projections (`materializeAttemptRun`, `materializeAttemptStep`): outputs, paths, `pure`, and `replayOf*` links. It does not read or write `MessageStore`.
+`seedRetryAttempt` writes run and step projections (`materializeAttemptRun`, `materializeAttemptStep`): outputs, paths, `pure`, `replayOf*` links, and the scopes that step accessed. It does not call `MessageStore.copy`.
+
+`MessageStore.copy(from, to)` copies a saved transcript onto an empty scope. Inside a workflow, load, save, copy, and delete on the runtime message store are noted on the active AsyncLocalStorage frame and stored on that step as `memoryScopes`.
 
 `ctx.memoryScopeWithSuffix(suffix)` is `${workflowRunId}:${suffix}`. The new attempt has a new `workflowRunId`, so the helper names a new scope. Messages saved under the prior attempt's suffix stay on the old scope. The skipped step does not run again, so nothing writes them onto the new scope.
 
@@ -36,7 +38,7 @@ The mutation record (messages, file edits, anything a skipped step should count 
 
 ## Open
 
-- How the new attempt sees the prior messages: copy them onto the new `memoryScopeWithSuffix`, or use a scope id that stays stable when the writing step is skipped. The requirement is that the later step can load them without the writer running again.
+- Seed still does not call `MessageStore.copy`. The step's `memoryScopes` are the source ids. The new attempt's `memoryScopeWithSuffix` is a different id until something copies onto it. A scope id that stays stable when the writing step is skipped is the other option. The requirement is that the later step can load the messages without the writer running again.
 - What a step registers as a mutation, and how a file write is recognized as already applied.
 - How that record interacts with `pure: false`, which must still re-execute.
 - Where the mutation record lives after `WorkflowStore` is revisited, so it is not another required method family on that interface.

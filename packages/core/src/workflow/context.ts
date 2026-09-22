@@ -34,6 +34,7 @@ export class WorkflowContextImpl implements WorkflowContext {
 
   private readonly registry: StepRegistry;
   private readonly registryParentKey: string;
+  private readonly memoryScopes = new Set<string>();
 
   constructor(options: WorkflowContextOptions) {
     this.workflowRunId = options.workflowRunId;
@@ -50,6 +51,12 @@ export class WorkflowContextImpl implements WorkflowContext {
   }
 
   memoryScopeWithSuffix = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
+
+  accessedMemoryScopes = (): readonly string[] => [...this.memoryScopes];
+
+  noteMemoryScopeAccessed = (memoryScope: string): void => {
+    this.memoryScopes.add(memoryScope);
+  };
 
   emit = (name: string, payload?: unknown): void => {
     void this.runRecorder.emit({
@@ -105,6 +112,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           skippedStepId = seeded.stepId;
           replayOfStepId = seeded.replayOfStepId ?? undefined;
         }
+        const skippedScopes = seeded?.memoryScopes;
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
@@ -115,6 +123,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           path,
           output: cached,
           ...(replayOfStepId ? { replayOfStepId } : {}),
+          ...(skippedScopes && skippedScopes.length > 0 ? { memoryScopes: skippedScopes } : {}),
         });
         return cached as T;
       }
@@ -154,6 +163,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           ),
       );
       const durationMs = Date.now() - startedAt;
+      const memoryScopes = childCtx.accessedMemoryScopes();
       await this.runRecorder.emit({
         type: "step_finished",
         workflowRunId: this.workflowRunId,
@@ -166,9 +176,11 @@ export class WorkflowContextImpl implements WorkflowContext {
         durationMs,
         output,
         ...(impure ? { pure: false as const } : {}),
+        ...(memoryScopes.length > 0 ? { memoryScopes: [...memoryScopes] } : {}),
       });
       return output;
     } catch (error) {
+      const memoryScopes = childCtx.accessedMemoryScopes();
       await this.runRecorder.emit({
         type: "step_failed",
         workflowRunId: this.workflowRunId,
@@ -179,6 +191,7 @@ export class WorkflowContextImpl implements WorkflowContext {
         path,
         error: serializeError(error),
         ...(impure ? { pure: false as const } : {}),
+        ...(memoryScopes.length > 0 ? { memoryScopes: [...memoryScopes] } : {}),
       });
       throw error;
     }

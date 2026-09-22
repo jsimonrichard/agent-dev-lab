@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
 import { applyProjections, stepSlotKey } from "../db/projections";
+import { decodeMemoryScopes, encodeMemoryScopes } from "../db/projections/step-records";
 import {
   agentEpisodes,
   runEvents,
@@ -383,6 +384,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
       const pathJson = JSON.stringify(step.path);
       const outputJson = step.output !== undefined ? JSON.stringify(step.output) : null;
       const pure = step.pure === false ? 0 : 1;
+      const memoryScopesJson = encodeMemoryScopes(step.memoryScopes);
       db.insert(stepRecords)
         .values({
           workflowRunId: step.workflowRunId,
@@ -395,6 +397,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
           status: step.status,
           pure,
           replayOfStepId: step.replayOfStepId ?? null,
+          memoryScopesJson,
         })
         .onConflictDoUpdate({
           target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -407,6 +410,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
             status: step.status,
             pure,
             replayOfStepId: step.replayOfStepId ?? null,
+            memoryScopesJson,
           },
         })
         .run();
@@ -462,6 +466,7 @@ function rowToStepRecord(row: typeof stepRecords.$inferSelect): StepRecord {
     status: row.status,
     pure: row.pure === 0 ? false : true,
     replayOfStepId: row.replayOfStepId,
+    memoryScopes: decodeMemoryScopes(row.memoryScopesJson),
   };
 }
 

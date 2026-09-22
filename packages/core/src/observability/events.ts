@@ -98,6 +98,8 @@ export type StepFinishedEvent = WorkflowRunEventBase & {
   /** Present only when the step was declared `{ pure: false }`. */
   pure?: false;
   replayOfStepId?: string;
+  /** Scopes this step loaded, saved, copied, or deleted. Omitted when none. */
+  memoryScopes?: readonly string[];
 };
 
 export type StepSkippedEvent = WorkflowRunEventBase & {
@@ -109,6 +111,8 @@ export type StepSkippedEvent = WorkflowRunEventBase & {
   path: string[];
   output: unknown;
   replayOfStepId?: string;
+  /** Scopes the skipped step had recorded. Omitted when none. */
+  memoryScopes?: readonly string[];
 };
 
 export type StepFailedEvent = WorkflowRunEventBase & {
@@ -122,6 +126,8 @@ export type StepFailedEvent = WorkflowRunEventBase & {
   /** Present only when the step was declared `{ pure: false }`. */
   pure?: false;
   replayOfStepId?: string;
+  /** Scopes this step loaded, saved, copied, or deleted before it failed. */
+  memoryScopes?: readonly string[];
 };
 
 export type WorkflowCustomEvent = WorkflowRunEventBase & {
@@ -356,6 +362,8 @@ export type StepRecord = {
   pure?: boolean;
   /** Prior step this record replays. */
   replayOfStepId?: string | null;
+  /** Scopes this step loaded, saved, copied, or deleted. Omitted when none. */
+  memoryScopes?: readonly string[];
 };
 
 /**
