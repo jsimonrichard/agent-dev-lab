@@ -174,7 +174,7 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 Core already streams them. A tool whose `execute` returns an `AsyncIterable` (bash is the
 shipped case — cumulative `stdout`/`stderr` snapshots while the command runs) emits one
 `agent_tool_result` per yield with `preliminary: true`, then a final non-preliminary result
-for the same `toolCallId`. See `AgentToolResultEvent` and `.changeset/streaming-tool-results.md`.
+for the same `toolCallId`. See `AgentToolResultEvent`.
 Preliminary values never reach `MessageStore` / the model; they exist only on the event stream.
 
 The inspection UI does **not** show that live stream. Chat / run transcripts render tool

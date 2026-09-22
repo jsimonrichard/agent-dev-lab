@@ -2,18 +2,18 @@
 
 Attempt lineage is **shipped**: new-attempt seed (`seedRetryAttempt`), path-stable step skip, `StepOptions.pure`, nested forests (`parentWorkflowRunId` / `parentStepId`), and inspection-UI Retry. User-facing contract lives in the [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md#resumability). Do not restate that API here.
 
-Last reconciled: **2026-09-21**.
+Last reconciled: **2026-09-22**.
 
 ---
 
 ## Still open
 
-| Item                                  | Notes                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Crash mid-closure / `ctx.checkpoint`  | Re-enter without calling `workflow.run` again; Temporal-class durability stays out of scope |
-| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts                                    |
-| Mid-stream token resume               | Resume a partial model stream                                                               |
-| Retry / lineage Playwright validation | `apps/web/e2e/retry-attempt.spec.ts` exists; full e2e confidence not finished yet           |
+| Item                                  | Notes                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Crash mid-closure / `ctx.checkpoint`  | Re-enter without calling `workflow.run` again; Temporal-class durability stays out of scope                         |
+| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts                                                            |
+| Mid-stream token resume               | Resume a partial model stream                                                                                       |
+| Copied-bar / nested-expand Playwright | API retry, 409-while-running, and workflow-row Retry are in `retry-attempt.spec.ts`. Visual layout is still manual. |
 
 ---
 
