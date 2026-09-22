@@ -14,6 +14,7 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 | `fetchUrl` tool + SSRF guard (`@agent-dev-lab/tools`) | `src/tools/fetch-fixture.ts` + `fetch-url-demo` workflow — deterministic checks (no LLM) against a local fixture: blocked with no `allowedUrls`, a glob scoped to one path, a `RegExp` entry, and a redirect that still escapes a broad same-origin exemption |
 | Multi-agent workflow                                  | `src/workflows/write-article.ts` (outline → draft → review → revise)                                                                                                                                                                                          |
 | Optional scope, `messages`, handoff                   | `src/workflows/shared-scope.ts` (drafter → reviser on one `memoryScope`)                                                                                                                                                                                      |
+| `MessageStore.copy`                                   | `src/workflows/copy-memory.ts` (`fact-keeper` writes a fact, the transcript is copied, the same agent recalls it from the copy)                                                                                                                               |
 | Parallel agent step                                   | `src/workflows/literature-review.ts` (researcher + critic)                                                                                                                                                                                                    |
 | Workflow tool loop in TypeScript                      | `src/workflows/answer-question.ts`                                                                                                                                                                                                                            |
 | Steps, `memoryScope`, `ctx.emit(name, payload?)`      | LLM workflows                                                                                                                                                                                                                                                 |
@@ -25,8 +26,8 @@ Hardcoded ADL project used when developing the inspection UI (`apps/web`) and CL
 
 `adl.config.ts` registers everything so the inspection UI and CLI can discover it:
 
-- **agents:** `outliner`, `writer`, `editor`, `drafter`, `reviser`, `research-assistant`, `researcher`, `critic`, `sandbox-agent`, `sandbox-agent-native`
-- **workflows:** `demo-counter`, `nested-demo`, `nest-phase`, `nest-leaf-alpha`, `nest-leaf-beta`, `write-article`, `answer-question`, `literature-review`, `shared-scope`, `sandbox-demo`, `fetch-url-demo`
+- **agents:** `outliner`, `writer`, `editor`, `drafter`, `fact-keeper`, `reviser`, `research-assistant`, `researcher`, `critic`, `sandbox-agent`, `sandbox-agent-native`
+- **workflows:** `demo-counter`, `nested-demo`, `nest-phase`, `nest-leaf-alpha`, `nest-leaf-beta`, `write-article`, `answer-question`, `literature-review`, `shared-scope`, `copy-memory`, `sandbox-demo`, `fetch-url-demo`
 - **templates:** `outliner`, `article-brief`, `draft-request`, `revise-request`
 
 ## Model & API key
@@ -92,10 +93,10 @@ src/
   adl.ts               # createAdlRuntime() with SQLite stores
   model.ts             # shared OpenAI model from env
   main.ts              # CLI demo runner with a live event trace
-  agents/              # outliner, writer, editor, drafter, reviser, research-assistant, researcher, critic, sandbox-agent(-native)
+  agents/              # outliner, writer, editor, drafter, fact-keeper, reviser, research-assistant, researcher, critic, sandbox-agent(-native)
   prompts/             # instruction + request templates (incl. outliner.md)
   tools/               # knowledge-base lookup + safe calculator; sandbox.ts, fetch-fixture.ts (@agent-dev-lab/tools)
-  workflows/           # demo-counter, write-article, answer-question, literature-review, shared-scope, sandbox-demo, fetch-url-demo
+  workflows/           # demo-counter, write-article, answer-question, literature-review, shared-scope, copy-memory, sandbox-demo, fetch-url-demo
 .adl/                  # local project state (gitignored)
 .data/                 # SQLite store (gitignored)
 ```

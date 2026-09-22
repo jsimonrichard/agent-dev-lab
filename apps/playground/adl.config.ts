@@ -5,6 +5,7 @@ import { adl } from "#adl";
 import {
   drafter,
   editor,
+  factKeeper,
   outliner,
   researchAssistant,
   reviser,
@@ -16,6 +17,7 @@ import { critic } from "./src/agents/critic";
 import { researcher } from "./src/agents/researcher";
 import { promptTemplates } from "./src/prompts";
 import { answerQuestion } from "./src/workflows/answer-question";
+import { copyMemory } from "./src/workflows/copy-memory";
 import { demoCounter } from "./src/workflows/demo-counter";
 import { fetchUrlDemo } from "./src/workflows/fetch-url-demo";
 import { literatureReview } from "./src/workflows/literature-review";
@@ -34,6 +36,7 @@ const agents: AnyAgent[] = [
   writer,
   editor,
   drafter,
+  factKeeper,
   reviser,
   researchAssistant,
   researcher,
@@ -62,6 +65,7 @@ export default {
     answerQuestion,
     literatureReview,
     sharedScope,
+    copyMemory,
     sandboxDemo,
     fetchUrlDemo,
   ],
