@@ -87,7 +87,8 @@ type RowMenu =
       priorRunId: string | null;
       workflowId: string;
     }
-  | { kind: "nested"; run: InspectorRunSummary };
+  | { kind: "nested"; run: InspectorRunSummary }
+  | { kind: "workflow" };
 
 let hoverTipTimer = 0;
 let hoverTipSource: Element | null = null;
@@ -147,6 +148,8 @@ interface WorkflowTreePanelProps {
   priorAttemptRunId?: string | null;
   priorAttemptWorkflowId?: string;
   onRetryFromStep?: (stepId: string, ownerRunId: string) => void;
+  /** Retry the page workflow from its first failed step, else its first step. */
+  onRetryWorkflow?: () => void;
   onOpenNestedRunPage?: (run: InspectorRunSummary) => void;
 }
 
@@ -169,6 +172,7 @@ export function WorkflowTreePanel({
   priorAttemptRunId = null,
   priorAttemptWorkflowId,
   onRetryFromStep,
+  onRetryWorkflow,
   onOpenNestedRunPage,
 }: WorkflowTreePanelProps) {
   const { offline } = useInspectorConnection();
@@ -268,6 +272,7 @@ export function WorkflowTreePanel({
     onToggleNestedExpanded,
     onOpenNestedRunPage,
     onRetryFromStep,
+    onRetryWorkflow,
   });
   actionsRef.current.onSelectWorkflow = onSelectWorkflow;
   actionsRef.current.onSelectStep = onSelectStep;
@@ -276,6 +281,7 @@ export function WorkflowTreePanel({
   actionsRef.current.onToggleNestedExpanded = onToggleNestedExpanded;
   actionsRef.current.onOpenNestedRunPage = onOpenNestedRunPage;
   actionsRef.current.onRetryFromStep = onRetryFromStep;
+  actionsRef.current.onRetryWorkflow = onRetryWorkflow;
 
   const selectWorkflow = useCallback(() => {
     actionsRef.current.onSelectWorkflow();
@@ -360,6 +366,15 @@ export function WorkflowTreePanel({
     } else if (row.kind === "nested-run" && onOpenNestedRunPage) {
       rowMenusRef.current.set(row.run.runId, { kind: "nested", run: row.run });
     }
+  }
+  if (
+    canRetry &&
+    !retryBusy &&
+    view.status !== "running" &&
+    view.steps.length > 0 &&
+    onRetryWorkflow != null
+  ) {
+    rowMenusRef.current.set(WORKFLOW_ROW_ID, { kind: "workflow" });
   }
 
   const [openMenu, setOpenMenu] = useState<RowMenu | null>(null);
@@ -535,6 +550,7 @@ export function WorkflowTreePanel({
             onRetryFromStep={(stepId, ownerRunId) =>
               actionsRef.current.onRetryFromStep?.(stepId, ownerRunId)
             }
+            onRetryWorkflow={() => actionsRef.current.onRetryWorkflow?.()}
             onOpenNestedRunPage={(run) => actionsRef.current.onOpenNestedRunPage?.(run)}
           />
         </ContextMenuContent>
@@ -806,13 +822,23 @@ function workflowRowLooksSame(
 function PanelRowMenu({
   menu,
   onRetryFromStep,
+  onRetryWorkflow,
   onOpenNestedRunPage,
 }: {
   menu: RowMenu | null;
   onRetryFromStep: (stepId: string, ownerRunId: string) => void;
+  onRetryWorkflow: () => void;
   onOpenNestedRunPage: (run: InspectorRunSummary) => void;
 }) {
   if (!menu) return null;
+  if (menu.kind === "workflow") {
+    return (
+      <ContextMenuItem onSelect={() => onRetryWorkflow()}>
+        <RotateCcw className="mr-2 size-4" />
+        Retry
+      </ContextMenuItem>
+    );
+  }
   if (menu.kind === "step") {
     return (
       <>

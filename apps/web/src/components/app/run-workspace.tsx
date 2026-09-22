@@ -721,6 +721,9 @@ export function RunWorkspace({
             onRetryFromStep={(stepId, ownerRunId) => {
               void handleRetry(stepId, ownerRunId);
             }}
+            onRetryWorkflow={() => {
+              void handleRetry(resolveRetryStepId(view.steps), summary.runId);
+            }}
             onOpenNestedRunPage={openNestedRunPage}
           />
         </ResizablePanel>

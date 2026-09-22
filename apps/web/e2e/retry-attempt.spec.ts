@@ -88,6 +88,14 @@ async function openWorkflowRun(page: Page, workflowId: string, runId: string): P
   await expect(page.getByRole("heading").first()).toBeVisible();
 }
 
+async function waitForTreeHydration(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const row = document.querySelector("[data-row-id]");
+    if (!row) return false;
+    return Object.keys(row).some((key) => key.startsWith("__reactFiber"));
+  });
+}
+
 test.describe("attempt-lineage resumability", () => {
   test("UI hides Retry while the forest is still running", async ({ page, request }) => {
     const runId = await startWorkflowRun(request, "hang-for-retry", { title: "e2e hang" });
@@ -100,6 +108,41 @@ test.describe("attempt-lineage resumability", () => {
     await page.reload();
     await expect(page.locator("header").getByText("completed", { exact: true })).toBeVisible();
     await expect(page.getByTestId("retry-workflow-run")).toBeVisible();
+  });
+
+  test("workflow row context menu retries the whole run", async ({ page, request }) => {
+    const runId = await startWorkflowRun(request, "retry-lineage", { title: "e2e workflow retry" });
+    await waitForRunStatus(request, runId, "completed");
+    await openWorkflowRun(page, "retry-lineage", runId);
+    await waitForTreeHydration(page);
+
+    await page.locator('[data-row-id="__workflow__"]').first().click({ button: "right" });
+    const retryItem = page.getByRole("menuitem", { name: "Retry", exact: true });
+    await expect(retryItem).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Retry from here" })).toHaveCount(0);
+    await retryItem.click();
+
+    await expect
+      .poll(() => {
+        const match = page.url().match(/\/run\/([^/?#]+)/);
+        return match?.[1] !== runId ? match?.[1] : undefined;
+      })
+      .toBeTruthy();
+    const attemptRunId = page.url().match(/\/run\/([^/?#]+)/)?.[1];
+    expect(attemptRunId).toBeTruthy();
+    expect(attemptRunId).not.toBe(runId);
+
+    const attempt = await waitForRunStatus(request, attemptRunId!, "completed");
+    expect(attempt.summary.retriesFromRunId).toBe(runId);
+    expect(attempt.summary.title).toBe("e2e workflow retry (retry)");
+
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: /^a duration/ })
+      .first()
+      .click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Retry from here" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Retry", exact: true })).toHaveCount(0);
   });
 
   test("API rejects retry while a run in the forest is still live", async ({ request }) => {
