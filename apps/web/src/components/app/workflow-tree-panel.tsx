@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  memo,
   startTransition,
   useCallback,
   useEffect,
@@ -64,6 +65,7 @@ import {
   waterfallTickMarks,
   type NestedRunTreeData,
   type WaterfallBar,
+  type WaterfallScale,
   type WorkflowTreeRow,
 } from "@/lib/workflow/workflow-waterfall";
 
@@ -143,7 +145,7 @@ export function WorkflowTreePanel({
       expandedNestedRunIds,
     ],
   );
-  const ticks = waterfallTickMarks(scale, waterfallTickCount(zoom));
+  const ticks = useMemo(() => waterfallTickMarks(scale, waterfallTickCount(zoom)), [scale, zoom]);
   const workflowCollapsed = collapsedStepIds.has(WORKFLOW_ROW_ID);
   const rows = useMemo(
     () =>
@@ -167,14 +169,22 @@ export function WorkflowTreePanel({
       expandedNestedRunIds,
     ],
   );
-  const workflowBar = computeSpanWaterfallBar(
-    {
-      startedAt: view.startedAt,
-      finishedAt: view.finishedAt,
-      status: runStatusAsStepStatus(view.status),
-    },
-    scale,
-    nowMs,
+  const workflowBar = useMemo(
+    () =>
+      computeSpanWaterfallBar(
+        {
+          startedAt: view.startedAt,
+          finishedAt: view.finishedAt,
+          status: runStatusAsStepStatus(view.status),
+        },
+        scale,
+        nowMs,
+      ),
+    [view.startedAt, view.finishedAt, view.status, scale, nowMs],
+  );
+  const nestsByOwnerStep = useMemo(
+    () => buildNestsByOwnerStep(view.runId, childRuns, nestedByRunId),
+    [view.runId, childRuns, nestedByRunId],
   );
   const hiddenRootCount = rows.length;
 
@@ -187,6 +197,45 @@ export function WorkflowTreePanel({
         return next;
       });
     });
+  }, []);
+  const toggleWorkflowCollapsed = useCallback(() => {
+    toggleCollapsed(WORKFLOW_ROW_ID);
+  }, [toggleCollapsed]);
+
+  // Parent callbacks are often new each render. Rows compare these identities,
+  // so bridge through a ref and hand rows stable functions.
+  const actionsRef = useRef({
+    onSelectWorkflow,
+    onSelectStep,
+    onSelectEpisode,
+    onSelectNestedRun,
+    onToggleNestedExpanded,
+    onOpenNestedRunPage,
+  });
+  actionsRef.current.onSelectWorkflow = onSelectWorkflow;
+  actionsRef.current.onSelectStep = onSelectStep;
+  actionsRef.current.onSelectEpisode = onSelectEpisode;
+  actionsRef.current.onSelectNestedRun = onSelectNestedRun;
+  actionsRef.current.onToggleNestedExpanded = onToggleNestedExpanded;
+  actionsRef.current.onOpenNestedRunPage = onOpenNestedRunPage;
+
+  const selectWorkflow = useCallback(() => {
+    actionsRef.current.onSelectWorkflow();
+  }, []);
+  const selectStep = useCallback((stepId: string, ownerRunId: string) => {
+    actionsRef.current.onSelectStep(stepId, ownerRunId);
+  }, []);
+  const selectEpisode = useCallback((stepId: string, episode: AgentEpisode, ownerRunId: string) => {
+    actionsRef.current.onSelectEpisode(stepId, episode, ownerRunId);
+  }, []);
+  const selectNestedRun = useCallback((runId: string) => {
+    actionsRef.current.onSelectNestedRun(runId);
+  }, []);
+  const toggleNestedExpanded = useCallback((runId: string) => {
+    actionsRef.current.onToggleNestedExpanded(runId);
+  }, []);
+  const openNestedRunPage = useCallback((run: InspectorRunSummary) => {
+    actionsRef.current.onOpenNestedRunPage?.(run);
   }, []);
 
   const split = useColumnSplit();
@@ -233,12 +282,8 @@ export function WorkflowTreePanel({
 
   const renderTreeRow = (row: WorkflowTreeRow, pane: "tree" | "waterfall") => {
     if (row.kind === "step") {
-      const nestsUnder = childRunsForOwner(
-        row.ownerRunId,
-        view.runId,
-        childRuns,
-        nestedByRunId,
-      ).filter((run) => run.parentStepId === row.step.stepId);
+      const nestsUnder =
+        nestsByOwnerStep.get(`${row.ownerRunId}\0${row.step.stepId}`) ?? EMPTY_NESTS;
       const ownerStatus = ownerRunStatus(row.ownerRunId);
       const showRetry =
         canRetry && !retryBusy && ownerStatus !== "running" && onRetryFromStep != null;
@@ -247,9 +292,11 @@ export function WorkflowTreePanel({
           key={`step:${row.ownerRunId}:${row.step.stepId}:${pane}`}
           pane={pane}
           step={row.step}
+          ownerRunId={row.ownerRunId}
           depth={row.depth}
           nestedUnderStep={nestsUnder}
-          bar={computeSpanWaterfallBar(row.step, scale, nowMs)}
+          scale={scale}
+          nowMs={nowMs}
           ticks={ticks}
           collapsed={collapsedStepIds.has(row.step.stepId)}
           selected={
@@ -257,8 +304,8 @@ export function WorkflowTreePanel({
             selectedEpisodeId === null &&
             selectedNestedRunId === null
           }
-          onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
-          onSelect={() => onSelectStep(row.step.stepId, row.ownerRunId)}
+          onToggleCollapsed={toggleCollapsed}
+          onSelectStep={selectStep}
           priorAttemptRunId={priorAttemptRunId}
           priorAttemptWorkflowId={priorAttemptWorkflowId ?? view.workflowId}
         />
@@ -304,12 +351,14 @@ export function WorkflowTreePanel({
           key={`ep:${row.ownerRunId}:${row.episode.episodeId}:${pane}`}
           pane={pane}
           episode={row.episode}
+          stepId={row.step.stepId}
           depth={row.depth}
           runId={row.ownerRunId}
-          bar={computeSpanWaterfallBar(row.episode, scale, nowMs)}
+          scale={scale}
+          nowMs={nowMs}
           ticks={ticks}
           selected={selectedEpisodeId === row.episode.episodeId}
-          onSelect={() => onSelectEpisode(row.step.stepId, row.episode, row.ownerRunId)}
+          onSelectEpisode={selectEpisode}
         />
       );
     }
@@ -322,24 +371,17 @@ export function WorkflowTreePanel({
         pane={pane}
         run={row.run}
         depth={row.depth}
-        bar={computeSpanWaterfallBar(runSummaryAsTimedSpan(row.run), scale, nowMs)}
+        scale={scale}
+        nowMs={nowMs}
         ticks={ticks}
         expanded={expanded}
         expandable={nestedRunHasExpandableChildren(nestedData)}
         loading={loading}
         selected={selectedNestedRunId === row.run.runId && selectedStepId === null}
-        onToggleExpanded={() => onToggleNestedExpanded(row.run.runId)}
-        onSelect={() => onSelectNestedRun(row.run.runId)}
+        onToggleExpanded={toggleNestedExpanded}
+        onSelectNestedRun={selectNestedRun}
         copiedFromPriorAttempt={row.run.replayOfRunId != null}
-        onViewOriginalRun={
-          row.run.replayOfRunId && onOpenNestedRunPage
-            ? () =>
-                onOpenNestedRunPage({
-                  ...row.run,
-                  runId: row.run.replayOfRunId!,
-                })
-            : undefined
-        }
+        onOpenNestedRunPage={onOpenNestedRunPage ? openNestedRunPage : undefined}
       />
     );
     const nestedMenu =
@@ -400,8 +442,8 @@ export function WorkflowTreePanel({
               hiddenCount={hiddenRootCount}
               bar={workflowBar}
               ticks={ticks}
-              onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
-              onSelect={onSelectWorkflow}
+              onToggleCollapsed={toggleWorkflowCollapsed}
+              onSelect={selectWorkflow}
             />
             {rows.map((row) => renderTreeRow(row, "tree"))}
             {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
@@ -431,8 +473,8 @@ export function WorkflowTreePanel({
               hiddenCount={hiddenRootCount}
               bar={workflowBar}
               ticks={ticks}
-              onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
-              onSelect={onSelectWorkflow}
+              onToggleCollapsed={toggleWorkflowCollapsed}
+              onSelect={selectWorkflow}
             />
             {rows.map((row) => renderTreeRow(row, "waterfall"))}
             {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
@@ -459,16 +501,36 @@ export function WorkflowTreePanel({
   );
 }
 
-function childRunsForOwner(
-  ownerRunId: string,
+const EMPTY_NESTS: InspectorRunSummary[] = [];
+
+function buildNestsByOwnerStep(
   pageRunId: string,
-  pageChildRuns: InspectorRunSummary[],
+  pageChildRuns: readonly InspectorRunSummary[],
   nestedByRunId: ReadonlyMap<string, NestedRunTreeData>,
-): InspectorRunSummary[] {
-  if (ownerRunId === pageRunId) {
-    return pageChildRuns;
+): Map<string, InspectorRunSummary[]> {
+  const map = new Map<string, InspectorRunSummary[]>();
+  const add = (ownerRunId: string, runs: readonly InspectorRunSummary[]) => {
+    const byParent = new Map<string, InspectorRunSummary[]>();
+    for (const run of runs) {
+      const parent = run.parentStepId ?? "";
+      const list = byParent.get(parent);
+      if (list) {
+        list.push(run);
+      } else {
+        byParent.set(parent, [run]);
+      }
+    }
+    for (const [parent, list] of byParent) {
+      map.set(`${ownerRunId}\0${parent}`, list);
+    }
+  };
+  add(pageRunId, pageChildRuns);
+  for (const [runId, data] of nestedByRunId) {
+    if (data.childRuns && data.childRuns.length > 0) {
+      add(runId, data.childRuns);
+    }
   }
-  return nestedByRunId.get(ownerRunId)?.childRuns ?? [];
+  return map;
 }
 
 function StepsHeader() {
@@ -519,7 +581,7 @@ function runStatusAsStep(status: RunViewState["status"]): StepNodeStatus {
   return runStatusAsStepStatus(status);
 }
 
-function WorkflowRow({
+const WorkflowRow = memo(function WorkflowRow({
   pane,
   workflowId,
   status,
@@ -573,19 +635,26 @@ function WorkflowRow({
       ) : null}
     </GridRow>
   );
-}
+});
 
 function wrapRowContextMenu(key: string, row: ReactElement, menu: ReactNode | null): ReactNode {
   if (!menu) {
     return row;
   }
-  return <TreeRowContextMenu key={key} trigger={row} menu={menu} />;
+  return (
+    <TreeRowContextMenu key={key} menu={menu}>
+      {row}
+    </TreeRowContextMenu>
+  );
 }
 
-function TreeRowContextMenu({ trigger, menu }: { trigger: ReactElement; menu: ReactNode }) {
+function TreeRowContextMenu({ menu, children }: { menu: ReactNode; children: ReactElement }) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
+      {/* `contents` keeps the trigger from adding a box; Radix slot props stay off the memoized row. */}
+      <ContextMenuTrigger asChild>
+        <div className="contents">{children}</div>
+      </ContextMenuTrigger>
       <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
         {menu}
       </ContextMenuContent>
@@ -660,209 +729,234 @@ function CopiedFromPriorBadge({
 
 type SlotDomProps = Omit<HTMLAttributes<HTMLElement>, "children" | "onSelect" | "color">;
 
-const StepRow = forwardRef<
-  HTMLElement,
-  {
-    pane: "tree" | "waterfall";
-    step: StepNode;
-    depth: number;
-    nestedUnderStep: InspectorRunSummary[];
-    bar: WaterfallBar | null;
-    ticks: { pct: number; label: string }[];
-    collapsed: boolean;
-    selected: boolean;
-    onToggleCollapsed: () => void;
-    onSelect: () => void;
-    priorAttemptRunId?: string | null;
-    priorAttemptWorkflowId?: string;
-  } & SlotDomProps
->(function StepRow(
-  {
-    pane,
-    step,
-    depth,
-    nestedUnderStep,
-    bar,
-    ticks,
-    collapsed,
-    selected,
-    onToggleCollapsed,
-    onSelect,
-    priorAttemptRunId,
-    priorAttemptWorkflowId,
-    ...slotProps
-  },
-  ref,
-) {
-  const label = formatStepLabel(step.name, step.key);
-  const hasChildren = stepHasTreeChildren(step, nestedUnderStep);
-  const hiddenCount = step.children.length + step.agentEpisodes.length + nestedUnderStep.length;
+const StepRow = memo(
+  forwardRef<
+    HTMLElement,
+    {
+      pane: "tree" | "waterfall";
+      step: StepNode;
+      ownerRunId: string;
+      depth: number;
+      nestedUnderStep: readonly InspectorRunSummary[];
+      scale: WaterfallScale;
+      nowMs: number;
+      ticks: { pct: number; label: string }[];
+      collapsed: boolean;
+      selected: boolean;
+      onToggleCollapsed: (stepId: string) => void;
+      onSelectStep: (stepId: string, ownerRunId: string) => void;
+      priorAttemptRunId?: string | null;
+      priorAttemptWorkflowId?: string;
+    } & SlotDomProps
+  >(function StepRow(
+    {
+      pane,
+      step,
+      ownerRunId,
+      depth,
+      nestedUnderStep,
+      scale,
+      nowMs,
+      ticks,
+      collapsed,
+      selected,
+      onToggleCollapsed,
+      onSelectStep,
+      priorAttemptRunId,
+      priorAttemptWorkflowId,
+      ...slotProps
+    },
+    ref,
+  ) {
+    const label = formatStepLabel(step.name, step.key);
+    const hasChildren = stepHasTreeChildren(step, nestedUnderStep);
+    const hiddenCount = step.children.length + step.agentEpisodes.length + nestedUnderStep.length;
+    const bar = computeSpanWaterfallBar(step, scale, nowMs);
 
-  return (
-    <GridRow
-      ref={ref}
-      pane={pane}
-      rowId={step.stepId}
-      selected={selected}
-      onSelect={onSelect}
-      ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
-      bar={bar}
-      ticks={ticks}
-      status={step.status}
-      label={label}
-      barSize="step"
-      leading={
-        <CollapseToggle
-          expanded={!collapsed}
-          disabled={!hasChildren}
-          label={label}
-          onToggle={onToggleCollapsed}
-        />
-      }
-      trailing={<RowStatusIcon status={step.status} kind="step" />}
-      depth={depth}
-      {...slotProps}
-    >
-      <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="truncate font-mono font-medium">{label}</span>
-      {step.copiedFromPriorAttempt || step.replayedFromStepId ? (
-        <CopiedFromPriorBadge
-          title={
-            priorAttemptRunId
-              ? "Step result copied from the prior attempt — open original"
-              : "Step result copied from a prior attempt"
-          }
-          href={
-            priorAttemptRunId && priorAttemptWorkflowId
-              ? step.replayedFromStepId
-                ? {
-                    workflowId: priorAttemptWorkflowId,
-                    runId: priorAttemptRunId,
-                    stepId: step.replayedFromStepId,
-                  }
-                : { workflowId: priorAttemptWorkflowId, runId: priorAttemptRunId }
-              : undefined
-          }
-        />
-      ) : null}
-      {collapsed && hiddenCount > 0 ? (
-        <span className="shrink-0 text-[10px] text-muted-foreground">{hiddenCount}</span>
-      ) : null}
-      {step.status === "failed" && step.error ? (
-        <ErrorIndicator error={step.error} className="min-w-0 text-[10px]" />
-      ) : null}
-    </GridRow>
-  );
-});
+    return (
+      <GridRow
+        ref={ref}
+        pane={pane}
+        rowId={step.stepId}
+        selected={selected}
+        onSelect={() => onSelectStep(step.stepId, ownerRunId)}
+        ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
+        bar={bar}
+        ticks={ticks}
+        status={step.status}
+        label={label}
+        barSize="step"
+        leading={
+          <CollapseToggle
+            expanded={!collapsed}
+            disabled={!hasChildren}
+            label={label}
+            onToggle={() => onToggleCollapsed(step.stepId)}
+          />
+        }
+        trailing={<RowStatusIcon status={step.status} kind="step" />}
+        depth={depth}
+        {...slotProps}
+      >
+        <Layers className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate font-mono font-medium">{label}</span>
+        {step.copiedFromPriorAttempt || step.replayedFromStepId ? (
+          <CopiedFromPriorBadge
+            title={
+              priorAttemptRunId
+                ? "Step result copied from the prior attempt — open original"
+                : "Step result copied from a prior attempt"
+            }
+            href={
+              priorAttemptRunId && priorAttemptWorkflowId
+                ? step.replayedFromStepId
+                  ? {
+                      workflowId: priorAttemptWorkflowId,
+                      runId: priorAttemptRunId,
+                      stepId: step.replayedFromStepId,
+                    }
+                  : { workflowId: priorAttemptWorkflowId, runId: priorAttemptRunId }
+                : undefined
+            }
+          />
+        ) : null}
+        {collapsed && hiddenCount > 0 ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">{hiddenCount}</span>
+        ) : null}
+        {step.status === "failed" && step.error ? (
+          <ErrorIndicator error={step.error} className="min-w-0 text-[10px]" />
+        ) : null}
+      </GridRow>
+    );
+  }),
+);
 
-const NestedRunRow = forwardRef<
-  HTMLElement,
-  {
-    pane: "tree" | "waterfall";
-    run: InspectorRunSummary;
-    depth: number;
-    bar: WaterfallBar | null;
-    ticks: { pct: number; label: string }[];
-    expanded: boolean;
-    expandable: boolean;
-    loading: boolean;
-    selected: boolean;
-    onToggleExpanded: () => void;
-    onSelect: () => void;
-    copiedFromPriorAttempt?: boolean;
-    onViewOriginalRun?: () => void;
-  } & SlotDomProps
->(function NestedRunRow(
-  {
-    pane,
-    run,
-    depth,
-    bar,
-    ticks,
-    expanded,
-    expandable,
-    loading,
-    selected,
-    onToggleExpanded,
-    onSelect,
-    copiedFromPriorAttempt,
-    onViewOriginalRun,
-    ...slotProps
-  },
-  ref,
-) {
-  const label = workflowRunLabel({ runId: run.runId, title: run.title }) || run.workflowId;
-  const status = runStatusAsStepStatus(run.status);
+const NestedRunRow = memo(
+  forwardRef<
+    HTMLElement,
+    {
+      pane: "tree" | "waterfall";
+      run: InspectorRunSummary;
+      depth: number;
+      scale: WaterfallScale;
+      nowMs: number;
+      ticks: { pct: number; label: string }[];
+      expanded: boolean;
+      expandable: boolean;
+      loading: boolean;
+      selected: boolean;
+      onToggleExpanded: (runId: string) => void;
+      onSelectNestedRun: (runId: string) => void;
+      copiedFromPriorAttempt?: boolean;
+      onOpenNestedRunPage?: (run: InspectorRunSummary) => void;
+    } & SlotDomProps
+  >(function NestedRunRow(
+    {
+      pane,
+      run,
+      depth,
+      scale,
+      nowMs,
+      ticks,
+      expanded,
+      expandable,
+      loading,
+      selected,
+      onToggleExpanded,
+      onSelectNestedRun,
+      copiedFromPriorAttempt,
+      onOpenNestedRunPage,
+      ...slotProps
+    },
+    ref,
+  ) {
+    const label = workflowRunLabel({ runId: run.runId, title: run.title }) || run.workflowId;
+    const status = runStatusAsStepStatus(run.status);
+    const bar = computeSpanWaterfallBar(runSummaryAsTimedSpan(run), scale, nowMs);
 
-  return (
-    <GridRow
-      ref={ref}
-      pane={pane}
-      rowId={run.runId}
-      selected={selected}
-      onSelect={onSelect}
-      ariaLabel={`${run.workflowId} nested run duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
-      bar={bar}
-      ticks={ticks}
-      status={status}
-      label={label}
-      barSize="step"
-      leading={
-        <CollapseToggle
-          expanded={expanded}
-          disabled={!expandable}
-          loading={loading}
-          label={run.workflowId}
-          onToggle={onToggleExpanded}
-        />
-      }
-      trailing={<RowStatusIcon status={status} kind="step" />}
-      depth={depth}
-      {...slotProps}
-    >
-      <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="truncate font-mono font-medium">{run.workflowId}</span>
-      {copiedFromPriorAttempt ? (
-        <CopiedFromPriorBadge
-          title="Sub-workflow copied from the prior attempt — open original run"
-          onOpen={onViewOriginalRun}
-        />
-      ) : null}
-      {run.title?.trim() ? (
-        <span className="truncate text-[10px] text-muted-foreground">{run.title.trim()}</span>
-      ) : null}
-    </GridRow>
-  );
-});
+    return (
+      <GridRow
+        ref={ref}
+        pane={pane}
+        rowId={run.runId}
+        selected={selected}
+        onSelect={() => onSelectNestedRun(run.runId)}
+        ariaLabel={`${run.workflowId} nested run duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
+        bar={bar}
+        ticks={ticks}
+        status={status}
+        label={label}
+        barSize="step"
+        leading={
+          <CollapseToggle
+            expanded={expanded}
+            disabled={!expandable}
+            loading={loading}
+            label={run.workflowId}
+            onToggle={() => onToggleExpanded(run.runId)}
+          />
+        }
+        trailing={<RowStatusIcon status={status} kind="step" />}
+        depth={depth}
+        {...slotProps}
+      >
+        <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate font-mono font-medium">{run.workflowId}</span>
+        {copiedFromPriorAttempt ? (
+          <CopiedFromPriorBadge
+            title="Sub-workflow copied from the prior attempt — open original run"
+            onOpen={
+              run.replayOfRunId && onOpenNestedRunPage
+                ? () =>
+                    onOpenNestedRunPage({
+                      ...run,
+                      runId: run.replayOfRunId!,
+                    })
+                : undefined
+            }
+          />
+        ) : null}
+        {run.title?.trim() ? (
+          <span className="truncate text-[10px] text-muted-foreground">{run.title.trim()}</span>
+        ) : null}
+      </GridRow>
+    );
+  }),
+);
 
-function EpisodeRow({
+const EpisodeRow = memo(function EpisodeRow({
   pane,
   episode,
+  stepId,
   depth,
   runId,
-  bar,
+  scale,
+  nowMs,
   ticks,
   selected,
-  onSelect,
+  onSelectEpisode,
 }: {
   pane: "tree" | "waterfall";
   episode: AgentEpisode;
+  stepId: string;
   depth: number;
   runId: string;
-  bar: WaterfallBar | null;
+  scale: WaterfallScale;
+  nowMs: number;
   ticks: { pct: number; label: string }[];
   selected: boolean;
-  onSelect: () => void;
+  onSelectEpisode: (stepId: string, episode: AgentEpisode, ownerRunId: string) => void;
 }) {
   const scopeLabel = formatMemoryScopeLabel(episode.memoryScope, runId);
   const label = `${scopeLabel} · ${episode.agentId}`;
+  const bar = computeSpanWaterfallBar(episode, scale, nowMs);
 
   return (
     <GridRow
       pane={pane}
       rowId={episode.episodeId}
       selected={selected}
-      onSelect={onSelect}
+      onSelect={() => onSelectEpisode(stepId, episode, runId)}
       ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
       ticks={ticks}
@@ -890,7 +984,7 @@ function EpisodeRow({
       ) : null}
     </GridRow>
   );
-}
+});
 
 const GridRow = forwardRef<
   HTMLElement,

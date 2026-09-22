@@ -71,6 +71,26 @@ enough to clear a ~600–1300ms Event Timing ceiling.
    `click()` can appear no-op until later frames); product path still toggles
    (row count dropped after the collapse loop).
 
+## Memoized rows (2026-09-22)
+
+`memo` on step, episode, nested, and workflow rows, with stable callbacks and
+memoized ticks. Context-menu triggers use a `display: contents` wrapper so
+Radix pointer handlers are not props of the memoized row (those handlers were
+new every parent render, so `memo` never skipped).
+
+Same bench, label `memo-rows`:
+
+| Interaction      | before max / mean (ms) | memo max / mean (ms) |
+| ---------------- | ---------------------- | -------------------- |
+| click (collapse) | 1296 / 544             | 360 / 246            |
+| click (select)   | 1296 / 334             | 360 / 246            |
+
+Worst Event Timing dropped from ~1.3s to ~360ms. Still above the 200ms target.
+
+Select still rebuilds step objects (`scale` / `step` / `ticks` identity changes
+for every row), so unchanged rows cannot all skip. That rebuild is outside the
+row components.
+
 ## Gaps
 
 - No measurement while the run is **live** (where 250ms vs 1s `useLiveNow`
