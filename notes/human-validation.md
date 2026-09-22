@@ -2,7 +2,7 @@
 
 Reusable checklist before a publish. Not linked from the docs site.
 
-Published packages (2026-09-16): **core/web 0.0.5**, **cli 0.0.7**, **tools 0.0.2**. Pending changesets include a **minor** on core and web, which versions those two to **0.1.0** (not 0.0.6). `updateInternalDependencies: patch` then republishes **cli** and **tools** as dependency bumps even though those packages have no direct changes. Confirm that jump before merging the Version Packages PR.
+Published packages (2026-09-16): **core/web 0.0.5**, **cli 0.0.7**, **tools 0.0.2**. Pending changesets are all patches, so core and web go to **0.0.6**. `updateInternalDependencies: patch` still republishes **cli** and **tools** as dependency bumps.
 
 Opening a pre-migration SQLite file runs `2026-09-path-stable-step-slots`, which **deletes `adl_step_outputs`**. Events stay; step skip cache is empty until new runs. Use a copy of any database you still need step outputs from.
 
