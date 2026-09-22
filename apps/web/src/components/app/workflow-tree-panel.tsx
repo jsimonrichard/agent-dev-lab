@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,7 +11,25 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { ChevronRight, GitBranch, Layers, Loader2, MessageSquare } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import {
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  GitBranch,
+  Layers,
+  Loader2,
+  MessageSquare,
+  RotateCcw,
+} from "lucide-react";
+
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 import { ErrorIndicator } from "@/components/app/error-details";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,10 +38,12 @@ import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/view-model/run-pr
 import type {
   AgentEpisode,
   InspectorRunSummary,
+  RunStatus,
   RunViewState,
   StepNode,
   StepNodeStatus,
 } from "@/lib/view-model/types";
+import { workflowRunSearch } from "@/lib/workflow/workflow-location";
 import { cn } from "@/lib/utils";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import { workflowRunLabel } from "@/lib/workflow/workflow-location";
@@ -59,6 +80,12 @@ interface WorkflowTreePanelProps {
   onSelectEpisode: (stepId: string, episode: AgentEpisode, ownerRunId: string) => void;
   onSelectNestedRun: (runId: string) => void;
   onToggleNestedExpanded: (runId: string) => void;
+  canRetry?: boolean;
+  retryBusy?: boolean;
+  priorAttemptRunId?: string | null;
+  priorAttemptWorkflowId?: string;
+  onRetryFromStep?: (stepId: string, ownerRunId: string) => void;
+  onOpenNestedRunPage?: (run: InspectorRunSummary) => void;
 }
 
 export function WorkflowTreePanel({
@@ -75,6 +102,12 @@ export function WorkflowTreePanel({
   onSelectEpisode,
   onSelectNestedRun,
   onToggleNestedExpanded,
+  canRetry = false,
+  retryBusy = false,
+  priorAttemptRunId = null,
+  priorAttemptWorkflowId,
+  onRetryFromStep,
+  onOpenNestedRunPage,
 }: WorkflowTreePanelProps) {
   const { offline } = useInspectorConnection();
   const live = view.status === "running" && !offline;
@@ -159,6 +192,16 @@ export function WorkflowTreePanel({
   useSyncedVerticalScroll(treeScrollRef, waterfallScrollRef, true);
   useWaterfallZoom(waterfallScrollRef, zoom, setZoom, true);
 
+  const ownerRunStatus = useCallback(
+    (ownerRunId: string): RunStatus => {
+      if (ownerRunId === view.runId) {
+        return view.status;
+      }
+      return nestedByRunId.get(ownerRunId)?.view?.status ?? "completed";
+    },
+    [nestedByRunId, view.runId, view.status],
+  );
+
   const renderTreeRow = (row: WorkflowTreeRow, pane: "tree" | "waterfall") => {
     if (row.kind === "step") {
       const nestsUnder = childRunsForOwner(
@@ -167,7 +210,10 @@ export function WorkflowTreePanel({
         childRuns,
         nestedByRunId,
       ).filter((run) => run.parentStepId === row.step.stepId);
-      return (
+      const ownerStatus = ownerRunStatus(row.ownerRunId);
+      const showRetry =
+        canRetry && !retryBusy && ownerStatus !== "running" && onRetryFromStep != null;
+      const stepRow = (
         <StepRow
           key={`step:${row.ownerRunId}:${row.step.stepId}:${pane}`}
           pane={pane}
@@ -186,7 +232,43 @@ export function WorkflowTreePanel({
           onHover={() => setHoveredRowId(row.step.stepId)}
           onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
           onSelect={() => onSelectStep(row.step.stepId, row.ownerRunId)}
+          priorAttemptRunId={priorAttemptRunId}
+          priorAttemptWorkflowId={priorAttemptWorkflowId ?? view.workflowId}
         />
+      );
+      const stepMenu =
+        showRetry || (row.step.replayedFromStepId && priorAttemptRunId) ? (
+          <>
+            {showRetry ? (
+              <ContextMenuItem onSelect={() => onRetryFromStep!(row.step.stepId, row.ownerRunId)}>
+                <RotateCcw className="mr-2 size-4" />
+                Retry from here
+              </ContextMenuItem>
+            ) : null}
+            {row.step.replayedFromStepId && priorAttemptRunId ? (
+              <>
+                {showRetry ? <ContextMenuSeparator /> : null}
+                <ContextMenuItem asChild>
+                  <Link
+                    to="/workflows/$workflowId/run/$runId"
+                    params={{
+                      workflowId: priorAttemptWorkflowId ?? view.workflowId,
+                      runId: priorAttemptRunId,
+                    }}
+                    search={workflowRunSearch({ step: row.step.replayedFromStepId })}
+                  >
+                    <Copy className="mr-2 size-4" />
+                    View original step
+                  </Link>
+                </ContextMenuItem>
+              </>
+            ) : null}
+          </>
+        ) : null;
+      return wrapRowContextMenu(
+        `step-menu:${row.ownerRunId}:${row.step.stepId}:${pane}`,
+        stepRow,
+        stepMenu,
       );
     }
     if (row.kind === "episode") {
@@ -209,7 +291,7 @@ export function WorkflowTreePanel({
     const nestedData = nestedByRunId.get(row.run.runId);
     const expanded = expandedNestedRunIds.has(row.run.runId);
     const loading = expanded && nestedData?.view == null;
-    return (
+    const nestedRow = (
       <NestedRunRow
         key={`nest:${row.run.runId}:${pane}`}
         pane={pane}
@@ -225,8 +307,44 @@ export function WorkflowTreePanel({
         onHover={() => setHoveredRowId(row.run.runId)}
         onToggleExpanded={() => onToggleNestedExpanded(row.run.runId)}
         onSelect={() => onSelectNestedRun(row.run.runId)}
+        copiedFromPriorAttempt={row.run.replayOfRunId != null}
+        onViewOriginalRun={
+          row.run.replayOfRunId && onOpenNestedRunPage
+            ? () =>
+                onOpenNestedRunPage({
+                  ...row.run,
+                  runId: row.run.replayOfRunId!,
+                })
+            : undefined
+        }
       />
     );
+    const nestedMenu =
+      onOpenNestedRunPage != null ? (
+        <>
+          <ContextMenuItem onSelect={() => onOpenNestedRunPage(row.run)}>
+            <ExternalLink className="mr-2 size-4" />
+            View run separately
+          </ContextMenuItem>
+          {row.run.replayOfRunId ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                onSelect={() =>
+                  onOpenNestedRunPage({
+                    ...row.run,
+                    runId: row.run.replayOfRunId!,
+                  })
+                }
+              >
+                <Copy className="mr-2 size-4" />
+                View original run
+              </ContextMenuItem>
+            </>
+          ) : null}
+        </>
+      ) : null;
+    return wrapRowContextMenu(`nest-menu:${row.run.runId}:${pane}`, nestedRow, nestedMenu);
   };
 
   return (
@@ -438,39 +556,129 @@ function WorkflowRow({
   );
 }
 
-function StepRow({
-  pane,
-  step,
-  depth,
-  nestedUnderStep,
-  bar,
-  ticks,
-  collapsed,
-  selected,
-  hovered,
-  onHover,
-  onToggleCollapsed,
-  onSelect,
+function wrapRowContextMenu(key: string, row: ReactNode, menu: ReactNode | null): ReactNode {
+  if (!menu) {
+    return row;
+  }
+  return <TreeRowContextMenu key={key} trigger={row} menu={menu} />;
+}
+
+function TreeRowContextMenu({ trigger, menu }: { trigger: ReactNode; menu: ReactNode }) {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
+      <ContextMenuContent>{menu}</ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+function CopiedFromPriorBadge({
+  title,
+  onOpen,
+  href,
 }: {
-  pane: "tree" | "waterfall";
-  step: StepNode;
-  depth: number;
-  nestedUnderStep: InspectorRunSummary[];
-  bar: WaterfallBar | null;
-  ticks: { pct: number; label: string }[];
-  collapsed: boolean;
-  selected: boolean;
-  hovered: boolean;
-  onHover: () => void;
-  onToggleCollapsed: () => void;
-  onSelect: () => void;
+  title: string;
+  onOpen?: () => void;
+  href?: { workflowId: string; runId: string; stepId?: string };
 }) {
+  const icon = <Copy className="size-3 shrink-0 text-muted-foreground" aria-hidden />;
+  const body = (
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-border/80 bg-muted/40 px-1 py-0 text-[9px] font-medium tracking-wide text-muted-foreground uppercase">
+      {icon}
+      Copied
+    </span>
+  );
+  if (href) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            to="/workflows/$workflowId/run/$runId"
+            params={{ workflowId: href.workflowId, runId: href.runId }}
+            search={href.stepId ? workflowRunSearch({ step: href.stepId }) : undefined}
+            className="shrink-0 hover:opacity-80"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {body}
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent>{title}</TooltipContent>
+      </Tooltip>
+    );
+  }
+  if (onOpen) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="shrink-0 hover:opacity-80"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {body}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{title}</TooltipContent>
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="shrink-0">{body}</span>
+      </TooltipTrigger>
+      <TooltipContent>{title}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+const StepRow = forwardRef<
+  HTMLButtonElement | HTMLDivElement,
+  {
+    pane: "tree" | "waterfall";
+    step: StepNode;
+    depth: number;
+    nestedUnderStep: InspectorRunSummary[];
+    bar: WaterfallBar | null;
+    ticks: { pct: number; label: string }[];
+    collapsed: boolean;
+    selected: boolean;
+    hovered: boolean;
+    onHover: () => void;
+    onToggleCollapsed: () => void;
+    onSelect: () => void;
+    priorAttemptRunId?: string | null;
+    priorAttemptWorkflowId?: string;
+  }
+>(function StepRow(
+  {
+    pane,
+    step,
+    depth,
+    nestedUnderStep,
+    bar,
+    ticks,
+    collapsed,
+    selected,
+    hovered,
+    onHover,
+    onToggleCollapsed,
+    onSelect,
+    priorAttemptRunId,
+    priorAttemptWorkflowId,
+  },
+  ref,
+) {
   const label = formatStepLabel(step.name, step.key);
   const hasChildren = stepHasTreeChildren(step, nestedUnderStep);
   const hiddenCount = step.children.length + step.agentEpisodes.length + nestedUnderStep.length;
 
   return (
     <GridRow
+      ref={ref}
       pane={pane}
       selected={selected}
       hovered={hovered}
@@ -495,6 +703,20 @@ function StepRow({
     >
       <Layers className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate font-mono font-medium">{label}</span>
+      {step.copiedFromPriorAttempt && priorAttemptRunId && priorAttemptWorkflowId ? (
+        <CopiedFromPriorBadge
+          title="Step result copied from the prior attempt — open original"
+          href={
+            step.replayedFromStepId
+              ? {
+                  workflowId: priorAttemptWorkflowId,
+                  runId: priorAttemptRunId,
+                  stepId: step.replayedFromStepId,
+                }
+              : { workflowId: priorAttemptWorkflowId, runId: priorAttemptRunId }
+          }
+        />
+      ) : null}
       {collapsed && hiddenCount > 0 ? (
         <span className="shrink-0 text-[10px] text-muted-foreground">{hiddenCount}</span>
       ) : null}
@@ -503,42 +725,53 @@ function StepRow({
       ) : null}
     </GridRow>
   );
-}
+});
 
-function NestedRunRow({
-  pane,
-  run,
-  depth,
-  bar,
-  ticks,
-  expanded,
-  expandable,
-  loading,
-  selected,
-  hovered,
-  onHover,
-  onToggleExpanded,
-  onSelect,
-}: {
-  pane: "tree" | "waterfall";
-  run: InspectorRunSummary;
-  depth: number;
-  bar: WaterfallBar | null;
-  ticks: { pct: number; label: string }[];
-  expanded: boolean;
-  expandable: boolean;
-  loading: boolean;
-  selected: boolean;
-  hovered: boolean;
-  onHover: () => void;
-  onToggleExpanded: () => void;
-  onSelect: () => void;
-}) {
+const NestedRunRow = forwardRef<
+  HTMLButtonElement | HTMLDivElement,
+  {
+    pane: "tree" | "waterfall";
+    run: InspectorRunSummary;
+    depth: number;
+    bar: WaterfallBar | null;
+    ticks: { pct: number; label: string }[];
+    expanded: boolean;
+    expandable: boolean;
+    loading: boolean;
+    selected: boolean;
+    hovered: boolean;
+    onHover: () => void;
+    onToggleExpanded: () => void;
+    onSelect: () => void;
+    copiedFromPriorAttempt?: boolean;
+    onViewOriginalRun?: () => void;
+  }
+>(function NestedRunRow(
+  {
+    pane,
+    run,
+    depth,
+    bar,
+    ticks,
+    expanded,
+    expandable,
+    loading,
+    selected,
+    hovered,
+    onHover,
+    onToggleExpanded,
+    onSelect,
+    copiedFromPriorAttempt,
+    onViewOriginalRun,
+  },
+  ref,
+) {
   const label = workflowRunLabel({ runId: run.runId, title: run.title }) || run.workflowId;
   const status = runStatusAsStepStatus(run.status);
 
   return (
     <GridRow
+      ref={ref}
       pane={pane}
       selected={selected}
       hovered={hovered}
@@ -564,12 +797,18 @@ function NestedRunRow({
     >
       <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate font-mono font-medium">{run.workflowId}</span>
+      {copiedFromPriorAttempt ? (
+        <CopiedFromPriorBadge
+          title="Sub-workflow copied from the prior attempt — open original run"
+          onOpen={onViewOriginalRun}
+        />
+      ) : null}
       {run.title?.trim() ? (
         <span className="truncate text-[10px] text-muted-foreground">{run.title.trim()}</span>
       ) : null}
     </GridRow>
   );
-}
+});
 
 function EpisodeRow({
   pane,
@@ -633,43 +872,50 @@ function EpisodeRow({
   );
 }
 
-function GridRow({
-  pane,
-  selected,
-  hovered,
-  onHover,
-  onSelect,
-  ariaLabel,
-  bar,
-  ticks,
-  status,
-  label,
-  barSize,
-  leading,
-  trailing,
-  depth,
-  children,
-}: {
-  pane: "tree" | "waterfall";
-  selected: boolean;
-  hovered: boolean;
-  onHover: () => void;
-  onSelect: () => void;
-  ariaLabel: string;
-  bar: WaterfallBar | null;
-  ticks: { pct: number; label: string }[];
-  status: StepNodeStatus;
-  label: string;
-  barSize: "step" | "episode";
-  leading: ReactNode;
-  trailing?: ReactNode;
-  depth: number;
-  children: ReactNode;
-}) {
+const GridRow = forwardRef<
+  HTMLButtonElement | HTMLDivElement,
+  {
+    pane: "tree" | "waterfall";
+    selected: boolean;
+    hovered: boolean;
+    onHover: () => void;
+    onSelect: () => void;
+    ariaLabel: string;
+    bar: WaterfallBar | null;
+    ticks: { pct: number; label: string }[];
+    status: StepNodeStatus;
+    label: string;
+    barSize: "step" | "episode";
+    leading: ReactNode;
+    trailing?: ReactNode;
+    depth: number;
+    children: ReactNode;
+  }
+>(function GridRow(
+  {
+    pane,
+    selected,
+    hovered,
+    onHover,
+    onSelect,
+    ariaLabel,
+    bar,
+    ticks,
+    status,
+    label,
+    barSize,
+    leading,
+    trailing,
+    depth,
+    children,
+  },
+  ref,
+) {
   const tone = rowToneClass(selected, hovered);
   if (pane === "waterfall") {
     return (
       <button
+        ref={ref as RefObject<HTMLButtonElement>}
         type="button"
         tabIndex={-1}
         onClick={onSelect}
@@ -687,6 +933,7 @@ function GridRow({
 
   return (
     <div
+      ref={ref as RefObject<HTMLDivElement>}
       className={cn(
         "flex h-9 shrink-0 items-center gap-1.5 overflow-hidden border-l-2 py-1 pr-2",
         ROW_DIVIDER,
@@ -711,7 +958,7 @@ function GridRow({
       {trailing}
     </div>
   );
-}
+});
 
 function CollapseToggle({
   expanded,

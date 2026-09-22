@@ -114,6 +114,49 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         }
         break;
       }
+      case "step_skipped": {
+        if (stepMap.has(event.stepId)) {
+          const step = stepMap.get(event.stepId)!;
+          step.status = "completed";
+          step.finishedAt = event.at;
+          step.startedAt ??= event.at;
+          step.durationMs ??= 0;
+          step.output = event.output;
+          if (event.replayedFromStepId) {
+            step.copiedFromPriorAttempt = true;
+            step.replayedFromStepId = event.replayedFromStepId;
+          }
+          break;
+        }
+        const node: StepNode = {
+          stepId: event.stepId,
+          parentStepId: event.parentStepId,
+          name: event.name,
+          key: event.key,
+          path: event.path,
+          status: "completed",
+          startedAt: event.at,
+          finishedAt: event.at,
+          durationMs: 0,
+          output: event.output,
+          copiedFromPriorAttempt: Boolean(event.replayedFromStepId),
+          replayedFromStepId: event.replayedFromStepId ?? null,
+          children: [],
+          agentEpisodes: [],
+        };
+        stepMap.set(event.stepId, node);
+        if (event.parentStepId) {
+          const parent = stepMap.get(event.parentStepId);
+          if (parent) {
+            parent.children.push(node);
+          } else {
+            roots.push(node);
+          }
+        } else {
+          roots.push(node);
+        }
+        break;
+      }
       case "agent_started": {
         const step = stepMap.get(event.stepId);
         if (step) {
@@ -226,6 +269,94 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
     finishedAt,
     title,
   };
+}
+
+export type SeededStepProjection = {
+  stepId: string;
+  parentStepId: string | null;
+  name: string;
+  key?: string;
+  path: string[];
+  output?: unknown;
+  replayOfStepId?: string | null;
+};
+
+/** Insert materialized replay steps that have not emitted events yet (attempt prefix). */
+export function mergeSeededStepRecords(view: RunViewState, records: SeededStepProjection[]): void {
+  if (records.length === 0) {
+    return;
+  }
+
+  const stepById = new Map<string, StepNode>();
+  const pathKeys = new Set<string>();
+  const visit = (nodes: StepNode[]) => {
+    for (const node of nodes) {
+      stepById.set(node.stepId, node);
+      pathKeys.add(node.path.join("\0"));
+      visit(node.children);
+    }
+  };
+  visit(view.steps);
+
+  for (const record of records) {
+    if (stepById.has(record.stepId)) {
+      continue;
+    }
+    const pathKey = record.path.join("\0");
+    if (pathKeys.has(pathKey)) {
+      continue;
+    }
+    if (record.replayOfStepId == null) {
+      continue;
+    }
+
+    const node: StepNode = {
+      stepId: record.stepId,
+      parentStepId: record.parentStepId,
+      name: record.name,
+      key: record.key,
+      path: record.path,
+      status: "completed",
+      startedAt: view.startedAt,
+      finishedAt: view.startedAt,
+      durationMs: 0,
+      output: record.output,
+      copiedFromPriorAttempt: true,
+      replayedFromStepId: record.replayOfStepId,
+      children: [],
+      agentEpisodes: [],
+    };
+
+    pathKeys.add(pathKey);
+    stepById.set(record.stepId, node);
+
+    if (record.parentStepId && stepById.has(record.parentStepId)) {
+      stepById.get(record.parentStepId)!.children.push(node);
+      continue;
+    }
+
+    const parentPath = record.path.slice(0, -1);
+    const parentByPath = parentPath.length > 0 ? findStepByPath(view.steps, parentPath) : undefined;
+    if (parentByPath) {
+      parentByPath.children.push(node);
+    } else {
+      view.steps.push(node);
+    }
+  }
+}
+
+function findStepByPath(steps: StepNode[], path: string[]): StepNode | undefined {
+  const target = path.join("\0");
+  for (const step of steps) {
+    if (step.path.join("\0") === target) {
+      return step;
+    }
+    const nested = findStepByPath(step.children, path);
+    if (nested) {
+      return nested;
+    }
+  }
+  return undefined;
 }
 
 export function findStepInTree(steps: StepNode[], stepId: string): StepNode | undefined {

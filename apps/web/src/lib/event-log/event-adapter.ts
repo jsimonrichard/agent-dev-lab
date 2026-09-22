@@ -175,9 +175,24 @@ export function adaptCoreEventsForWorkflowRun(
           message: event.message,
         });
         break;
+      case "step_skipped":
+        if (!event.workflowRunId) break;
+        out.push({
+          runSeq: event.runSeq,
+          runId: event.workflowRunId,
+          type: "step_skipped",
+          at: event.at,
+          stepId: event.stepId,
+          parentStepId: event.parentStepId,
+          name: event.name,
+          key: event.key,
+          path: event.path,
+          output: asJson(event.output),
+          replayedFromStepId: event.replayOfStepId ?? null,
+        });
+        break;
       case "agent_tool_call":
       case "agent_tool_result":
-      case "step_skipped":
       case "custom":
       case "agent_title_set":
         break;

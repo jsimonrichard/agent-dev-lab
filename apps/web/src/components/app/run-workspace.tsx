@@ -15,8 +15,10 @@ import {
   collectRunWarnings,
   findEpisodeInTree,
   findStepInTree,
+  mergeSeededStepRecords,
   resolveRetryStepId,
   resolveRunSelection,
+  type SeededStepProjection,
 } from "@/lib/view-model/run-projection";
 import type {
   AgentEpisode,
@@ -42,6 +44,7 @@ const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 interface RunWorkspaceProps {
   summary: InspectorRunSummary;
   initialEvents: RunEvent[];
+  seededStepRecords?: SeededStepProjection[];
   messagesPromise: Promise<PrefetchedRunMessages>;
   parentSummary?: InspectorRunSummary | null;
   childRuns?: InspectorRunSummary[];
@@ -56,6 +59,7 @@ type NestedCacheEntry = {
 export function RunWorkspace({
   summary,
   initialEvents,
+  seededStepRecords = [],
   messagesPromise,
   parentSummary = null,
   childRuns: initialChildRuns = [],
@@ -65,7 +69,11 @@ export function RunWorkspace({
   const router = useRouter();
   const { offline } = useInspectorConnection();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
-  const view = useMemo(() => buildRunViewState(summary.runId, events), [summary.runId, events]);
+  const view = useMemo(() => {
+    const built = buildRunViewState(summary.runId, events);
+    mergeSeededStepRecords(built, seededStepRecords);
+    return built;
+  }, [summary.runId, events, seededStepRecords]);
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
@@ -78,6 +86,7 @@ export function RunWorkspace({
       return;
     }
     if (
+      last.type === "run_started" ||
       last.type === "run_finished" ||
       last.type === "run_failed" ||
       last.type === "run_cancelled"
@@ -90,6 +99,13 @@ export function RunWorkspace({
   useEffect(() => {
     setPageChildRuns(initialChildRuns);
   }, [summary.runId, initialChildRuns]);
+
+  useEffect(() => {
+    if (view.status !== "running") {
+      return;
+    }
+    void fetchChildWorkflowRuns({ data: summary.runId }).then(setPageChildRuns);
+  }, [summary.runId, view.status, events.length]);
 
   const [expandedNestedRunIds, setExpandedNestedRunIds] = useState<Set<string>>(() =>
     search.nested ? new Set([search.nested]) : new Set(),
@@ -435,8 +451,13 @@ export function RunWorkspace({
     });
   }, []);
 
-  async function handleRetry(fromStepId?: string | null) {
-    const stepId = resolveRetryStepId(ownerView.steps, fromStepId ?? selectedStepId);
+  async function handleRetry(fromStepId?: string | null, ownerRunId?: string) {
+    const targetRunId = ownerRunId ?? selectedOwnerRunId;
+    const stepsForRetry =
+      targetRunId === summary.runId
+        ? view.steps
+        : (nestedByRunId.get(targetRunId)?.view?.steps ?? ownerView.steps);
+    const stepId = resolveRetryStepId(stepsForRetry, fromStepId ?? selectedStepId);
     if (!stepId) {
       setRetryError("No step available to retry from.");
       return;
@@ -445,12 +466,13 @@ export function RunWorkspace({
     setRetryError(null);
     try {
       const result = await retryInspectionWorkflowRun({
-        data: { runId: selectedOwnerRunId, stepId },
+        data: { runId: targetRunId, stepId },
       });
       if (result.isErr) {
         setRetryError(result.error);
         return;
       }
+      void router.invalidate();
       await navigate({
         to: "/workflows/$workflowId/run/$runId",
         params: {
@@ -461,6 +483,14 @@ export function RunWorkspace({
     } finally {
       setRetryBusy(false);
     }
+  }
+
+  function openNestedRunPage(run: InspectorRunSummary) {
+    void navigate({
+      to: "/workflows/$workflowId/run/$runId",
+      params: { workflowId: run.workflowId, runId: run.runId },
+      search: () => ({}),
+    });
   }
 
   return (
@@ -630,6 +660,14 @@ export function RunWorkspace({
             onSelectEpisode={handleSelectEpisode}
             onSelectNestedRun={handleSelectNestedRun}
             onToggleNestedExpanded={handleToggleNestedExpanded}
+            canRetry={canRetry}
+            retryBusy={retryBusy}
+            priorAttemptRunId={summary.retriesFromRunId ?? null}
+            priorAttemptWorkflowId={summary.workflowId}
+            onRetryFromStep={(stepId, ownerRunId) => {
+              void handleRetry(stepId, ownerRunId);
+            }}
+            onOpenNestedRunPage={openNestedRunPage}
           />
         </ResizablePanel>
 

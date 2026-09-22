@@ -233,6 +233,14 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     return this.stepRecords.get(workflowRunId)?.get(stepId) ?? null;
   }
 
+  async listStepRecords(workflowRunId: string): Promise<StepRecord[]> {
+    const map = this.stepRecords.get(workflowRunId);
+    if (!map) {
+      return [];
+    }
+    return [...map.values()];
+  }
+
   async setRunTitle(workflowRunId: string, title: string): Promise<void> {
     const run = this.runs.get(workflowRunId);
     if (run) {

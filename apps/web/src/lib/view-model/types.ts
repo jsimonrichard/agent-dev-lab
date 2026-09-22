@@ -65,6 +65,7 @@ export interface InspectorRunSummary {
 export type RunEventType =
   | "run_started"
   | "step_started"
+  | "step_skipped"
   | "step_finished"
   | "step_failed"
   | "agent_started"
@@ -99,6 +100,17 @@ export interface StepFinishedEvent extends RunEventBase {
   stepId: string;
   durationMs: number;
   output?: JsonValue;
+}
+
+export interface StepSkippedEvent extends RunEventBase {
+  type: "step_skipped";
+  stepId: string;
+  parentStepId: string | null;
+  name: string;
+  key?: string;
+  path: string[];
+  output?: JsonValue;
+  replayedFromStepId?: string | null;
 }
 
 export interface StepFailedEvent extends RunEventBase {
@@ -189,6 +201,7 @@ export type RunEvent =
   | RunStartedEvent
   | StepStartedEvent
   | StepFinishedEvent
+  | StepSkippedEvent
   | StepFailedEvent
   | AgentStartedEvent
   | AgentFinishedEvent
@@ -215,6 +228,10 @@ export interface StepNode {
   durationMs?: number;
   output?: unknown;
   error?: unknown;
+  /** Step output was copied from a prior attempt (not re-executed). */
+  copiedFromPriorAttempt?: boolean;
+  /** Prior step id on the forest this attempt retries (`retriesFromRunId`). */
+  replayedFromStepId?: string | null;
   children: StepNode[];
   agentEpisodes: AgentEpisode[];
 }

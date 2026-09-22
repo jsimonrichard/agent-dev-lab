@@ -9,6 +9,7 @@ import {
   getProjectInspectorMeta,
   getWorkflowRunSummary,
   getWorkflowRunUiEvents,
+  listWorkflowRunStepRecords,
   listWorkflowRunSummaries,
   listChildWorkflowRunSummaries,
   loadMessagesForScope,
@@ -73,6 +74,13 @@ export const fetchWorkflowRun = createServerFn({ method: "GET" })
     }
     const events = await getWorkflowRunUiEvents(runId);
     return { summary, events };
+  });
+
+export const fetchWorkflowRunStepRecords = createServerFn({ method: "GET" })
+  .middleware([noStore])
+  .validator((runId: string) => runId)
+  .handler(async ({ data: runId }) => {
+    return listWorkflowRunStepRecords(runId);
   });
 
 export const startInspectionWorkflowRun = createServerFn({ method: "POST" })

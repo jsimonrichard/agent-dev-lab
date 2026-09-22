@@ -284,18 +284,16 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
       if (!row) {
         return null;
       }
-      const record: StepRecord = {
-        stepId: row.stepId,
-        name: row.name,
-        key: row.key ?? undefined,
-        path: JSON.parse(row.pathJson) as string[],
-        parentStepId: row.parentStepId,
-        output: row.outputJson ? (JSON.parse(row.outputJson) as unknown) : undefined,
-        status: row.status,
-        pure: row.pure === 0 ? false : true,
-        replayOfStepId: row.replayOfStepId,
-      };
-      return record;
+      return rowToStepRecord(row);
+    },
+
+    async listStepRecords(workflowRunId) {
+      const rows = db
+        .select()
+        .from(stepRecords)
+        .where(eq(stepRecords.workflowRunId, workflowRunId))
+        .all();
+      return rows.map((row) => rowToStepRecord(row));
     },
 
     async setRunTitle(workflowRunId, title) {
@@ -450,6 +448,20 @@ function toEpisodeSummary(row: typeof agentEpisodes.$inferSelect): AgentEpisodeS
       ? { toolProviderContext: JSON.parse(row.toolProviderContextJson) as unknown }
       : {}),
     ...(usage ? { usage } : {}),
+  };
+}
+
+function rowToStepRecord(row: typeof stepRecords.$inferSelect): StepRecord {
+  return {
+    stepId: row.stepId,
+    name: row.name,
+    key: row.key ?? undefined,
+    path: JSON.parse(row.pathJson) as string[],
+    parentStepId: row.parentStepId,
+    output: row.outputJson ? (JSON.parse(row.outputJson) as unknown) : undefined,
+    status: row.status,
+    pure: row.pure === 0 ? false : true,
+    replayOfStepId: row.replayOfStepId,
   };
 }
 

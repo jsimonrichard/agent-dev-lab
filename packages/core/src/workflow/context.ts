@@ -94,7 +94,17 @@ export class WorkflowContextImpl implements WorkflowContext {
     if (store && !options?.force) {
       const cached = await store.getStepOutput(this.workflowRunId, { path });
       if (cached !== null) {
-        const skippedStepId = createId();
+        let skippedStepId = createId();
+        let replayOfStepId: string | undefined;
+        const seeded = (await store.listStepRecords(this.workflowRunId)).find(
+          (record) =>
+            record.path.length === path.length &&
+            record.path.every((segment, index) => segment === path[index]),
+        );
+        if (seeded) {
+          skippedStepId = seeded.stepId;
+          replayOfStepId = seeded.replayOfStepId ?? undefined;
+        }
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
@@ -104,6 +114,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           key,
           path,
           output: cached,
+          ...(replayOfStepId ? { replayOfStepId } : {}),
         });
         return cached as T;
       }

@@ -103,6 +103,8 @@ export interface WorkflowStore {
   getRunOutput(workflowRunId: string): Promise<unknown | null>;
   getStepOutput(workflowRunId: string, slot: StepSlot): Promise<unknown | null>;
   getStepById(workflowRunId: string, stepId: string): Promise<StepRecord | null>;
+  /** Seeded / replayed step projections for a run (excludes in-flight steps without records). */
+  listStepRecords(workflowRunId: string): Promise<StepRecord[]>;
 
   /** Set a display title without changing {@link WorkflowRunSummary.workflowRunId}. */
   setRunTitle(workflowRunId: string, title: string): Promise<void>;

@@ -302,6 +302,20 @@ export async function getWorkflowRunUiEvents(runId: string) {
   return adaptCoreEventsForWorkflowRun(runId, events);
 }
 
+export async function listWorkflowRunStepRecords(runId: string) {
+  const store = await getWorkflowStore();
+  const records = await store.listStepRecords(runId);
+  return records.map((record) => ({
+    stepId: record.stepId,
+    parentStepId: record.parentStepId,
+    name: record.name,
+    key: record.key,
+    path: record.path,
+    output: record.output as JsonValue | undefined,
+    replayOfStepId: record.replayOfStepId ?? null,
+  }));
+}
+
 export async function startWorkflowRun(
   workflowId: string,
   input: unknown = {},
