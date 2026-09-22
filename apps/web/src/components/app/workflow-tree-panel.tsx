@@ -70,6 +70,12 @@ import {
 
 const WORKFLOW_ROW_ID = "__workflow__";
 const ROW_DIVIDER = "border-b border-border/40";
+/**
+ * One border-box height for both panes. The bottom border has to live on the
+ * same element as `h-8`; an inner `h-8` plus an outer border is 1px taller
+ * and shifts every waterfall row down.
+ */
+const PANE_HEADER_CLASS = "sticky top-0 z-20 h-8 shrink-0 border-b border-border/40 bg-background";
 
 type RowMenu =
   | {
@@ -585,7 +591,12 @@ function buildNestsByOwnerStep(
 
 function StepsHeader() {
   return (
-    <div className="sticky top-0 z-20 flex h-8 items-center border-b border-border/40 bg-background px-4 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+    <div
+      className={cn(
+        PANE_HEADER_CLASS,
+        "flex items-center px-4 text-[10px] font-medium tracking-wide text-muted-foreground uppercase",
+      )}
+    >
       Steps
     </div>
   );
@@ -593,8 +604,8 @@ function StepsHeader() {
 
 function WaterfallHeader({ ticks }: { ticks: { pct: number; label: string }[] }) {
   return (
-    <div className="sticky top-0 z-20 border-b border-border/40 bg-background px-3">
-      <div className="relative h-8">
+    <div className={cn(PANE_HEADER_CLASS, "px-3")}>
+      <div className="relative h-full">
         <WaterfallGridLines ticks={ticks} />
         {ticks.map((tick) => (
           <span
