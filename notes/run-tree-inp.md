@@ -89,11 +89,47 @@ Worst Event Timing dropped from ~1.3s to ~360ms. Still above the 200ms target.
 
 Select still rebuilds step objects (`scale` / `step` / `ticks` identity changes
 for every row), so unchanged rows cannot all skip. That rebuild is outside the
-row components.
+row components. The next section’s row comparators ignore that identity churn.
+
+## One menu, one tip, semantic row compare (2026-09-22)
+
+Waterfall/row UI only:
+
+- One `ContextMenu` for the panel. The payload is a map keyed by `data-row-id`.
+  Right-click on a row with no actions leaves the browser menu (the event is
+  stopped before Radix).
+- Bar, continuation, and Copied-chip tips are one fixed DOM node (`data-tip`),
+  shown after 200ms. Hover does not call `setState`.
+- One grid overlay for the waterfall body. Row fills sit under the lines; bars
+  sit over them.
+- `memo` comparators use visible fields (status, labels, timing, scale
+  origin/span, selection, collapse). `nowMs` is compared only while a row is
+  running.
+
+Same bench, label `shared-menu`, after the row DOM has a React fiber (so the
+sample is not pre-hydration):
+
+| Interaction        | memo max / mean (ms) | shared-menu max / mean (ms) |
+| ------------------ | -------------------- | --------------------------- |
+| click (collapse)   | 360 / 246            | 152 / 119                   |
+| click (select)     | 360 / 246            | 152 / 105                   |
+| contextmenu        | —                    | 168 / 86                    |
+| all events, select | —                    | 152 / 110                   |
+| all events, menu   | —                    | 184 / 95                    |
+
+DOM on the same 182-row tree: context-menu roots 181 → 2, Radix tooltip
+triggers 97 → 6 (shell chrome; row tips are `data-tip`). Collapse still drops
+the tree (182 → 118 rows). A follow-up check on the hydrated page opens
+“Retry from here”, shows a bar tip, and collapses `group-00`.
+
+Event Timing max is under 200ms. One select→double-rAF bracket in this run was
+219ms; the other four were 81–103ms.
 
 ## Gaps
 
 - No measurement while the run is **live** (where 250ms vs 1s `useLiveNow`
   would matter).
-- No A/B of shared ContextMenu / single tooltip (not implemented).
 - Single machine / single Chromium run — treat as directional, not a lab study.
+- The bench waits for a React fiber on a row. Earlier rows in this note used a
+  fixed 800ms settle instead, so the absolute times are comparable in direction
+  only.

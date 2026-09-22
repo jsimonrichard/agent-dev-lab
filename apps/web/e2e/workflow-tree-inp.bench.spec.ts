@@ -53,6 +53,14 @@ type TimingSample = {
   interactionId?: number;
 };
 
+async function waitForTreeHydration(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const row = document.querySelector("[data-row-id]");
+    if (!row) return false;
+    return Object.keys(row).some((key) => key.startsWith("__reactFiber"));
+  });
+}
+
 async function installEventTiming(page: Page): Promise<void> {
   await page.evaluate(() => {
     const w = window as unknown as {
@@ -147,8 +155,7 @@ test.describe("workflow tree INP bench", () => {
     await expect(page.getByText("group-00", { exact: true }).first()).toBeVisible({
       timeout: 20_000,
     });
-
-    // Let React settle after hydration.
+    await waitForTreeHydration(page);
     await page.waitForTimeout(800);
     await installEventTiming(page);
 
@@ -317,5 +324,35 @@ test.describe("workflow tree INP bench", () => {
     console.log(`\nADL_INP_REPORT ${JSON.stringify(report, null, 2)}\n`);
 
     expect(beforeStats.rowNodes).toBeGreaterThan(80);
+  });
+
+  test("shared menu, bar tip, and collapse keep the row actions", async ({ page, request }) => {
+    const runId = await startWideTree(request);
+    await waitSettled(request, runId);
+    await page.goto(`/workflows/wide-tree/run/${runId}`);
+    await expect(page.getByText("group-00", { exact: true }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await waitForTreeHydration(page);
+
+    await page
+      .getByRole("button", { name: /^group-01 duration/ })
+      .first()
+      .click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Retry from here" })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.locator("[data-tip]").first().hover();
+    await expect(page.getByTestId("waterfall-hover-tip")).not.toHaveText("", { timeout: 1_000 });
+
+    const lineCount = await page.locator("span.w-px").count();
+    expect(lineCount).toBeGreaterThan(4);
+    expect(lineCount).toBeLessThan(40);
+
+    const rowsBefore = await page.locator("[data-row-id]").count();
+    await page.getByRole("button", { name: "Collapse group-00" }).click();
+    await expect
+      .poll(async () => page.locator("[data-row-id]").count(), { timeout: 3_000 })
+      .toBeLessThan(rowsBefore);
   });
 });

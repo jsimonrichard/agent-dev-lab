@@ -11,10 +11,10 @@ import {
   type HTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactElement,
   type ReactNode,
   type Ref,
   type RefObject,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -38,7 +38,6 @@ import {
 
 import { ErrorIndicator } from "@/components/app/error-details";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatMemoryScopeLabel, formatStepLabel } from "@/lib/view-model/run-projection";
 import type {
   AgentEpisode,
@@ -71,6 +70,57 @@ import {
 
 const WORKFLOW_ROW_ID = "__workflow__";
 const ROW_DIVIDER = "border-b border-border/40";
+
+type RowMenu =
+  | {
+      kind: "step";
+      stepId: string;
+      ownerRunId: string;
+      showRetry: boolean;
+      replayedFromStepId: string | null;
+      priorRunId: string | null;
+      workflowId: string;
+    }
+  | { kind: "nested"; run: InspectorRunSummary };
+
+let hoverTipTimer = 0;
+let hoverTipSource: Element | null = null;
+
+function hideHoverTip(tip: HTMLDivElement | null) {
+  window.clearTimeout(hoverTipTimer);
+  hoverTipSource = null;
+  if (!tip) return;
+  tip.style.display = "none";
+  tip.textContent = "";
+}
+
+function scheduleHoverTip(tip: HTMLDivElement | null, target: Element | null) {
+  const source = target?.closest?.("[data-tip]") ?? null;
+  if (source && source === hoverTipSource) return;
+  hoverTipSource = source;
+  window.clearTimeout(hoverTipTimer);
+  if (!tip || !source) {
+    if (tip) {
+      tip.style.display = "none";
+      tip.textContent = "";
+    }
+    return;
+  }
+  const text = source.getAttribute("data-tip");
+  if (!text) {
+    tip.style.display = "none";
+    tip.textContent = "";
+    return;
+  }
+  const rect = source.getBoundingClientRect();
+  hoverTipTimer = window.setTimeout(() => {
+    if (!tip.isConnected) return;
+    tip.textContent = text;
+    tip.style.display = "block";
+    tip.style.left = `${rect.left + rect.width / 2}px`;
+    tip.style.top = `${rect.top - 8}px`;
+  }, 200);
+}
 
 interface WorkflowTreePanelProps {
   view: RunViewState;
@@ -211,6 +261,7 @@ export function WorkflowTreePanel({
     onSelectNestedRun,
     onToggleNestedExpanded,
     onOpenNestedRunPage,
+    onRetryFromStep,
   });
   actionsRef.current.onSelectWorkflow = onSelectWorkflow;
   actionsRef.current.onSelectStep = onSelectStep;
@@ -218,6 +269,7 @@ export function WorkflowTreePanel({
   actionsRef.current.onSelectNestedRun = onSelectNestedRun;
   actionsRef.current.onToggleNestedExpanded = onToggleNestedExpanded;
   actionsRef.current.onOpenNestedRunPage = onOpenNestedRunPage;
+  actionsRef.current.onRetryFromStep = onRetryFromStep;
 
   const selectWorkflow = useCallback(() => {
     actionsRef.current.onSelectWorkflow();
@@ -280,14 +332,51 @@ export function WorkflowTreePanel({
     [nestedByRunId, view.runId, view.status],
   );
 
+  const rowMenusRef = useRef(new Map<string, RowMenu>());
+  rowMenusRef.current.clear();
+  const priorWorkflowId = priorAttemptWorkflowId ?? view.workflowId;
+  for (const row of rows) {
+    if (row.kind === "step") {
+      const ownerStatus = ownerRunStatus(row.ownerRunId);
+      const showRetry =
+        canRetry && !retryBusy && ownerStatus !== "running" && onRetryFromStep != null;
+      if (showRetry || (row.step.replayedFromStepId && priorAttemptRunId)) {
+        rowMenusRef.current.set(row.step.stepId, {
+          kind: "step",
+          stepId: row.step.stepId,
+          ownerRunId: row.ownerRunId,
+          showRetry,
+          replayedFromStepId: row.step.replayedFromStepId ?? null,
+          priorRunId: priorAttemptRunId,
+          workflowId: priorWorkflowId,
+        });
+      }
+    } else if (row.kind === "nested-run" && onOpenNestedRunPage) {
+      rowMenusRef.current.set(row.run.runId, { kind: "nested", run: row.run });
+    }
+  }
+
+  const [openMenu, setOpenMenu] = useState<RowMenu | null>(null);
+  const openMenuRef = useRef<RowMenu | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+
+  const onPanelContextMenu = (event: ReactMouseEvent) => {
+    const row = (event.target as Element | null)?.closest?.("[data-row-id]");
+    const rowId = row?.getAttribute("data-row-id") ?? "";
+    const menu = row ? rowMenusRef.current.get(rowId) : undefined;
+    if (!menu) {
+      event.stopPropagation();
+      return;
+    }
+    openMenuRef.current = menu;
+    setOpenMenu(menu);
+  };
+
   const renderTreeRow = (row: WorkflowTreeRow, pane: "tree" | "waterfall") => {
     if (row.kind === "step") {
       const nestsUnder =
         nestsByOwnerStep.get(`${row.ownerRunId}\0${row.step.stepId}`) ?? EMPTY_NESTS;
-      const ownerStatus = ownerRunStatus(row.ownerRunId);
-      const showRetry =
-        canRetry && !retryBusy && ownerStatus !== "running" && onRetryFromStep != null;
-      const stepRow = (
+      return (
         <StepRow
           key={`step:${row.ownerRunId}:${row.step.stepId}:${pane}`}
           pane={pane}
@@ -297,7 +386,6 @@ export function WorkflowTreePanel({
           nestedUnderStep={nestsUnder}
           scale={scale}
           nowMs={nowMs}
-          ticks={ticks}
           collapsed={collapsedStepIds.has(row.step.stepId)}
           selected={
             selectedStepId === row.step.stepId &&
@@ -307,42 +395,8 @@ export function WorkflowTreePanel({
           onToggleCollapsed={toggleCollapsed}
           onSelectStep={selectStep}
           priorAttemptRunId={priorAttemptRunId}
-          priorAttemptWorkflowId={priorAttemptWorkflowId ?? view.workflowId}
+          priorAttemptWorkflowId={priorWorkflowId}
         />
-      );
-      const stepMenu =
-        showRetry || (row.step.replayedFromStepId && priorAttemptRunId) ? (
-          <>
-            {showRetry ? (
-              <ContextMenuItem onSelect={() => onRetryFromStep!(row.step.stepId, row.ownerRunId)}>
-                <RotateCcw className="mr-2 size-4" />
-                Retry from here
-              </ContextMenuItem>
-            ) : null}
-            {row.step.replayedFromStepId && priorAttemptRunId ? (
-              <>
-                {showRetry ? <ContextMenuSeparator /> : null}
-                <ContextMenuItem asChild>
-                  <Link
-                    to="/workflows/$workflowId/run/$runId"
-                    params={{
-                      workflowId: priorAttemptWorkflowId ?? view.workflowId,
-                      runId: priorAttemptRunId,
-                    }}
-                    search={workflowRunSearch({ step: row.step.replayedFromStepId })}
-                  >
-                    <SquareArrowOutUpRight className="mr-2 size-4" />
-                    View original step
-                  </Link>
-                </ContextMenuItem>
-              </>
-            ) : null}
-          </>
-        ) : null;
-      return wrapRowContextMenu(
-        `step-menu:${row.ownerRunId}:${row.step.stepId}:${pane}`,
-        stepRow,
-        stepMenu,
       );
     }
     if (row.kind === "episode") {
@@ -356,7 +410,6 @@ export function WorkflowTreePanel({
           runId={row.ownerRunId}
           scale={scale}
           nowMs={nowMs}
-          ticks={ticks}
           selected={selectedEpisodeId === row.episode.episodeId}
           onSelectEpisode={selectEpisode}
         />
@@ -364,8 +417,7 @@ export function WorkflowTreePanel({
     }
     const nestedData = nestedByRunId.get(row.run.runId);
     const expanded = expandedNestedRunIds.has(row.run.runId);
-    const loading = expanded && nestedData?.view == null;
-    const nestedRow = (
+    return (
       <NestedRunRow
         key={`nest:${row.run.runId}:${pane}`}
         pane={pane}
@@ -373,10 +425,9 @@ export function WorkflowTreePanel({
         depth={row.depth}
         scale={scale}
         nowMs={nowMs}
-        ticks={ticks}
         expanded={expanded}
         expandable={nestedRunHasExpandableChildren(nestedData)}
-        loading={loading}
+        loading={expanded && nestedData?.view == null}
         selected={selectedNestedRunId === row.run.runId && selectedStepId === null}
         onToggleExpanded={toggleNestedExpanded}
         onSelectNestedRun={selectNestedRun}
@@ -384,32 +435,6 @@ export function WorkflowTreePanel({
         onOpenNestedRunPage={onOpenNestedRunPage ? openNestedRunPage : undefined}
       />
     );
-    const nestedMenu =
-      onOpenNestedRunPage != null ? (
-        <>
-          <ContextMenuItem onSelect={() => onOpenNestedRunPage(row.run)}>
-            <ExternalLink className="mr-2 size-4" />
-            View run separately
-          </ContextMenuItem>
-          {row.run.replayOfRunId ? (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() =>
-                  onOpenNestedRunPage({
-                    ...row.run,
-                    runId: row.run.replayOfRunId!,
-                  })
-                }
-              >
-                <SquareArrowOutUpRight className="mr-2 size-4" />
-                View original run
-              </ContextMenuItem>
-            </>
-          ) : null}
-        </>
-      ) : null;
-    return wrapRowContextMenu(`nest-menu:${row.run.runId}:${pane}`, nestedRow, nestedMenu);
   };
 
   return (
@@ -420,74 +445,99 @@ export function WorkflowTreePanel({
         split.dragging && "cursor-col-resize select-none",
       )}
       onMouseOver={(event) => {
-        const row = (event.target as Element | null)?.closest?.("[data-row-id]");
+        const target = event.target as Element | null;
+        const row = target?.closest?.("[data-row-id]");
         syncCrossHover(row?.getAttribute("data-row-id") ?? null);
+        scheduleHoverTip(tipRef.current, target);
       }}
-      onMouseLeave={() => syncCrossHover(null)}
+      onMouseLeave={() => {
+        syncCrossHover(null);
+        hideHoverTip(tipRef.current);
+      }}
+      onContextMenuCapture={onPanelContextMenu}
     >
-      <TooltipProvider delayDuration={200}>
-        <div
-          ref={treeScrollRef}
-          className="h-full min-h-0 shrink-0 overflow-x-hidden overflow-y-auto scrollbar-none"
-          style={{ width: split.treeWidth ?? "40%" }}
-        >
-          <div className="flex min-h-full flex-col" style={{ paddingBottom: scrollbarGutter }}>
-            <StepsHeader />
-            <WorkflowRow
-              pane="tree"
-              workflowId={view.workflowId}
-              status={view.status}
-              selected={workflowSelected}
-              collapsed={workflowCollapsed}
-              hiddenCount={hiddenRootCount}
-              bar={workflowBar}
-              ticks={ticks}
-              onToggleCollapsed={toggleWorkflowCollapsed}
-              onSelect={selectWorkflow}
-            />
-            {rows.map((row) => renderTreeRow(row, "tree"))}
-            {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
-              <WorkflowLoadingPlaceholder />
-            ) : null}
-            <div className="min-h-0 flex-1" />
-          </div>
-        </div>
-        <div
-          ref={waterfallScrollRef}
-          className="h-full min-h-0 min-w-0 flex-1 overflow-auto overscroll-x-contain"
-        >
-          <div
-            className="relative flex min-h-full flex-col"
-            style={{
-              width:
-                waterfallPaneWidth > 0 ? waterfallPaneWidth * zoom : `${Math.max(zoom, 1) * 100}%`,
-            }}
-          >
-            <WaterfallHeader ticks={ticks} />
-            <WorkflowRow
-              pane="waterfall"
-              workflowId={view.workflowId}
-              status={view.status}
-              selected={workflowSelected}
-              collapsed={workflowCollapsed}
-              hiddenCount={hiddenRootCount}
-              bar={workflowBar}
-              ticks={ticks}
-              onToggleCollapsed={toggleWorkflowCollapsed}
-              onSelect={selectWorkflow}
-            />
-            {rows.map((row) => renderTreeRow(row, "waterfall"))}
-            {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
-              <div className={cn("h-9 shrink-0", ROW_DIVIDER)} aria-hidden />
-            ) : null}
-            <div className="relative min-h-0 flex-1 px-3">
-              <div className="relative h-full min-h-0">
-                <WaterfallGridLines ticks={ticks} />
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="flex h-full min-h-0 w-full">
+            <div
+              ref={treeScrollRef}
+              className="h-full min-h-0 shrink-0 overflow-x-hidden overflow-y-auto scrollbar-none"
+              style={{ width: split.treeWidth ?? "40%" }}
+            >
+              <div className="flex min-h-full flex-col" style={{ paddingBottom: scrollbarGutter }}>
+                <StepsHeader />
+                <WorkflowRow
+                  pane="tree"
+                  workflowId={view.workflowId}
+                  status={view.status}
+                  selected={workflowSelected}
+                  collapsed={workflowCollapsed}
+                  hiddenCount={hiddenRootCount}
+                  bar={workflowBar}
+                  onToggleCollapsed={toggleWorkflowCollapsed}
+                  onSelect={selectWorkflow}
+                />
+                {rows.map((row) => renderTreeRow(row, "tree"))}
+                {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+                  <WorkflowLoadingPlaceholder />
+                ) : null}
+                <div className="min-h-0 flex-1" />
+              </div>
+            </div>
+            <div
+              ref={waterfallScrollRef}
+              className="h-full min-h-0 min-w-0 flex-1 overflow-auto overscroll-x-contain"
+            >
+              <div
+                className="relative flex min-h-full flex-col"
+                style={{
+                  width:
+                    waterfallPaneWidth > 0
+                      ? waterfallPaneWidth * zoom
+                      : `${Math.max(zoom, 1) * 100}%`,
+                }}
+              >
+                <WaterfallHeader ticks={ticks} />
+                <div className="relative z-0 flex min-h-0 flex-1 flex-col">
+                  <div className="pointer-events-none absolute inset-y-0 right-3 left-3 z-[1]">
+                    <WaterfallGridLines ticks={ticks} />
+                  </div>
+                  <WorkflowRow
+                    pane="waterfall"
+                    workflowId={view.workflowId}
+                    status={view.status}
+                    selected={workflowSelected}
+                    collapsed={workflowCollapsed}
+                    hiddenCount={hiddenRootCount}
+                    bar={workflowBar}
+                    onToggleCollapsed={toggleWorkflowCollapsed}
+                    onSelect={selectWorkflow}
+                  />
+                  {rows.map((row) => renderTreeRow(row, "waterfall"))}
+                  {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+                    <div className={cn("relative z-[1] h-9 shrink-0", ROW_DIVIDER)} aria-hidden />
+                  ) : null}
+                  <div className="min-h-0 flex-1" />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </TooltipProvider>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
+          <PanelRowMenu
+            menu={openMenuRef.current ?? openMenu}
+            onRetryFromStep={(stepId, ownerRunId) =>
+              actionsRef.current.onRetryFromStep?.(stepId, ownerRunId)
+            }
+            onOpenNestedRunPage={(run) => actionsRef.current.onOpenNestedRunPage?.(run)}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+      <div
+        ref={tipRef}
+        data-testid="waterfall-hover-tip"
+        className="pointer-events-none fixed z-50 hidden w-fit max-w-xs -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-3 py-1.5 text-center text-xs text-balance text-background"
+      />
       <ColumnResizeHandle
         left={split.handleLeft}
         dragging={split.dragging}
@@ -577,8 +627,85 @@ const rowToneClass = (selected: boolean) =>
     selected && "bg-primary/10 hover:bg-primary/15 data-[cross-hovered]:bg-primary/15",
   );
 
+/**
+ * Waterfall rows keep their fill on an inner layer so the shared grid (z-1)
+ * paints above the fill and below the bars (z-2). The button itself must not
+ * take a z-index, or it would trap the bars under the grid.
+ */
+const waterfallToneClass = (selected: boolean) =>
+  cn(
+    "bg-background group-hover:bg-muted/70 group-data-[cross-hovered]:bg-muted/70",
+    selected && "bg-primary/10 group-hover:bg-primary/15 group-data-[cross-hovered]:bg-primary/15",
+  );
+
 function runStatusAsStep(status: RunViewState["status"]): StepNodeStatus {
   return runStatusAsStepStatus(status);
+}
+
+function spanLooksSame(
+  a: {
+    startedAt?: string;
+    finishedAt?: string;
+    durationMs?: number;
+    displayStartedAt?: string;
+    displayFinishedAt?: string;
+    displayDurationMs?: number;
+    priorContinuationMs?: number;
+    priorDurationMs?: number;
+  },
+  b: {
+    startedAt?: string;
+    finishedAt?: string;
+    durationMs?: number;
+    displayStartedAt?: string;
+    displayFinishedAt?: string;
+    displayDurationMs?: number;
+    priorContinuationMs?: number;
+    priorDurationMs?: number;
+  },
+): boolean {
+  return (
+    a.startedAt === b.startedAt &&
+    a.finishedAt === b.finishedAt &&
+    a.durationMs === b.durationMs &&
+    a.displayStartedAt === b.displayStartedAt &&
+    a.displayFinishedAt === b.displayFinishedAt &&
+    a.displayDurationMs === b.displayDurationMs &&
+    a.priorContinuationMs === b.priorContinuationMs &&
+    a.priorDurationMs === b.priorDurationMs
+  );
+}
+
+function scaleLooksSame(a: WaterfallScale, b: WaterfallScale): boolean {
+  return a.originMs === b.originMs && a.spanMs === b.spanMs;
+}
+
+function errorLooksSame(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+function barLooksSame(a: WaterfallBar | null, b: WaterfallBar | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.leftPct === b.leftPct &&
+    a.widthPct === b.widthPct &&
+    a.durationMs === b.durationMs &&
+    a.copied === b.copied &&
+    a.priorDurationMs === b.priorDurationMs &&
+    a.continuation?.leftPct === b.continuation?.leftPct &&
+    a.continuation?.widthPct === b.continuation?.widthPct &&
+    a.continuation?.durationMs === b.continuation?.durationMs
+  );
+}
+
+function clockStillMatches(status: string, prevNow: number, nextNow: number): boolean {
+  return status !== "running" || prevNow === nextNow;
 }
 
 const WorkflowRow = memo(function WorkflowRow({
@@ -589,7 +716,6 @@ const WorkflowRow = memo(function WorkflowRow({
   collapsed,
   hiddenCount,
   bar,
-  ticks,
   onToggleCollapsed,
   onSelect,
 }: {
@@ -600,7 +726,6 @@ const WorkflowRow = memo(function WorkflowRow({
   collapsed: boolean;
   hiddenCount: number;
   bar: WaterfallBar | null;
-  ticks: { pct: number; label: string }[];
   onToggleCollapsed: () => void;
   onSelect: () => void;
 }) {
@@ -613,7 +738,6 @@ const WorkflowRow = memo(function WorkflowRow({
       onSelect={onSelect}
       ariaLabel={`${workflowId} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
-      ticks={ticks}
       status={stepStatus}
       label={workflowId}
       barSize="step"
@@ -635,30 +759,99 @@ const WorkflowRow = memo(function WorkflowRow({
       ) : null}
     </GridRow>
   );
-});
+}, workflowRowLooksSame);
 
-function wrapRowContextMenu(key: string, row: ReactElement, menu: ReactNode | null): ReactNode {
-  if (!menu) {
-    return row;
-  }
+function workflowRowLooksSame(
+  prev: {
+    pane: "tree" | "waterfall";
+    workflowId: string;
+    status: RunViewState["status"];
+    selected: boolean;
+    collapsed: boolean;
+    hiddenCount: number;
+    bar: WaterfallBar | null;
+  },
+  next: {
+    pane: "tree" | "waterfall";
+    workflowId: string;
+    status: RunViewState["status"];
+    selected: boolean;
+    collapsed: boolean;
+    hiddenCount: number;
+    bar: WaterfallBar | null;
+  },
+): boolean {
   return (
-    <TreeRowContextMenu key={key} menu={menu}>
-      {row}
-    </TreeRowContextMenu>
+    prev.pane === next.pane &&
+    prev.workflowId === next.workflowId &&
+    prev.status === next.status &&
+    prev.selected === next.selected &&
+    prev.collapsed === next.collapsed &&
+    prev.hiddenCount === next.hiddenCount &&
+    barLooksSame(prev.bar, next.bar)
   );
 }
 
-function TreeRowContextMenu({ menu, children }: { menu: ReactNode; children: ReactElement }) {
+function PanelRowMenu({
+  menu,
+  onRetryFromStep,
+  onOpenNestedRunPage,
+}: {
+  menu: RowMenu | null;
+  onRetryFromStep: (stepId: string, ownerRunId: string) => void;
+  onOpenNestedRunPage: (run: InspectorRunSummary) => void;
+}) {
+  if (!menu) return null;
+  if (menu.kind === "step") {
+    return (
+      <>
+        {menu.showRetry ? (
+          <ContextMenuItem onSelect={() => onRetryFromStep(menu.stepId, menu.ownerRunId)}>
+            <RotateCcw className="mr-2 size-4" />
+            Retry from here
+          </ContextMenuItem>
+        ) : null}
+        {menu.replayedFromStepId && menu.priorRunId ? (
+          <>
+            {menu.showRetry ? <ContextMenuSeparator /> : null}
+            <ContextMenuItem asChild>
+              <Link
+                to="/workflows/$workflowId/run/$runId"
+                params={{ workflowId: menu.workflowId, runId: menu.priorRunId }}
+                search={workflowRunSearch({ step: menu.replayedFromStepId })}
+              >
+                <SquareArrowOutUpRight className="mr-2 size-4" />
+                View original step
+              </Link>
+            </ContextMenuItem>
+          </>
+        ) : null}
+      </>
+    );
+  }
   return (
-    <ContextMenu>
-      {/* `contents` keeps the trigger from adding a box; Radix slot props stay off the memoized row. */}
-      <ContextMenuTrigger asChild>
-        <div className="contents">{children}</div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
-        {menu}
-      </ContextMenuContent>
-    </ContextMenu>
+    <>
+      <ContextMenuItem onSelect={() => onOpenNestedRunPage(menu.run)}>
+        <ExternalLink className="mr-2 size-4" />
+        View run separately
+      </ContextMenuItem>
+      {menu.run.replayOfRunId ? (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() =>
+              onOpenNestedRunPage({
+                ...menu.run,
+                runId: menu.run.replayOfRunId!,
+              })
+            }
+          >
+            <SquareArrowOutUpRight className="mr-2 size-4" />
+            View original run
+          </ContextMenuItem>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -682,48 +875,37 @@ function CopiedFromPriorBadge({
   );
   if (href) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            to="/workflows/$workflowId/run/$runId"
-            params={{ workflowId: href.workflowId, runId: href.runId }}
-            search={href.stepId ? workflowRunSearch({ step: href.stepId }) : undefined}
-            className="shrink-0 hover:opacity-80"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {body}
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent>{title}</TooltipContent>
-      </Tooltip>
+      <Link
+        to="/workflows/$workflowId/run/$runId"
+        params={{ workflowId: href.workflowId, runId: href.runId }}
+        search={href.stepId ? workflowRunSearch({ step: href.stepId }) : undefined}
+        data-tip={title}
+        className="shrink-0 hover:opacity-80"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {body}
+      </Link>
     );
   }
   if (onOpen) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="shrink-0 hover:opacity-80"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
-          >
-            {body}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{title}</TooltipContent>
-      </Tooltip>
+      <button
+        type="button"
+        data-tip={title}
+        className="shrink-0 hover:opacity-80"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+      >
+        {body}
+      </button>
     );
   }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="shrink-0">{body}</span>
-      </TooltipTrigger>
-      <TooltipContent>{title}</TooltipContent>
-    </Tooltip>
+    <span className="shrink-0" data-tip={title}>
+      {body}
+    </span>
   );
 }
 
@@ -740,7 +922,6 @@ const StepRow = memo(
       nestedUnderStep: readonly InspectorRunSummary[];
       scale: WaterfallScale;
       nowMs: number;
-      ticks: { pct: number; label: string }[];
       collapsed: boolean;
       selected: boolean;
       onToggleCollapsed: (stepId: string) => void;
@@ -757,7 +938,6 @@ const StepRow = memo(
       nestedUnderStep,
       scale,
       nowMs,
-      ticks,
       collapsed,
       selected,
       onToggleCollapsed,
@@ -782,7 +962,6 @@ const StepRow = memo(
         onSelect={() => onSelectStep(step.stepId, ownerRunId)}
         ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
         bar={bar}
-        ticks={ticks}
         status={step.status}
         label={label}
         barSize="step"
@@ -829,7 +1008,69 @@ const StepRow = memo(
       </GridRow>
     );
   }),
+  stepRowLooksSame,
 );
+
+function stepRowLooksSame(
+  prev: {
+    pane: "tree" | "waterfall";
+    step: StepNode;
+    ownerRunId: string;
+    depth: number;
+    nestedUnderStep: readonly InspectorRunSummary[];
+    scale: WaterfallScale;
+    nowMs: number;
+    collapsed: boolean;
+    selected: boolean;
+    priorAttemptRunId?: string | null;
+    priorAttemptWorkflowId?: string;
+  },
+  next: {
+    pane: "tree" | "waterfall";
+    step: StepNode;
+    ownerRunId: string;
+    depth: number;
+    nestedUnderStep: readonly InspectorRunSummary[];
+    scale: WaterfallScale;
+    nowMs: number;
+    collapsed: boolean;
+    selected: boolean;
+    priorAttemptRunId?: string | null;
+    priorAttemptWorkflowId?: string;
+  },
+): boolean {
+  const a = prev.step;
+  const b = next.step;
+  if (
+    prev.pane !== next.pane ||
+    prev.ownerRunId !== next.ownerRunId ||
+    prev.depth !== next.depth ||
+    prev.collapsed !== next.collapsed ||
+    prev.selected !== next.selected ||
+    prev.priorAttemptRunId !== next.priorAttemptRunId ||
+    prev.priorAttemptWorkflowId !== next.priorAttemptWorkflowId
+  ) {
+    return false;
+  }
+  if (!scaleLooksSame(prev.scale, next.scale)) return false;
+  if (
+    a.stepId !== b.stepId ||
+    a.name !== b.name ||
+    a.key !== b.key ||
+    a.status !== b.status ||
+    a.copiedFromPriorAttempt !== b.copiedFromPriorAttempt ||
+    a.replayedFromStepId !== b.replayedFromStepId ||
+    a.children.length !== b.children.length ||
+    a.agentEpisodes.length !== b.agentEpisodes.length ||
+    prev.nestedUnderStep.length !== next.nestedUnderStep.length
+  ) {
+    return false;
+  }
+  if (!spanLooksSame(a, b)) return false;
+  if (!clockStillMatches(a.status, prev.nowMs, next.nowMs)) return false;
+  if (a.status === "failed" && !errorLooksSame(a.error, b.error)) return false;
+  return true;
+}
 
 const NestedRunRow = memo(
   forwardRef<
@@ -840,7 +1081,6 @@ const NestedRunRow = memo(
       depth: number;
       scale: WaterfallScale;
       nowMs: number;
-      ticks: { pct: number; label: string }[];
       expanded: boolean;
       expandable: boolean;
       loading: boolean;
@@ -857,7 +1097,6 @@ const NestedRunRow = memo(
       depth,
       scale,
       nowMs,
-      ticks,
       expanded,
       expandable,
       loading,
@@ -883,7 +1122,6 @@ const NestedRunRow = memo(
         onSelect={() => onSelectNestedRun(run.runId)}
         ariaLabel={`${run.workflowId} nested run duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
         bar={bar}
-        ticks={ticks}
         status={status}
         label={label}
         barSize="step"
@@ -922,7 +1160,61 @@ const NestedRunRow = memo(
       </GridRow>
     );
   }),
+  nestedRunRowLooksSame,
 );
+
+function nestedRunRowLooksSame(
+  prev: {
+    pane: "tree" | "waterfall";
+    run: InspectorRunSummary;
+    depth: number;
+    scale: WaterfallScale;
+    nowMs: number;
+    expanded: boolean;
+    expandable: boolean;
+    loading: boolean;
+    selected: boolean;
+    copiedFromPriorAttempt?: boolean;
+  },
+  next: {
+    pane: "tree" | "waterfall";
+    run: InspectorRunSummary;
+    depth: number;
+    scale: WaterfallScale;
+    nowMs: number;
+    expanded: boolean;
+    expandable: boolean;
+    loading: boolean;
+    selected: boolean;
+    copiedFromPriorAttempt?: boolean;
+  },
+): boolean {
+  const a = prev.run;
+  const b = next.run;
+  if (
+    prev.pane !== next.pane ||
+    prev.depth !== next.depth ||
+    prev.expanded !== next.expanded ||
+    prev.expandable !== next.expandable ||
+    prev.loading !== next.loading ||
+    prev.selected !== next.selected ||
+    prev.copiedFromPriorAttempt !== next.copiedFromPriorAttempt
+  ) {
+    return false;
+  }
+  if (!scaleLooksSame(prev.scale, next.scale)) return false;
+  if (
+    a.runId !== b.runId ||
+    a.workflowId !== b.workflowId ||
+    a.title !== b.title ||
+    a.status !== b.status ||
+    a.replayOfRunId !== b.replayOfRunId
+  ) {
+    return false;
+  }
+  if (!spanLooksSame(a, b)) return false;
+  return clockStillMatches(runStatusAsStepStatus(a.status), prev.nowMs, next.nowMs);
+}
 
 const EpisodeRow = memo(function EpisodeRow({
   pane,
@@ -932,7 +1224,6 @@ const EpisodeRow = memo(function EpisodeRow({
   runId,
   scale,
   nowMs,
-  ticks,
   selected,
   onSelectEpisode,
 }: {
@@ -943,7 +1234,6 @@ const EpisodeRow = memo(function EpisodeRow({
   runId: string;
   scale: WaterfallScale;
   nowMs: number;
-  ticks: { pct: number; label: string }[];
   selected: boolean;
   onSelectEpisode: (stepId: string, episode: AgentEpisode, ownerRunId: string) => void;
 }) {
@@ -959,7 +1249,6 @@ const EpisodeRow = memo(function EpisodeRow({
       onSelect={() => onSelectEpisode(stepId, episode, runId)}
       ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
-      ticks={ticks}
       status={episode.status}
       label={label}
       barSize="episode"
@@ -984,7 +1273,57 @@ const EpisodeRow = memo(function EpisodeRow({
       ) : null}
     </GridRow>
   );
-});
+}, episodeRowLooksSame);
+
+function episodeRowLooksSame(
+  prev: {
+    pane: "tree" | "waterfall";
+    episode: AgentEpisode;
+    stepId: string;
+    depth: number;
+    runId: string;
+    scale: WaterfallScale;
+    nowMs: number;
+    selected: boolean;
+  },
+  next: {
+    pane: "tree" | "waterfall";
+    episode: AgentEpisode;
+    stepId: string;
+    depth: number;
+    runId: string;
+    scale: WaterfallScale;
+    nowMs: number;
+    selected: boolean;
+  },
+): boolean {
+  const a = prev.episode;
+  const b = next.episode;
+  if (
+    prev.pane !== next.pane ||
+    prev.stepId !== next.stepId ||
+    prev.depth !== next.depth ||
+    prev.runId !== next.runId ||
+    prev.selected !== next.selected
+  ) {
+    return false;
+  }
+  if (!scaleLooksSame(prev.scale, next.scale)) return false;
+  if (
+    a.episodeId !== b.episodeId ||
+    a.agentId !== b.agentId ||
+    a.memoryScope !== b.memoryScope ||
+    a.status !== b.status ||
+    a.warnings.length !== b.warnings.length ||
+    a.warnings[0] !== b.warnings[0]
+  ) {
+    return false;
+  }
+  if (!spanLooksSame(a, b)) return false;
+  if (!clockStillMatches(a.status, prev.nowMs, next.nowMs)) return false;
+  if (a.status === "failed" && !errorLooksSame(a.error, b.error)) return false;
+  return true;
+}
 
 const GridRow = forwardRef<
   HTMLElement,
@@ -995,7 +1334,6 @@ const GridRow = forwardRef<
     onSelect: () => void;
     ariaLabel: string;
     bar: WaterfallBar | null;
-    ticks: { pct: number; label: string }[];
     status: StepNodeStatus;
     label: string;
     barSize: "step" | "episode";
@@ -1012,7 +1350,6 @@ const GridRow = forwardRef<
     onSelect,
     ariaLabel,
     bar,
-    ticks,
     status,
     label,
     barSize,
@@ -1036,7 +1373,7 @@ const GridRow = forwardRef<
         tabIndex={-1}
         data-row-id={rowId}
         aria-hidden
-        className={cn("relative h-9 w-full shrink-0 px-3", ROW_DIVIDER, tone, className)}
+        className={cn("group relative h-9 w-full shrink-0 px-3", ROW_DIVIDER, className)}
         style={style}
         {...slotProps}
         onClick={(event) => {
@@ -1044,8 +1381,8 @@ const GridRow = forwardRef<
           onSelect();
         }}
       >
-        <div className="relative">
-          <WaterfallGridLines ticks={ticks} />
+        <div aria-hidden className={cn("absolute inset-0 z-0", waterfallToneClass(selected))} />
+        <div className="relative z-[2]">
           <WaterfallTrack bar={bar} status={status} label={label} size={barSize} />
         </div>
       </button>
@@ -1161,50 +1498,38 @@ function WaterfallTrack({
   return (
     <div className="relative h-8 overflow-hidden">
       {bar?.continuation ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={cn(
-                "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm border border-dashed border-amber-500/40 bg-amber-500/15 opacity-50",
-                heightClass,
-              )}
-              style={{
-                left: `${bar.continuation.leftPct}%`,
-                width: `${bar.continuation.widthPct}%`,
-              }}
-              aria-hidden
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            Prior work continued {formatDuration(bar.continuation.durationMs)} past the retry point
-            (not re-measured on this attempt)
-          </TooltipContent>
-        </Tooltip>
+        <span
+          data-tip={`Prior work continued ${formatDuration(bar.continuation.durationMs)} past the retry point (not re-measured on this attempt)`}
+          className={cn(
+            "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm border border-dashed border-amber-500/40 bg-amber-500/15 opacity-50",
+            heightClass,
+          )}
+          style={{
+            left: `${bar.continuation.leftPct}%`,
+            width: `${bar.continuation.widthPct}%`,
+          }}
+          aria-hidden
+        />
       ) : null}
       {bar ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={cn(
-                "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
-                heightClass,
-                bar.copied &&
-                  "border border-dashed border-sky-500/50 bg-sky-500/20 dark:bg-sky-400/15",
-                !bar.copied && status === "running" && "bg-primary/55",
-                !bar.copied &&
-                  status === "completed" &&
-                  (size === "step" ? "bg-primary/35" : "bg-primary/25"),
-                !bar.copied && status === "failed" && "bg-destructive/55",
-              )}
-              style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
-            >
-              {!bar.copied && status === "running" ? (
-                <span className="absolute inset-y-0 right-0 w-0.5 rounded-r-sm bg-primary" />
-              ) : null}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>{waterfallBarTooltip(bar, label, status)}</TooltipContent>
-        </Tooltip>
+        <span
+          data-tip={waterfallBarTooltip(bar, label, status)}
+          className={cn(
+            "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
+            heightClass,
+            bar.copied && "border border-dashed border-sky-500/50 bg-sky-500/20 dark:bg-sky-400/15",
+            !bar.copied && status === "running" && "bg-primary/55",
+            !bar.copied &&
+              status === "completed" &&
+              (size === "step" ? "bg-primary/35" : "bg-primary/25"),
+            !bar.copied && status === "failed" && "bg-destructive/55",
+          )}
+          style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
+        >
+          {!bar.copied && status === "running" ? (
+            <span className="absolute inset-y-0 right-0 w-0.5 rounded-r-sm bg-primary" />
+          ) : null}
+        </span>
       ) : (
         <span className="sr-only">No timing yet</span>
       )}
