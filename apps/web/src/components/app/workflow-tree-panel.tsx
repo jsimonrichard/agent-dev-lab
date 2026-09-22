@@ -670,6 +670,7 @@ function spanLooksSame(
     displayStartedAt?: string;
     displayFinishedAt?: string;
     displayDurationMs?: number;
+    displayAfterAnchor?: boolean;
     priorContinuationMs?: number;
     priorDurationMs?: number;
   },
@@ -680,6 +681,7 @@ function spanLooksSame(
     displayStartedAt?: string;
     displayFinishedAt?: string;
     displayDurationMs?: number;
+    displayAfterAnchor?: boolean;
     priorContinuationMs?: number;
     priorDurationMs?: number;
   },
@@ -691,6 +693,7 @@ function spanLooksSame(
     a.displayStartedAt === b.displayStartedAt &&
     a.displayFinishedAt === b.displayFinishedAt &&
     a.displayDurationMs === b.displayDurationMs &&
+    a.displayAfterAnchor === b.displayAfterAnchor &&
     a.priorContinuationMs === b.priorContinuationMs &&
     a.priorDurationMs === b.priorDurationMs
   );
@@ -717,6 +720,7 @@ function barLooksSame(a: WaterfallBar | null, b: WaterfallBar | null): boolean {
     a.widthPct === b.widthPct &&
     a.durationMs === b.durationMs &&
     a.copied === b.copied &&
+    a.afterAnchor === b.afterAnchor &&
     a.priorDurationMs === b.priorDurationMs &&
     a.continuation?.leftPct === b.continuation?.leftPct &&
     a.continuation?.widthPct === b.continuation?.widthPct &&
@@ -1499,13 +1503,26 @@ function CollapseToggle({
   );
 }
 
+/**
+ * Copied time on the re-run's clock. Dotted border: prior timing that can
+ * overlap re-executed bars, so that overlap is not this attempt's event order.
+ * Prefix copies use a solid border of the same blue.
+ */
+const COPIED_PREFIX_BAR_CLASS =
+  "border border-solid border-sky-400/80 bg-sky-500/20 dark:bg-sky-400/15";
+const COPIED_AFTER_ANCHOR_BAR_CLASS =
+  "border-2 border-dotted border-sky-300/90 bg-sky-500/20 dark:bg-sky-400/15";
+
 function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
+  if (bar.afterAnchor) {
+    return `${label}: copied ${formatDuration(bar.durationMs)} from the prior attempt. Placed from prior timing after the retry point — order versus re-executed steps is not meaningful.`;
+  }
   if (bar.copied) {
     const parts = [
       `${label}: prior layout ${formatDuration(bar.durationMs)}`,
       bar.priorDurationMs != null ? `full prior ${formatDuration(bar.priorDurationMs)}` : null,
       bar.continuation
-        ? `continuation past retry ${formatDuration(bar.continuation.durationMs)}`
+        ? `copied past retry ${formatDuration(bar.continuation.durationMs)} (order versus re-executed steps is not meaningful)`
         : null,
     ].filter(Boolean);
     return parts.join(" · ");
@@ -1529,9 +1546,10 @@ function WaterfallTrack({
     <div className="relative h-8 overflow-hidden">
       {bar?.continuation ? (
         <span
-          data-tip={`Prior work continued ${formatDuration(bar.continuation.durationMs)} past the retry point (not re-measured on this attempt)`}
+          data-tip={`Copied ${formatDuration(bar.continuation.durationMs)} from the prior attempt, past the retry point. Not re-measured here — order versus re-executed steps is not meaningful.`}
           className={cn(
-            "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm border border-dashed border-amber-500/40 bg-amber-500/15 opacity-50",
+            "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm",
+            COPIED_AFTER_ANCHOR_BAR_CLASS,
             heightClass,
           )}
           style={{
@@ -1547,7 +1565,8 @@ function WaterfallTrack({
           className={cn(
             "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
             heightClass,
-            bar.copied && "border border-dashed border-sky-500/50 bg-sky-500/20 dark:bg-sky-400/15",
+            bar.copied && bar.afterAnchor && COPIED_AFTER_ANCHOR_BAR_CLASS,
+            bar.copied && !bar.afterAnchor && COPIED_PREFIX_BAR_CLASS,
             !bar.copied && status === "running" && "bg-primary/55",
             !bar.copied &&
               status === "completed" &&

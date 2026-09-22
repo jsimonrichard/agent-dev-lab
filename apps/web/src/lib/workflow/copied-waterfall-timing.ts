@@ -132,6 +132,7 @@ function applyGraftToTarget(
     displayStartedAt?: string;
     displayFinishedAt?: string;
     displayDurationMs?: number;
+    displayAfterAnchor?: boolean;
     priorContinuationMs?: number;
     priorDurationMs?: number;
   },
@@ -145,12 +146,21 @@ function applyGraftToTarget(
     return;
   }
 
-  // Prior entirely after anchor — no footing before retry point.
+  const displayStartMs = nAnchorMs + (pStart - pAnchorMs);
+
+  // Prior starts at or after the retry point. Keep the full span on this
+  // attempt's clock (anchors aligned). It can overlap re-executed work, so
+  // the bar is marked after-anchor and drawn as copied rather than live order.
   if (pStart >= pAnchorMs) {
+    const displayEndMs = displayStartMs + Math.max(0, prior.durationMs);
+    target.displayStartedAt = toIso(displayStartMs);
+    target.displayFinishedAt = toIso(displayEndMs);
+    target.displayDurationMs = Math.max(0, displayEndMs - displayStartMs);
+    target.priorDurationMs = prior.durationMs;
+    target.displayAfterAnchor = true;
     return;
   }
 
-  const displayStartMs = nAnchorMs + (pStart - pAnchorMs);
   let displayEndMs = displayStartMs + prior.durationMs;
   let priorContinuationMs = 0;
 
@@ -178,6 +188,8 @@ function applyGraftToTarget(
 
 /**
  * Layout-only: graft prior-attempt timings onto copied steps/nests for the waterfall.
+ * Prefix spans sit before the re-run anchor. Spans that start at or after the
+ * anchor stay on this attempt's clock, marked `displayAfterAnchor`.
  * Mutates `view.steps` and optional `nestedRuns` in place.
  */
 export function graftCopiedWaterfallTiming(

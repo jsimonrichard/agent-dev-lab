@@ -64,6 +64,8 @@ export interface InspectorRunSummary {
   displayStartedAt?: string;
   displayFinishedAt?: string;
   displayDurationMs?: number;
+  /** Prior span starts at or after the retry anchor; order vs this attempt is not live. */
+  displayAfterAnchor?: boolean;
   priorContinuationMs?: number;
   priorDurationMs?: number;
 }
@@ -244,6 +246,8 @@ export interface StepNode {
   displayFinishedAt?: string;
   /** Authoritative grafted duration in ms (before any prior-continuation ghost). */
   displayDurationMs?: number;
+  /** Prior span starts at or after the retry anchor; order vs this attempt is not live. */
+  displayAfterAnchor?: boolean;
   /** Extra prior duration past the retry anchor for a straddle ghost segment. */
   priorContinuationMs?: number;
   /** Full prior-attempt duration for tooltips (may exceed displayed bar). */

@@ -125,6 +125,7 @@ describe("graftCopiedWaterfallTiming", () => {
     expect(copied.displayDurationMs).toBe(1000);
     expect(Date.parse(copied.displayStartedAt!)).toBe(Date.parse(T3) - 1000);
     expect(Date.parse(copied.displayFinishedAt!)).toBe(Date.parse(T3));
+    expect(copied.displayAfterAnchor).toBeUndefined();
     expect(copied.priorContinuationMs).toBeUndefined();
     expect(copied.priorDurationMs).toBe(1000);
   });
@@ -246,6 +247,73 @@ describe("graftCopiedWaterfallTiming", () => {
     expect(mid.displayDurationMs).toBe(1000);
     expect(mid.priorContinuationMs).toBe(1000);
     expect(mid.priorDurationMs).toBe(2000);
+  });
+
+  it("keeps copied spans that start at or after the re-exec anchor on this attempt's clock", () => {
+    const prior = buildPriorStepTimingIndex(priorEvents());
+    // Retry from b (prior start T1). c ran entirely after that point.
+    const state = view([
+      step("a", {
+        copiedFromPriorAttempt: true,
+        replayedFromStepId: "s-a",
+        path: ["a"],
+      }),
+      step("b", {
+        startedAt: T4,
+        finishedAt: T5,
+        durationMs: 1000,
+        path: ["b"],
+      }),
+      step("c", {
+        copiedFromPriorAttempt: true,
+        replayedFromStepId: "s-c",
+        path: ["c"],
+        startedAt: T4,
+        finishedAt: T4,
+        durationMs: 0,
+      }),
+    ]);
+    mergePriorRunTiming(prior, "nest-after", { startedAt: T3, finishedAt: T4 });
+    const nested: InspectorRunSummary[] = [
+      {
+        runId: "nest-copy",
+        workflowId: "child",
+        status: "completed",
+        startedAt: T4,
+        finishedAt: T4,
+        inputPreview: "",
+        tags: [],
+        replayOfRunId: "nest-after",
+      },
+    ];
+
+    graftCopiedWaterfallTiming(state, prior, nested);
+
+    const copied = state.steps[2]!;
+    expect(copied.displayAfterAnchor).toBe(true);
+    expect(copied.displayDurationMs).toBe(1000);
+    expect(copied.priorContinuationMs).toBeUndefined();
+    expect(Date.parse(copied.displayStartedAt!)).toBe(Date.parse(T4) + 2000);
+    expect(Date.parse(copied.displayFinishedAt!)).toBe(Date.parse(T4) + 3000);
+
+    const scale = computeWaterfallScale({
+      runStartedAt: state.startedAt,
+      runFinishedAt: state.finishedAt,
+      runStatus: "completed",
+      steps: state.steps,
+      nowMs: Date.parse(T5) + 3000,
+      ownerRunId: state.runId,
+    });
+    const bar = computeSpanWaterfallBar(copied, scale, Date.parse(T5) + 3000);
+    expect(bar?.copied).toBe(true);
+    expect(bar?.afterAnchor).toBe(true);
+    expect(bar?.durationMs).toBe(1000);
+    const anchorLeft = ((Date.parse(T4) - scale.originMs) / scale.spanMs) * 100;
+    expect(bar!.leftPct).toBeGreaterThan(anchorLeft);
+
+    expect(nested[0]!.displayAfterAnchor).toBe(true);
+    expect(nested[0]!.displayDurationMs).toBe(1000);
+    expect(Date.parse(nested[0]!.displayStartedAt!)).toBe(Date.parse(T4) + 2000);
   });
 
   it("leaves honest timing when prior step timing is missing", () => {

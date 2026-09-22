@@ -18,6 +18,11 @@ export interface WaterfallBar {
   durationMs: number;
   /** Copied/prefix layout (grafted prior timing), not this attempt's wall clock. */
   copied?: boolean;
+  /**
+   * Copied span laid onto the re-run's clock (prior start at or after the
+   * retry anchor). Position is prior timing, not this attempt's event order.
+   */
+  afterAnchor?: boolean;
   /** Full prior-attempt duration for tooltips (may exceed displayed bar). */
   priorDurationMs?: number;
   /** Prior-continuation ghost past the retry anchor (straddle). */
@@ -35,6 +40,7 @@ export type TimedSpan = {
   displayStartedAt?: string;
   displayFinishedAt?: string;
   displayDurationMs?: number;
+  displayAfterAnchor?: boolean;
   priorContinuationMs?: number;
   priorDurationMs?: number;
   status: StepNodeStatus;
@@ -293,6 +299,7 @@ export function runSummaryAsTimedSpan(run: InspectorRunSummary): TimedSpan {
     displayStartedAt: run.displayStartedAt,
     displayFinishedAt: run.displayFinishedAt,
     displayDurationMs: run.displayDurationMs,
+    displayAfterAnchor: run.displayAfterAnchor,
     priorContinuationMs: run.priorContinuationMs,
     priorDurationMs: run.priorDurationMs,
   };
@@ -404,6 +411,7 @@ export function computeSpanWaterfallBar(
     bar = {
       ...bar,
       copied: true,
+      afterAnchor: span.displayAfterAnchor === true,
       priorDurationMs: span.priorDurationMs,
     };
   }
