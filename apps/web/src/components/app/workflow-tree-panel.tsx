@@ -47,6 +47,7 @@ import type {
   StepNode,
   StepNodeStatus,
 } from "@/lib/view-model/types";
+import { retryAnchorMs } from "@/lib/workflow/copied-waterfall-timing";
 import { workflowRunSearch } from "@/lib/workflow/workflow-location";
 import { cn } from "@/lib/utils";
 import { useInspectorConnection } from "#/lib/inspector-connection";
@@ -208,6 +209,15 @@ export function WorkflowTreePanel({
     ],
   );
   const ticks = useMemo(() => waterfallTickMarks(scale, waterfallTickCount(zoom)), [scale, zoom]);
+  const retryLinePct = useMemo(() => {
+    if (!priorAttemptRunId || scale.spanMs <= 0) return null;
+    const anchorMs = retryAnchorMs(view.steps);
+    if (anchorMs == null) return null;
+    const pct = ((anchorMs - scale.originMs) / scale.spanMs) * 100;
+    // A line on the axis duplicates the first or last gridline.
+    if (!Number.isFinite(pct) || pct <= 0.5 || pct >= 99.5) return null;
+    return pct;
+  }, [priorAttemptRunId, scale.originMs, scale.spanMs, view.steps]);
   const workflowCollapsed = collapsedStepIds.has(WORKFLOW_ROW_ID);
   // Count rows as if the workflow row were expanded. `rows` is empty while it
   // is collapsed, and the chevron uses this count to decide it has children.
@@ -513,10 +523,11 @@ export function WorkflowTreePanel({
                       : `${Math.max(zoom, 1) * 100}%`,
                 }}
               >
-                <WaterfallHeader ticks={ticks} />
+                <WaterfallHeader ticks={ticks} retryLinePct={retryLinePct} />
                 <div className="relative z-0 flex min-h-0 flex-1 flex-col">
                   <div className="pointer-events-none absolute inset-y-0 right-3 left-3 z-[1]">
                     <WaterfallGridLines ticks={ticks} />
+                    {retryLinePct != null ? <WaterfallRetryLine pct={retryLinePct} /> : null}
                   </div>
                   <WorkflowRow
                     pane="waterfall"
@@ -613,7 +624,13 @@ function StepsHeader() {
   );
 }
 
-function WaterfallHeader({ ticks }: { ticks: { pct: number; label: string }[] }) {
+function WaterfallHeader({
+  ticks,
+  retryLinePct,
+}: {
+  ticks: { pct: number; label: string }[];
+  retryLinePct: number | null;
+}) {
   return (
     <div className={cn(PANE_HEADER_CLASS, "px-3")}>
       <div className="relative h-full">
@@ -634,6 +651,7 @@ function WaterfallHeader({ ticks }: { ticks: { pct: number; label: string }[] })
             {tick.label}
           </span>
         ))}
+        {retryLinePct != null ? <WaterfallRetryLine pct={retryLinePct} tip /> : null}
       </div>
     </div>
   );
@@ -1515,10 +1533,9 @@ function CollapseToggle({
  * prefix copy: prior timing that can overlap re-executed bars, so that overlap
  * is not this attempt's event order.
  */
-const COPIED_PREFIX_BAR_CLASS =
-  "border border-solid border-sky-400/80 bg-sky-500/20 dark:bg-sky-400/15";
-const COPIED_AFTER_ANCHOR_BAR_CLASS =
-  "border border-dashed border-sky-400/80 bg-sky-500/20 dark:bg-sky-400/15";
+const COPIED_SPAN_FILL = "bg-sky-500/20 dark:bg-sky-400/15";
+const COPIED_PREFIX_BAR_CLASS = `border border-solid border-sky-400/80 ${COPIED_SPAN_FILL}`;
+const COPIED_AFTER_ANCHOR_BAR_CLASS = `border border-dashed border-sky-400/80 ${COPIED_SPAN_FILL}`;
 
 function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
   if (bar.afterAnchor) {
@@ -1937,6 +1954,33 @@ function useWaterfallZoom(
     if (!viewport) return;
     viewport.scrollLeft = anchor.fraction * viewport.scrollWidth - anchor.localX;
   }, [zoom, scrollRef]);
+}
+
+const RETRY_LINE_TIP =
+  "Retry point. Time left of this line was copied from the prior attempt; this run starts here.";
+
+/** 1px marker at the first re-executed step. Sits with the grid, under the bars. */
+function WaterfallRetryLine({ pct, tip = false }: { pct: number; tip?: boolean }) {
+  return (
+    <span
+      data-testid="waterfall-retry-line"
+      data-tip={tip ? RETRY_LINE_TIP : undefined}
+      className={cn(
+        "absolute inset-y-0 -translate-x-1/2",
+        // The ruler copy is the hover target. The chart copy stays click-through.
+        tip ? "pointer-events-auto w-3" : "pointer-events-none w-px",
+      )}
+      style={{ left: `${pct}%` }}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2",
+          COPIED_SPAN_FILL,
+        )}
+      />
+    </span>
+  );
 }
 
 function WaterfallGridLines({ ticks }: { ticks: { pct: number }[] }) {

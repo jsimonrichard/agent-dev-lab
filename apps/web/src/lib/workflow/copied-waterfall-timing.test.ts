@@ -5,6 +5,7 @@ import {
   buildPriorStepTimingIndex,
   graftCopiedWaterfallTiming,
   mergePriorRunTiming,
+  retryAnchorMs,
 } from "./copied-waterfall-timing";
 import { computeSpanWaterfallBar, computeWaterfallScale } from "./workflow-waterfall";
 
@@ -402,5 +403,21 @@ describe("graftCopiedWaterfallTiming", () => {
     expect(Date.parse(nested[0]!.displayStartedAt!)).toBe(Date.parse(T0));
     expect(Date.parse(nested[0]!.displayFinishedAt!)).toBe(Date.parse(T2));
     expect(nested[0]!.priorContinuationMs).toBeUndefined();
+  });
+
+  it("places the retry point at the first step this attempt actually ran", () => {
+    const steps = [
+      step("a", {
+        startedAt: T4,
+        copiedFromPriorAttempt: true,
+        replayedFromStepId: "s-a",
+      }),
+      step("b", { startedAt: T4 }),
+      step("c", { startedAt: T5, copiedFromPriorAttempt: true }),
+    ];
+    expect(retryAnchorMs(steps)).toBe(Date.parse(T4));
+    expect(
+      retryAnchorMs([step("only-copied", { copiedFromPriorAttempt: true, startedAt: T4 })]),
+    ).toBe(null);
   });
 });

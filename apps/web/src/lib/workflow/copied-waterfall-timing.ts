@@ -110,6 +110,17 @@ function visitSteps(nodes: StepNode[], visit: (step: StepNode) => void): void {
   }
 }
 
+/**
+ * Start of the first step this attempt actually ran. Copied spans are placed
+ * against this instant, so it is the retry point on the waterfall.
+ */
+export function retryAnchorMs(steps: StepNode[]): number | null {
+  const startedAt = findAnchorStep(steps)?.startedAt;
+  if (!startedAt) return null;
+  const ms = Date.parse(startedAt);
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function findAnchorStep(steps: StepNode[]): StepNode | null {
   let found: StepNode | null = null;
   visitSteps(steps, (step) => {
