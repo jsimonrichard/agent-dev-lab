@@ -136,7 +136,7 @@ for (const topic of topics) {
 
 ## Resumability
 
-**Resume** means starting a **new attempt** after failure (or an explicit retry-from-step): still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback); work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
+**Resume** starts a **new attempt** after a failure. **Retry from a step** uses the same mechanism: you choose the step, and ADL starts a new attempt from there. Still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback). Work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
 
 [`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`.
 
@@ -192,6 +192,8 @@ Seeding copies still-valid run/step **projections** with `replayOf*` links and s
 
 Same-`workflowRunId` re-entry (without seeding) still skips via the path-stable cache when outputs remain — useful for simple mid-run retries, but superseded for forest retry by attempt lineage.
 
+The inspection UI exposes this as **Retry** (run header and the workflow-row menu) and **Retry from here** (step menu and step inspector). Retry is refused while any run in the attempt forest is still running. Other hosts call `seedRetryAttempt` the same way.
+
 ### Pure vs force
 
 | Option        | Scope                | Behavior                                                                         |
@@ -237,7 +239,6 @@ On step retry, choose a policy explicitly:
 | Checkpoints (`ctx.checkpoint`)          | Deferred                                                     |
 | Agent episode cache (`cacheable: true`) | Deferred                                                     |
 | Mid-stream token resume                 | Not a goal                                                   |
-| Inspector Retry button                  | Host follow-up (data model above is the contract)            |
 | Durable crash resume without re-entry   | SQLite stores persist I/O; mid-closure resume still deferred |
 
 ## WorkflowContext

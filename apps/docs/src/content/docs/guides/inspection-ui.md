@@ -25,10 +25,11 @@ Standalone CLI commands (`adl workflow run`, `adl agent run`, `adl workflow list
 
 Registered ids come from `adl.config` `workflows`. The sidebar lists startable workflows and past runs (title from `ctx.setTitle` when set).
 
-1. Open a workflow and start a run. If the workflow has a Zod `inputSchema`, the start dialog builds a form from it (defaults apply).
-2. The run page is a **waterfall**: steps, nested steps, parallel keyed steps, and agent episodes.
-3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`. Tags from `workflow.run(input, { tags })` / `agent.run({ tags })`, plus the automatic `version:` or `commit:` tag, appear in a footer on the inspector. The start dialog does not collect tags, and there is no run-list filter.
-4. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, and child `agent.run` / `streamText` calls on that run. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
+1. Open a workflow and start a run. If the workflow has a Zod `inputSchema`, the start dialog and the workflow page (when no run is selected) edit the whole input as a document, including raw JSON. Defaults apply. Schema and JSON parse errors appear on submit, not while typing. The form does not collect tags.
+2. The run page is a **waterfall**: steps, nested workflow runs, parallel keyed steps, and agent episodes. A nested `workflow.run()` sits under the calling step, or under the workflow row when the call is at the root. Expand a nest to load its steps. The sidebar defaults to root runs; **Non-Root** lists nested runs, and a child run page links back to its parent.
+3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`. Tags from `workflow.run(input, { tags })` / `agent.run({ tags })`, plus the automatic `version:` or `commit:` tag, appear in a footer on the inspector. There is no run-list tag filter.
+4. **Retry** (run header or the workflow-row menu) and **Retry from here** (step menu or step inspector) seed a new attempt. The prior run stays in the list. Retry is unavailable while any run in that attempt forest is still running. Copied steps link back to the original and keep the prior attempt's duration on the waterfall.
+5. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, nested workflow runs, and child `agent.run` / `streamText` calls on that run. Cancelling a nested run id aborts the active root. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
 
 Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `runSeq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
 

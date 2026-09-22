@@ -25,7 +25,10 @@ export type AgentEpisodeSummary = {
   /** Mutable lifecycle: `"running"` until `agent_finished`/`agent_failed`. */
   status: "running" | "ok" | "error";
   finishedAt?: string;
-  /** The `{ modelId, provider }` descriptor Lane E adds to `agent_started`; absent until then. */
+  /**
+   * `{ modelId, provider }` once `agent_started` records it.
+   * Absent until per-call model override lands.
+   */
   modelId?: string;
   modelProvider?: string;
   /**

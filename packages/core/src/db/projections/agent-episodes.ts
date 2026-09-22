@@ -12,8 +12,8 @@ import type { TokenUsage } from "../../observability/token-usage";
  * approach `listAgentEpisodes` used before this table existed.
  *
  * `model_id`/`model_provider` are left untouched here: `agent_started` does
- * not yet carry the descriptor (Lane E adds it); once it does, this insert
- * picks it up with no further change to this file.
+ * not yet carry `{ modelId, provider }`. Once it does, this insert picks
+ * those columns up with no further change to this file.
  *
  * `tool_provider_context_json` is the raw `toolProviderContext` from
  * `agent_started` (JSON), or null when the caller omitted it.
