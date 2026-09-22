@@ -16,7 +16,11 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
-  testIgnore: "**/fixture/**",
+  // Local INP benches (`*.bench.spec.ts`) stay out of CI/`test:e2e`.
+  // Opt in: `ADL_INP_BENCH=1 bunx playwright test e2e/workflow-tree-inp.bench.spec.ts`
+  testIgnore: process.env.ADL_INP_BENCH
+    ? ["**/fixture/**"]
+    : ["**/fixture/**", "**/*.bench.spec.ts"],
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
