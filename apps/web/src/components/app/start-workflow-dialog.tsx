@@ -174,6 +174,7 @@ export function StartWorkflowForm({
   const inputType = fields.length > 0 ? jsonTypeFromFields(fields) : undefined;
   const [rawJson, setRawJson] = useState(() => workflowInputRawJson(selected?.inputSample));
   const [jsonFieldError, setJsonFieldError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const description = startWorkflowDescription(lockedId, fields.length);
   const autoFocus = variant === "dialog";
   const jsonError =
@@ -188,6 +189,7 @@ export function StartWorkflowForm({
     setRunName("");
     setRawJson(workflowInputRawJson(workflow?.inputSample));
     setJsonFieldError(null);
+    setSubmitAttempted(false);
     setError(null);
     setSubmitting(false);
   }, [active, lockedId, workflows, project.generation]);
@@ -198,6 +200,7 @@ export function StartWorkflowForm({
       return;
     }
 
+    setSubmitAttempted(true);
     if (jsonError !== null) {
       setError(jsonError);
       return;
@@ -243,13 +246,13 @@ export function StartWorkflowForm({
             Cancel
           </Button>
         ) : null}
-        <Button type="submit" disabled={submitting || !selected || jsonError !== null}>
+        <Button type="submit" disabled={submitting || !selected}>
           {submitting ? "Starting…" : "Start run"}
         </Button>
       </DialogFooter>
     ) : (
       <div className="flex justify-end">
-        <Button type="submit" disabled={submitting || !selected || jsonError !== null}>
+        <Button type="submit" disabled={submitting || !selected}>
           {submitting ? "Starting…" : "Start run"}
         </Button>
       </div>
@@ -269,6 +272,7 @@ export function StartWorkflowForm({
               setSelectedId(value);
               setRawJson(workflowInputRawJson(next?.inputSample));
               setJsonFieldError(null);
+              setSubmitAttempted(false);
               setError(null);
             }}
           >
@@ -314,13 +318,16 @@ export function StartWorkflowForm({
               jsonType={inputType}
               value={rawJson}
               onChange={setRawJson}
+              showErrors={submitAttempted}
               onValidityChange={setJsonFieldError}
             />
           </div>
         </div>
       ) : null}
 
-      {error || jsonError ? <ErrorDetails error={error ?? jsonError} compact /> : null}
+      {error || (submitAttempted && jsonError) ? (
+        <ErrorDetails error={error ?? jsonError} compact />
+      ) : null}
 
       {actions}
     </form>

@@ -36,6 +36,7 @@ export function SchemaFieldControl({
   onChange,
   autoFocus,
   jsonPresentation = "dialog",
+  showErrors = false,
   onJsonValidityChange,
 }: {
   idPrefix: string;
@@ -44,6 +45,7 @@ export function SchemaFieldControl({
   onChange: (value: string | boolean) => void;
   autoFocus?: boolean;
   jsonPresentation?: "dialog" | "inline";
+  showErrors?: boolean;
   onJsonValidityChange?: (error: string | null) => void;
 }) {
   const id = `${idPrefix}-${field.name}`;
@@ -59,6 +61,7 @@ export function SchemaFieldControl({
         presentation={jsonPresentation}
         optional={!field.required}
         defaultValue={field.default}
+        showErrors={showErrors}
         onChange={onChange}
         onValidityChange={onJsonValidityChange}
       />
@@ -69,6 +72,7 @@ export function SchemaFieldControl({
         optional={!field.required}
         defaultValue={field.default}
         hideStaticType
+        showErrors={showErrors}
         autoFocus={autoFocus}
         onChange={(next) => onChange(schemaFieldFromJsonValue(field, next))}
       />

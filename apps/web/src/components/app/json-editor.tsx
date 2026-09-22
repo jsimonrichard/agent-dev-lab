@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -63,7 +64,12 @@ const EDITOR_CONTROL_CLASS = "h-8 min-w-0 px-2 font-mono text-xs shadow-none";
 
 type NestedValidityReporter = (id: string, error: string | null) => void;
 
-const NestedJsonValidityContext = createContext<NestedValidityReporter | null>(null);
+type NestedJsonValidityContextValue = {
+  report: NestedValidityReporter;
+  showErrors: boolean;
+};
+
+const NestedJsonValidityContext = createContext<NestedJsonValidityContextValue | null>(null);
 
 export function JsonEditor({
   value,
@@ -161,6 +167,7 @@ export function JsonTextEditor({
   fill = false,
   optional = false,
   defaultValue,
+  showErrors = false,
   onValidityChange,
 }: {
   value: string;
@@ -177,15 +184,19 @@ export function JsonTextEditor({
   optional?: boolean;
   /** Schema `.default()` — required fields reset to this instead of clearing. */
   defaultValue?: JsonValue;
+  /** When false (default), hide schema/parse errors until the host attempts submit/save. */
+  showErrors?: boolean;
   onValidityChange?: (error: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [nestedError, setNestedError] = useState<string | null>(null);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const saveError = jsonTextError(draft, jsonType) ?? nestedError;
   const dialogTitle = title ?? "JSON";
   const typeLabel = jsonType ? jsonTypeLabel(jsonType) : null;
   const paneHidesStaticType = jsonType !== undefined && jsonType.type !== "json";
+  const dialogShowErrors = saveAttempted;
 
   function reportValidity(error: string | null) {
     setNestedError(error);
@@ -203,6 +214,7 @@ export function JsonTextEditor({
         optional={optional}
         defaultValue={defaultValue}
         hideStaticType={paneHidesStaticType}
+        showErrors={showErrors}
         onChange={onChange}
         onValidityChange={reportValidity}
       />
@@ -211,6 +223,7 @@ export function JsonTextEditor({
 
   function openEditor() {
     setDraft(value);
+    setSaveAttempted(false);
     setOpen(true);
   }
 
@@ -219,6 +232,7 @@ export function JsonTextEditor({
   }
 
   function saveEditor() {
+    setSaveAttempted(true);
     if (saveError !== null || draft === value) {
       return;
     }
@@ -268,12 +282,13 @@ export function JsonTextEditor({
                 optional={optional}
                 defaultValue={defaultValue}
                 hideStaticType={paneHidesStaticType}
+                showErrors={dialogShowErrors}
                 onChange={setDraft}
                 onValidityChange={setNestedError}
               />
             </div>
           ) : null}
-          {saveError ? (
+          {dialogShowErrors && saveError ? (
             <p role="alert" className="shrink-0 text-xs text-destructive">
               {saveError}
             </p>
@@ -284,7 +299,7 @@ export function JsonTextEditor({
             </Button>
             <Button
               type="button"
-              disabled={saveError !== null || draft === value}
+              disabled={draft === value && saveError === null}
               onClick={saveEditor}
             >
               Save
@@ -366,6 +381,7 @@ function JsonTextEditorPane({
   hideStaticType = false,
   optional = false,
   defaultValue,
+  showErrors = false,
   onValidityChange,
 }: {
   value: string;
@@ -377,6 +393,7 @@ function JsonTextEditorPane({
   hideStaticType?: boolean;
   optional?: boolean;
   defaultValue?: JsonValue;
+  showErrors?: boolean;
   onValidityChange?: (error: string | null) => void;
 }) {
   const parsed = parseJsonText(value);
@@ -399,6 +416,10 @@ function JsonTextEditorPane({
     });
   }, []);
   const nestedError = Object.values(nestedErrors)[0] ?? null;
+  const nestedValidity = useMemo(
+    () => ({ report: reportNestedError, showErrors }),
+    [reportNestedError, showErrors],
+  );
 
   useEffect(() => {
     onValidityChange?.(nestedError);
@@ -425,7 +446,7 @@ function JsonTextEditorPane({
   });
 
   return (
-    <NestedJsonValidityContext.Provider value={reportNestedError}>
+    <NestedJsonValidityContext.Provider value={nestedValidity}>
       <EditorFrame
         mode={showRaw ? "json" : "document"}
         onModeChange={selectMode}
@@ -447,6 +468,7 @@ function JsonTextEditorPane({
             text={value}
             jsonType={jsonType}
             error={parsed.isErr ? parsed.error : jsonTextError(value, jsonType)}
+            showErrors={showErrors}
             fill={fill}
             onChange={onChange}
           />
@@ -458,6 +480,7 @@ function JsonTextEditorPane({
             hideStaticType={hideStaticType}
             optional={optional}
             showFieldClear={false}
+            showErrors={showErrors}
             onChange={(next) => onChange(next === undefined ? "" : stringifyJsonValue(next))}
             autoFocus={autoFocus}
           />
@@ -590,7 +613,9 @@ function NestedRawSwitch({
   toolbar?: ReactNode;
   children: ReactNode;
 }) {
-  const report = useContext(NestedJsonValidityContext);
+  const nestedValidity = useContext(NestedJsonValidityContext);
+  const report = nestedValidity?.report;
+  const showErrors = nestedValidity?.showErrors ?? false;
   const errorId = useId();
   const pretty = stringifyJsonValue(value);
   const [mode, setMode] = useState<EditorMode>("document");
@@ -644,7 +669,13 @@ function NestedRawSwitch({
         {toolbar ? <span className="ml-auto shrink-0">{toolbar}</span> : null}
       </div>
       {mode === "json" ? (
-        <RawPane text={draft} jsonType={jsonType} error={error} onChange={onDraftChange} />
+        <RawPane
+          text={draft}
+          jsonType={jsonType}
+          error={error}
+          showErrors={showErrors}
+          onChange={onDraftChange}
+        />
       ) : (
         children
       )}
@@ -658,6 +689,7 @@ function RawPane({
   text,
   error,
   fill = false,
+  showErrors = false,
   jsonType,
   onChange,
 }: {
@@ -666,9 +698,11 @@ function RawPane({
   text: string;
   error: string | null;
   fill?: boolean;
+  showErrors?: boolean;
   jsonType?: JsonSchemaType;
   onChange: (text: string) => void;
 }) {
+  const visibleError = showErrors ? error : null;
   return (
     <div
       className={cn(
@@ -681,17 +715,17 @@ function RawPane({
         autoFocus={autoFocus}
         value={text}
         fill={fill}
-        invalid={error !== null}
-        describedBy={error && id ? `${id}-error` : undefined}
+        invalid={visibleError !== null}
+        describedBy={visibleError && id ? `${id}-error` : undefined}
         onChange={onChange}
       />
-      {error ? (
+      {visibleError ? (
         <p
           id={id ? `${id}-error` : undefined}
           role="alert"
           className="shrink-0 text-xs text-destructive"
         >
-          {error}
+          {visibleError}
         </p>
       ) : null}
     </div>
@@ -706,6 +740,7 @@ export function JsonSchemaRawEditor({
   id,
   autoFocus,
   fill = false,
+  showErrors = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -713,6 +748,7 @@ export function JsonSchemaRawEditor({
   id?: string;
   autoFocus?: boolean;
   fill?: boolean;
+  showErrors?: boolean;
 }) {
   return (
     <RawPane
@@ -721,6 +757,7 @@ export function JsonSchemaRawEditor({
       text={value}
       jsonType={jsonType}
       error={jsonTextError(value, jsonType)}
+      showErrors={showErrors}
       fill={fill}
       onChange={onChange}
     />
@@ -736,6 +773,7 @@ export function JsonTypedEditor({
   optional = false,
   defaultValue,
   hideStaticType = false,
+  showErrors = false,
 }: {
   value: JsonValue | undefined;
   onChange: (value: JsonValue | undefined) => void;
@@ -744,6 +782,7 @@ export function JsonTypedEditor({
   optional?: boolean;
   defaultValue?: JsonValue;
   hideStaticType?: boolean;
+  showErrors?: boolean;
 }) {
   return (
     <TypedEditor
@@ -755,6 +794,7 @@ export function JsonTypedEditor({
       optional={optional}
       defaultValue={defaultValue}
       hideStaticType={hideStaticType}
+      showErrors={showErrors}
     />
   );
 }
@@ -769,6 +809,7 @@ function TypedEditor({
   optional = false,
   defaultValue,
   showFieldClear = true,
+  showErrors = false,
 }: {
   value: JsonValue | undefined;
   jsonType?: JsonSchemaType;
@@ -779,6 +820,7 @@ function TypedEditor({
   optional?: boolean;
   defaultValue?: JsonValue;
   showFieldClear?: boolean;
+  showErrors?: boolean;
 }) {
   if (depth >= MAX_JSON_TREE_DEPTH && value !== undefined) {
     return <RawNodeEditor value={value} onChange={onChange} />;
@@ -828,6 +870,7 @@ function TypedEditor({
       depth={depth}
       omitted={omitted}
       allowEmpty={optional}
+      showErrors={showErrors}
       onChange={onChange}
       autoFocus={autoFocus}
     />
@@ -842,7 +885,7 @@ function TypedEditor({
 
   return (
     <div className="min-w-0 space-y-2">
-      {mismatch ? (
+      {showErrors && mismatch ? (
         <p role="alert" className="text-[10px] text-destructive">
           Value does not match {jsonType ? jsonTypeLabel(jsonType) : "schema"}. Choose a type or
           edit JSON.
@@ -875,6 +918,7 @@ function TypedValue({
   autoFocus,
   omitted = false,
   allowEmpty = false,
+  showErrors = false,
 }: {
   value: JsonValue | undefined;
   jsonType: JsonSchemaType;
@@ -883,6 +927,7 @@ function TypedValue({
   autoFocus?: boolean;
   omitted?: boolean;
   allowEmpty?: boolean;
+  showErrors?: boolean;
 }) {
   if (jsonType.type === "array") {
     const items = Array.isArray(value) ? value : [];
@@ -892,6 +937,7 @@ function TypedValue({
         itemType={jsonType.items}
         depth={depth}
         omitted={omitted}
+        showErrors={showErrors}
         onChange={onChange}
         autoFocus={autoFocus}
       />
@@ -916,7 +962,15 @@ function TypedValue({
       );
     }
     const obj = value !== undefined && isJsonObject(value) ? value : {};
-    return <ObjectEditor obj={obj} schema={jsonType} depth={depth} onChange={onChange} />;
+    return (
+      <ObjectEditor
+        obj={obj}
+        schema={jsonType}
+        depth={depth}
+        showErrors={showErrors}
+        onChange={onChange}
+      />
+    );
   }
 
   if (jsonType.type === "union") {
@@ -1009,6 +1063,7 @@ function ArrayEditor({
   onChange,
   autoFocus,
   omitted = false,
+  showErrors = false,
 }: {
   items: JsonValue[];
   itemType: JsonSchemaType;
@@ -1016,6 +1071,7 @@ function ArrayEditor({
   onChange: (value: JsonValue) => void;
   autoFocus?: boolean;
   omitted?: boolean;
+  showErrors?: boolean;
 }) {
   function addDefault() {
     onChange([...items, defaultValueForJsonType(itemType)]);
@@ -1068,6 +1124,7 @@ function ArrayEditor({
                     value={item}
                     jsonType={itemType}
                     depth={depth + 1}
+                    showErrors={showErrors}
                     onChange={(next) => replace(index, next)}
                   />
                 </div>
@@ -1089,11 +1146,13 @@ function ObjectEditor({
   schema,
   depth,
   onChange,
+  showErrors = false,
 }: {
   obj: Record<string, JsonValue>;
   schema: Extract<JsonSchemaType, { type: "object" }>;
   depth: number;
   onChange: (value: JsonValue | undefined) => void;
+  showErrors?: boolean;
 }) {
   const known = new Set(schema.fields.map((field) => field.name));
   const extraKeys = Object.keys(obj).filter((key) => !known.has(key));
@@ -1169,6 +1228,7 @@ function ObjectEditor({
                   hideStaticType={field.required && field.schema.type !== "union"}
                   optional={!field.required}
                   defaultValue={field.default}
+                  showErrors={showErrors}
                   onChange={(next) => setField(field.name, next)}
                 />
               </div>
@@ -1182,6 +1242,7 @@ function ObjectEditor({
             value={obj[key] as JsonValue}
             extras={obj}
             depth={depth}
+            showErrors={showErrors}
             onChange={onChange}
           />
         ))}
@@ -1201,12 +1262,14 @@ function FreeformField({
   extras,
   depth,
   onChange,
+  showErrors = false,
 }: {
   name: string;
   value: JsonValue;
   extras: Record<string, JsonValue>;
   depth: number;
   onChange: (value: JsonValue | undefined) => void;
+  showErrors?: boolean;
 }) {
   const [renameError, setRenameError] = useState<string | null>(null);
   const nested = isJsonObject(value) || Array.isArray(value);
@@ -1238,6 +1301,7 @@ function FreeformField({
           value={value}
           jsonType={{ type: "json" }}
           depth={depth + 1}
+          showErrors={showErrors}
           onChange={(next) => {
             if (next === undefined) {
               onChange(removeAtPath(extras, [name]));

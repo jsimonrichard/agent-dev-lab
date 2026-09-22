@@ -424,6 +424,7 @@ function ToolProviderContextSection({
   const [editorEpoch, setEditorEpoch] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const snapshotRef = useRef<{
     values: Record<string, string | boolean>;
     rawJson: string;
@@ -535,6 +536,7 @@ function ToolProviderContextSection({
       ...opened,
       payloadKey: contextPayloadKey({ ...contextForm, ...opened }, fields),
     };
+    setSaveAttempted(false);
     setEditorEpoch((epoch) => epoch + 1);
     setOpen(true);
   }
@@ -547,6 +549,7 @@ function ToolProviderContextSection({
       contextForm.onSourceChange(snapshot.source);
     }
     snapshotRef.current = null;
+    setSaveAttempted(false);
     setOpen(false);
   }
 
@@ -554,6 +557,7 @@ function ToolProviderContextSection({
     if (!contextForm) {
       throw new Error("tool context save requested without a form");
     }
+    setSaveAttempted(true);
     if (jsonError !== null || !contextDirty) {
       return;
     }
@@ -610,6 +614,7 @@ function ToolProviderContextSection({
             field={field}
             autoFocus={index === 0}
             jsonPresentation={jsonPresentation}
+            showErrors={saveAttempted}
             value={contextForm.values[field.name]}
             onChange={(value) =>
               contextForm.onValuesChange({ ...contextForm.values, [field.name]: value })
@@ -629,6 +634,7 @@ function ToolProviderContextSection({
             title="JSON"
             presentation={jsonPresentation}
             fill
+            showErrors={saveAttempted}
             value={contextForm.rawJson}
             onChange={contextForm.onRawJsonChange}
           />
@@ -636,6 +642,7 @@ function ToolProviderContextSection({
           <JsonSchemaRawEditor
             id={`${formId}-json`}
             fill
+            showErrors={saveAttempted}
             jsonType={contextType}
             value={contextForm.rawJson}
             onChange={contextForm.onRawJsonChange}
@@ -709,7 +716,7 @@ function ToolProviderContextSection({
                 {formFields}
                 {rawJsonField}
               </div>
-              {jsonError ? (
+              {saveAttempted && jsonError ? (
                 <p role="alert" className="shrink-0 text-xs text-destructive">
                   {jsonError}
                 </p>
@@ -728,7 +735,7 @@ function ToolProviderContextSection({
                 </Button>
                 <Button
                   type="button"
-                  disabled={contextForm.saving || jsonError !== null || !contextDirty}
+                  disabled={contextForm.saving || (!contextDirty && jsonError === null)}
                   onClick={() => void saveEditor()}
                 >
                   {contextForm.saving ? "Saving…" : "Save"}
