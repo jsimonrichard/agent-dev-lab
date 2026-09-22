@@ -207,28 +207,21 @@ export function WorkflowTreePanel({
   );
   const ticks = useMemo(() => waterfallTickMarks(scale, waterfallTickCount(zoom)), [scale, zoom]);
   const workflowCollapsed = collapsedStepIds.has(WORKFLOW_ROW_ID);
-  const rows = useMemo(
+  // Count rows as if the workflow row were expanded. `rows` is empty while it
+  // is collapsed, and the chevron uses this count to decide it has children.
+  const expandedRows = useMemo(
     () =>
-      workflowCollapsed
-        ? []
-        : flattenWorkflowRows(view.steps, {
-            collapsedStepIds,
-            expandedNestedRunIds,
-            depth: 1,
-            ownerRunId: view.runId,
-            nestedRuns: childRuns,
-            nestedByRunId,
-          }),
-    [
-      view.steps,
-      view.runId,
-      collapsedStepIds,
-      workflowCollapsed,
-      childRuns,
-      nestedByRunId,
-      expandedNestedRunIds,
-    ],
+      flattenWorkflowRows(view.steps, {
+        collapsedStepIds,
+        expandedNestedRunIds,
+        depth: 1,
+        ownerRunId: view.runId,
+        nestedRuns: childRuns,
+        nestedByRunId,
+      }),
+    [view.steps, view.runId, collapsedStepIds, childRuns, nestedByRunId, expandedNestedRunIds],
   );
+  const rows = workflowCollapsed ? [] : expandedRows;
   const workflowBar = useMemo(
     () =>
       computeSpanWaterfallBar(
@@ -246,7 +239,7 @@ export function WorkflowTreePanel({
     () => buildNestsByOwnerStep(view.runId, childRuns, nestedByRunId),
     [view.runId, childRuns, nestedByRunId],
   );
-  const hiddenRootCount = rows.length;
+  const hiddenRootCount = expandedRows.length;
 
   const toggleCollapsed = useCallback((stepId: string) => {
     startTransition(() => {

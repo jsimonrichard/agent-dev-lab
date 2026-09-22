@@ -96,6 +96,22 @@ async function waitForTreeHydration(page: Page): Promise<void> {
   });
 }
 
+test.describe("workflow tree", () => {
+  test("collapsing the workflow row can be expanded again", async ({ page, request }) => {
+    const runId = await startWorkflowRun(request, "retry-lineage");
+    await waitForRunStatus(request, runId, "completed");
+    await openWorkflowRun(page, "retry-lineage", runId);
+    await waitForTreeHydration(page);
+
+    await expect(page.getByRole("button", { name: /^a duration/ }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Collapse retry-lineage" }).first().click();
+    await expect(page.getByRole("button", { name: /^a duration/ })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Expand retry-lineage" }).first().click();
+    await expect(page.getByRole("button", { name: /^a duration/ }).first()).toBeVisible();
+  });
+});
+
 test.describe("attempt-lineage resumability", () => {
   test("UI hides Retry while the forest is still running", async ({ page, request }) => {
     const runId = await startWorkflowRun(request, "hang-for-retry", { title: "e2e hang" });
