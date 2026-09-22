@@ -27,6 +27,7 @@ When a plan or note is fully landed, **delete it** (or shrink it to remaining op
 | [`tracing.md`](./tracing.md)                       | OTel spans vs AI SDK telemetry                                         |
 | [`resumability.md`](./resumability.md)             | Deferred crash resume / `cacheable` (attempt lineage is in the guides) |
 | [`retry-side-effects.md`](./retry-side-effects.md) | Skipped-step mutations, and a later `WorkflowStore` revisit            |
+| [`structural-cleanup.md`](./structural-cleanup.md) | Post-release splits: tree panel, JSON editor, sandboxing note          |
 | [`memory-pipeline.md`](./memory-pipeline.md)       | Deferred message shaping                                               |
 | [`future-extensions.md`](./future-extensions.md)   | Approvals, hooks, HTTP host                                            |
 | [`workflow-catalog.md`](./workflow-catalog.md)     | Folder / tag / namespaced-id browsing                                  |
