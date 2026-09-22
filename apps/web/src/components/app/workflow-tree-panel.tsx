@@ -1538,13 +1538,13 @@ function CollapseToggle({
 }
 
 /**
- * Copied time on the re-run's clock. Dashed border, same weight as the solid
- * prefix copy: prior timing that can overlap re-executed bars, so that overlap
- * is not this attempt's event order.
+ * Copied time, quieter than a real bar (`bg-primary/35`). Prefix copies are
+ * fill only. Spans past the retry point add a hairline dashed border: that
+ * time can overlap re-executed bars, so order there is not this attempt's.
  */
-const COPIED_SPAN_FILL = "bg-sky-500/20 dark:bg-sky-400/15";
-const COPIED_PREFIX_BAR_CLASS = `border border-solid border-sky-400/80 ${COPIED_SPAN_FILL}`;
-const COPIED_AFTER_ANCHOR_BAR_CLASS = `border border-dashed border-sky-400/80 ${COPIED_SPAN_FILL}`;
+const COPIED_SPAN_FILL = "bg-primary/15";
+const COPIED_PREFIX_BAR_CLASS = COPIED_SPAN_FILL;
+const COPIED_AFTER_ANCHOR_BAR_CLASS = `border border-dashed border-primary/30 ${COPIED_SPAN_FILL}`;
 
 function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
   if (bar.afterAnchor) {
@@ -1619,9 +1619,7 @@ function WaterfallTrack({
             bar.copied && bar.afterAnchor && COPIED_AFTER_ANCHOR_BAR_CLASS,
             bar.copied && !bar.afterAnchor && COPIED_PREFIX_BAR_CLASS,
             !bar.copied && status === "running" && "bg-primary/55",
-            !bar.copied &&
-              status === "completed" &&
-              (size === "step" ? "bg-primary/35" : "bg-primary/25"),
+            !bar.copied && status === "completed" && "bg-primary/35",
             !bar.copied && status === "failed" && "bg-destructive/55",
           )}
           style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
@@ -2001,10 +1999,7 @@ function WaterfallRetryLine({ pct, tip = false }: { pct: number; tip?: boolean }
     >
       <span
         aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2",
-          COPIED_SPAN_FILL,
-        )}
+        className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-sky-500/20 dark:bg-sky-400/15"
       />
     </span>
   );
