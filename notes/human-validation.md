@@ -2,11 +2,11 @@
 
 Reusable checklist before a publish. Not linked from the docs site.
 
-Published packages (2026-09-11): **core/web 0.0.3**, **cli 0.0.5**. Next release adds `@agent-dev-lab/tools`.
+Published packages (2026-09-16): **core/web 0.0.5**, **cli 0.0.7**, **tools 0.0.2**. Pending changesets bump core/web (and dependents) for nested runs, token usage, attempt lineage, and related UI.
 
 ## Automated
 
-From the repo root: `bun install`, then `lint`, `format:check`, `typecheck`, `test`, `build`. CLI e2e (`init-smoke` + `init-pack`) is part of `apps/cli`'s `bun test src`. Packed e2e covers Node + `better-sqlite3`.
+From the repo root: `bun install`, then `lint`, `format:check`, `typecheck`, `test`, `test:node`, `build`. CLI e2e (`init-smoke` + `init-pack`) is part of `apps/cli`'s `bun test src`. Web Playwright (`bun run test:e2e`) covers chat streaming; retry/lineage specs exist but are not fully signed off yet. Packed e2e covers Node + `better-sqlite3`.
 
 ## Fresh project
 
@@ -19,11 +19,11 @@ adl workflow run demo-counter --input '{"steps":3}'   # sum 6
 adl dashboard
 ```
 
-Confirm `#adl` imports, `.env.example`, SQLite under `.data/`. In the UI: start demo-counter, reopen the run, event-log deep-link, start-run errors in the UI (not only the console).
+Confirm `#adl` imports, `.env.example`, SQLite under `.data/`. In the UI: start demo-counter, reopen the run, event-log deep-link, start-run errors in the UI (not only the console). Paste a full JSON payload in the start-workflow document editor when the schema is an object.
 
 ## Playground (API key)
 
-`bun run dev:web` — `answer-question`, `literature-review`, `write-article`, `shared-scope` (prompt-conflict warning), new chat title after first turn, fork, edit a workflow (sidebar refresh / failed-reload banner), Cancel on a long run.
+`bun run dev:web` — `answer-question`, `literature-review`, `write-article`, `shared-scope` (prompt-conflict warning), `nested-demo` (expand nested runs in the tree/waterfall; Non-Root toggle), new chat title after first turn, fork, edit a workflow (sidebar refresh / failed-reload banner), Cancel on a long run. After a failed nested step: Retry / Retry from here seeds a new attempt (prior run stays listed).
 
 ## Watch vs `--serve`
 
@@ -42,4 +42,4 @@ After a tarball install: `node node_modules/@agent-dev-lab/cli/dist/cli.js workf
 
 ## Publish
 
-Remaining `.changeset/*.md` are patch. Merging to `main` opens a Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, tools, cli, and web. Do not link `notes/` from product docs. First publish of `@agent-dev-lab/tools` needs that package added as an npm OIDC trusted publisher for this repo/`release.yml`.
+Remaining `.changeset/*.md` drive the next Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, tools, cli, and web. Do not link `notes/` from product docs. npm OIDC trusted publishing must include all four packages for this repo/`release.yml`.

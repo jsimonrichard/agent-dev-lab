@@ -1,140 +1,32 @@
-# Resumability
+# Resumability (deferred)
 
-**Resume** in ADL means starting a **new attempt** after failure (or an explicit retry-from-step): still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback); work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable.
+Attempt lineage is **shipped**: new-attempt seed (`seedRetryAttempt`), path-stable step skip, `StepOptions.pure`, nested forests (`parentWorkflowRunId` / `parentStepId`), and inspection-UI Retry. User-facing contract lives in the [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md#resumability). Do not restate that API here.
 
-[`MessageStore`](../packages/core/src/stores/types.ts) is **not** a resume mechanism. It holds conversation transcripts per `memoryScope`. See the [agents guide](../apps/docs/src/content/docs/core/agents.md#memoryscope).
-
-User-facing overview: [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md).
+Last reconciled: **2026-09-21**.
 
 ---
 
-## Status
+## Still open
 
-| Capability                                                            | Status                            |
-| --------------------------------------------------------------------- | --------------------------------- |
-| Nested runs with own `workflowRunId` + `parentWorkflowRunId`          | Shipped (`te7187f90` stack)       |
-| `parentStepId` on child runs (spawn link)                             | Shipped                           |
-| Path-stable step output slots                                         | Shipped                           |
-| `StepOptions.pure` (default true)                                     | Shipped                           |
-| Attempt lineage (`seedRetryAttempt`, `replayOf*`, `retriesFromRunId`) | Shipped                           |
-| Same-`runId` in-place mutate                                          | **Superseded** by attempt lineage |
-| Crash mid-closure / checkpoints / episode `cacheable`                 | Deferred                          |
-| Inspector Retry button                                                | Shipped (host)                    |
+| Item                                  | Notes                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Crash mid-closure / `ctx.checkpoint`  | Re-enter without calling `workflow.run` again; Temporal-class durability stays out of scope |
+| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts                                    |
+| Mid-stream token resume               | Resume a partial model stream                                                               |
+| Retry / lineage Playwright validation | `apps/web/e2e/retry-attempt.spec.ts` exists; full e2e confidence not finished yet           |
 
 ---
 
-## Nesting model
+## Design constraints (do not reopen without a new reason)
 
-Each `workflow.run()` gets its own `workflowRunId`. Nested (non-isolated) invocations record:
-
-- `parentWorkflowRunId` — immediate parent run
-- `parentStepId` — parent `ctx.stepId` at nest time, or `null` if nested at workflow root
-
-`{ isolated: true }` — no parent link (detach). Used by `titleWorkflow`.
+- **Immutable prior forest.** Forest retry always seeds a **new** attempt. Same-`workflowRunId` in-place mutate for retry is superseded (path-stable skip on the same run remains for simple mid-run re-entry only — see the guide).
+- **`MessageStore` is not resume.** Same `memoryScope` on a later `agent.run` is ordinary memory; on step re-exec the host chooses continue / fork / clear.
+- **Isolated runs stay out of cascade.** `{ isolated: true }` has no `parentWorkflowRunId` and is never seeded into an attempt forest.
+- **Seed projections, not event logs.** Copy run/step summaries + outputs and `replayOf*` links; the UI opens the original attempt for full event detail.
 
 ---
 
-## Author contract: step purity
+## Related
 
-Steps are **pure by default**: they must not mutate captured closures; anything a later step needs must appear in an earlier step’s **output** (or run input).
-
-```ts
-await ctx.step(
-  "upload",
-  async () => {
-    /* side effect */
-  },
-  { pure: false },
-);
-```
-
-| Option        | Scope                | Behavior                                                                         |
-| ------------- | -------------------- | -------------------------------------------------------------------------------- |
-| `force: true` | This call only       | Bypass skip cache for this invocation                                            |
-| `pure: false` | Declared on the step | On every **new attempt** that reaches this path: always re-exec; never skip/copy |
-
-`pure: false` is persisted on step events/records so attempt seeding can see it from the log.
-
----
-
-## Time-based subsequent (plus amendments)
-
-Given retry target S with end time `T_end` (`step_finished.at` / `step_failed.at`):
-
-Under purity, only steps with **`step_started.at` > `T_end`** could have observed S’s output. Concurrent steps that started before `T_end` stay replayable.
-
-Also re-exec:
-
-1. **S** and its **in-run descendants** (and child runs spawned under S via `parentStepId`)
-2. **Path ancestors** of S (and `parentWorkflowRunId` chain + spawning `parentStepId` slots) so the new attempt can re-enter down to S
-3. **Time-subsequent** steps across the linked forest (wall-clock)
-4. All **`{ pure: false }`** steps the new attempt can reach
-5. **Exclude** isolated / no-`parentWorkflowRunId` runs (detach)
-
----
-
-## Attempt lineage (UX)
-
-| Kind of node in new attempt      | Identity                                                 | Execution                                                                 |
-| -------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Still valid (not in re-exec set) | New row ids + `replayOfRunId` / `replayOfStepId` → prior | Do not run callback; output from prior via seeded cache / `ctx.step` skip |
-| Re-exec set                      | New IDs                                                  | Fully re-execute                                                          |
-| Original attempt                 | Unchanged                                                | Never rewritten                                                           |
-
-New root records `retriesFromRunId` → prior root (or the root of the forest containing the retry target).
-
-**Copy depth:** seed **projections** (run/step summaries + step outputs) and lineage links. Do **not** duplicate full event logs for replayed subtrees; the UI can open the original for detail.
-
-**Isolated:** if a re-executed path calls `helper.run(..., { isolated: true })` again, there is no prior bind → always a fresh run. If the calling step is itself replayed, the isolated call is not reached.
-
----
-
-## Path-stable step slots
-
-Step output cache keys are the logical **`path`** segments (`name` or `name:key`), not ephemeral `parentStepId` UUIDs. Re-entering an ancestor can still skip prefix siblings.
-
-Addressing change is fail-closed: existing `adl_step_outputs` rows with old UUID-parent keys are cleared on migrate (no dual-read).
-
----
-
-## API sketch
-
-```ts
-const attempt = await store.seedRetryAttempt({
-  fromWorkflowRunId, // run containing the target step (or any run in its forest)
-  fromStepId,
-});
-// attempt.newRootRunId, attempt.runIdMap, …
-
-workflow.run(priorInput, {
-  workflowRunId: attempt.newRootRunId,
-  retryAttempt: attempt,
-});
-```
-
-Nested `child.run` during an attempt resolves the mapped child id via `(parentWorkflowRunId, parentStepId, workflowId)` against the prior forest / `runIdMap`.
-
-Unknown `fromStepId` → **throw** (no silent no-op).
-
----
-
-## Not resume: `MessageStore`
-
-Same `memoryScope` on a later `agent.run` is ordinary memory. On step re-exec, choose continue / fork / clear explicitly — the framework does not auto-fork scopes in v1 of attempt lineage.
-
----
-
-## Deferred
-
-- Crash-safe re-entry without calling `run` again; `ctx.checkpoint`
-- Agent episode cache (`cacheable: true`)
-- Mid-stream token resume
-
----
-
-## Summary
-
-- **`WorkflowStore`** — attempt seed, path-stable outputs, forest queries, UI projections
-- **`ctx.step`** — skip via seeded outputs; `pure` / `force`
-- **`MessageStore`** — memory only
-- Nesting — `parentWorkflowRunId` + `parentStepId`; isolated stays out of cascade
+- Open backlog pointer: [`near-term-roadmap.md`](./near-term-roadmap.md) §4
+- Hosts / SSE: [`inspection-ui.md`](./inspection-ui.md)

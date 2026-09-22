@@ -14,17 +14,19 @@ Gap tracking and live design — not a changelog of shipped work. Never link thi
 
 Run locally: `bun run dev:docs` (port 4321).
 
+When a plan or note is fully landed, **delete it** (or shrink it to remaining open decisions). Do not keep resolved incident writeups or orch lane briefs after the work ships.
+
 ## Files
 
-| File                                             | Purpose                                                              |
-| ------------------------------------------------ | -------------------------------------------------------------------- |
-| [`near-term-roadmap.md`](./near-term-roadmap.md) | Open backlog and priority                                            |
-| [`human-validation.md`](./human-validation.md)   | Pre-publish checklist                                                |
-| [`tool-sandboxing.md`](./tool-sandboxing.md)     | `@agent-dev-lab/tools` threat model, remaining approval / macOS work |
-| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, deferred streaming-tool UI               |
-| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry                                       |
-| [`resumability.md`](./resumability.md)           | Attempt lineage + path-stable skip (shipped); crash resume deferred  |
-| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred message shaping                                             |
-| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks, HTTP host                                          |
-| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing                                |
-| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan                             |
+| File                                             | Purpose                                                                |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`near-term-roadmap.md`](./near-term-roadmap.md) | Open backlog and priority                                              |
+| [`human-validation.md`](./human-validation.md)   | Pre-publish checklist                                                  |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)     | `@agent-dev-lab/tools` threat model, remaining approval / macOS work   |
+| [`inspection-ui.md`](./inspection-ui.md)         | Control vs data plane, SSE, deferred streaming-tool UI                 |
+| [`tracing.md`](./tracing.md)                     | OTel spans vs AI SDK telemetry                                         |
+| [`resumability.md`](./resumability.md)           | Deferred crash resume / `cacheable` (attempt lineage is in the guides) |
+| [`memory-pipeline.md`](./memory-pipeline.md)     | Deferred message shaping                                               |
+| [`future-extensions.md`](./future-extensions.md) | Approvals, hooks, HTTP host                                            |
+| [`workflow-catalog.md`](./workflow-catalog.md)   | Folder / tag / namespaced-id browsing                                  |
+| [`se-paper-framing.md`](./se-paper-framing.md)   | SE paper thesis, landscape, novelty plan                               |
