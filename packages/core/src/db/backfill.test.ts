@@ -255,12 +255,19 @@ describe("backfillProjections", () => {
     ensureAdlSchema(sqlite);
     // Recorded on a fresh database too, so the log is not rescanned on every
     // open once events start accumulating through the live write path.
+    // The ledger also holds keyed schema migrations (e.g. path-stable step
+    // slots); this assertion is only about backfill keys.
     const recorded = (
       sqlite.prepare(`SELECT id FROM adl_schema_migrations ORDER BY id ASC`).all() as {
         id: string;
       }[]
     ).map((row) => row.id);
-    expect(recorded).toEqual([...backfillKeys()].sort());
+    for (const key of backfillKeys()) {
+      expect(recorded).toContain(key);
+    }
+    expect(recorded.filter((id) => id.startsWith("backfill:")).sort()).toEqual(
+      [...backfillKeys()].sort(),
+    );
   });
 
   it("backfills a table that already has rows, which an empty-table check could not", () => {

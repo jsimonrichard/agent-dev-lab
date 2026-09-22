@@ -54,7 +54,7 @@
     "ci:publish": "bash ../../scripts/ci-publish.sh",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "bun test",
+    "test": "bun test --preload ./test/vitest-worker-shim.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

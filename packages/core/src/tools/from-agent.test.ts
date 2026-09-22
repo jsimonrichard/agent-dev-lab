@@ -105,15 +105,27 @@ describe("createToolFromWorkflow runtime", () => {
 
     const handle = parent.run({});
     await handle.result;
-    const events = await adl.services.stores.workflow?.listEvents({
-      workflowRunId: handle.workflowRunId,
+
+    // Nested workflow.run() allocates its own workflowRunId (parentWorkflowRunId
+    // link); child steps live on the child run, not the parent's event stream.
+    const children = await adl.services.stores.workflow?.listRuns({
+      parentWorkflowRunId: handle.workflowRunId,
     });
-    expect(events?.some((event) => event.type === "step_started" && event.name === "inner")).toBe(
-      true,
-    );
-    const runs = await adl.services.stores.workflow?.listRuns();
-    expect(runs).toHaveLength(1);
-    expect(runs?.[0]?.workflowRunId).toBe(handle.workflowRunId);
+    expect(children).toHaveLength(1);
+    expect(children?.[0]?.workflowId).toBe("child");
+    expect(children?.[0]?.parentStepId).toBeTruthy();
+    expect(children?.[0]?.workflowRunId).not.toBe(handle.workflowRunId);
+
+    const childEvents = await adl.services.stores.workflow?.listEvents({
+      workflowRunId: children![0]!.workflowRunId,
+    });
+    expect(
+      childEvents?.some((event) => event.type === "step_started" && event.name === "inner"),
+    ).toBe(true);
+
+    const roots = await adl.services.stores.workflow?.listRuns({ rootsOnly: true });
+    expect(roots).toHaveLength(1);
+    expect(roots?.[0]?.workflowRunId).toBe(handle.workflowRunId);
   });
 });
 
