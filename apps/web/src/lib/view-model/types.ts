@@ -58,6 +58,11 @@ export interface InspectorRunSummary {
   parentStepId?: string | null;
   /** Prior forest root when this run is a new attempt (`seedRetryAttempt`). */
   retriesFromRunId?: string | null;
+  /**
+   * Ms of prior-attempt time drawn before `startedAt`. The span already
+   * covered the retry point; only that beginning is copied.
+   */
+  copiedPrefixMs?: number;
   /** Prior run id when this nested run is a fully-replayed copy. */
   replayOfRunId?: string | null;
   /** Waterfall layout fields when this nest is a copied prior run. */
@@ -252,6 +257,11 @@ export interface StepNode {
   priorContinuationMs?: number;
   /** Full prior-attempt duration for tooltips (may exceed displayed bar). */
   priorDurationMs?: number;
+  /**
+   * Ms of prior-attempt time drawn before `startedAt`. The step already
+   * covered the retry point; only that beginning is copied.
+   */
+  copiedPrefixMs?: number;
   children: StepNode[];
   agentEpisodes: AgentEpisode[];
 }
@@ -355,6 +365,11 @@ export interface RunViewState {
   startedAt: string;
   finishedAt?: string;
   title?: string;
+  /**
+   * Ms of prior-attempt time drawn before `startedAt`. This run already
+   * covered the retry point; only that beginning is copied.
+   */
+  copiedPrefixMs?: number;
 }
 
 export type ChatTextPart = {

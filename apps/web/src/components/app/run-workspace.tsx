@@ -129,7 +129,7 @@ export function RunWorkspace({
     mergeSeededStepRecords(built, seededStepRecords);
     const runs = pageChildRuns.map((run) => ({ ...run }));
     if (priorTiming) {
-      graftCopiedWaterfallTiming(built, priorTiming, runs);
+      graftCopiedWaterfallTiming(built, priorTiming, runs, summary.retriesFromRunId);
     }
     return { view: built, displayChildRuns: runs };
   }, [summary.runId, events, seededStepRecords, priorTiming, pageChildRuns]);

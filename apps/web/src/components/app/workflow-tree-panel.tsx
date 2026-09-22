@@ -195,6 +195,7 @@ export function WorkflowTreePanel({
         nestedRuns: childRuns,
         nestedByRunId,
         expandedNestedRunIds,
+        runCopiedPrefixMs: view.copiedPrefixMs,
       }),
     [
       view.startedAt,
@@ -202,6 +203,7 @@ export function WorkflowTreePanel({
       view.status,
       view.steps,
       view.runId,
+      view.copiedPrefixMs,
       nowMs,
       childRuns,
       nestedByRunId,
@@ -241,11 +243,12 @@ export function WorkflowTreePanel({
           startedAt: view.startedAt,
           finishedAt: view.finishedAt,
           status: runStatusAsStepStatus(view.status),
+          copiedPrefixMs: view.copiedPrefixMs,
         },
         scale,
         nowMs,
       ),
-    [view.startedAt, view.finishedAt, view.status, scale, nowMs],
+    [view.startedAt, view.finishedAt, view.status, view.copiedPrefixMs, scale, nowMs],
   );
   const nestsByOwnerStep = useMemo(
     () => buildNestsByOwnerStep(view.runId, childRuns, nestedByRunId),
@@ -693,6 +696,7 @@ function spanLooksSame(
     displayAfterAnchor?: boolean;
     priorContinuationMs?: number;
     priorDurationMs?: number;
+    copiedPrefixMs?: number;
   },
   b: {
     startedAt?: string;
@@ -704,6 +708,7 @@ function spanLooksSame(
     displayAfterAnchor?: boolean;
     priorContinuationMs?: number;
     priorDurationMs?: number;
+    copiedPrefixMs?: number;
   },
 ): boolean {
   return (
@@ -715,7 +720,8 @@ function spanLooksSame(
     a.displayDurationMs === b.displayDurationMs &&
     a.displayAfterAnchor === b.displayAfterAnchor &&
     a.priorContinuationMs === b.priorContinuationMs &&
-    a.priorDurationMs === b.priorDurationMs
+    a.priorDurationMs === b.priorDurationMs &&
+    a.copiedPrefixMs === b.copiedPrefixMs
   );
 }
 
@@ -744,7 +750,10 @@ function barLooksSame(a: WaterfallBar | null, b: WaterfallBar | null): boolean {
     a.priorDurationMs === b.priorDurationMs &&
     a.continuation?.leftPct === b.continuation?.leftPct &&
     a.continuation?.widthPct === b.continuation?.widthPct &&
-    a.continuation?.durationMs === b.continuation?.durationMs
+    a.continuation?.durationMs === b.continuation?.durationMs &&
+    a.copiedPrefix?.leftPct === b.copiedPrefix?.leftPct &&
+    a.copiedPrefix?.widthPct === b.copiedPrefix?.widthPct &&
+    a.copiedPrefix?.durationMs === b.copiedPrefix?.durationMs
   );
 }
 
@@ -1551,6 +1560,9 @@ function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeS
     ].filter(Boolean);
     return parts.join(" · ");
   }
+  if (bar.copiedPrefix) {
+    return `${label}: ${formatDuration(bar.durationMs)}. Begins with ${formatDuration(bar.copiedPrefix.durationMs)} copied from the prior attempt, before the retry point.`;
+  }
   return `${label}: ${formatDuration(bar.durationMs)}${status === "running" ? " elapsed" : ""}`;
 }
 
@@ -1579,6 +1591,21 @@ function WaterfallTrack({
           style={{
             left: `${bar.continuation.leftPct}%`,
             width: `${bar.continuation.widthPct}%`,
+          }}
+          aria-hidden
+        />
+      ) : null}
+      {bar?.copiedPrefix ? (
+        <span
+          data-tip={`Copied ${formatDuration(bar.copiedPrefix.durationMs)} from the prior attempt, before the retry point.`}
+          className={cn(
+            "absolute top-1/2 z-[2] -translate-y-1/2 rounded-sm",
+            COPIED_PREFIX_BAR_CLASS,
+            heightClass,
+          )}
+          style={{
+            left: `${bar.copiedPrefix.leftPct}%`,
+            width: `${bar.copiedPrefix.widthPct}%`,
           }}
           aria-hidden
         />

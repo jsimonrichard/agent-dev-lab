@@ -198,15 +198,63 @@ function applyGraftToTarget(
 }
 
 /**
+ * A live span whose prior interval already covered the retry point keeps its
+ * re-executed end, and gains the prior beginning that this attempt did not re-run.
+ */
+function extendLivePrefix(
+  target: {
+    startedAt?: string;
+    copiedPrefixMs?: number;
+    copiedFromPriorAttempt?: boolean;
+    replayedFromStepId?: string | null;
+    displayStartedAt?: string;
+    replayOfRunId?: string | null;
+  },
+  prior: { startedAt: string; finishedAt: string },
+  nAnchorMs: number,
+  pAnchorMs: number,
+): void {
+  if (
+    target.copiedFromPriorAttempt ||
+    target.replayedFromStepId ||
+    target.replayOfRunId ||
+    target.displayStartedAt
+  ) {
+    return;
+  }
+  if (!target.startedAt) {
+    return;
+  }
+  const pStart = Date.parse(prior.startedAt);
+  const pEnd = Date.parse(prior.finishedAt);
+  const liveStart = Date.parse(target.startedAt);
+  if (!Number.isFinite(pStart) || !Number.isFinite(pEnd) || !Number.isFinite(liveStart)) {
+    return;
+  }
+  if (pStart >= pAnchorMs || pEnd < pAnchorMs) {
+    return;
+  }
+  const graftedStart = nAnchorMs + (pStart - pAnchorMs);
+  const lead = liveStart - graftedStart;
+  if (lead <= 1) {
+    return;
+  }
+  target.copiedPrefixMs = lead;
+}
+
+/**
  * Layout-only: graft prior-attempt timings onto copied steps/nests for the waterfall.
  * Prefix spans sit before the re-run anchor. Spans that start at or after the
  * anchor stay on this attempt's clock, marked `displayAfterAnchor`.
+ * A live run or step whose prior interval already covered the anchor keeps its
+ * re-executed end and gains that prior beginning (`copiedPrefixMs`).
  * Mutates `view.steps` and optional `nestedRuns` in place.
  */
 export function graftCopiedWaterfallTiming(
   view: RunViewState,
   prior: PriorTimingIndex,
   nestedRuns: InspectorRunSummary[] = [],
+  priorRootRunId?: string | null,
 ): void {
   const anchor = findAnchorStep(view.steps);
   if (!anchor?.startedAt) {
@@ -243,6 +291,19 @@ export function graftCopiedWaterfallTiming(
     }
     applyGraftToTarget(step, timing, nAnchorMs, pAnchorMs);
   });
+
+  visitSteps(view.steps, (step) => {
+    const timing = prior.byPath.get(pathKey(step.path));
+    if (!timing) {
+      return;
+    }
+    extendLivePrefix(step, timing, nAnchorMs, pAnchorMs);
+  });
+
+  const priorRoot = priorRootRunId ? prior.byRunId.get(priorRootRunId) : undefined;
+  if (priorRoot) {
+    extendLivePrefix(view, priorRoot, nAnchorMs, pAnchorMs);
+  }
 
   for (const run of nestedRuns) {
     if (!run.replayOfRunId) {

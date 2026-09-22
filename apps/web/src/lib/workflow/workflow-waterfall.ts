@@ -31,6 +31,12 @@ export interface WaterfallBar {
     widthPct: number;
     durationMs: number;
   };
+  /** Prior beginning drawn before this attempt's start. Not the whole bar. */
+  copiedPrefix?: {
+    leftPct: number;
+    widthPct: number;
+    durationMs: number;
+  };
 }
 
 export type TimedSpan = {
@@ -43,6 +49,8 @@ export type TimedSpan = {
   displayAfterAnchor?: boolean;
   priorContinuationMs?: number;
   priorDurationMs?: number;
+  /** Prior beginning drawn before `startedAt` when this span covered the retry point. */
+  copiedPrefixMs?: number;
   status: StepNodeStatus;
 };
 
@@ -302,6 +310,7 @@ export function runSummaryAsTimedSpan(run: InspectorRunSummary): TimedSpan {
     displayAfterAnchor: run.displayAfterAnchor,
     priorContinuationMs: run.priorContinuationMs,
     priorDurationMs: run.priorDurationMs,
+    copiedPrefixMs: run.copiedPrefixMs,
   };
 }
 
@@ -321,9 +330,18 @@ export function computeWaterfallScale(opts: {
   nestedRuns?: readonly InspectorRunSummary[];
   nestedByRunId?: ReadonlyMap<string, NestedRunTreeData>;
   expandedNestedRunIds?: ReadonlySet<string>;
+  /** Prior beginning of the root run, drawn before `runStartedAt`. */
+  runCopiedPrefixMs?: number;
 }): WaterfallScale {
   const parsedOrigin = Date.parse(opts.runStartedAt);
   let originMs = Number.isFinite(parsedOrigin) ? parsedOrigin : opts.nowMs;
+  if (
+    opts.runCopiedPrefixMs != null &&
+    opts.runCopiedPrefixMs > 0 &&
+    Number.isFinite(parsedOrigin)
+  ) {
+    originMs = parsedOrigin - opts.runCopiedPrefixMs;
+  }
   let endMs = originMs;
 
   if (opts.runStatus === "running") {
@@ -350,9 +368,11 @@ export function computeWaterfallScale(opts: {
         : row.kind === "episode"
           ? row.episode
           : runSummaryAsTimedSpan(row.run);
+    const prefixMs =
+      "copiedPrefixMs" in span && typeof span.copiedPrefixMs === "number" ? span.copiedPrefixMs : 0;
     const range = spanTimeRange(span, opts.nowMs);
     if (range) {
-      originMs = Math.min(originMs, range.startMs);
+      originMs = Math.min(originMs, prefixMs > 0 ? range.startMs - prefixMs : range.startMs);
       endMs = Math.max(endMs, range.endMs);
     }
     const continuationEnd = spanContinuationEndMs(span, opts.nowMs);
@@ -423,6 +443,15 @@ export function computeSpanWaterfallBar(
       scale,
     );
     bar = { ...bar, continuation };
+  }
+  if (span.copiedPrefixMs != null && span.copiedPrefixMs > 0 && range && !copied) {
+    bar = {
+      ...bar,
+      copiedPrefix: computeWaterfallBar(
+        { startMs: range.startMs - span.copiedPrefixMs, endMs: range.startMs },
+        scale,
+      ),
+    };
   }
   return bar;
 }

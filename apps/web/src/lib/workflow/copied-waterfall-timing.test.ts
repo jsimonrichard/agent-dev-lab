@@ -420,4 +420,123 @@ describe("graftCopiedWaterfallTiming", () => {
       retryAnchorMs([step("only-copied", { copiedFromPriorAttempt: true, startedAt: T4 })]),
     ).toBe(null);
   });
+
+  it("draws a copied beginning on the run and on live steps that covered the retry point", () => {
+    const prior = buildPriorStepTimingIndex([
+      { type: "run_started", runId: "run-prior", runSeq: 1, at: T0 },
+      {
+        type: "step_started",
+        runId: "run-prior",
+        runSeq: 2,
+        at: T0,
+        stepId: "s-a",
+        parentStepId: null,
+        name: "a",
+        path: ["a"],
+      },
+      {
+        type: "step_finished",
+        runId: "run-prior",
+        runSeq: 3,
+        at: T1,
+        stepId: "s-a",
+        durationMs: 1000,
+      },
+      {
+        type: "step_started",
+        runId: "run-prior",
+        runSeq: 4,
+        at: T0,
+        stepId: "s-later",
+        parentStepId: null,
+        name: "later",
+        path: ["later"],
+      },
+      {
+        type: "step_started",
+        runId: "run-prior",
+        runSeq: 5,
+        at: T2,
+        stepId: "s-b",
+        parentStepId: null,
+        name: "b",
+        path: ["b"],
+      },
+      {
+        type: "step_finished",
+        runId: "run-prior",
+        runSeq: 6,
+        at: T4,
+        stepId: "s-later",
+        durationMs: 4000,
+      },
+      {
+        type: "step_finished",
+        runId: "run-prior",
+        runSeq: 7,
+        at: T4,
+        stepId: "s-b",
+        durationMs: 2000,
+      },
+      { type: "run_finished", runId: "run-prior", runSeq: 8, at: T5 },
+    ]);
+    const state = view([
+      step("a", {
+        copiedFromPriorAttempt: true,
+        replayedFromStepId: "s-a",
+        path: ["a"],
+      }),
+      step("b", {
+        startedAt: T4,
+        finishedAt: T5,
+        durationMs: 1000,
+        path: ["b"],
+      }),
+      step("later", {
+        startedAt: T4,
+        finishedAt: T5,
+        durationMs: 1000,
+        path: ["later"],
+      }),
+    ]);
+    state.startedAt = T4;
+
+    graftCopiedWaterfallTiming(state, prior, [], "run-prior");
+
+    // Anchor b started at T2 on the prior run. The run and `later` both
+    // started at T0, so their copied beginning is T4 + (T0 - T2).
+    expect(state.copiedPrefixMs).toBe(2000);
+    expect(state.steps[2]!.copiedPrefixMs).toBe(2000);
+    expect(state.steps[0]!.copiedPrefixMs).toBeUndefined();
+    expect(state.steps[1]!.copiedPrefixMs).toBeUndefined();
+    expect(Date.parse(state.steps[0]!.displayStartedAt!)).toBe(Date.parse(T2));
+
+    const nowMs = Date.parse(T5);
+    const scale = computeWaterfallScale({
+      runStartedAt: state.startedAt,
+      runFinishedAt: state.finishedAt,
+      runStatus: "completed",
+      steps: state.steps,
+      nowMs,
+      ownerRunId: state.runId,
+      runCopiedPrefixMs: state.copiedPrefixMs,
+    });
+    expect(scale.originMs).toBe(Date.parse(T2));
+
+    const runBar = computeSpanWaterfallBar(
+      {
+        startedAt: state.startedAt,
+        finishedAt: state.finishedAt,
+        status: "completed",
+        copiedPrefixMs: state.copiedPrefixMs,
+      },
+      scale,
+      nowMs,
+    );
+    const copiedBar = computeSpanWaterfallBar(state.steps[0]!, scale, nowMs);
+    expect(runBar?.copied).toBeUndefined();
+    expect(runBar?.copiedPrefix?.durationMs).toBe(2000);
+    expect(runBar!.copiedPrefix!.leftPct).toBeLessThanOrEqual(copiedBar!.leftPct);
+    expect(runBar!.leftPct).toBeGreaterThan(runBar!.copiedPrefix!.leftPct);
+  });
 });
