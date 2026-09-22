@@ -119,10 +119,12 @@ function scheduleHoverTip(tip: HTMLDivElement | null, target: Element | null) {
     tip.textContent = "";
     return;
   }
+  const maxWidth = source.getAttribute("data-tip-max");
   const rect = source.getBoundingClientRect();
   hoverTipTimer = window.setTimeout(() => {
     if (!tip.isConnected) return;
     tip.textContent = text;
+    tip.style.maxWidth = maxWidth ?? "";
     tip.style.display = "block";
     tip.style.left = `${rect.left + rect.width / 2}px`;
     tip.style.top = `${rect.top - 8}px`;
@@ -889,6 +891,9 @@ function PanelRowMenu({
   );
 }
 
+/** Shorter than the shared tip max so this sentence wraps instead of stretching. */
+const COPIED_TIP_MAX = "13rem";
+
 function CopiedFromPriorBadge({
   title,
   onOpen,
@@ -914,6 +919,7 @@ function CopiedFromPriorBadge({
         params={{ workflowId: href.workflowId, runId: href.runId }}
         search={href.stepId ? workflowRunSearch({ step: href.stepId }) : undefined}
         data-tip={title}
+        data-tip-max={COPIED_TIP_MAX}
         className="shrink-0 hover:opacity-80"
         onClick={(event) => event.stopPropagation()}
       >
@@ -926,6 +932,7 @@ function CopiedFromPriorBadge({
       <button
         type="button"
         data-tip={title}
+        data-tip-max={COPIED_TIP_MAX}
         className="shrink-0 hover:opacity-80"
         onClick={(event) => {
           event.stopPropagation();
@@ -937,7 +944,7 @@ function CopiedFromPriorBadge({
     );
   }
   return (
-    <span className="shrink-0" data-tip={title}>
+    <span className="shrink-0" data-tip={title} data-tip-max={COPIED_TIP_MAX}>
       {body}
     </span>
   );
