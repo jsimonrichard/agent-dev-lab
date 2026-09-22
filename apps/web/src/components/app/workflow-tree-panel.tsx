@@ -793,7 +793,7 @@ const WorkflowRow = memo(function WorkflowRow({
       bar={bar}
       status={stepStatus}
       label={workflowId}
-      barSize="step"
+      barSize="workflow"
       leading={
         <CollapseToggle
           expanded={!collapsed}
@@ -1192,7 +1192,7 @@ const NestedRunRow = memo(
         bar={bar}
         status={status}
         label={label}
-        barSize="step"
+        barSize="workflow"
         leading={
           <CollapseToggle
             expanded={expanded}
@@ -1319,7 +1319,7 @@ const EpisodeRow = memo(function EpisodeRow({
       bar={bar}
       status={episode.status}
       label={label}
-      barSize="episode"
+      barSize="agent"
       leading={<span className="size-3.5 shrink-0" aria-hidden />}
       trailing={<RowStatusIcon status={episode.status} kind="conversation" />}
       depth={depth}
@@ -1404,7 +1404,7 @@ const GridRow = forwardRef<
     bar: WaterfallBar | null;
     status: StepNodeStatus;
     label: string;
-    barSize: "step" | "episode";
+    barSize: WaterfallKind;
     leading: ReactNode;
     trailing?: ReactNode;
     depth: number;
@@ -1451,7 +1451,7 @@ const GridRow = forwardRef<
       >
         <div aria-hidden className={cn("absolute inset-0 z-0", waterfallToneClass(selected))} />
         <div className="relative z-[2]">
-          <WaterfallTrack bar={bar} status={status} label={label} size={barSize} />
+          <WaterfallTrack bar={bar} status={status} label={label} kind={barSize} />
         </div>
       </button>
     );
@@ -1538,13 +1538,38 @@ function CollapseToggle({
 }
 
 /**
- * Copied time, quieter than a real bar (`bg-primary/35`). Prefix copies are
- * fill only. Spans past the retry point add a hairline dashed border: that
- * time can overlap re-executed bars, so order there is not this attempt's.
+ * Hue is the row kind. Opacity is copied versus re-run: a real bar is /40,
+ * a copied one is /15. Spans past the retry point add a hairline dashed
+ * border in that same hue.
  */
-const COPIED_SPAN_FILL = "bg-primary/15";
-const COPIED_PREFIX_BAR_CLASS = COPIED_SPAN_FILL;
-const COPIED_AFTER_ANCHOR_BAR_CLASS = `border border-dashed border-primary/30 ${COPIED_SPAN_FILL}`;
+type WaterfallKind = "workflow" | "step" | "agent";
+
+const WATERFALL_KIND_CLASS: Record<
+  WaterfallKind,
+  { real: string; copied: string; afterAnchor: string; running: string; edge: string }
+> = {
+  workflow: {
+    real: "bg-indigo-400/40",
+    copied: "bg-indigo-400/15",
+    afterAnchor: "border border-dashed border-indigo-400/45 bg-indigo-400/15",
+    running: "bg-indigo-400/60",
+    edge: "bg-indigo-300",
+  },
+  step: {
+    real: "bg-fuchsia-400/40",
+    copied: "bg-fuchsia-400/15",
+    afterAnchor: "border border-dashed border-fuchsia-400/45 bg-fuchsia-400/15",
+    running: "bg-fuchsia-400/60",
+    edge: "bg-fuchsia-300",
+  },
+  agent: {
+    real: "bg-emerald-400/40",
+    copied: "bg-emerald-400/15",
+    afterAnchor: "border border-dashed border-emerald-400/45 bg-emerald-400/15",
+    running: "bg-emerald-400/60",
+    edge: "bg-emerald-300",
+  },
+};
 
 function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
   if (bar.afterAnchor) {
@@ -1570,14 +1595,15 @@ function WaterfallTrack({
   bar,
   status,
   label,
-  size,
+  kind,
 }: {
   bar: WaterfallBar | null;
   status: StepNodeStatus;
   label: string;
-  size: "step" | "episode";
+  kind: WaterfallKind;
 }) {
-  const heightClass = size === "step" ? "h-3.5" : "h-2.5";
+  const tone = WATERFALL_KIND_CLASS[kind];
+  const heightClass = kind === "agent" ? "h-2.5" : "h-3.5";
   return (
     <div className="relative h-8 overflow-hidden">
       {bar?.continuation ? (
@@ -1585,7 +1611,7 @@ function WaterfallTrack({
           data-tip={`Copied ${formatDuration(bar.continuation.durationMs)} from the prior attempt, past the retry point. Not re-measured here — order versus re-executed steps is not meaningful.`}
           className={cn(
             "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm",
-            COPIED_AFTER_ANCHOR_BAR_CLASS,
+            tone.afterAnchor,
             heightClass,
           )}
           style={{
@@ -1600,7 +1626,7 @@ function WaterfallTrack({
           data-tip={`Copied ${formatDuration(bar.copiedPrefix.durationMs)} from the prior attempt, before the retry point.`}
           className={cn(
             "absolute top-1/2 z-[2] -translate-y-1/2 rounded-sm",
-            COPIED_PREFIX_BAR_CLASS,
+            tone.copied,
             heightClass,
           )}
           style={{
@@ -1616,16 +1642,16 @@ function WaterfallTrack({
           className={cn(
             "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
             heightClass,
-            bar.copied && bar.afterAnchor && COPIED_AFTER_ANCHOR_BAR_CLASS,
-            bar.copied && !bar.afterAnchor && COPIED_PREFIX_BAR_CLASS,
-            !bar.copied && status === "running" && "bg-primary/55",
-            !bar.copied && status === "completed" && "bg-primary/35",
+            bar.copied && bar.afterAnchor && tone.afterAnchor,
+            bar.copied && !bar.afterAnchor && tone.copied,
+            !bar.copied && status === "running" && tone.running,
+            !bar.copied && status === "completed" && tone.real,
             !bar.copied && status === "failed" && "bg-destructive/55",
           )}
           style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
         >
           {!bar.copied && status === "running" ? (
-            <span className="absolute inset-y-0 right-0 w-0.5 rounded-r-sm bg-primary" />
+            <span className={cn("absolute inset-y-0 right-0 w-0.5 rounded-r-sm", tone.edge)} />
           ) : null}
         </span>
       ) : (
