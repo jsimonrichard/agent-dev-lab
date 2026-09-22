@@ -3,8 +3,9 @@ import { adl } from "#adl";
 import { model } from "../model";
 
 /**
- * Remembers one fact and repeats it back. Used by the `copy-memory` workflow
- * on two scopes: the original transcript, then a `MessageStore.copy` of it.
+ * Remembers one fact and repeats it back. The `copy-memory` workflow runs it
+ * twice on one `memoryScopeWithSuffix`, so a retry of the second step must
+ * still see the first step's transcript.
  */
 export const factKeeper = adl.createAgent({
   id: "fact-keeper",

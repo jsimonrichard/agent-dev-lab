@@ -138,7 +138,7 @@ for (const topic of topics) {
 
 **Resume** starts a **new attempt** after a failure. **Retry from a step** uses the same mechanism: you choose the step, and ADL starts a new attempt from there. Still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback). Work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
 
-[`MessageStore`](/api/interfaces/messagestore/) is **not** a resume path. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). The stores only meet when a **retried step** calls an agent again — skip is `WorkflowStore`; the transcript the model sees is `MessageStore`. `MessageStore.copy` copies one scope's transcript onto an empty scope. A step records each scope the runtime message store loads, saves, copies, or deletes.
+[`MessageStore`](/api/interfaces/messagestore/) holds the transcript the model sees. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). A step records each scope the runtime message store loads, saves, copies, or deletes. When that step is **skipped** on a new attempt, a `${workflowRunId}:${suffix}` transcript (`memoryScopeWithSuffix`) is copied onto this attempt's scope. A scope id the workflow chose itself stays on that same row.
 
 ### Nesting and attempt forests
 
@@ -221,7 +221,7 @@ await ctx.step(
 
 ### Agents on Retry
 
-Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). That is **memory** (model sees prior turns), not skipping the model and not restoring the workflow.
+Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). A skipped step does not run that load. Its `memoryScopeWithSuffix` transcript is copied onto the new attempt first, so a later step using the same suffix still sees it. A step that re-executes does not receive that copy; it starts on the new scope.
 
 On step retry, choose a policy explicitly:
 

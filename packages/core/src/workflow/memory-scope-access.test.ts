@@ -81,4 +81,89 @@ describe("workflow memory scope access", () => {
     const steps = await workflowStore(adl).listStepRecords(handle.workflowRunId);
     expect(steps.find((step) => step.name === "ask")?.memoryScopes).toEqual(["ask-scope"]);
   });
+
+  it("copies a skipped step's run-scoped transcript onto the new attempt", async () => {
+    const adl = createTestRuntime();
+    const workflow = adl.createWorkflow({
+      id: "resume-scope",
+      run: async (_input, ctx) => {
+        const scope = ctx.memoryScopeWithSuffix("thread");
+        await ctx.step("remember", async () => {
+          await adl.services.stores.message.save(scope, [{ role: "user", content: "marigold" }]);
+          return "saved";
+        });
+        await ctx.step("reread", async () => {
+          await adl.services.stores.message.load(scope);
+          return "reread";
+        });
+        return ctx.step("recall", async () => adl.services.stores.message.load(scope));
+      },
+    });
+
+    const first = workflow.run({});
+    await first.result;
+    const recall = (
+      await workflowStore(adl).listEvents({ workflowRunId: first.workflowRunId })
+    ).find((event) => event.type === "step_finished" && event.name === "recall");
+    if (recall?.type !== "step_finished") {
+      throw new Error("expected recall to finish");
+    }
+
+    const attempt = await workflowStore(adl).seedRetryAttempt({
+      fromWorkflowRunId: first.workflowRunId,
+      fromStepId: recall.stepId,
+    });
+    const messages = await workflow.run(
+      {},
+      { workflowRunId: attempt.newRootRunId, retryAttempt: attempt },
+    ).result;
+    expect(messages).toEqual([{ role: "user", content: "marigold" }]);
+
+    const skipped = (
+      await workflowStore(adl).listEvents({ workflowRunId: attempt.newRootRunId })
+    ).find((event) => event.type === "step_skipped" && event.name === "remember");
+    if (skipped?.type !== "step_skipped") {
+      throw new Error("expected remember to be skipped");
+    }
+    expect(skipped.memoryScopes).toEqual([`${attempt.newRootRunId}:thread`]);
+  });
+
+  it("does not copy a transcript onto a step that re-executes", async () => {
+    const adl = createTestRuntime();
+    const workflow = adl.createWorkflow({
+      id: "resume-writer",
+      run: async (_input, ctx) => {
+        const scope = ctx.memoryScopeWithSuffix("thread");
+        return ctx.step("remember", async () => {
+          const existing = await adl.services.stores.message.load(scope);
+          await adl.services.stores.message.save(scope, [
+            ...existing,
+            { role: "user", content: "from-this-run" },
+          ]);
+          return existing.map((message) =>
+            typeof message.content === "string" ? message.content : "",
+          );
+        });
+      },
+    });
+
+    const first = workflow.run({});
+    await first.result;
+    const remember = (
+      await workflowStore(adl).listEvents({ workflowRunId: first.workflowRunId })
+    ).find((event) => event.type === "step_finished" && event.name === "remember");
+    if (remember?.type !== "step_finished") {
+      throw new Error("expected remember to finish");
+    }
+
+    const attempt = await workflowStore(adl).seedRetryAttempt({
+      fromWorkflowRunId: first.workflowRunId,
+      fromStepId: remember.stepId,
+    });
+    const existing = await workflow.run(
+      {},
+      { workflowRunId: attempt.newRootRunId, retryAttempt: attempt },
+    ).result;
+    expect(existing).toEqual([]);
+  });
 });

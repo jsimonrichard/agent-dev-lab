@@ -18,77 +18,47 @@ const copyMemoryInput = z.object({
 });
 
 /**
- * Manual check for `MessageStore.copy` and step scope tracking.
- *
- * `remember` writes a transcript. `copy` snapshots it onto an empty scope.
- * `recall` continues that copy with the same agent, so the prior messages
- * are loaded without running `remember` again. The workflow result reports
- * whether the two transcripts matched and which scopes each step touched.
+ * Two steps share `memoryScopeWithSuffix("thread")`. Retry from **recall**:
+ * remember is skipped, and the runtime copies that transcript onto this
+ * attempt's scope before recall loads it.
  */
 export const copyMemory = adl.createWorkflow({
   id: "copy-memory",
   inputSchema: copyMemoryInput,
   outputSchema: z.object({
     fact: z.string(),
-    sourceScope: z.string(),
-    copyScope: z.string(),
+    scope: z.string(),
     remembered: z.string(),
     recalled: z.string(),
-    transcriptsMatch: z.boolean(),
     recallIncludesFact: z.boolean(),
-    scopes: z.object({
-      remember: z.array(z.string()),
-      copy: z.array(z.string()),
-      recall: z.array(z.string()),
-    }),
   }),
   async run(input, ctx) {
     const { fact } = copyMemoryInput.parse(input);
     await ctx.setTitle(`Copy memory: ${fact}`);
-    const sourceScope = ctx.memoryScopeWithSuffix("source");
-    const copyScope = ctx.memoryScopeWithSuffix("copy");
+    const scope = ctx.memoryScopeWithSuffix("thread");
 
-    const remembered = await ctx.step("remember", async ({ ctx: stepCtx }) => {
+    const remembered = await ctx.step("remember", async () => {
       const result = await factKeeper.run({
-        memoryScope: sourceScope,
+        memoryScope: scope,
         user: `Remember this fact exactly: ${fact}`,
       }).result;
-      return { text: result.text, scopes: [...stepCtx.accessedMemoryScopes()] };
+      return result.text;
     });
 
-    const copied = await ctx.step("copy", async ({ ctx: stepCtx }) => {
-      await adl.services.stores.message.copy(sourceScope, copyScope);
-      const [sourceMessages, copyMessages] = await Promise.all([
-        adl.services.stores.message.load(sourceScope),
-        adl.services.stores.message.load(copyScope),
-      ]);
-      return {
-        transcriptsMatch: JSON.stringify(sourceMessages) === JSON.stringify(copyMessages),
-        scopes: [...stepCtx.accessedMemoryScopes()],
-      };
-    });
-
-    const recalled = await ctx.step("recall", async ({ ctx: stepCtx }) => {
+    const recalled = await ctx.step("recall", async () => {
       const result = await factKeeper.run({
-        memoryScope: copyScope,
+        memoryScope: scope,
         user: "What fact did I ask you to remember? Reply with that fact only.",
       }).result;
-      return { text: result.text, scopes: [...stepCtx.accessedMemoryScopes()] };
+      return result.text;
     });
 
     return {
       fact,
-      sourceScope,
-      copyScope,
-      remembered: remembered.text,
-      recalled: recalled.text,
-      transcriptsMatch: copied.transcriptsMatch,
-      recallIncludesFact: echoesFact(recalled.text, fact),
-      scopes: {
-        remember: remembered.scopes,
-        copy: copied.scopes,
-        recall: recalled.scopes,
-      },
+      scope,
+      remembered,
+      recalled,
+      recallIncludesFact: echoesFact(recalled, fact),
     };
   },
 });

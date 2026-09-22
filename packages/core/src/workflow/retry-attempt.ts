@@ -68,7 +68,35 @@ export type RetryAttempt = {
    * (`parentStepId === null`). Key: `${priorParentRunId}\0${workflowId}`.
    */
   rootSpawnCursor: Map<string, number>;
+  /**
+   * Destinations already filled by copying a skipped step's transcript.
+   * Shared across the attempt so two skipped steps that touched one scope copy once.
+   */
+  copiedMemoryScopeDests?: Set<string>;
 };
+
+/**
+ * Map a prior attempt's `${runId}:${suffix}` scope onto this attempt.
+ * Returns null when `scope` is not prefixed by a run id in `runIdMap` (a caller-chosen id).
+ */
+export function retargetMemoryScope(
+  scope: string,
+  runIdMap: ReadonlyMap<string, string>,
+): string | null {
+  let match: { priorId: string; newId: string } | null = null;
+  for (const [priorId, newId] of runIdMap) {
+    if (!scope.startsWith(`${priorId}:`)) {
+      continue;
+    }
+    if (!match || priorId.length > match.priorId.length) {
+      match = { priorId, newId };
+    }
+  }
+  if (!match) {
+    return null;
+  }
+  return `${match.newId}:${scope.slice(match.priorId.length + 1)}`;
+}
 
 type ForestStep = {
   workflowRunId: string;

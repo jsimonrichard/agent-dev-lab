@@ -5,7 +5,7 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { StepOptions, WorkflowContext } from "./types";
-import type { RetryAttempt } from "./retry-attempt";
+import { retargetMemoryScope, type RetryAttempt } from "./retry-attempt";
 
 export type WorkflowContextOptions = {
   workflowRunId: string;
@@ -112,7 +112,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           skippedStepId = seeded.stepId;
           replayOfStepId = seeded.replayOfStepId ?? undefined;
         }
-        const skippedScopes = seeded?.memoryScopes;
+        const skippedScopes = await carrySkippedMemoryScopes(this, seeded?.memoryScopes);
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
@@ -196,6 +196,37 @@ export class WorkflowContextImpl implements WorkflowContext {
       throw error;
     }
   };
+}
+
+/**
+ * A skipped step did not run, so it did not write this attempt's scopes.
+ * Copy each prior `${runId}:${suffix}` transcript onto this attempt's id.
+ * A scope that is not prefixed by a run in the attempt map stays as it is.
+ */
+async function carrySkippedMemoryScopes(
+  ctx: WorkflowContextImpl,
+  scopes: readonly string[] | undefined,
+): Promise<readonly string[] | undefined> {
+  if (!scopes || scopes.length === 0 || !ctx.retryAttempt) {
+    return scopes;
+  }
+  const attempt = ctx.retryAttempt;
+  const carried: string[] = [];
+  for (const scope of scopes) {
+    const dest = retargetMemoryScope(scope, attempt.runIdMap);
+    if (!dest) {
+      carried.push(scope);
+      continue;
+    }
+    const copied = attempt.copiedMemoryScopeDests ?? new Set<string>();
+    attempt.copiedMemoryScopeDests = copied;
+    if (!copied.has(dest)) {
+      await ctx.services.stores.message.copy(scope, dest);
+      copied.add(dest);
+    }
+    carried.push(dest);
+  }
+  return carried;
 }
 
 /** Builds a step context from its parent (functional; no shared stack). */
