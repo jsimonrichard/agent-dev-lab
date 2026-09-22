@@ -281,32 +281,33 @@ export type SeededStepProjection = {
   replayOfStepId?: string | null;
 };
 
-/** Insert materialized replay steps that have not emitted events yet (attempt prefix). */
+/** Merge materialized replay steps into the view (prefix before events, or lineage annotate). */
 export function mergeSeededStepRecords(view: RunViewState, records: SeededStepProjection[]): void {
   if (records.length === 0) {
     return;
   }
 
   const stepById = new Map<string, StepNode>();
-  const pathKeys = new Set<string>();
+  const stepByPath = new Map<string, StepNode>();
   const visit = (nodes: StepNode[]) => {
     for (const node of nodes) {
       stepById.set(node.stepId, node);
-      pathKeys.add(node.path.join("\0"));
+      stepByPath.set(node.path.join("\0"), node);
       visit(node.children);
     }
   };
   visit(view.steps);
 
   for (const record of records) {
-    if (stepById.has(record.stepId)) {
-      continue;
-    }
-    const pathKey = record.path.join("\0");
-    if (pathKeys.has(pathKey)) {
-      continue;
-    }
     if (record.replayOfStepId == null) {
+      continue;
+    }
+
+    const pathKey = record.path.join("\0");
+    const existing = stepById.get(record.stepId) ?? stepByPath.get(pathKey);
+    if (existing) {
+      existing.copiedFromPriorAttempt = true;
+      existing.replayedFromStepId = record.replayOfStepId;
       continue;
     }
 
@@ -327,8 +328,8 @@ export function mergeSeededStepRecords(view: RunViewState, records: SeededStepPr
       agentEpisodes: [],
     };
 
-    pathKeys.add(pathKey);
     stepById.set(record.stepId, node);
+    stepByPath.set(pathKey, node);
 
     if (record.parentStepId && stepById.has(record.parentStepId)) {
       stepById.get(record.parentStepId)!.children.push(node);

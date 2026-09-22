@@ -6,9 +6,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type HTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactElement,
   type ReactNode,
+  type Ref,
   type RefObject,
 } from "react";
 import { Link } from "@tanstack/react-router";
@@ -113,7 +116,6 @@ export function WorkflowTreePanel({
   const live = view.status === "running" && !offline;
   const nowMs = useLiveNow(live);
   const [collapsedStepIds, setCollapsedStepIds] = useState<Set<string>>(() => new Set());
-  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const scale = useMemo(
     () =>
@@ -185,12 +187,36 @@ export function WorkflowTreePanel({
   }, []);
 
   const split = useColumnSplit();
+  const crossHoveredIdRef = useRef<string | null>(null);
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const waterfallScrollRef = useRef<HTMLDivElement>(null);
   const scrollbarGutter = useScrollbarGutter(waterfallScrollRef, zoom, rows.length);
   const waterfallPaneWidth = useWaterfallPaneWidth(waterfallScrollRef, zoom, true);
   useSyncedVerticalScroll(treeScrollRef, waterfallScrollRef, true);
   useWaterfallZoom(waterfallScrollRef, zoom, setZoom, true);
+
+  const syncCrossHover = useCallback(
+    (rowId: string | null) => {
+      const root = split.containerRef.current;
+      if (!root || rowId === crossHoveredIdRef.current) {
+        return;
+      }
+      if (crossHoveredIdRef.current) {
+        root
+          .querySelectorAll(`[data-row-id="${CSS.escape(crossHoveredIdRef.current)}"]`)
+          .forEach((el) => {
+            el.removeAttribute("data-cross-hovered");
+          });
+      }
+      crossHoveredIdRef.current = rowId;
+      if (rowId) {
+        root.querySelectorAll(`[data-row-id="${CSS.escape(rowId)}"]`).forEach((el) => {
+          el.setAttribute("data-cross-hovered", "");
+        });
+      }
+    },
+    [split.containerRef],
+  );
 
   const ownerRunStatus = useCallback(
     (ownerRunId: string): RunStatus => {
@@ -228,8 +254,6 @@ export function WorkflowTreePanel({
             selectedEpisodeId === null &&
             selectedNestedRunId === null
           }
-          hovered={hoveredRowId === row.step.stepId}
-          onHover={() => setHoveredRowId(row.step.stepId)}
           onToggleCollapsed={() => toggleCollapsed(row.step.stepId)}
           onSelect={() => onSelectStep(row.step.stepId, row.ownerRunId)}
           priorAttemptRunId={priorAttemptRunId}
@@ -282,8 +306,6 @@ export function WorkflowTreePanel({
           bar={computeSpanWaterfallBar(row.episode, scale, nowMs)}
           ticks={ticks}
           selected={selectedEpisodeId === row.episode.episodeId}
-          hovered={hoveredRowId === row.episode.episodeId}
-          onHover={() => setHoveredRowId(row.episode.episodeId)}
           onSelect={() => onSelectEpisode(row.step.stepId, row.episode, row.ownerRunId)}
         />
       );
@@ -303,8 +325,6 @@ export function WorkflowTreePanel({
         expandable={nestedRunHasExpandableChildren(nestedData)}
         loading={loading}
         selected={selectedNestedRunId === row.run.runId && selectedStepId === null}
-        hovered={hoveredRowId === row.run.runId}
-        onHover={() => setHoveredRowId(row.run.runId)}
         onToggleExpanded={() => onToggleNestedExpanded(row.run.runId)}
         onSelect={() => onSelectNestedRun(row.run.runId)}
         copiedFromPriorAttempt={row.run.replayOfRunId != null}
@@ -354,7 +374,11 @@ export function WorkflowTreePanel({
         "relative flex h-full min-h-0 bg-background",
         split.dragging && "cursor-col-resize select-none",
       )}
-      onMouseLeave={() => setHoveredRowId(null)}
+      onMouseOver={(event) => {
+        const row = (event.target as Element | null)?.closest?.("[data-row-id]");
+        syncCrossHover(row?.getAttribute("data-row-id") ?? null);
+      }}
+      onMouseLeave={() => syncCrossHover(null)}
     >
       <TooltipProvider delayDuration={200}>
         <div
@@ -369,12 +393,10 @@ export function WorkflowTreePanel({
               workflowId={view.workflowId}
               status={view.status}
               selected={workflowSelected}
-              hovered={hoveredRowId === WORKFLOW_ROW_ID}
               collapsed={workflowCollapsed}
               hiddenCount={hiddenRootCount}
               bar={workflowBar}
               ticks={ticks}
-              onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
               onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
               onSelect={onSelectWorkflow}
             />
@@ -402,12 +424,10 @@ export function WorkflowTreePanel({
               workflowId={view.workflowId}
               status={view.status}
               selected={workflowSelected}
-              hovered={hoveredRowId === WORKFLOW_ROW_ID}
               collapsed={workflowCollapsed}
               hiddenCount={hiddenRootCount}
               bar={workflowBar}
               ticks={ticks}
-              onHover={() => setHoveredRowId(WORKFLOW_ROW_ID)}
               onToggleCollapsed={() => toggleCollapsed(WORKFLOW_ROW_ID)}
               onSelect={onSelectWorkflow}
             />
@@ -485,11 +505,12 @@ function WaterfallHeader({ ticks }: { ticks: { pct: number; label: string }[] })
 const treeControlFocusClass =
   "rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
 
-function rowToneClass(selected: boolean, hovered: boolean) {
-  if (selected) return hovered ? "bg-primary/15" : "bg-primary/10";
-  if (hovered) return "bg-muted/70";
-  return "bg-background";
-}
+/** Row background: CSS :hover for the active pane, data-cross-hovered for the synced pane. */
+const rowToneClass = (selected: boolean) =>
+  cn(
+    "bg-background hover:bg-muted/70 data-[cross-hovered]:bg-muted/70",
+    selected && "bg-primary/10 hover:bg-primary/15 data-[cross-hovered]:bg-primary/15",
+  );
 
 function runStatusAsStep(status: RunViewState["status"]): StepNodeStatus {
   return runStatusAsStepStatus(status);
@@ -500,12 +521,10 @@ function WorkflowRow({
   workflowId,
   status,
   selected,
-  hovered,
   collapsed,
   hiddenCount,
   bar,
   ticks,
-  onHover,
   onToggleCollapsed,
   onSelect,
 }: {
@@ -513,12 +532,10 @@ function WorkflowRow({
   workflowId: string;
   status: RunViewState["status"];
   selected: boolean;
-  hovered: boolean;
   collapsed: boolean;
   hiddenCount: number;
   bar: WaterfallBar | null;
   ticks: { pct: number; label: string }[];
-  onHover: () => void;
   onToggleCollapsed: () => void;
   onSelect: () => void;
 }) {
@@ -526,9 +543,8 @@ function WorkflowRow({
   return (
     <GridRow
       pane={pane}
+      rowId={WORKFLOW_ROW_ID}
       selected={selected}
-      hovered={hovered}
-      onHover={onHover}
       onSelect={onSelect}
       ariaLabel={`${workflowId} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
@@ -556,18 +572,20 @@ function WorkflowRow({
   );
 }
 
-function wrapRowContextMenu(key: string, row: ReactNode, menu: ReactNode | null): ReactNode {
+function wrapRowContextMenu(key: string, row: ReactElement, menu: ReactNode | null): ReactNode {
   if (!menu) {
     return row;
   }
   return <TreeRowContextMenu key={key} trigger={row} menu={menu} />;
 }
 
-function TreeRowContextMenu({ trigger, menu }: { trigger: ReactNode; menu: ReactNode }) {
+function TreeRowContextMenu({ trigger, menu }: { trigger: ReactElement; menu: ReactNode }) {
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
-      <ContextMenuContent>{menu}</ContextMenuContent>
+      <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
+        {menu}
+      </ContextMenuContent>
     </ContextMenu>
   );
 }
@@ -583,7 +601,7 @@ function CopiedFromPriorBadge({
 }) {
   const icon = <Copy className="size-3 shrink-0 text-muted-foreground" aria-hidden />;
   const body = (
-    <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-border/80 bg-muted/40 px-1 py-0 text-[9px] font-medium tracking-wide text-muted-foreground uppercase">
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-sky-500/40 bg-sky-500/10 px-1 py-px text-[9px] font-semibold tracking-wide text-sky-800 uppercase dark:text-sky-200">
       {icon}
       Copied
     </span>
@@ -635,8 +653,10 @@ function CopiedFromPriorBadge({
   );
 }
 
+type SlotDomProps = Omit<HTMLAttributes<HTMLElement>, "children" | "onSelect" | "color">;
+
 const StepRow = forwardRef<
-  HTMLButtonElement | HTMLDivElement,
+  HTMLElement,
   {
     pane: "tree" | "waterfall";
     step: StepNode;
@@ -646,13 +666,11 @@ const StepRow = forwardRef<
     ticks: { pct: number; label: string }[];
     collapsed: boolean;
     selected: boolean;
-    hovered: boolean;
-    onHover: () => void;
     onToggleCollapsed: () => void;
     onSelect: () => void;
     priorAttemptRunId?: string | null;
     priorAttemptWorkflowId?: string;
-  }
+  } & SlotDomProps
 >(function StepRow(
   {
     pane,
@@ -663,12 +681,11 @@ const StepRow = forwardRef<
     ticks,
     collapsed,
     selected,
-    hovered,
-    onHover,
     onToggleCollapsed,
     onSelect,
     priorAttemptRunId,
     priorAttemptWorkflowId,
+    ...slotProps
   },
   ref,
 ) {
@@ -680,9 +697,8 @@ const StepRow = forwardRef<
     <GridRow
       ref={ref}
       pane={pane}
+      rowId={step.stepId}
       selected={selected}
-      hovered={hovered}
-      onHover={onHover}
       onSelect={onSelect}
       ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
@@ -700,20 +716,27 @@ const StepRow = forwardRef<
       }
       trailing={<RowStatusIcon status={step.status} kind="step" />}
       depth={depth}
+      {...slotProps}
     >
       <Layers className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate font-mono font-medium">{label}</span>
-      {step.copiedFromPriorAttempt && priorAttemptRunId && priorAttemptWorkflowId ? (
+      {step.copiedFromPriorAttempt || step.replayedFromStepId ? (
         <CopiedFromPriorBadge
-          title="Step result copied from the prior attempt — open original"
+          title={
+            priorAttemptRunId
+              ? "Step result copied from the prior attempt — open original"
+              : "Step result copied from a prior attempt"
+          }
           href={
-            step.replayedFromStepId
-              ? {
-                  workflowId: priorAttemptWorkflowId,
-                  runId: priorAttemptRunId,
-                  stepId: step.replayedFromStepId,
-                }
-              : { workflowId: priorAttemptWorkflowId, runId: priorAttemptRunId }
+            priorAttemptRunId && priorAttemptWorkflowId
+              ? step.replayedFromStepId
+                ? {
+                    workflowId: priorAttemptWorkflowId,
+                    runId: priorAttemptRunId,
+                    stepId: step.replayedFromStepId,
+                  }
+                : { workflowId: priorAttemptWorkflowId, runId: priorAttemptRunId }
+              : undefined
           }
         />
       ) : null}
@@ -728,7 +751,7 @@ const StepRow = forwardRef<
 });
 
 const NestedRunRow = forwardRef<
-  HTMLButtonElement | HTMLDivElement,
+  HTMLElement,
   {
     pane: "tree" | "waterfall";
     run: InspectorRunSummary;
@@ -739,13 +762,11 @@ const NestedRunRow = forwardRef<
     expandable: boolean;
     loading: boolean;
     selected: boolean;
-    hovered: boolean;
-    onHover: () => void;
     onToggleExpanded: () => void;
     onSelect: () => void;
     copiedFromPriorAttempt?: boolean;
     onViewOriginalRun?: () => void;
-  }
+  } & SlotDomProps
 >(function NestedRunRow(
   {
     pane,
@@ -757,12 +778,11 @@ const NestedRunRow = forwardRef<
     expandable,
     loading,
     selected,
-    hovered,
-    onHover,
     onToggleExpanded,
     onSelect,
     copiedFromPriorAttempt,
     onViewOriginalRun,
+    ...slotProps
   },
   ref,
 ) {
@@ -773,9 +793,8 @@ const NestedRunRow = forwardRef<
     <GridRow
       ref={ref}
       pane={pane}
+      rowId={run.runId}
       selected={selected}
-      hovered={hovered}
-      onHover={onHover}
       onSelect={onSelect}
       ariaLabel={`${run.workflowId} nested run duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
@@ -794,6 +813,7 @@ const NestedRunRow = forwardRef<
       }
       trailing={<RowStatusIcon status={status} kind="step" />}
       depth={depth}
+      {...slotProps}
     >
       <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate font-mono font-medium">{run.workflowId}</span>
@@ -818,8 +838,6 @@ function EpisodeRow({
   bar,
   ticks,
   selected,
-  hovered,
-  onHover,
   onSelect,
 }: {
   pane: "tree" | "waterfall";
@@ -829,8 +847,6 @@ function EpisodeRow({
   bar: WaterfallBar | null;
   ticks: { pct: number; label: string }[];
   selected: boolean;
-  hovered: boolean;
-  onHover: () => void;
   onSelect: () => void;
 }) {
   const scopeLabel = formatMemoryScopeLabel(episode.memoryScope, runId);
@@ -839,9 +855,8 @@ function EpisodeRow({
   return (
     <GridRow
       pane={pane}
+      rowId={episode.episodeId}
       selected={selected}
-      hovered={hovered}
-      onHover={onHover}
       onSelect={onSelect}
       ariaLabel={`${label} duration ${bar ? formatDuration(bar.durationMs) : "unknown"}`}
       bar={bar}
@@ -873,12 +888,11 @@ function EpisodeRow({
 }
 
 const GridRow = forwardRef<
-  HTMLButtonElement | HTMLDivElement,
+  HTMLElement,
   {
     pane: "tree" | "waterfall";
+    rowId: string;
     selected: boolean;
-    hovered: boolean;
-    onHover: () => void;
     onSelect: () => void;
     ariaLabel: string;
     bar: WaterfallBar | null;
@@ -890,13 +904,12 @@ const GridRow = forwardRef<
     trailing?: ReactNode;
     depth: number;
     children: ReactNode;
-  }
+  } & SlotDomProps
 >(function GridRow(
   {
     pane,
+    rowId,
     selected,
-    hovered,
-    onHover,
     onSelect,
     ariaLabel,
     bar,
@@ -908,20 +921,29 @@ const GridRow = forwardRef<
     trailing,
     depth,
     children,
+    className,
+    onClick,
+    style,
+    ...slotProps
   },
   ref,
 ) {
-  const tone = rowToneClass(selected, hovered);
+  const tone = rowToneClass(selected);
   if (pane === "waterfall") {
     return (
       <button
-        ref={ref as RefObject<HTMLButtonElement>}
+        ref={ref as Ref<HTMLButtonElement>}
         type="button"
         tabIndex={-1}
-        onClick={onSelect}
-        onMouseEnter={onHover}
-        className={cn("relative h-9 w-full shrink-0 px-3", ROW_DIVIDER, tone)}
+        data-row-id={rowId}
         aria-hidden
+        className={cn("relative h-9 w-full shrink-0 px-3", ROW_DIVIDER, tone, className)}
+        style={style}
+        {...slotProps}
+        onClick={(event) => {
+          onClick?.(event);
+          onSelect();
+        }}
       >
         <div className="relative">
           <WaterfallGridLines ticks={ticks} />
@@ -933,15 +955,17 @@ const GridRow = forwardRef<
 
   return (
     <div
-      ref={ref as RefObject<HTMLDivElement>}
+      ref={ref as Ref<HTMLDivElement>}
+      data-row-id={rowId}
       className={cn(
         "flex h-9 shrink-0 items-center gap-1.5 overflow-hidden border-l-2 py-1 pr-2",
         ROW_DIVIDER,
         tone,
         selected ? "border-l-primary" : "border-l-transparent",
+        className,
       )}
-      style={{ paddingLeft: 8 + depth * 16 }}
-      onMouseEnter={onHover}
+      style={{ paddingLeft: 8 + depth * 16, ...style }}
+      {...slotProps}
     >
       {leading}
       <button

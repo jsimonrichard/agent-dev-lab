@@ -141,6 +141,43 @@ describe("mergeSeededStepRecords", () => {
     expect(view.steps[0]?.replayedFromStepId).toBe("old-step");
     expect(view.steps[0]?.status).toBe("completed");
   });
+
+  it("annotates lineage on steps that already exist by path", () => {
+    const view = buildRunViewState("run-1", [
+      {
+        type: "run_started",
+        runSeq: 1,
+        runId: "run-1",
+        at: new Date(100).toISOString(),
+        workflowId: "wf",
+        input: {},
+      },
+      {
+        type: "step_skipped",
+        runSeq: 2,
+        runId: "run-1",
+        at: new Date(110).toISOString(),
+        stepId: "s1",
+        parentStepId: null,
+        name: "research",
+        path: ["research"],
+        output: { cached: true },
+      },
+    ] satisfies RunEvent[]);
+    expect(view.steps[0]?.copiedFromPriorAttempt).toBeFalsy();
+    mergeSeededStepRecords(view, [
+      {
+        stepId: "seeded-s1",
+        parentStepId: null,
+        name: "research",
+        path: ["research"],
+        replayOfStepId: "prior-s1",
+      },
+    ]);
+    expect(view.steps).toHaveLength(1);
+    expect(view.steps[0]?.copiedFromPriorAttempt).toBe(true);
+    expect(view.steps[0]?.replayedFromStepId).toBe("prior-s1");
+  });
 });
 
 describe("buildRunViewState step_skipped", () => {

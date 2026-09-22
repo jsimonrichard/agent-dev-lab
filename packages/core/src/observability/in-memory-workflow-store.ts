@@ -111,6 +111,26 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         });
         this.stepRecords.set(wfId, records);
       }
+      if (event.type === "step_skipped") {
+        const slot: StepSlot = { path: event.path };
+        const map = this.stepOutputs.get(wfId) ?? new Map();
+        map.set(stepSlotKey(slot), event.output);
+        this.stepOutputs.set(wfId, map);
+
+        const records = this.stepRecords.get(wfId) ?? new Map();
+        records.set(event.stepId, {
+          stepId: event.stepId,
+          name: event.name,
+          key: event.key,
+          path: event.path,
+          parentStepId: event.parentStepId,
+          output: event.output,
+          status: "ok",
+          pure: true,
+          replayOfStepId: event.replayOfStepId,
+        });
+        this.stepRecords.set(wfId, records);
+      }
       if (event.type === "step_failed") {
         const records = this.stepRecords.get(wfId) ?? new Map();
         records.set(event.stepId, {
