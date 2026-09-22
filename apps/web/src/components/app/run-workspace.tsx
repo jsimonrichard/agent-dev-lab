@@ -38,6 +38,12 @@ import { InspectorSidebarTrigger } from "@/components/app/inspector-sidebar-trig
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { workflowRunLabel, workflowRunSearch } from "@/lib/workflow/workflow-location";
 import type { NestedRunTreeData } from "@/lib/workflow/workflow-waterfall";
+import {
+  buildPriorStepTimingIndex,
+  graftCopiedWaterfallTiming,
+  mergePriorRunTiming,
+  type PriorTimingIndex,
+} from "@/lib/workflow/copied-waterfall-timing";
 
 const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 
@@ -69,11 +75,64 @@ export function RunWorkspace({
   const router = useRouter();
   const { offline } = useInspectorConnection();
   const events = useWorkflowRunEvents(summary.runId, initialEvents);
-  const view = useMemo(() => {
+  const [priorTiming, setPriorTiming] = useState<PriorTimingIndex | null>(null);
+  const [pageChildRuns, setPageChildRuns] = useState(initialChildRuns);
+  useEffect(() => {
+    setPageChildRuns(initialChildRuns);
+  }, [summary.runId, initialChildRuns]);
+
+  const nestedPriorReplayKey = useMemo(
+    () =>
+      pageChildRuns
+        .map((child) => child.replayOfRunId)
+        .filter((id): id is string => id != null)
+        .sort()
+        .join("\0"),
+    [pageChildRuns],
+  );
+
+  useEffect(() => {
+    const priorRunId = summary.retriesFromRunId;
+    if (!priorRunId) {
+      setPriorTiming(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchWorkflowRun({ data: priorRunId }).then(async (data) => {
+      if (cancelled || !data) {
+        return;
+      }
+      const index = buildPriorStepTimingIndex(data.events);
+      mergePriorRunTiming(index, data.summary.runId, data.summary);
+      const nestedPriorIds = nestedPriorReplayKey
+        ? nestedPriorReplayKey.split("\0").filter(Boolean)
+        : [];
+      await Promise.all(
+        nestedPriorIds.map(async (runId) => {
+          const nested = await fetchWorkflowRun({ data: runId });
+          if (nested) {
+            mergePriorRunTiming(index, runId, nested.summary);
+          }
+        }),
+      );
+      if (!cancelled) {
+        setPriorTiming(index);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [summary.retriesFromRunId, summary.runId, nestedPriorReplayKey]);
+
+  const { view, displayChildRuns } = useMemo(() => {
     const built = buildRunViewState(summary.runId, events);
     mergeSeededStepRecords(built, seededStepRecords);
-    return built;
-  }, [summary.runId, events, seededStepRecords]);
+    const runs = pageChildRuns.map((run) => ({ ...run }));
+    if (priorTiming) {
+      graftCopiedWaterfallTiming(built, priorTiming, runs);
+    }
+    return { view: built, displayChildRuns: runs };
+  }, [summary.runId, events, seededStepRecords, priorTiming, pageChildRuns]);
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
@@ -94,11 +153,6 @@ export function RunWorkspace({
       void router.invalidate();
     }
   }, [events, router]);
-
-  const [pageChildRuns, setPageChildRuns] = useState(initialChildRuns);
-  useEffect(() => {
-    setPageChildRuns(initialChildRuns);
-  }, [summary.runId, initialChildRuns]);
 
   useEffect(() => {
     if (view.status !== "running") {
@@ -648,7 +702,7 @@ export function RunWorkspace({
         >
           <WorkflowTreePanel
             view={view}
-            childRuns={pageChildRuns}
+            childRuns={displayChildRuns}
             nestedByRunId={nestedByRunId}
             expandedNestedRunIds={expandedNestedRunIds}
             selectedStepId={selectedStepId}

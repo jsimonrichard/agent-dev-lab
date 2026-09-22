@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,13 +18,13 @@ import {
 import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
-  Copy,
   ExternalLink,
   GitBranch,
   Layers,
   Loader2,
   MessageSquare,
   RotateCcw,
+  SquareArrowOutUpRight,
 } from "lucide-react";
 
 import {
@@ -178,11 +179,13 @@ export function WorkflowTreePanel({
   const hiddenRootCount = rows.length;
 
   const toggleCollapsed = useCallback((stepId: string) => {
-    setCollapsedStepIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(stepId)) next.delete(stepId);
-      else next.add(stepId);
-      return next;
+    startTransition(() => {
+      setCollapsedStepIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(stepId)) next.delete(stepId);
+        else next.add(stepId);
+        return next;
+      });
     });
   }, []);
 
@@ -281,7 +284,7 @@ export function WorkflowTreePanel({
                     }}
                     search={workflowRunSearch({ step: row.step.replayedFromStepId })}
                   >
-                    <Copy className="mr-2 size-4" />
+                    <SquareArrowOutUpRight className="mr-2 size-4" />
                     View original step
                   </Link>
                 </ContextMenuItem>
@@ -357,7 +360,7 @@ export function WorkflowTreePanel({
                   })
                 }
               >
-                <Copy className="mr-2 size-4" />
+                <SquareArrowOutUpRight className="mr-2 size-4" />
                 View original run
               </ContextMenuItem>
             </>
@@ -599,7 +602,9 @@ function CopiedFromPriorBadge({
   onOpen?: () => void;
   href?: { workflowId: string; runId: string; stepId?: string };
 }) {
-  const icon = <Copy className="size-3 shrink-0 text-muted-foreground" aria-hidden />;
+  const icon = (
+    <SquareArrowOutUpRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+  );
   const body = (
     <span className="inline-flex shrink-0 items-center gap-0.5 rounded border border-sky-500/40 bg-sky-500/10 px-1 py-px text-[9px] font-semibold tracking-wide text-sky-800 uppercase dark:text-sky-200">
       {icon}
@@ -1033,6 +1038,20 @@ function CollapseToggle({
   );
 }
 
+function waterfallBarTooltip(bar: WaterfallBar, label: string, status: StepNodeStatus): string {
+  if (bar.copied) {
+    const parts = [
+      `${label}: prior layout ${formatDuration(bar.durationMs)}`,
+      bar.priorDurationMs != null ? `full prior ${formatDuration(bar.priorDurationMs)}` : null,
+      bar.continuation
+        ? `continuation past retry ${formatDuration(bar.continuation.durationMs)}`
+        : null,
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }
+  return `${label}: ${formatDuration(bar.durationMs)}${status === "running" ? " elapsed" : ""}`;
+}
+
 function WaterfallTrack({
   bar,
   status,
@@ -1044,30 +1063,53 @@ function WaterfallTrack({
   label: string;
   size: "step" | "episode";
 }) {
+  const heightClass = size === "step" ? "h-3.5" : "h-2.5";
   return (
     <div className="relative h-8 overflow-hidden">
+      {bar?.continuation ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm border border-dashed border-amber-500/40 bg-amber-500/15 opacity-50",
+                heightClass,
+              )}
+              style={{
+                left: `${bar.continuation.leftPct}%`,
+                width: `${bar.continuation.widthPct}%`,
+              }}
+              aria-hidden
+            />
+          </TooltipTrigger>
+          <TooltipContent>
+            Prior work continued {formatDuration(bar.continuation.durationMs)} past the retry point
+            (not re-measured on this attempt)
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
       {bar ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <span
               className={cn(
-                "absolute top-1/2 -translate-y-1/2 rounded-sm",
-                size === "step" ? "h-3.5" : "h-2.5",
-                status === "running" && "bg-primary/55",
-                status === "completed" && (size === "step" ? "bg-primary/35" : "bg-primary/25"),
-                status === "failed" && "bg-destructive/55",
+                "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
+                heightClass,
+                bar.copied &&
+                  "border border-dashed border-sky-500/50 bg-sky-500/20 dark:bg-sky-400/15",
+                !bar.copied && status === "running" && "bg-primary/55",
+                !bar.copied &&
+                  status === "completed" &&
+                  (size === "step" ? "bg-primary/35" : "bg-primary/25"),
+                !bar.copied && status === "failed" && "bg-destructive/55",
               )}
               style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
             >
-              {status === "running" ? (
+              {!bar.copied && status === "running" ? (
                 <span className="absolute inset-y-0 right-0 w-0.5 rounded-r-sm bg-primary" />
               ) : null}
             </span>
           </TooltipTrigger>
-          <TooltipContent>
-            {label}: {formatDuration(bar.durationMs)}
-            {status === "running" ? " elapsed" : ""}
-          </TooltipContent>
+          <TooltipContent>{waterfallBarTooltip(bar, label, status)}</TooltipContent>
         </Tooltip>
       ) : (
         <span className="sr-only">No timing yet</span>
@@ -1169,7 +1211,9 @@ function useLiveNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active) return;
-    const id = window.setInterval(() => setNow(Date.now()), 250);
+    const id = window.setInterval(() => {
+      startTransition(() => setNow(Date.now()));
+    }, 1000);
     return () => window.clearInterval(id);
   }, [active]);
   return now;

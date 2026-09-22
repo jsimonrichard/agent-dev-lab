@@ -16,12 +16,27 @@ export interface WaterfallBar {
   leftPct: number;
   widthPct: number;
   durationMs: number;
+  /** Copied/prefix layout (grafted prior timing), not this attempt's wall clock. */
+  copied?: boolean;
+  /** Full prior-attempt duration for tooltips (may exceed displayed bar). */
+  priorDurationMs?: number;
+  /** Prior-continuation ghost past the retry anchor (straddle). */
+  continuation?: {
+    leftPct: number;
+    widthPct: number;
+    durationMs: number;
+  };
 }
 
 export type TimedSpan = {
   startedAt?: string;
   finishedAt?: string;
   durationMs?: number;
+  displayStartedAt?: string;
+  displayFinishedAt?: string;
+  displayDurationMs?: number;
+  priorContinuationMs?: number;
+  priorDurationMs?: number;
   status: StepNodeStatus;
 };
 
@@ -214,9 +229,32 @@ export function spanTimeRange(
   span: TimedSpan,
   nowMs: number,
 ): { startMs: number; endMs: number } | null {
-  const startMs = span.startedAt ? Date.parse(span.startedAt) : Number.NaN;
-  if (!Number.isFinite(startMs)) return null;
+  const startMs = Date.parse(span.displayStartedAt ?? span.startedAt ?? "");
+  if (!Number.isFinite(startMs)) {
+    const fallbackStart = span.startedAt ? Date.parse(span.startedAt) : Number.NaN;
+    if (!Number.isFinite(fallbackStart)) return null;
+    return spanTimeRangeWithoutDisplay(span, nowMs, fallbackStart);
+  }
 
+  if (span.displayFinishedAt || span.displayDurationMs != null) {
+    let endMs: number;
+    if (span.displayFinishedAt) {
+      endMs = Date.parse(span.displayFinishedAt);
+    } else {
+      endMs = startMs + (span.displayDurationMs ?? 0);
+    }
+    if (!Number.isFinite(endMs)) endMs = startMs;
+    return { startMs, endMs: Math.max(endMs, startMs) };
+  }
+
+  return spanTimeRangeWithoutDisplay(span, nowMs, startMs);
+}
+
+function spanTimeRangeWithoutDisplay(
+  span: TimedSpan,
+  nowMs: number,
+  startMs: number,
+): { startMs: number; endMs: number } {
   let endMs: number;
   if (span.status === "running") {
     endMs = Math.max(nowMs, startMs);
@@ -232,6 +270,14 @@ export function spanTimeRange(
   return { startMs, endMs: Math.max(endMs, startMs) };
 }
 
+export function spanContinuationEndMs(span: TimedSpan, nowMs: number): number | null {
+  const range = spanTimeRange(span, nowMs);
+  if (!range || span.priorContinuationMs == null || span.priorContinuationMs <= 0) {
+    return null;
+  }
+  return range.endMs + span.priorContinuationMs;
+}
+
 export function stepTimeRange(
   step: StepNode,
   nowMs: number,
@@ -244,6 +290,11 @@ export function runSummaryAsTimedSpan(run: InspectorRunSummary): TimedSpan {
     startedAt: run.startedAt,
     finishedAt: run.finishedAt,
     status: runStatusAsStepStatus(run.status),
+    displayStartedAt: run.displayStartedAt,
+    displayFinishedAt: run.displayFinishedAt,
+    displayDurationMs: run.displayDurationMs,
+    priorContinuationMs: run.priorContinuationMs,
+    priorDurationMs: run.priorDurationMs,
   };
 }
 
@@ -265,7 +316,7 @@ export function computeWaterfallScale(opts: {
   expandedNestedRunIds?: ReadonlySet<string>;
 }): WaterfallScale {
   const parsedOrigin = Date.parse(opts.runStartedAt);
-  const originMs = Number.isFinite(parsedOrigin) ? parsedOrigin : opts.nowMs;
+  let originMs = Number.isFinite(parsedOrigin) ? parsedOrigin : opts.nowMs;
   let endMs = originMs;
 
   if (opts.runStatus === "running") {
@@ -293,7 +344,14 @@ export function computeWaterfallScale(opts: {
           ? row.episode
           : runSummaryAsTimedSpan(row.run);
     const range = spanTimeRange(span, opts.nowMs);
-    if (range) endMs = Math.max(endMs, range.endMs);
+    if (range) {
+      originMs = Math.min(originMs, range.startMs);
+      endMs = Math.max(endMs, range.endMs);
+    }
+    const continuationEnd = spanContinuationEndMs(span, opts.nowMs);
+    if (continuationEnd != null) {
+      endMs = Math.max(endMs, continuationEnd);
+    }
   }
 
   return { originMs, spanMs: Math.max(1, endMs - originMs) };
@@ -320,12 +378,45 @@ export function computeSpanWaterfallBar(
   nowMs: number,
 ): WaterfallBar | null {
   const range = spanTimeRange(span, nowMs);
-  if (range) return computeWaterfallBar(range, scale);
-  if (span.durationMs == null) return null;
-  return computeWaterfallBar(
-    { startMs: scale.originMs, endMs: scale.originMs + span.durationMs },
-    scale,
-  );
+  let bar: WaterfallBar | null = null;
+  if (range) {
+    bar = computeWaterfallBar(range, scale);
+  } else if (span.displayDurationMs != null) {
+    bar = computeWaterfallBar(
+      { startMs: scale.originMs, endMs: scale.originMs + span.displayDurationMs },
+      scale,
+    );
+  } else if (span.durationMs != null) {
+    bar = computeWaterfallBar(
+      { startMs: scale.originMs, endMs: scale.originMs + span.durationMs },
+      scale,
+    );
+  }
+  if (!bar) {
+    return null;
+  }
+
+  const copied =
+    span.displayStartedAt != null ||
+    span.displayDurationMs != null ||
+    (span.priorContinuationMs != null && span.priorContinuationMs > 0);
+  if (copied) {
+    bar = {
+      ...bar,
+      copied: true,
+      priorDurationMs: span.priorDurationMs,
+    };
+  }
+
+  const continuationEnd = spanContinuationEndMs(span, nowMs);
+  if (continuationEnd != null && range) {
+    const continuation = computeWaterfallBar(
+      { startMs: range.endMs, endMs: continuationEnd },
+      scale,
+    );
+    bar = { ...bar, continuation };
+  }
+  return bar;
 }
 
 export function computeStepWaterfallBar(

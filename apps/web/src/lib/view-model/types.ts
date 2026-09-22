@@ -60,6 +60,12 @@ export interface InspectorRunSummary {
   retriesFromRunId?: string | null;
   /** Prior run id when this nested run is a fully-replayed copy. */
   replayOfRunId?: string | null;
+  /** Waterfall layout fields when this nest is a copied prior run. */
+  displayStartedAt?: string;
+  displayFinishedAt?: string;
+  displayDurationMs?: number;
+  priorContinuationMs?: number;
+  priorDurationMs?: number;
 }
 
 export type RunEventType =
@@ -232,6 +238,16 @@ export interface StepNode {
   copiedFromPriorAttempt?: boolean;
   /** Prior step id on the forest this attempt retries (`retriesFromRunId`). */
   replayedFromStepId?: string | null;
+  /** Waterfall layout start (grafted prior timing); preferred over `startedAt` for bars. */
+  displayStartedAt?: string;
+  /** Waterfall layout end for the authoritative (pre-anchor) segment. */
+  displayFinishedAt?: string;
+  /** Authoritative grafted duration in ms (before any prior-continuation ghost). */
+  displayDurationMs?: number;
+  /** Extra prior duration past the retry anchor for a straddle ghost segment. */
+  priorContinuationMs?: number;
+  /** Full prior-attempt duration for tooltips (may exceed displayed bar). */
+  priorDurationMs?: number;
   children: StepNode[];
   agentEpisodes: AgentEpisode[];
 }
