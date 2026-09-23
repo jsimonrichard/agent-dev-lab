@@ -13,10 +13,28 @@ function isWorkflowRunTerminal(event: RunEvent): boolean {
 export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = []) {
   const [events, setEvents] = useState<RunEvent[]>(initialEvents);
   const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0));
+  const seededRunIdRef = useRef(runId);
 
   useEffect(() => {
-    setEvents(initialEvents);
-    lastSeqRef.current = initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0);
+    const initialMax = initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0);
+    const runChanged = seededRunIdRef.current !== runId;
+    seededRunIdRef.current = runId;
+    setEvents((prev) => {
+      if (runChanged) {
+        return initialEvents;
+      }
+      const prevMax = prev.reduce((max, e) => Math.max(max, e.runSeq), 0);
+      // Loader refreshes (sidebar invalidate) often rebuild `initialEvents` with the
+      // same tip seq. Replacing state would re-trigger dependents that invalidate.
+      if (initialMax < prevMax) {
+        return prev;
+      }
+      if (initialMax === prevMax && prev.length >= initialEvents.length) {
+        return prev;
+      }
+      return initialEvents;
+    });
+    lastSeqRef.current = runChanged ? initialMax : Math.max(lastSeqRef.current, initialMax);
   }, [runId, initialEvents]);
 
   useEffect(() => {

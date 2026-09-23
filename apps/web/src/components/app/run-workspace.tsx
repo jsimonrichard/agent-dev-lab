@@ -78,7 +78,9 @@ export function RunWorkspace({
   const [priorTiming, setPriorTiming] = useState<PriorTimingIndex | null>(null);
   const [pageChildRuns, setPageChildRuns] = useState(initialChildRuns);
   useEffect(() => {
-    setPageChildRuns(initialChildRuns);
+    setPageChildRuns((prev) =>
+      childRunListsEqual(prev, initialChildRuns) ? prev : initialChildRuns,
+    );
   }, [summary.runId, initialChildRuns]);
 
   const nestedPriorReplayKey = useMemo(
@@ -136,22 +138,35 @@ export function RunWorkspace({
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
-  // Refresh sidebar run totals once the workflow settles. Per-episode
-  // `agent_finished` must not invalidate — that replaced `messagesPromise` and
-  // remounted the step conversation into "No conversation recorded."
+  // Refresh sidebar run totals when a lifecycle event arrives on the live stream.
+  // Seed events from the loader must not invalidate — that replaced `initialEvents`,
+  // re-entered this effect, and looped until React hit max update depth.
+  // Per-episode `agent_finished` must not invalidate either — that remounted the
+  // step conversation into "No conversation recorded."
+  const seededLifecycleSeqRef = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    seededLifecycleSeqRef.current = undefined;
+  }, [summary.runId]);
   useEffect(() => {
     const last = events[events.length - 1];
-    if (!last) {
+    const lifecycle =
+      last &&
+      (last.type === "run_started" ||
+        last.type === "run_finished" ||
+        last.type === "run_failed" ||
+        last.type === "run_cancelled")
+        ? last
+        : null;
+
+    if (seededLifecycleSeqRef.current === undefined) {
+      seededLifecycleSeqRef.current = lifecycle?.runSeq ?? null;
       return;
     }
-    if (
-      last.type === "run_started" ||
-      last.type === "run_finished" ||
-      last.type === "run_failed" ||
-      last.type === "run_cancelled"
-    ) {
-      void router.invalidate();
+    if (!lifecycle || seededLifecycleSeqRef.current === lifecycle.runSeq) {
+      return;
     }
+    seededLifecycleSeqRef.current = lifecycle.runSeq;
+    void router.invalidate();
   }, [events, router]);
 
   useEffect(() => {
