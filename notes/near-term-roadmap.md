@@ -2,7 +2,7 @@
 
 Open work after the published **core/web 0.0.6** / **cli 0.0.8** / **tools 0.0.3** surface. Design notes for deferred areas live in the linked files.
 
-Last reconciled: **2026-09-22**.
+Last reconciled: **2026-09-23**.
 
 ---
 
@@ -56,7 +56,8 @@ Run tagging and `version:` / `commit:` provenance are shipped (inspector footer;
 | Item                                            | Where                                                  | Notes                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Nested-run context + memory-scope follow-ups    | [`nested-run-followups.md`](./nested-run-followups.md) | After own-`workflowRunId` nesting (0.0.6): no live “am I root?” (`stepId` stays `null` when nested); `memoryScopeWithSuffix` is per immediate run (silent conversation split across phases — decide root-scoped vs run-local helpers). Docs state the scope formula; API decision still open.                                                                                                                 |
-| `$` estimates for usage                         | here                                                   | Token totals are on `agent_finished.usage` / episode columns and roll up in the inspection UI. Still open: pricing table / Gateway billing.                                                                                                                                                                                                                                                                   |
+| Token counts for workflows with agent calls     | here                                                   | Agent-level usage is on `agent_finished.usage` / episode columns, but workflows that contain agent calls (at any nesting depth) do not surface aggregated token counts. Fix rollup before pricing.                                                                                                                                                                                                            |
+| `$` estimates for usage                         | here                                                   | Still open: pricing table / Gateway billing. Blocked on workflow-level token rollup above.                                                                                                                                                                                                                                                                                                                    |
 | Live streaming / preliminary tool-result UI     | [`inspection-ui.md`](./inspection-ui.md)               | Core already emits `preliminary` `agent_tool_result`; chat shows a spinner until the final result. A typing indicator already covers the gap before the first text delta.                                                                                                                                                                                                                                     |
 | Human approval (`ctx.requestApproval`)          | [`future-extensions.md`](./future-extensions.md)       | Workflow-level pause; needs resume                                                                                                                                                                                                                                                                                                                                                                            |
 | Extension registry + tool-call hooks            | [`future-extensions.md`](./future-extensions.md)       | `PreToolUse` / `PostToolUse` are side effects, not allow/deny                                                                                                                                                                                                                                                                                                                                                 |
@@ -82,18 +83,18 @@ One long run should combine: nested + isolated workflows, parallel keyed steps, 
 
 ## Priority
 
-| Priority | Item                                                                                                           |
-| -------- | -------------------------------------------------------------------------------------------------------------- |
-| **P1**   | Per-call model override + episode `{ modelId, provider }` (§1)                                                 |
-| **P1**   | MCP client `ToolProvider` (§2)                                                                                 |
-| **P1**   | Approval dispatcher for file/bash (§2)                                                                         |
-| **P1**   | Nested-run root signal + memory-scope helper decision ([`nested-run-followups.md`](./nested-run-followups.md)) |
-| **P2**   | Model catalog + inspector picker (§1)                                                                          |
-| **P2**   | Todo tool — after core-vs-tools placement (§2)                                                                 |
-| **P2**   | `$` estimates for usage (pricing table / overrides); datasets after organizational-vs-evals (§3)               |
-| **P2**   | Live preliminary tool-result UI                                                                                |
-| **P2**   | Playwright for copied bars, nested expand, and the start-workflow JSON editor                                  |
-| **P2**   | Skipped-step mutations, after a `WorkflowStore` revisit (§4)                                                   |
-| **P3**   | Message stores beyond an appendable list — runtime restore and the transcript UI (§4)                          |
-| **P3**   | Structural cleanup after this publish ([`structural-cleanup.md`](./structural-cleanup.md))                     |
-| **P3**   | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                                           |
+| Priority | Item                                                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1**   | Per-call model override + episode `{ modelId, provider }` (§1)                                                                            |
+| **P1**   | MCP client `ToolProvider` (§2)                                                                                                            |
+| **P1**   | Approval dispatcher for file/bash (§2)                                                                                                    |
+| **P1**   | Nested-run root signal + memory-scope helper decision ([`nested-run-followups.md`](./nested-run-followups.md))                            |
+| **P2**   | Model catalog + inspector picker (§1)                                                                                                     |
+| **P2**   | Todo tool — after core-vs-tools placement (§2)                                                                                            |
+| **P2**   | Workflow token rollup for nested agent calls; then `$` estimates (pricing table / overrides); datasets after organizational-vs-evals (§3) |
+| **P2**   | Live preliminary tool-result UI                                                                                                           |
+| **P2**   | Playwright for copied bars, nested expand, and the start-workflow JSON editor                                                             |
+| **P2**   | Skipped-step mutations, after a `WorkflowStore` revisit (§4)                                                                              |
+| **P3**   | Message stores beyond an appendable list — runtime restore and the transcript UI (§4)                                                     |
+| **P3**   | Structural cleanup after this publish ([`structural-cleanup.md`](./structural-cleanup.md))                                                |
+| **P3**   | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                                                                      |
