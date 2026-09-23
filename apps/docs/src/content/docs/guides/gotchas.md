@@ -4,6 +4,7 @@ description: Sharp edges worth knowing about before they surprise you.
 ---
 
 - **`.env*` edits need a restart.** Env is loaded once at process start — `adl dashboard` otherwise hot-reloads registry (agent/workflow/template) edits as soon as the process starts (no browser required). `--serve` turns that off.
+- **For the purposes of resuming or retrying, steps are assumed to be pure** (with the exception of their interactions with agent memory scopes). A skipped step returns its stored output and does not re-run the callback — side effects (uploads, writes, non-idempotent calls) run again only if you mark the step `{ pure: false }` or `{ force: true }`. See [Workflows — Pure vs force](/core/workflows/#pure-vs-force).
 - **Workflow Zod fields are `inputSchema` / `outputSchema`**, not `input` / `output` (those names broke on Zod 4). `adl init` scaffold already uses the new names.
 - **Omitted `memoryScope`** allocates a random id; the next `agent.run` will not see that transcript unless you pass it back.
 - **System prompt pin:** the first episode wins; a different agent on the same scope warns and keeps the pin unless `systemPromptConflict: "use-current"`.

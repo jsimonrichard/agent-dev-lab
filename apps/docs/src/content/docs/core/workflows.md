@@ -138,7 +138,15 @@ for (const topic of topics) {
 
 **Resume** starts a **new attempt** after a failure. **Retry from a step** uses the same mechanism: you choose the step, and ADL starts a new attempt from there. Still-valid work is **replayed** by returning stored step outputs through `ctx.step` (no callback). Work that must run again gets **new run/step IDs** and fresh events. The prior attempt forest stays immutable. That uses [`WorkflowStore`](/api/interfaces/workflowstore/) (`seedRetryAttempt`). Inspection replay also reads this store; it does not re-execute the workflow.
 
-[`MessageStore`](/api/interfaces/messagestore/) holds the transcript the model sees. Same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save). See [Agents — Calling an Agent](/core/agents/#calling-an-agent). A step records each scope the runtime message store loads, saves, copies, or deletes. When that step is **skipped** on a new attempt, the transcript it recorded at the end — the scope as it was before the retried step — is written onto this attempt's `${workflowRunId}:${suffix}` scope (`memoryScopeWithSuffix`). Later writes on the prior attempt stay there. A scope id the workflow chose itself stays on that same row.
+[`MessageStore`](/api/interfaces/messagestore/) holds the transcript the model sees. Using the same `memoryScope` on a later `agent.run` is ordinary **conversation memory** (load / append / save) — see [Agents — Calling an Agent](/core/agents/#calling-an-agent).
+
+On retry, that store is also how a **skipped** step keeps its transcript available:
+
+1. While a step runs, ADL records each scope the message store loads, saves, copies, or deletes, plus the transcript in that scope when the step finishes.
+2. If the new attempt **skips** that step, those recorded transcripts are written onto this attempt's `${workflowRunId}:${suffix}` scopes (`memoryScopeWithSuffix`) — the scope as it was **before** the retried step.
+3. Later writes on the prior attempt stay on that attempt. A scope id the workflow chose itself (not via `memoryScopeWithSuffix`) is not copied; it stays on that same row.
+
+What that means for an `agent.run` inside a skipped vs re-run step is under [Agents on Retry](#agents-on-retry).
 
 ### Nesting and attempt forests
 
@@ -163,7 +171,7 @@ await ctx.step("search", async ({ ctx }) => {
 });
 ```
 
-Code **between** steps (top-level `run` body, loops, variables in closure) is **not** persisted. Only step **return values** are stored. Design workflows so retry-relevant state flows through step outputs or explicit inputs, not mutable closure variables alone. Steps are **pure by default**: do not mutate captured closures; anything a later step needs must appear in an earlier step’s output (or run input).
+Code **between** steps (top-level `run` body, loops, variables in closure) is **not** persisted. Only step **return values** are stored. Design workflows so retry-relevant state flows through step outputs or explicit inputs, not mutable closure variables alone. Steps are **pure by default** (agent memory scopes are the exception — see [Agents on Retry](#agents-on-retry)): do not mutate captured closures; anything a later step needs must appear in an earlier step’s output (or run input).
 
 ### Path-stable step slots
 
@@ -221,9 +229,9 @@ await ctx.step(
 
 ### Agents on Retry
 
-Step skip **does not** skip an LLM call by itself — it skips the **entire step callback**. If the step runs, `agent.run` executes again and typically **loads** the existing transcript for its `memoryScope` ([Agents](/core/agents/#memoryscope)). A skipped step does not run that load. The transcript recorded when the skipped step finished is written onto the new attempt's `memoryScopeWithSuffix` first, so a later step sees the scope as it was before the retried step. Writes the retried step made on the prior attempt stay on that attempt. A step that re-executes does not receive an earlier snapshot of its own writes; it starts on the new scope.
+Skipping a step skips the **entire** callback — including any `agent.run` inside it. It does not selectively skip only the LLM call. How skipped-step transcripts land on the new attempt is under [Resumability](#resumability) above.
 
-On step retry, choose a policy explicitly:
+When the step **re-runs**, `agent.run` executes again and typically **loads** whatever is already on its `memoryScope` ([Agents](/core/agents/#memoryscope)). With `memoryScopeWithSuffix`, that is usually the new attempt's empty scope — the step does not get a restored snapshot of its own prior writes. Choose a policy explicitly if you need a different transcript:
 
 | Policy             | Behavior                                                                   |
 | ------------------ | -------------------------------------------------------------------------- |
