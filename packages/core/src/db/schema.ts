@@ -102,6 +102,8 @@ export const stepRecords = sqliteTable(
     replayOfStepId: text("replay_of_step_id"),
     /** JSON string array of memory scopes this step accessed. Null when none. */
     memoryScopesJson: text("memory_scopes_json"),
+    /** JSON snapshots of those scopes at step end. Null when none. */
+    memorySnapshotsJson: text("memory_snapshots_json"),
   },
   (table) => [primaryKey({ columns: [table.workflowRunId, table.stepId] })],
 );

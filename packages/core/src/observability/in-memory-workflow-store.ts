@@ -109,6 +109,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           pure: event.pure === false ? false : true,
           replayOfStepId: event.replayOfStepId,
           memoryScopes: event.memoryScopes,
+          memorySnapshots: event.memorySnapshots,
         });
         this.stepRecords.set(wfId, records);
       }
@@ -130,6 +131,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           pure: true,
           replayOfStepId: event.replayOfStepId,
           memoryScopes: event.memoryScopes,
+          memorySnapshots: event.memorySnapshots,
         });
         this.stepRecords.set(wfId, records);
       }
@@ -391,6 +393,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       pure: step.pure,
       replayOfStepId: step.replayOfStepId,
       memoryScopes: step.memoryScopes,
+      memorySnapshots: step.memorySnapshots,
     });
     this.stepRecords.set(step.workflowRunId, records);
 

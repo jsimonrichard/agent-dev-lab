@@ -96,7 +96,14 @@ describe("workflow memory scope access", () => {
           await adl.services.stores.message.load(scope);
           return "reread";
         });
-        return ctx.step("recall", async () => adl.services.stores.message.load(scope));
+        return ctx.step("recall", async () => {
+          const existing = await adl.services.stores.message.load(scope);
+          await adl.services.stores.message.save(scope, [
+            ...existing,
+            { role: "user", content: "recall-turn" },
+          ]);
+          return existing;
+        });
       },
     });
 

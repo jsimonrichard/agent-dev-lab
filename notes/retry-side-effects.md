@@ -6,7 +6,7 @@ Attempt lineage copies workflow projections. It does not carry a step's other mu
 
 ## What a seed copies today
 
-`seedRetryAttempt` writes run and step projections (`materializeAttemptRun`, `materializeAttemptStep`): outputs, paths, `pure`, `replayOf*` links, and the scopes that step accessed. It does not call `MessageStore.copy`. The copy happens when the new attempt **skips** the step: each recorded `${priorRunId}:${suffix}` transcript is copied onto `${newRunId}:${suffix}`. A scope id that does not start with a prior run id stays on that same row.
+`seedRetryAttempt` writes run and step projections (`materializeAttemptRun`, `materializeAttemptStep`): outputs, paths, `pure`, `replayOf*` links, the scopes that step accessed, and the transcript in each scope when the step finished. It does not call `MessageStore.copy`. The restore happens when the new attempt **skips** the step: that recorded transcript is saved onto `${newRunId}:${suffix}`. A later skipped step overwrites the same suffix, so the attempt gets the scope as it was before the retried step. The live prior scope is not read and is not changed. A scope id that does not start with a prior run id stays on that same row.
 
 `ctx.memoryScopeWithSuffix(suffix)` is `${workflowRunId}:${suffix}`. The new attempt has a new `workflowRunId`, so the helper names a new scope. The skipped step's transcript is what fills it. A step that re-executes does not get that copy; it starts on the empty new scope.
 

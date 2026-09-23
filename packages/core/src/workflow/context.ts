@@ -1,6 +1,7 @@
 import { raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
+import type { MemoryScopeSnapshot } from "../observability/events";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
@@ -112,7 +113,7 @@ export class WorkflowContextImpl implements WorkflowContext {
           skippedStepId = seeded.stepId;
           replayOfStepId = seeded.replayOfStepId ?? undefined;
         }
-        const skippedScopes = await carrySkippedMemoryScopes(this, seeded?.memoryScopes);
+        const carried = await carrySkippedMemoryScopes(this, seeded);
         await this.runRecorder.emit({
           type: "step_skipped",
           workflowRunId: this.workflowRunId,
@@ -123,7 +124,12 @@ export class WorkflowContextImpl implements WorkflowContext {
           path,
           output: cached,
           ...(replayOfStepId ? { replayOfStepId } : {}),
-          ...(skippedScopes && skippedScopes.length > 0 ? { memoryScopes: skippedScopes } : {}),
+          ...(carried.memoryScopes && carried.memoryScopes.length > 0
+            ? { memoryScopes: carried.memoryScopes }
+            : {}),
+          ...(carried.memorySnapshots && carried.memorySnapshots.length > 0
+            ? { memorySnapshots: carried.memorySnapshots }
+            : {}),
         });
         return cached as T;
       }
@@ -150,7 +156,7 @@ export class WorkflowContextImpl implements WorkflowContext {
     });
 
     try {
-      const output = await withActiveSpan(
+      const finished = await withActiveSpan(
         "workflow.step",
         {
           "adl.workflow_run_id": this.workflowRunId,
@@ -158,12 +164,14 @@ export class WorkflowContextImpl implements WorkflowContext {
           "adl.step.name": name,
         },
         () =>
-          this.services.workflowContextScope.run(childCtx, () =>
-            raceAbort(this.signal, fn({ ctx: childCtx })),
-          ),
+          this.services.workflowContextScope.run(childCtx, async () => {
+            const output = await raceAbort(this.signal, fn({ ctx: childCtx }));
+            const memorySnapshots = await snapshotAccessedScopes(childCtx);
+            return { output, memorySnapshots };
+          }),
       );
       const durationMs = Date.now() - startedAt;
-      const memoryScopes = childCtx.accessedMemoryScopes();
+      const memoryScopes = finished.memorySnapshots?.map((snapshot) => snapshot.scope);
       await this.runRecorder.emit({
         type: "step_finished",
         workflowRunId: this.workflowRunId,
@@ -174,11 +182,12 @@ export class WorkflowContextImpl implements WorkflowContext {
         path,
         status: "ok",
         durationMs,
-        output,
+        output: finished.output,
         ...(impure ? { pure: false as const } : {}),
-        ...(memoryScopes.length > 0 ? { memoryScopes: [...memoryScopes] } : {}),
+        ...(memoryScopes && memoryScopes.length > 0 ? { memoryScopes } : {}),
+        ...(finished.memorySnapshots ? { memorySnapshots: finished.memorySnapshots } : {}),
       });
-      return output;
+      return finished.output;
     } catch (error) {
       const memoryScopes = childCtx.accessedMemoryScopes();
       await this.runRecorder.emit({
@@ -199,34 +208,52 @@ export class WorkflowContextImpl implements WorkflowContext {
 }
 
 /**
- * A skipped step did not run, so it did not write this attempt's scopes.
- * Copy each prior `${runId}:${suffix}` transcript onto this attempt's id.
- * A scope that is not prefixed by a run in the attempt map stays as it is.
+ * Restore each skipped step's transcript as it was when that step finished.
+ * Later skipped steps overwrite the same new scope, so the attempt sees the
+ * state from just before the retried step. The live prior scope is left alone.
  */
 async function carrySkippedMemoryScopes(
   ctx: WorkflowContextImpl,
-  scopes: readonly string[] | undefined,
-): Promise<readonly string[] | undefined> {
-  if (!scopes || scopes.length === 0 || !ctx.retryAttempt) {
-    return scopes;
+  seeded: { memorySnapshots?: readonly MemoryScopeSnapshot[] } | undefined,
+): Promise<{
+  memoryScopes?: readonly string[];
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
+}> {
+  const snapshots = seeded?.memorySnapshots;
+  if (!snapshots || snapshots.length === 0 || !ctx.retryAttempt) {
+    return {};
   }
-  const attempt = ctx.retryAttempt;
-  const carried: string[] = [];
-  for (const scope of scopes) {
-    const dest = retargetMemoryScope(scope, attempt.runIdMap);
+  const memoryScopes: string[] = [];
+  const memorySnapshots: MemoryScopeSnapshot[] = [];
+  for (const snapshot of snapshots) {
+    const dest = retargetMemoryScope(snapshot.scope, ctx.retryAttempt.runIdMap);
     if (!dest) {
-      carried.push(scope);
+      memoryScopes.push(snapshot.scope);
+      memorySnapshots.push(snapshot);
       continue;
     }
-    const copied = attempt.copiedMemoryScopeDests ?? new Set<string>();
-    attempt.copiedMemoryScopeDests = copied;
-    if (!copied.has(dest)) {
-      await ctx.services.stores.message.copy(scope, dest);
-      copied.add(dest);
-    }
-    carried.push(dest);
+    await ctx.services.stores.message.save(dest, [...snapshot.messages]);
+    memoryScopes.push(dest);
+    memorySnapshots.push({ scope: dest, messages: snapshot.messages });
   }
-  return carried;
+  return { memoryScopes, memorySnapshots };
+}
+
+async function snapshotAccessedScopes(
+  ctx: WorkflowContextImpl,
+): Promise<MemoryScopeSnapshot[] | undefined> {
+  const scopes = ctx.accessedMemoryScopes();
+  if (scopes.length === 0) {
+    return undefined;
+  }
+  const snapshots: MemoryScopeSnapshot[] = [];
+  for (const scope of scopes) {
+    snapshots.push({
+      scope,
+      messages: await ctx.services.stores.message.load(scope),
+    });
+  }
+  return snapshots;
 }
 
 /** Builds a step context from its parent (functional; no shared stack). */

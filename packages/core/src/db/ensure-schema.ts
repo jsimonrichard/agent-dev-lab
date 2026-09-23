@@ -53,6 +53,7 @@ const TABLES = [
     pure INTEGER NOT NULL DEFAULT 1,
     replay_of_step_id TEXT,
     memory_scopes_json TEXT,
+    memory_snapshots_json TEXT,
     PRIMARY KEY (workflow_run_id, step_id)
   )`,
   `CREATE TABLE IF NOT EXISTS adl_workflow_run_tags (
@@ -133,6 +134,7 @@ const COLUMN_MIGRATIONS: { table: string; column: string; sqlType: string }[] = 
   { table: "adl_step_records", column: "pure", sqlType: "INTEGER NOT NULL DEFAULT 1" },
   { table: "adl_step_records", column: "replay_of_step_id", sqlType: "TEXT" },
   { table: "adl_step_records", column: "memory_scopes_json", sqlType: "TEXT" },
+  { table: "adl_step_records", column: "memory_snapshots_json", sqlType: "TEXT" },
   { table: "adl_conversation_metadata", column: "deleted_at", sqlType: "TEXT" },
   { table: "adl_run_events", column: "memory_scope", sqlType: "TEXT" },
   { table: "adl_agent_episodes", column: "tool_provider_context_json", sqlType: "TEXT" },

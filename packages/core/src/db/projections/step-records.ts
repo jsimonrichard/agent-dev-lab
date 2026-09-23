@@ -1,7 +1,9 @@
+import type { ModelMessage } from "ai";
+
 import type { AdlDb } from "../index";
 import { stepOutputs, stepRecords } from "../schema";
 
-import type { RunEvent, StepSlot } from "../../observability/events";
+import type { MemoryScopeSnapshot, RunEvent, StepSlot } from "../../observability/events";
 
 /**
  * Addressing rule for a step slot, and the encoding of the `slot_key` column.
@@ -26,6 +28,35 @@ export function decodeMemoryScopes(json: string | null): string[] | undefined {
   return parsed;
 }
 
+export function encodeMemorySnapshots(
+  snapshots: readonly MemoryScopeSnapshot[] | undefined,
+): string | null {
+  return snapshots && snapshots.length > 0 ? JSON.stringify(snapshots) : null;
+}
+
+export function decodeMemorySnapshots(json: string | null): MemoryScopeSnapshot[] | undefined {
+  if (json === null) {
+    return undefined;
+  }
+  const parsed: unknown = JSON.parse(json);
+  if (!Array.isArray(parsed)) {
+    throw new Error("adl_step_records.memory_snapshots_json is not an array");
+  }
+  return parsed.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      !("scope" in item) ||
+      !("messages" in item) ||
+      typeof item.scope !== "string" ||
+      !Array.isArray(item.messages)
+    ) {
+      throw new Error("adl_step_records.memory_snapshots_json entry is not a scope snapshot");
+    }
+    return { scope: item.scope, messages: item.messages as ModelMessage[] };
+  });
+}
+
 /**
  * Projects step terminal events into `adl_step_outputs` and `adl_step_records`.
  * Read model only — see {@link projectWorkflowRun}.
@@ -45,6 +76,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
 
     const pathJson = JSON.stringify(event.path);
     const memoryScopesJson = encodeMemoryScopes(event.memoryScopes);
+    const memorySnapshotsJson = encodeMemorySnapshots(event.memorySnapshots);
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -58,6 +90,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         pure,
         replayOfStepId: event.replayOfStepId ?? null,
         memoryScopesJson,
+        memorySnapshotsJson,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -71,6 +104,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           pure,
           replayOfStepId: event.replayOfStepId ?? null,
           memoryScopesJson,
+          memorySnapshotsJson,
         },
       })
       .run();
@@ -89,6 +123,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
 
     const pathJson = JSON.stringify(event.path);
     const memoryScopesJson = encodeMemoryScopes(event.memoryScopes);
+    const memorySnapshotsJson = encodeMemorySnapshots(event.memorySnapshots);
     db.insert(stepRecords)
       .values({
         workflowRunId: event.workflowRunId,
@@ -102,6 +137,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
         pure: 1,
         replayOfStepId: event.replayOfStepId ?? null,
         memoryScopesJson,
+        memorySnapshotsJson,
       })
       .onConflictDoUpdate({
         target: [stepRecords.workflowRunId, stepRecords.stepId],
@@ -114,6 +150,7 @@ export function projectStepRecord(db: AdlDb, event: RunEvent): void {
           status: "ok",
           replayOfStepId: event.replayOfStepId ?? null,
           memoryScopesJson,
+          memorySnapshotsJson,
         },
       })
       .run();

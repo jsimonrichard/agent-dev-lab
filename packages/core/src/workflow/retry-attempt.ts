@@ -1,5 +1,10 @@
 import { createId } from "../internal/ids";
-import type { RunEvent, StepRecord, WorkflowRunSummary } from "../observability/events";
+import type {
+  MemoryScopeSnapshot,
+  RunEvent,
+  StepRecord,
+  WorkflowRunSummary,
+} from "../observability/events";
 import type { WorkflowStore } from "../observability/workflow-store";
 
 export type SeedRetryAttemptArgs = {
@@ -47,6 +52,7 @@ export type AttemptStepMaterialization = {
   pure?: boolean;
   replayOfStepId?: string | null;
   memoryScopes?: readonly string[];
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
 };
 
 /**
@@ -68,11 +74,6 @@ export type RetryAttempt = {
    * (`parentStepId === null`). Key: `${priorParentRunId}\0${workflowId}`.
    */
   rootSpawnCursor: Map<string, number>;
-  /**
-   * Destinations already filled by copying a skipped step's transcript.
-   * Shared across the attempt so two skipped steps that touched one scope copy once.
-   */
-  copiedMemoryScopeDests?: Set<string>;
 };
 
 /**
@@ -113,6 +114,7 @@ type ForestStep = {
   status: "ok" | "error" | "running";
   pure: boolean;
   memoryScopes?: readonly string[];
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
 };
 
 type ForestSnapshot = {
@@ -252,6 +254,7 @@ function collectStepsFromEvents(events: RunEvent[]): ForestStep[] {
         status: "ok",
         pure: event.pure !== false,
         memoryScopes: event.memoryScopes,
+        memorySnapshots: event.memorySnapshots,
       });
     } else if (event.type === "step_failed") {
       const existing = byId.get(event.stepId);
@@ -287,6 +290,7 @@ function collectStepsFromEvents(events: RunEvent[]): ForestStep[] {
           status: "ok",
           pure: true,
           memoryScopes: event.memoryScopes,
+          memorySnapshots: event.memorySnapshots,
         });
       }
     }
@@ -645,6 +649,7 @@ export async function seedRetryAttemptOnStore(
         pure: step.pure,
         replayOfStepId: step.stepId,
         memoryScopes: step.memoryScopes,
+        memorySnapshots: step.memorySnapshots,
       });
     }
   }

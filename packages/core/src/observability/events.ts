@@ -1,3 +1,5 @@
+import type { ModelMessage } from "ai";
+
 import type { TokenUsage } from "./token-usage";
 
 /**
@@ -9,6 +11,12 @@ import type { TokenUsage } from "./token-usage";
  * (one counter per run / standalone episode). Distinct from {@link LoggedRunEvent.logSeq},
  * which is process-global on the in-memory event log.
  */
+
+/** Transcript in one scope at the end of a step, before later steps change it. */
+export type MemoryScopeSnapshot = {
+  scope: string;
+  messages: ModelMessage[];
+};
 
 /** Current persisted {@link RunEvent} schema. Bump only for breaking wire changes. */
 export const EVENT_SCHEMA_VERSION = 1;
@@ -100,6 +108,8 @@ export type StepFinishedEvent = WorkflowRunEventBase & {
   replayOfStepId?: string;
   /** Scopes this step loaded, saved, copied, or deleted. Omitted when none. */
   memoryScopes?: readonly string[];
+  /** Those scopes' transcripts at the end of this step. Omitted when none. */
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
 };
 
 export type StepSkippedEvent = WorkflowRunEventBase & {
@@ -113,6 +123,8 @@ export type StepSkippedEvent = WorkflowRunEventBase & {
   replayOfStepId?: string;
   /** Scopes the skipped step had recorded. Omitted when none. */
   memoryScopes?: readonly string[];
+  /** Transcripts from the end of that step, before the retried step. */
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
 };
 
 export type StepFailedEvent = WorkflowRunEventBase & {
@@ -364,6 +376,8 @@ export type StepRecord = {
   replayOfStepId?: string | null;
   /** Scopes this step loaded, saved, copied, or deleted. Omitted when none. */
   memoryScopes?: readonly string[];
+  /** Transcripts in those scopes when the step finished. Omitted when none. */
+  memorySnapshots?: readonly MemoryScopeSnapshot[];
 };
 
 /**
