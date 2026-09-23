@@ -13,6 +13,13 @@ import type { ModelMessage } from "ai";
  * message; later episodes reuse that pinned text (also passed via `system`).
  * `context` on `agent.run()` is not stored here.
  *
+ * **Supported shape:** one `ModelMessage[]` per scope, grown only by append.
+ * `load` returns that full list and `save` replaces it. Step retry writes the
+ * saved list onto the new attempt. The inspection UI attributes turns by the
+ * list's length at each commit. A store that summarizes, drops, reorders, or
+ * is not a replaceable list is outside this contract — those models break
+ * retry restore and the transcript UI.
+ *
  * Configure via `createAdlRuntime({ stores: { message } })` or per-agent
  * `adl.createAgent({ memory: { store } })`.
  *
