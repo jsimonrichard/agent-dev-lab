@@ -1,5 +1,28 @@
 # @agent-dev-lab/cli
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [12a811c]
+- Updated dependencies [d76bb17]
+- Updated dependencies [7c832ef]
+- Updated dependencies [183807f]
+- Updated dependencies [d065606]
+- Updated dependencies [daacb4a]
+- Updated dependencies [c2f8ffa]
+- Updated dependencies [2b713d9]
+- Updated dependencies [0f7ae59]
+- Updated dependencies [1a6945f]
+- Updated dependencies [8512b15]
+- Updated dependencies [37ef304]
+- Updated dependencies [cb7c10c]
+- Updated dependencies [a00bb80]
+- Updated dependencies [d76bb17]
+- Updated dependencies [8512b15]
+  - @agent-dev-lab/core@0.0.6
+  - @agent-dev-lab/web@0.0.6
+
 ## 0.0.7
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # @agent-dev-lab/core
 
+## 0.0.6
+
+### Patch Changes
+
+- 12a811c: `seedRetryAttempt` starts a new attempt (replay still-valid steps, re-exec the rest) without mutating the prior run. `StepOptions.pure` defaults to true. Custom `WorkflowStore`s must add `seedRetryAttempt`, `materializeAttemptRun`, `materializeAttemptStep`, and `listStepRecords`. Opening an existing database deletes `adl_step_outputs`; events stay.
+- d76bb17: `agent_finished` records `streamText.totalUsage` and projects it onto agent episodes. No dollar estimates.
+- 7c832ef: The dashboard fills the in-memory event log from the store once per process, not on every request.
+- 183807f: `MessageStore.copy` copies a transcript onto an empty scope. A workflow step records each scope it touches and the transcript in that scope when the step finishes. On retry, a skipped step's `${workflowRunId}:…` transcript is written onto the new attempt as it was before the retried step. Custom message stores must add `copy`.
+- 2b713d9: Nested `workflow.run()` gets its own `workflowRunId` and `parentWorkflowRunId`. The run list defaults to roots, with a Non-Root toggle. Custom `WorkflowStore`s must add `listDescendantRuns`. Cancel on a nested id aborts the active root.
+- 0f7ae59: Nested runs show in the tree and waterfall under the calling step, or under the workflow row when called at the root. `parentStepId` is set when the call is inside `ctx.step`.
+
 ## 0.0.5
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @agent-dev-lab/tools
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [12a811c]
+- Updated dependencies [d76bb17]
+- Updated dependencies [7c832ef]
+- Updated dependencies [183807f]
+- Updated dependencies [2b713d9]
+- Updated dependencies [0f7ae59]
+  - @agent-dev-lab/core@0.0.6
+
 ## 0.0.2
 
 ### Patch Changes
