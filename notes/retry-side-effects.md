@@ -30,6 +30,18 @@ The interface is already the persistence port and the retry write-back port. `se
 
 The mutation record (messages, file edits, anything a skipped step should count as already applied) needs a home. Putting it on `WorkflowStore` as another required family repeats this shape. Revisit the interface first: what a store must persist, and what the attempt seed is allowed to ask it to write. The replacement shape is not pinned.
 
+## Current limitation: scopes are appendable lists
+
+The agent runner, this snapshot restore, and the inspection UI all assume each scope is one `ModelMessage[]` that only grows by append: `load`, append, `save` the whole list ([`MessageStore`](../packages/core/src/stores/types.ts)). `messages_committed.total` is that list's length after the commit.
+
+That assumption is load-bearing. A store that is not this shape is unsupported.
+
+- A finished step stores the array `load` returned. The in-memory store returns its internal buffer ([`in-memory.ts`](../packages/core/src/stores/in-memory.ts)). A later step that mutates that array in place rewrites snapshots already recorded on earlier steps, and a retry restores the wrong transcript.
+- A skip restores by `save` of that whole array. An event log, a summary, or any model that is not a replaceable list does not round-trip through that call.
+- The inspector slices the loaded array by those commit totals ([`partitionScopeTranscript`](../apps/web/src/lib/scope-transcript.ts), [`agentCallMessageRange`](../apps/web/src/lib/agent/agent-call-focus.ts)). A model that drops, summarizes, reorders, or is not that flat list points the indexes at the wrong turns, so prior / current / later in the UI is wrong.
+
+Think about both for the next release — the runtime assumption, and that other memory models break the transcript UI — before treating another store shape as supported. Not this publish. See [`near-term-roadmap.md`](./near-term-roadmap.md) §4.
+
 ## Open
 
 - A fully replayed nested run returns its seeded output without re-entering its steps, so those inner scopes are not copied until a later attempt actually skips them.

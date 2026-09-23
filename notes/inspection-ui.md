@@ -194,6 +194,7 @@ Not a token-debug pane and not the registry "run a tool manually" browser.
 
 ## Open questions
 
+- Transcript views assume each scope is one append-only `ModelMessage[]`. `partitionScopeTranscript` and `agentCallMessageRange` slice that array by `messages_committed` totals, so another memory model attributes turns to the wrong call. Same limitation as retry snapshots — [`retry-side-effects.md`](./retry-side-effects.md). Next release, not this publish.
 - Single SSE connection per tab vs per visible run (HTTP/1.1 connection limits).
 - Version skew: framework dev uses workspace runtime; user `adl dashboard` uses project `node_modules` — surface in the UI banner if versions differ.
 - Still deferred: template playground, `@agent-dev-lab/hooks`, dedicated token-debug pane, registry “run a tool manually.”

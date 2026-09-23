@@ -15,7 +15,7 @@ Between loading stored messages and calling the AI SDK, ADL needs a hook to shap
 ## Open questions (resolve before implementation)
 
 1. Run pipeline **before** or **after** system bootstrap and user append?
-2. `save` whole list vs append-only event log with projection?
+2. `save` whole list vs append-only event log with projection? Today the runner, retry snapshots, and the inspector assume the whole-list shape. Another model is a current limitation — [`retry-side-effects.md`](./retry-side-effects.md).
 3. Single pipeline on agent definition vs override per `run()`?
 4. How pipelines interact with persisted system messages (never drop system without explicit policy)?
 
