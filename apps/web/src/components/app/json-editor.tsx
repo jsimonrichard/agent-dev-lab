@@ -198,10 +198,13 @@ export function JsonTextEditor({
   const paneHidesStaticType = jsonType !== undefined && jsonType.type !== "json";
   const dialogShowErrors = saveAttempted;
 
-  function reportValidity(error: string | null) {
-    setNestedError(error);
-    onValidityChange?.(error);
-  }
+  const reportValidity = useCallback(
+    (error: string | null) => {
+      setNestedError((prev) => (prev === error ? prev : error));
+      onValidityChange?.(error);
+    },
+    [onValidityChange],
+  );
 
   if (presentation === "inline") {
     return (

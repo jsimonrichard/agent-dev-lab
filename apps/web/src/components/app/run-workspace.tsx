@@ -26,6 +26,7 @@ import type {
   PrefetchedRunMessages,
   RunEvent,
   RunViewState,
+  StepNode,
 } from "@/lib/view-model/types";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { ErrorIndicator } from "@/components/app/error-details";
@@ -44,6 +45,8 @@ import {
   mergePriorRunTiming,
   type PriorTimingIndex,
 } from "@/lib/workflow/copied-waterfall-timing";
+
+const EMPTY_STEPS: StepNode[] = [];
 
 const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 
@@ -173,7 +176,9 @@ export function RunWorkspace({
     if (view.status !== "running") {
       return;
     }
-    void fetchChildWorkflowRuns({ data: summary.runId }).then(setPageChildRuns);
+    void fetchChildWorkflowRuns({ data: summary.runId }).then((children) => {
+      setPageChildRuns((prev) => (childRunListsEqual(prev, children) ? prev : children));
+    });
   }, [summary.runId, view.status, events.length]);
 
   const [expandedNestedRunIds, setExpandedNestedRunIds] = useState<Set<string>>(() =>
@@ -183,6 +188,8 @@ export function RunWorkspace({
   const [nestedMessages, setNestedMessages] = useState<Map<string, Promise<PrefetchedRunMessages>>>(
     () => new Map(),
   );
+  const nestedMessagesRef = useRef(nestedMessages);
+  nestedMessagesRef.current = nestedMessages;
   const nestedLoadingRef = useRef(new Set<string>());
   const nestedCacheRef = useRef(nestedCache);
   nestedCacheRef.current = nestedCache;
@@ -350,42 +357,74 @@ export function RunWorkspace({
   const [retryBusy, setRetryBusy] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
+  // Sync URL search → selection. Do not depend on `view.steps` identity: live SSE
+  // rebuilds that array every event and would re-enter this effect in a nested
+  // update loop (max update depth). Read the tree from refs; only re-run when
+  // search changes or a nested tree first becomes available.
+  const treeRef = useRef({ viewSteps: view.steps, nestedByRunId });
+  treeRef.current = { viewSteps: view.steps, nestedByRunId };
+  const selectionRef = useRef({
+    stepId: selectedStepId,
+    episodeId: selectedEpisodeId,
+    ownerRunId: selectedOwnerRunId,
+  });
+  selectionRef.current = {
+    stepId: selectedStepId,
+    episodeId: selectedEpisodeId,
+    ownerRunId: selectedOwnerRunId,
+  };
+  const nestedStepsReady =
+    search.nested != null && (nestedByRunId.get(search.nested)?.view?.steps.length ?? 0) > 0;
+
   useEffect(() => {
+    let nextStep: string | null;
+    let nextEpisode: string | null;
+    let nextOwner: string;
+
     if (search.nested && !search.step && !search.episode) {
-      setSelectedStepId(null);
-      setSelectedEpisodeId(null);
-      setSelectedOwnerRunId(search.nested);
+      nextStep = null;
+      nextEpisode = null;
+      nextOwner = search.nested;
+    } else if (!search.step && !search.episode) {
+      nextStep = null;
+      nextEpisode = null;
+      nextOwner = summary.runId;
+    } else {
+      const ownerId = search.nested ?? summary.runId;
+      const { viewSteps, nestedByRunId: nested } = treeRef.current;
+      // Never fall back to the page run's steps when resolving a nested selection —
+      // wait until the nested view is loaded.
+      const ownerSteps =
+        ownerId === summary.runId ? viewSteps : (nested.get(ownerId)?.view?.steps ?? EMPTY_STEPS);
+      if (search.episode) {
+        const found = findEpisodeInTree(ownerSteps, search.episode);
+        nextStep = found?.step.stepId ?? search.step ?? null;
+        nextEpisode = search.episode;
+        nextOwner = ownerId;
+      } else if (ownerId !== summary.runId && ownerSteps.length === 0) {
+        // Nested view not loaded yet — keep URL step id without parent-tree fallback.
+        nextStep = search.step ?? null;
+        nextEpisode = null;
+        nextOwner = ownerId;
+      } else {
+        nextStep = search.step ?? null;
+        nextEpisode = null;
+        nextOwner = ownerId;
+      }
+    }
+
+    const current = selectionRef.current;
+    if (
+      current.stepId === nextStep &&
+      current.episodeId === nextEpisode &&
+      current.ownerRunId === nextOwner
+    ) {
       return;
     }
-    if (!search.step && !search.episode) {
-      setSelectedStepId(null);
-      setSelectedEpisodeId(null);
-      setSelectedOwnerRunId(summary.runId);
-      return;
-    }
-    const ownerId = search.nested ?? summary.runId;
-    // Never fall back to the page run's steps when resolving a nested selection —
-    // wait until the nested view is loaded.
-    const ownerSteps =
-      ownerId === summary.runId ? view.steps : (nestedByRunId.get(ownerId)?.view?.steps ?? []);
-    if (search.episode) {
-      const found = findEpisodeInTree(ownerSteps, search.episode);
-      setSelectedStepId(found?.step.stepId ?? search.step ?? null);
-      setSelectedEpisodeId(search.episode);
-      setSelectedOwnerRunId(ownerId);
-      return;
-    }
-    if (ownerId !== summary.runId && ownerSteps.length === 0) {
-      // Nested view not loaded yet — keep URL step id without parent-tree fallback.
-      setSelectedStepId(search.step ?? null);
-      setSelectedEpisodeId(null);
-      setSelectedOwnerRunId(ownerId);
-      return;
-    }
-    setSelectedStepId(search.step ?? null);
-    setSelectedEpisodeId(null);
-    setSelectedOwnerRunId(ownerId);
-  }, [search.episode, search.step, search.nested, view, nestedByRunId, summary.runId]);
+    setSelectedStepId(nextStep);
+    setSelectedEpisodeId(nextEpisode);
+    setSelectedOwnerRunId(nextOwner);
+  }, [search.episode, search.step, search.nested, summary.runId, nestedStepsReady]);
 
   const ownerView: RunViewState =
     selectedOwnerRunId === summary.runId
@@ -432,7 +471,7 @@ export function RunWorkspace({
 
   useEffect(() => {
     if (messagesRunId === summary.runId) return;
-    if (nestedMessages.has(messagesRunId)) return;
+    if (nestedMessagesRef.current.has(messagesRunId)) return;
     const promise = fetchMessagesForWorkflowRun({ data: messagesRunId });
     setNestedMessages((prev) => {
       if (prev.has(messagesRunId)) return prev;
@@ -440,7 +479,7 @@ export function RunWorkspace({
       next.set(messagesRunId, promise);
       return next;
     });
-  }, [messagesRunId, summary.runId, nestedMessages]);
+  }, [messagesRunId, summary.runId]);
 
   const activeMessagesPromise =
     messagesRunId === summary.runId

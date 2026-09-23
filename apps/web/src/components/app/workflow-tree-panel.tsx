@@ -315,7 +315,6 @@ export function WorkflowTreePanel({
   const treeScrollRef = useRef<HTMLDivElement>(null);
   const waterfallScrollRef = useRef<HTMLDivElement>(null);
   const scrollbarGutter = useScrollbarGutter(waterfallScrollRef, zoom, rows.length);
-  const waterfallPaneWidth = useWaterfallPaneWidth(waterfallScrollRef, zoom, true);
   useSyncedVerticalScroll(treeScrollRef, waterfallScrollRef, true);
   useWaterfallZoom(waterfallScrollRef, zoom, setZoom, true);
 
@@ -519,12 +518,7 @@ export function WorkflowTreePanel({
             >
               <div
                 className="relative flex min-h-full flex-col"
-                style={{
-                  width:
-                    waterfallPaneWidth > 0
-                      ? waterfallPaneWidth * zoom
-                      : `${Math.max(zoom, 1) * 100}%`,
-                }}
+                style={{ width: `${Math.max(zoom, 1) * 100}%` }}
               >
                 <WaterfallHeader ticks={ticks} retryLinePct={retryLinePct} />
                 <div className="relative z-0 flex min-h-0 flex-1 flex-col">
@@ -1751,8 +1745,11 @@ function WorkflowLoadingPlaceholder() {
 }
 
 function useLiveNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
+  // Start at 0 on both server and client so SSR HTML matches hydration. A real
+  // clock is applied after mount (see hydration mismatch on duration labels).
+  const [now, setNow] = useState(0);
   useEffect(() => {
+    setNow(Date.now());
     if (!active) return;
     const id = window.setInterval(() => {
       startTransition(() => setNow(Date.now()));
@@ -1799,7 +1796,8 @@ function useColumnSplit() {
     const sync = () => {
       setTreeWidth((current) => {
         const fallback = Math.round(el.clientWidth * TREE_COL_DEFAULT_RATIO);
-        return clampTreeWidth(current ?? fallback, el.clientWidth);
+        const next = clampTreeWidth(current ?? fallback, el.clientWidth);
+        return current === next ? current : next;
       });
     };
 
@@ -1925,7 +1923,8 @@ function useScrollbarGutter(
     if (!el) return;
 
     const sync = () => {
-      setGutter(Math.max(0, el.offsetHeight - el.clientHeight));
+      const next = Math.max(0, el.offsetHeight - el.clientHeight);
+      setGutter((prev) => (prev === next ? prev : next));
     };
 
     sync();
@@ -1935,31 +1934,6 @@ function useScrollbarGutter(
   }, [waterfallRef, zoom, rowCount]);
 
   return gutter;
-}
-
-function useWaterfallPaneWidth(
-  waterfallRef: RefObject<HTMLDivElement | null>,
-  zoom: number,
-  enabled: boolean,
-) {
-  const [width, setWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    if (!enabled) return;
-    const el = waterfallRef.current;
-    if (!el) return;
-
-    const sync = () => {
-      setWidth(el.clientWidth);
-    };
-
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [waterfallRef, zoom, enabled]);
-
-  return width;
 }
 
 function useWaterfallZoom(
