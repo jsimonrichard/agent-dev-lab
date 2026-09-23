@@ -51,6 +51,10 @@ export class WorkflowContextImpl implements WorkflowContext {
     this.registry = new StepRegistry(this.registryParentKey);
   }
 
+  /**
+   * `${this.workflowRunId}:${suffix}` — immediate run only; see
+   * {@link WorkflowContext.memoryScopeWithSuffix}.
+   */
   memoryScopeWithSuffix = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
 
   accessedMemoryScopes = (): readonly string[] => [...this.memoryScopes];

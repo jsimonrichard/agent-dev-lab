@@ -122,7 +122,7 @@ await handle.result;
 ```
 
 - **Public API:** `run(input)` for root runs (CLI, UI).
-- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (new `workflowRunId`, `parentWorkflowRunId` set). Pass `{ isolated: true }` for an unlinked persisted run — see [Nested and Isolated Runs](/core/workflows/#nested-and-isolated-runs).
+- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (new `workflowRunId`, `parentWorkflowRunId` set). `memoryScopeWithSuffix` keys that **child** id — see [Nested and Isolated Runs](/core/workflows/#nested-and-isolated-runs). Pass `{ isolated: true }` for an unlinked persisted run.
 - **No `{ project }`** on the execution path.
 
 Nested runs can pass `parentCtx` explicitly:

@@ -218,6 +218,8 @@ Stray `system` messages in `messages` are dropped before the model call (the age
 
 This is **conversation memory**, not workflow resume. The runner `load`s, appends this turn, and `save`s. It does not require a workflow or the same `workflowRunId`. Step retry (skip completed `ctx.step` outputs) is a separate [`WorkflowStore`](/api/interfaces/workflowstore/) path — see [Workflows — Resumability](/core/workflows/#resumability). On a retried step that calls `agent.run` again, both can apply.
 
+Inside a workflow, `ctx.memoryScopeWithSuffix(suffix)` builds `${workflowRunId}:${suffix}` for **that** run. Nested `workflow.run()` calls each have their own `workflowRunId`, so reusing the same suffix in two phases does **not** share history — see [Nested and Isolated Runs](/core/workflows/#nested-and-isolated-runs). Pass an explicit `memoryScope` when the conversation must span phases.
+
 That transcript is one list per `memoryScope`, and it only grows by append. [`MessageStore`](/api/interfaces/messagestore/) is that contract: retry copies the list, and the inspection UI splits turns by its length. A store that summarizes, drops, reorders, or is not a replaceable list is not supported.
 
 ### Run Context

@@ -64,8 +64,13 @@ export interface WorkflowContext {
   step: StepFn;
 
   /**
-   * Build a {@link AgentRunInput.memoryScope} namespaced to this workflow run:
+   * Build a {@link AgentRunInput.memoryScope} namespaced to **this** workflow run:
    * `${workflowRunId}:${suffix}`.
+   *
+   * Uses the immediate run's id, not the root of a nest tree. Nested
+   * `workflow.run()` calls each get their own `workflowRunId`, so the same
+   * suffix in two phases is two conversations. Pass an explicit stable scope
+   * when a transcript must span phases.
    */
   readonly memoryScopeWithSuffix: (suffix: string) => string;
 
