@@ -23,7 +23,7 @@
     "ci:publish": "bash ../../scripts/ci-publish.sh",
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test && playwright test -c playwright.fresh-project.config.ts"
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",

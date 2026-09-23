@@ -18,9 +18,10 @@ export default defineConfig({
   testMatch: "**/*.spec.ts",
   // Local INP benches (`*.bench.spec.ts`) stay out of CI/`test:e2e`.
   // Opt in: `ADL_INP_BENCH=1 bunx playwright test e2e/workflow-tree-inp.bench.spec.ts`
+  // Packed fresh-project suite uses playwright.fresh-project.config.ts (own dashboard).
   testIgnore: process.env.ADL_INP_BENCH
-    ? ["**/fixture/**"]
-    : ["**/fixture/**", "**/*.bench.spec.ts"],
+    ? ["**/fixture/**", "**/fresh-project/**"]
+    : ["**/fixture/**", "**/*.bench.spec.ts", "**/fresh-project/**"],
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
