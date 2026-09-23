@@ -1,5 +1,30 @@
 # @agent-dev-lab/web
 
+## 0.0.6
+
+### Patch Changes
+
+- 7c832ef: The dashboard fills the in-memory event log from the store once per process, not on every request.
+- d065606: Expanding or selecting another nest no longer cancels in-flight fetches for a nested run.
+- daacb4a: Selecting a nested run shows a loading skeleton instead of flashing "No input recorded".
+- c2f8ffa: A nested run shows a spinner on its expand chevron while children load, instead of a placeholder row.
+- 2b713d9: Nested `workflow.run()` gets its own `workflowRunId` and `parentWorkflowRunId`. The run list defaults to roots, with a Non-Root toggle. Custom `WorkflowStore`s must add `listDescendantRuns`. Cancel on a nested id aborts the active root.
+- 0f7ae59: Nested runs show in the tree and waterfall under the calling step, or under the workflow row when called at the root. `parentStepId` is set when the call is inside `ctx.step`.
+- 1a6945f: Bump `radix-ui` to ^1.6.7 so FocusScope/DismissableLayer compose refs stay stable under React 19 (stops the setRef Maximum update depth variant on ScrollArea / menus / context menus).
+- 8512b15: Retry and Retry from here seed a new attempt; the prior run stays listed. Retry is hidden while that forest is still running. Copied steps link to the original. The waterfall keeps prior durations as a dimmer bar in that row's color (workflow, step, or agent). A line marks the retry point; time past it has a dashed border, and a parent bar that already covered that point starts from the prior attempt.
+- 37ef304: Stop the workflow run page from calling `router.invalidate()` on loader-seeded lifecycle events (that rebuilt `initialEvents`, reset the live event list, and looped until max update depth).
+- cb7c10c: Stop residual max-update-depth loops on the workflow run page: URL→selection sync no longer depends on live `view.steps` identity (SSE rebuilt that array every event); nested message prefetch no longer lists its Map in effect deps; drop the waterfall `clientWidth`→pixel-width ResizeObserver feedback loop; stabilize JSON validity reporters; hydrate live duration labels with a stable clock (`0` until mount) so SSR matches the client. Adds a `tick-burst` Playwright regression.
+- a00bb80: The step conversation inspector no longer flashes "No conversation recorded." between streamed text and the stored transcript.
+- d76bb17: Sidebars and inspect panels show provider-reported input and output tokens. "This call" appears only for the episode opened with `?call=`.
+- 8512b15: The start-workflow form edits the whole input as a document or as raw JSON. Parse errors show on submit, not while typing.
+- Updated dependencies [12a811c]
+- Updated dependencies [d76bb17]
+- Updated dependencies [7c832ef]
+- Updated dependencies [183807f]
+- Updated dependencies [2b713d9]
+- Updated dependencies [0f7ae59]
+  - @agent-dev-lab/core@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes
