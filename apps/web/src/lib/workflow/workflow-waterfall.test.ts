@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { AgentEpisode, InspectorRunSummary, StepNode } from "../view-model/types";
 import {
   computeStepWaterfallBar,
+  computeWaterfallBar,
   computeWaterfallScale,
   flattenWorkflowRows,
   formatDuration,
@@ -204,6 +205,13 @@ describe("computeWaterfallScale + bars", () => {
     const runningBar = computeStepWaterfallBar(running, scale, nowMs);
     expect(runningBar?.leftPct).toBeCloseTo(25);
     expect(runningBar?.widthPct).toBeCloseTo(75);
+  });
+
+  it("keeps truthful durationMs for a short positive span (visibility is CSS min-width)", () => {
+    const scale = { originMs: originMs, spanMs: 60_000 };
+    const bar = computeWaterfallBar({ startMs: originMs, endMs: originMs + 2 }, scale);
+    expect(bar.durationMs).toBe(2);
+    expect(bar.widthPct).toBeCloseTo((2 / 60_000) * 100);
   });
 });
 

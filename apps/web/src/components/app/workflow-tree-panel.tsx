@@ -1538,6 +1538,9 @@ function CollapseToggle({
  */
 type WaterfallKind = "workflow" | "step" | "agent";
 
+/** Layout-only floor so sub-pixel % widths stay visible; does not pad stored durations. */
+const WATERFALL_BAR_MIN_WIDTH_PX = 4;
+
 const WATERFALL_KIND_CLASS: Record<
   WaterfallKind,
   { real: string; copied: string; afterAnchor: string; running: string; edge: string }
@@ -1611,6 +1614,7 @@ function WaterfallTrack({
           style={{
             left: `${bar.continuation.leftPct}%`,
             width: `${bar.continuation.widthPct}%`,
+            minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
           }}
           aria-hidden
         />
@@ -1626,6 +1630,7 @@ function WaterfallTrack({
           style={{
             left: `${bar.copiedPrefix.leftPct}%`,
             width: `${bar.copiedPrefix.widthPct}%`,
+            minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
           }}
           aria-hidden
         />
@@ -1642,7 +1647,11 @@ function WaterfallTrack({
             !bar.copied && status === "completed" && tone.real,
             !bar.copied && status === "failed" && "bg-destructive/55",
           )}
-          style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%` }}
+          style={{
+            left: `${bar.leftPct}%`,
+            width: `${bar.widthPct}%`,
+            minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
+          }}
         >
           {!bar.copied && status === "running" ? (
             <span className={cn("absolute inset-y-0 right-0 w-0.5 rounded-r-sm", tone.edge)} />
