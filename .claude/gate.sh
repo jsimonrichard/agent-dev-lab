@@ -184,7 +184,9 @@ run_checks() {
   # CI runs this too; keep the gate in step or the gate can pass where CI fails.
   step "test:node"    bun run test:node    || return 1
   step "build"        bun run build        || return 1
-  step "test:e2e"     bun run test:e2e     || return 1
+  # Ephemeral Playwright port so parallel tsk lanes / agents do not fight over 3100.
+  # Override with ADL_E2E_PORT=<port> (or leave unset outside the gate for the 3100 default).
+  step "test:e2e"     env ADL_E2E_PORT="${ADL_E2E_PORT:-0}" bun run test:e2e || return 1
 }
 
 if declare -F preflight >/dev/null 2>&1; then

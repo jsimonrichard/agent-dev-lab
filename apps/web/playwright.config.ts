@@ -5,12 +5,14 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "@playwright/test";
 
+import { resolveE2ePort } from "./e2e/resolve-e2e-port";
+
 const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = path.join(webRoot, "e2e/fixture");
 const sqliteDir = mkdtempSync(path.join(tmpdir(), "adl-web-e2e-"));
 const sqlitePath = path.join(sqliteDir, "agent-dev-lab.sqlite");
 
-const port = 3100;
+const { port, ephemeral } = resolveE2ePort();
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
@@ -39,7 +41,8 @@ export default defineConfig({
     command: `bun --bun vite dev --host 127.0.0.1 --port ${port} --strictPort`,
     cwd: webRoot,
     url: `${baseURL}/api/project`,
-    reuseExistingServer: !process.env.CI,
+    // Ephemeral ports must not reuse an unrelated listener (parallel lanes).
+    reuseExistingServer: !process.env.CI && !ephemeral,
     timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",
@@ -50,6 +53,8 @@ export default defineConfig({
       ADL_SQLITE_PATH: sqlitePath,
       ADL_PROJECT_WATCH: "0",
       PORT: String(port),
+      // Pin for any child that re-imports this config (webServer inherits env).
+      ...(ephemeral ? { ADL_E2E_RESOLVED_PORT: String(port) } : {}),
       BROWSER: "none",
       NO_COLOR: "1",
     },

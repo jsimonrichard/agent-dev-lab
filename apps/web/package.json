@@ -22,7 +22,7 @@
     "start-node": "node .output/server/index.mjs",
     "ci:publish": "bash ../../scripts/ci-publish.sh",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src",
+    "test": "bun test src e2e/resolve-e2e-port.test.ts",
     "test:e2e": "playwright test && playwright test -c playwright.fresh-project.config.ts"
   },
   "dependencies": {
