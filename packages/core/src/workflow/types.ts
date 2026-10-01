@@ -47,6 +47,12 @@ export interface WorkflowContext {
    * `null` for top-level and `{ isolated: true }` runs.
    */
   readonly parentWorkflowRunId: string | null;
+  /**
+   * Outermost run id of this nest tree. Equals {@link workflowRunId} when
+   * {@link parentWorkflowRunId} is `null` (top-level and `{ isolated: true }`).
+   * Nested contexts inherit the parent's value — no store walk.
+   */
+  readonly rootWorkflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -64,15 +70,22 @@ export interface WorkflowContext {
   step: StepFn;
 
   /**
-   * Build a {@link AgentRunInput.memoryScope} namespaced to **this** workflow run:
-   * `${workflowRunId}:${suffix}`.
+   * Build a {@link AgentRunInput.memoryScope} namespaced to the **root** of this
+   * nest tree: `${rootWorkflowRunId}:${suffix}`.
    *
-   * Uses the immediate run's id, not the root of a nest tree. Nested
-   * `workflow.run()` calls each get their own `workflowRunId`, so the same
-   * suffix in two phases is two conversations. Pass an explicit stable scope
-   * when a transcript must span phases.
+   * Nested `workflow.run()` phases that share a suffix therefore share one
+   * transcript. Use {@link runLocalScope} when the conversation must stay on
+   * this immediate run only. `{ isolated: true }` starts its own root, so its
+   * scopes do not join the caller's tree.
    */
   readonly memoryScopeWithSuffix: (suffix: string) => string;
+
+  /**
+   * Build a {@link AgentRunInput.memoryScope} namespaced to **this** workflow run:
+   * `${workflowRunId}:${suffix}`. Nested phases with the same suffix get separate
+   * conversations. Prefer {@link memoryScopeWithSuffix} for cross-phase agents.
+   */
+  readonly runLocalScope: (suffix: string) => string;
 
   /**
    * Scopes this frame has loaded, saved, copied, or deleted through the runtime

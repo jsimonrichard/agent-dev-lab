@@ -99,7 +99,7 @@ ALS **is** used for:
 `WorkflowContext` is a **host object**. `step` and `emit` close over parent services, `workflowRunId`, and step registry.
 
 - Child contexts are built from the **parent host** when `ctx.step("name", async ({ ctx }) => …)` runs.
-- `step`, `emit`, `setTitle`, and `memoryScopeWithSuffix` are bound on the context instance, so `const { step } = ctx` is safe.
+- `step`, `emit`, `setTitle`, `memoryScopeWithSuffix`, and `runLocalScope` are bound on the context instance, so `const { step } = ctx` is safe.
   Inside a workflow step (`researcher` defined in registry; `query` from workflow input):
 
 ```ts
@@ -122,7 +122,7 @@ await handle.result;
 ```
 
 - **Public API:** `run(input)` for root runs (CLI, UI).
-- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (new `workflowRunId`, `parentWorkflowRunId` set). `memoryScopeWithSuffix` keys that **child** id — see [Nested and Isolated Runs](/core/workflows/#nested-and-isolated-runs). Pass `{ isolated: true }` for an unlinked persisted run.
+- **Author API:** inside a workflow, `otherWorkflow.run(input)` **nests** via ALS (new `workflowRunId`, `parentWorkflowRunId` / `rootWorkflowRunId` on live `ctx`). `memoryScopeWithSuffix` keys the **root** id; `runLocalScope` keys the child — see [Nested and Isolated Runs](/core/workflows/#nested-and-isolated-runs). Pass `{ isolated: true }` for an unlinked persisted run.
 - **No `{ project }`** on the execution path.
 
 Nested runs can pass `parentCtx` explicitly:

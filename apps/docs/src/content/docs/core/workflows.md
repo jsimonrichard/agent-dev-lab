@@ -49,9 +49,16 @@ To expose an agent as a workflow that takes a **string** user message, use `adl.
 
 By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via ALS (or explicit `parentCtx`), allocates a **new** `workflowRunId`, and records `parentWorkflowRunId` on the child (plus `parentStepId` when the call happens inside an active `ctx.step`). The child's steps and agents bind to the child run (own step cache and event stream). Abort is linked to the parent.
 
-**`memoryScopeWithSuffix` follows that id.** `ctx.memoryScopeWithSuffix(suffix)` is `${workflowRunId}:${suffix}` for **this** run — not the root of the nest tree. Earlier releases let nested runs inherit the parent's `workflowRunId`, so the same suffix across phases accidentally shared one [`MessageStore`](/api/interfaces/messagestore/) transcript. With a distinct id per nest, each phase opens a **separate** conversation for that suffix. Nothing fails; the agent simply does not remember earlier phases. When a transcript must span phases, pass an explicit stable `memoryScope` (for example a project-level key) instead of the helper, or build the string from a parent id you control.
+Live context fields mirror the store link: nested bodies see `ctx.parentWorkflowRunId` set to the caller's run id and `ctx.rootWorkflowRunId` set to the outermost run in the nest tree. Top-level and `{ isolated: true }` runs have `parentWorkflowRunId === null` and `rootWorkflowRunId === workflowRunId`. `ctx.stepId` is still `null` at every workflow body root — including nested ones — so it does **not** mean “this invocation is the entry point.” Gate root-only behavior (for example `setTitle`) on `ctx.parentWorkflowRunId === null`.
 
-`ctx.stepId` is still `null` at every workflow body root — including nested ones — so it does not mean “this invocation is the entry point.” Use `parentWorkflowRunId` on store rows / events when you need that distinction; a live context field for it is not shipped yet.
+**Memory helpers:**
+
+| Helper                          | Formula                          | Use when                                     |
+| ------------------------------- | -------------------------------- | -------------------------------------------- |
+| `memoryScopeWithSuffix(suffix)` | `${rootWorkflowRunId}:${suffix}` | Cross-phase agents in a nest tree (default)  |
+| `runLocalScope(suffix)`         | `${workflowRunId}:${suffix}`     | Conversation must stay on this immediate run |
+
+`{ isolated: true }` starts its own root, so its `memoryScopeWithSuffix` scopes do not join the caller's tree.
 
 `{ isolated: true }` starts an **unlinked** run (no parent pointer):
 
@@ -59,7 +66,8 @@ By default, `otherWorkflow.run(input)` **nests**: it joins the active parent via
 | --------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Parent          | Joins ALS / `parentCtx`                                                                                         | Ignores parent                                               |
 | `workflowRunId` | New id                                                                                                          | New id                                                       |
-| Parent link     | `parentWorkflowRunId` = parent's id                                                                             | `null`                                                       |
+| Parent link     | `parentWorkflowRunId` = parent's id (also on live `ctx`)                                                        | `null`                                                       |
+| Root id         | `rootWorkflowRunId` = outermost nest id                                                                         | Equals this run's `workflowRunId`                            |
 | Step link       | `parentStepId` = calling step, or `null` at workflow root                                                       | `null`                                                       |
 | Persistence     | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/)                                                    | Own row on [`WorkflowStore`](/api/interfaces/workflowstore/) |
 | Inspector       | Inline under the calling step (or under the workflow row when called at root); expand to load the child's steps | Own tree; not in another run's child list                    |
@@ -147,10 +155,10 @@ for (const topic of topics) {
 On retry, that store is also how a **skipped** step keeps its transcript available:
 
 1. While a step runs, ADL records each scope the message store loads, saves, copies, or deletes, plus the transcript in that scope when the step finishes.
-2. If the new attempt **skips** that step, those recorded transcripts are written onto this attempt's `${workflowRunId}:${suffix}` scopes (`memoryScopeWithSuffix`) — the scope as it was **before** the retried step.
-3. Later writes on the prior attempt stay on that attempt. A scope id the workflow chose itself (not via `memoryScopeWithSuffix`) is not copied; it stays on that same row.
+2. If the new attempt **skips** that step, those recorded transcripts are written onto this attempt's matching `${rootWorkflowRunId}:${suffix}` / `${workflowRunId}:${suffix}` scopes (`memoryScopeWithSuffix` / `runLocalScope`) — the scope as it was **before** the retried step.
+3. Later writes on the prior attempt stay on that attempt. A scope id the workflow chose itself (not via those helpers) is not copied; it stays on that same row.
 
-`memoryScopeWithSuffix` always uses the **immediate** run's `workflowRunId` (see [Nested and Isolated Runs](#nested-and-isolated-runs)). Retry attempt ids and nested phase ids both change that prefix.
+`memoryScopeWithSuffix` keys the **root** of the nest tree; `runLocalScope` keys the **immediate** run (see [Nested and Isolated Runs](#nested-and-isolated-runs)). A new attempt gets a new root id, so both helpers name new scopes until a skipped step restores prior transcripts.
 
 What that means for an `agent.run` inside a skipped vs re-run step is under [Agents on Retry](#agents-on-retry).
 
@@ -260,6 +268,8 @@ When the step **re-runs**, `agent.run` executes again and typically **loads** wh
 ```ts
 type WorkflowContext = {
   readonly workflowRunId: string;
+  readonly parentWorkflowRunId: string | null;
+  readonly rootWorkflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -267,12 +277,13 @@ type WorkflowContext = {
 
   step: StepFn;
   memoryScopeWithSuffix: (suffix: string) => string;
+  runLocalScope: (suffix: string) => string;
   emit(name: string, payload?: unknown): void;
   setTitle(title: string): Promise<void>;
 };
 ```
 
-`memoryScopeWithSuffix(suffix)` → `` `${workflowRunId}:${suffix}` `` for **this** run (see [Nested and Isolated Runs](#nested-and-isolated-runs)). `stepId` is `null` for the workflow body whether or not a parent run exists.
+`memoryScopeWithSuffix(suffix)` → `` `${rootWorkflowRunId}:${suffix}` ``. `runLocalScope(suffix)` → `` `${workflowRunId}:${suffix}` `` (see [Nested and Isolated Runs](#nested-and-isolated-runs)). `stepId` is `null` for the workflow body whether or not a parent run exists; use `parentWorkflowRunId === null` for “I am the entry-point (or isolated) invocation.”
 
 ```ts
 const handle = workflow.run(input);
@@ -285,7 +296,7 @@ handle.cancel();
 
 ### Run Titles
 
-`ctx.setTitle(title)` sets the inspector display name for **this** workflow run (`workflowRunId` on the context). Nested runs have their own row, so a nested `setTitle` retitles the child, not the parent. There is no context flag for “I am the entry-point invocation”; `stepId === null` is true for every workflow body root, nested or not. Gate titles on your own convention (for example only call `setTitle` from registered entry workflows) until a parent-run field lands on the context.
+`ctx.setTitle(title)` sets the inspector display name for **this** workflow run (`workflowRunId` on the context). Nested runs have their own row, so a nested `setTitle` retitles the child, not the parent. Gate titles on `ctx.parentWorkflowRunId === null` when a phase should title itself only when started standalone.
 
 ```ts
 export const literatureReview = adl.createWorkflow({

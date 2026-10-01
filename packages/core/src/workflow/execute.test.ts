@@ -95,10 +95,18 @@ describe("workflow.run", () => {
   it("nests under the active workflow context when parentCtx is omitted", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    let parentRootId: string | undefined;
     const child = createWorkflow(runtime, {
       id: "child",
       run: async (_input, ctx) => {
         expect(ctx.parentWorkflowRunId).toBeTruthy();
+        if (parentRootId === undefined) {
+          throw new Error("expected parent root id before nested run");
+        }
+        expect(ctx.rootWorkflowRunId).toBe(parentRootId);
+        expect(ctx.rootWorkflowRunId).not.toBe(ctx.workflowRunId);
+        expect(ctx.memoryScopeWithSuffix("shared")).toBe(`${parentRootId}:shared`);
+        expect(ctx.runLocalScope("shared")).toBe(`${ctx.workflowRunId}:shared`);
         return { nested: true };
       },
     });
@@ -107,6 +115,8 @@ describe("workflow.run", () => {
       id: "parent",
       run: async (_input, ctx) => {
         expect(ctx.parentWorkflowRunId).toBeNull();
+        expect(ctx.rootWorkflowRunId).toBe(ctx.workflowRunId);
+        parentRootId = ctx.workflowRunId;
         return ctx.step("invoke-child", async () => {
           const handle = child.run({});
           childRunId = handle.workflowRunId;
@@ -129,6 +139,98 @@ describe("workflow.run", () => {
     const parentRun = await store.getRun(parentHandle.workflowRunId);
     expect(parentRun?.workflowId).toBe("parent");
     expect(parentRun?.parentWorkflowRunId).toBeNull();
+  });
+
+  it("shares memoryScopeWithSuffix across nest phases; runLocalScope stays per-run", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    const messageStore = runtime.services.stores.message;
+
+    const phase = createWorkflow(runtime, {
+      id: "phase",
+      run: async (input: { label: string }, ctx) => {
+        const shared = ctx.memoryScopeWithSuffix("thread");
+        const local = ctx.runLocalScope("thread");
+        const prior = await messageStore.load(shared);
+        await messageStore.save(shared, [
+          ...prior,
+          { role: "user", content: `shared:${input.label}` },
+        ]);
+        await messageStore.save(local, [{ role: "user", content: `local:${input.label}` }]);
+        return {
+          shared,
+          local,
+          sharedMessages: await messageStore.load(shared),
+        };
+      },
+    });
+
+    let rootId: string | undefined;
+    let phaseALocal: string | undefined;
+    let phaseBLocal: string | undefined;
+    const parent = createWorkflow(runtime, {
+      id: "pipeline",
+      run: async (_input, ctx) => {
+        rootId = ctx.workflowRunId;
+        const a = await phase.run({ label: "a" }).result;
+        const b = await phase.run({ label: "b" }).result;
+        phaseALocal = a.local;
+        phaseBLocal = b.local;
+        expect(a.shared).toBe(`${rootId}:thread`);
+        expect(b.shared).toBe(`${rootId}:thread`);
+        expect(a.local).not.toBe(b.local);
+        expect(b.sharedMessages).toEqual([
+          { role: "user", content: "shared:a" },
+          { role: "user", content: "shared:b" },
+        ]);
+        return { ok: true };
+      },
+    });
+
+    await parent.run({}).result;
+    if (rootId === undefined || phaseALocal === undefined || phaseBLocal === undefined) {
+      throw new Error("expected root and phase-local scopes after pipeline run");
+    }
+    expect(await messageStore.load(`${rootId}:thread`)).toEqual([
+      { role: "user", content: "shared:a" },
+      { role: "user", content: "shared:b" },
+    ]);
+    expect(await messageStore.load(phaseALocal)).toEqual([{ role: "user", content: "local:a" }]);
+    expect(await messageStore.load(phaseBLocal)).toEqual([{ role: "user", content: "local:b" }]);
+  });
+
+  it("keeps isolated helpers on their own root for memory scopes", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({ stores: { workflow: store }, loadEnv: false });
+    let parentRoot: string | undefined;
+    let isolatedRoot: string | undefined;
+    let isolatedShared: string | undefined;
+    const helper = createWorkflow(runtime, {
+      id: "helper",
+      run: async (_input, ctx) => {
+        expect(ctx.parentWorkflowRunId).toBeNull();
+        expect(ctx.rootWorkflowRunId).toBe(ctx.workflowRunId);
+        isolatedRoot = ctx.rootWorkflowRunId;
+        isolatedShared = ctx.memoryScopeWithSuffix("thread");
+        return { ok: true };
+      },
+    });
+    const parent = createWorkflow(runtime, {
+      id: "parent",
+      run: async (_input, ctx) => {
+        parentRoot = ctx.workflowRunId;
+        await helper.run({}, { isolated: true }).result;
+        expect(ctx.memoryScopeWithSuffix("thread")).toBe(`${parentRoot}:thread`);
+        return {};
+      },
+    });
+
+    await parent.run({}).result;
+    if (parentRoot === undefined || isolatedRoot === undefined || isolatedShared === undefined) {
+      throw new Error("expected parent and isolated roots after run");
+    }
+    expect(isolatedRoot).not.toBe(parentRoot);
+    expect(isolatedShared).toBe(`${isolatedRoot}:thread`);
   });
 
   it("records parentStepId when nested inside ctx.step", async () => {

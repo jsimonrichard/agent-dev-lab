@@ -1,6 +1,6 @@
 # Retry side effects (deferred)
 
-**Status:** Run-scoped message carry is implemented. File edits and the `WorkflowStore` revisit are not. Last reconciled: **2026-09-22**.
+**Status:** Run-scoped message carry is implemented. File edits and the `WorkflowStore` revisit are not. Last reconciled: **2026-10-01**.
 
 Attempt lineage copies workflow projections. It does not carry a step's other mutations onto the new attempt. This note is that gap. The shipped retry contract stays in the [workflows guide](../apps/docs/src/content/docs/core/workflows.md#resumability).
 
@@ -8,9 +8,9 @@ Attempt lineage copies workflow projections. It does not carry a step's other mu
 
 `seedRetryAttempt` writes run and step projections (`materializeAttemptRun`, `materializeAttemptStep`): outputs, paths, `pure`, `replayOf*` links, the scopes that step accessed, and the transcript in each scope when the step finished. It does not call `MessageStore.copy`. The restore happens when the new attempt **skips** the step: that recorded transcript is saved onto `${newRunId}:${suffix}`. A later skipped step overwrites the same suffix, so the attempt gets the scope as it was before the retried step. The live prior scope is not read and is not changed. A scope id that does not start with a prior run id stays on that same row.
 
-`ctx.memoryScopeWithSuffix(suffix)` is `${workflowRunId}:${suffix}` for **this** run. The new attempt has a new `workflowRunId`, so the helper names a new scope. The skipped step's transcript is what fills it. A step that re-executes does not get that copy; it starts on the empty new scope.
+`ctx.memoryScopeWithSuffix(suffix)` is `${rootWorkflowRunId}:${suffix}` for the nest-tree root; `ctx.runLocalScope(suffix)` is `${workflowRunId}:${suffix}` for this run. A new attempt has a new root (and run) id, so both helpers name new scopes. The skipped step's transcript is what fills a retargeted `${priorRunId}:…` scope. A step that re-executes does not get that copy; it starts on the empty new scope.
 
-The same formula applies across **nested** runs: each nest has its own `workflowRunId`, so a suffix shared by name across phases is **not** one conversation. That used to work only when nested runs inherited the parent's id. Open product question (root-scoped helper vs run-local): [`nested-run-followups.md`](./nested-run-followups.md).
+Cross-phase agents that share a suffix via `memoryScopeWithSuffix` share one conversation across nest phases. Use `runLocalScope` when the transcript must stay on one phase. See [`nested-run-followups.md`](./nested-run-followups.md).
 
 ## Messages on a reused scope
 

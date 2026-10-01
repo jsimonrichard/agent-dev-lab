@@ -11,6 +11,7 @@ import { retargetMemoryScope, type RetryAttempt } from "./retry-attempt";
 export type WorkflowContextOptions = {
   workflowRunId: string;
   parentWorkflowRunId: string | null;
+  rootWorkflowRunId: string;
   services: RuntimeServices;
   stepId: string | null;
   parentStepId: string | null;
@@ -24,6 +25,7 @@ export type WorkflowContextOptions = {
 export class WorkflowContextImpl implements WorkflowContext {
   readonly workflowRunId: string;
   readonly parentWorkflowRunId: string | null;
+  readonly rootWorkflowRunId: string;
   readonly stepId: string | null;
   readonly stepPath: string[];
   readonly parentStepId: string | null;
@@ -40,6 +42,7 @@ export class WorkflowContextImpl implements WorkflowContext {
   constructor(options: WorkflowContextOptions) {
     this.workflowRunId = options.workflowRunId;
     this.parentWorkflowRunId = options.parentWorkflowRunId;
+    this.rootWorkflowRunId = options.rootWorkflowRunId;
     this.services = options.services;
     this.stepId = options.stepId;
     this.parentStepId = options.parentStepId;
@@ -52,10 +55,16 @@ export class WorkflowContextImpl implements WorkflowContext {
   }
 
   /**
-   * `${this.workflowRunId}:${suffix}` — immediate run only; see
+   * `${this.rootWorkflowRunId}:${suffix}` — nest-tree root; see
    * {@link WorkflowContext.memoryScopeWithSuffix}.
    */
-  memoryScopeWithSuffix = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
+  memoryScopeWithSuffix = (suffix: string): string => `${this.rootWorkflowRunId}:${suffix}`;
+
+  /**
+   * `${this.workflowRunId}:${suffix}` — immediate run only; see
+   * {@link WorkflowContext.runLocalScope}.
+   */
+  runLocalScope = (suffix: string): string => `${this.workflowRunId}:${suffix}`;
 
   accessedMemoryScopes = (): readonly string[] => [...this.memoryScopes];
 
@@ -272,6 +281,7 @@ export function createChildWorkflowContext(
   return new WorkflowContextImpl({
     workflowRunId: parent.workflowRunId,
     parentWorkflowRunId: parent.parentWorkflowRunId,
+    rootWorkflowRunId: parent.rootWorkflowRunId,
     services: parent.services,
     stepId: step.stepId,
     parentStepId: step.parentStepId,
@@ -297,6 +307,7 @@ export function refreshWorkflowContext(
   return new WorkflowContextImpl({
     workflowRunId: impl.workflowRunId,
     parentWorkflowRunId: impl.parentWorkflowRunId,
+    rootWorkflowRunId: impl.rootWorkflowRunId,
     services,
     stepId: impl.stepId,
     parentStepId: impl.parentStepId,

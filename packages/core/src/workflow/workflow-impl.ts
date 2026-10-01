@@ -96,6 +96,9 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
 
     const parentWorkflowRunId = parentCtx?.workflowRunId ?? null;
     const parentStepId = parentCtx?.stepId ?? null;
+    const rootWorkflowRunId = parentCtx
+      ? (parentCtx as WorkflowContextImpl).rootWorkflowRunId
+      : workflowRunId;
 
     let parsedInput = input as unknown as TInput;
     if (this.definition.inputSchema) {
@@ -116,6 +119,7 @@ export class WorkflowImpl<TInput, TOutput, TRawInput = TInput> implements Workfl
     const rootCtx = createWorkflowContext({
       workflowRunId,
       parentWorkflowRunId,
+      rootWorkflowRunId,
       services: effectiveServices,
       stepId: null,
       parentStepId: null,
