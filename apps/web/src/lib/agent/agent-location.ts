@@ -3,14 +3,26 @@ export function parseAgentLocation(pathname: string): {
   runId?: string;
 } {
   const runMatch = pathname.match(/^\/agent\/([^/]+)\/run\/([^/]+)/);
-  if (runMatch) {
-    return { agentId: runMatch[1], runId: runMatch[2] };
+  if (runMatch?.[1] && runMatch[2]) {
+    return {
+      agentId: decodePathSegment(runMatch[1]),
+      runId: decodePathSegment(runMatch[2]),
+    };
   }
   const agentMatch = pathname.match(/^\/agent\/([^/]+)/);
   if (agentMatch?.[1]) {
-    return { agentId: agentMatch[1] };
+    return { agentId: decodePathSegment(agentMatch[1]) };
   }
   return {};
+}
+
+/** Decode a path segment; leave the raw string if it is not valid URI encoding. */
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 export type AgentRunSearch = {

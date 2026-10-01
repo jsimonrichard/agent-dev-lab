@@ -41,6 +41,7 @@ import {
   linkAgentCallId,
   listAgentSessions,
   registerAgentSession,
+  registerAgentSessionFromEpisode,
   registerForkSession,
   renameAgentSessionTitle,
   sessionDisplayTitle,
@@ -54,6 +55,7 @@ import {
   formatInputPreview,
   mapWorkflowRunStatus,
 } from "#/lib/event-log/event-adapter";
+import { createOnceAsync } from "#/lib/once-async";
 import { registerShutdownRunHooks } from "#/lib/server-shutdown.server";
 import type { InspectorRunSummary, InspectorMessage, JsonValue } from "#/lib/view-model/types";
 import { describeWorkflowInput, sampleWorkflowInput } from "#/lib/workflow/workflow-input-schema";
@@ -78,7 +80,6 @@ const activeAgentTurns = new Map<
     result: Promise<unknown>;
   }
 >();
-let sessionsHydrated = false;
 
 function activeRunCount(): number {
   return activeWorkflowRuns.size + activeAgentTurns.size;
@@ -117,11 +118,12 @@ async function inspectorSessionStore() {
   return sqliteConversationMetadataStore({ path: resolveAdlSqlitePath(project.root) });
 }
 
-async function ensureSessionsHydrated(): Promise<void> {
-  if (sessionsHydrated) {
-    return;
-  }
-  sessionsHydrated = true;
+/**
+ * Cold-start session index. Must not latch "done" before episode registration —
+ * concurrent conversation loaders used to return early and 404 workflow-linked
+ * scopes (`${workflowRunId}:suffix`) that only exist as episodes, not metadata.
+ */
+const ensureSessionsHydrated = createOnceAsync(async () => {
   const project = await getLoadedAdlProject();
   const listedAgentIds = new Set(project.listAgentIds());
   const sessionsStore = await inspectorSessionStore();
@@ -138,23 +140,31 @@ async function ensureSessionsHydrated(): Promise<void> {
     if (!listedAgentIds.has(episode.agentId)) {
       continue;
     }
-    const existing = getAgentSessionByMemoryScope(episode.memoryScope);
-    if (existing) {
-      if (episode.workflowRunId) {
-        existing.workflowRunId = episode.workflowRunId;
-      }
-      continue;
-    }
-    registerAgentSession({
-      agentCallId: episode.agentCallId,
-      agentId: episode.agentId,
-      memoryScope: episode.memoryScope,
-      title: `Chat · ${episode.agentId}`,
-      createdAt: episode.startedAt,
-      updatedAt: episode.startedAt,
-      workflowRunId: episode.workflowRunId,
-    });
+    registerAgentSessionFromEpisode(episode);
   }
+});
+
+/** Prefer an existing session; otherwise rebuild from the authoritative episode table. */
+async function resolveSessionForMemoryScope(
+  memoryScope: string,
+): Promise<AgentSession | undefined> {
+  await ensureSessionsHydrated();
+  const existing = getAgentSessionByMemoryScope(memoryScope);
+  if (existing) {
+    return existing;
+  }
+
+  const project = await getLoadedAdlProject();
+  const listedAgentIds = new Set(project.listAgentIds());
+  const store = await getWorkflowStore();
+  // listAgentEpisodes is newest-first; reverse so first writer owns the session.
+  const episodes = (await store.listAgentEpisodes())
+    .filter((episode) => episode.memoryScope === memoryScope && listedAgentIds.has(episode.agentId))
+    .reverse();
+  for (const episode of episodes) {
+    registerAgentSessionFromEpisode(episode);
+  }
+  return getAgentSessionByMemoryScope(memoryScope);
 }
 
 async function inspectorAgentSettingsStore() {
@@ -669,8 +679,7 @@ export async function resolveAgentConversation(
   memoryScope: string,
   options?: { agentId?: string },
 ) {
-  await ensureSessionsHydrated();
-  const session = getAgentSessionByMemoryScope(memoryScope);
+  const session = await resolveSessionForMemoryScope(memoryScope);
   if (!session) {
     return null;
   }

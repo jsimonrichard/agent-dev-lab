@@ -156,6 +156,35 @@ export function registerAgentSession(session: AgentSession): void {
   byAgentCallId.set(session.agentCallId, session);
 }
 
+/**
+ * Open or refresh a session from a persisted agent episode (cold start / lookup).
+ * First writer owns a shared memoryScope; later episodes only attach workflowRunId.
+ */
+export function registerAgentSessionFromEpisode(episode: {
+  agentCallId: string;
+  agentId: string;
+  memoryScope: string;
+  startedAt: string;
+  workflowRunId?: string | null;
+}): void {
+  const existing = byMemoryScope.get(episode.memoryScope);
+  if (existing) {
+    if (episode.workflowRunId) {
+      existing.workflowRunId = episode.workflowRunId;
+    }
+    return;
+  }
+  registerAgentSession({
+    agentCallId: episode.agentCallId,
+    agentId: episode.agentId,
+    memoryScope: episode.memoryScope,
+    title: `Chat · ${episode.agentId}`,
+    createdAt: episode.startedAt,
+    updatedAt: episode.startedAt,
+    ...(episode.workflowRunId ? { workflowRunId: episode.workflowRunId } : {}),
+  });
+}
+
 export function hydrateInspectorSessions(records: ConversationMetadataRecord[]): void {
   for (const record of records) {
     if (byMemoryScope.has(record.memoryScope)) {

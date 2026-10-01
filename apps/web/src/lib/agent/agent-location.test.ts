@@ -11,6 +11,22 @@ describe("parseAgentLocation", () => {
     expect(parseAgentLocation("/agent/writer")).toEqual({ agentId: "writer" });
     expect(parseAgentLocation("/events")).toEqual({});
   });
+
+  it("keeps workflow-scoped memoryScopes that contain a colon", () => {
+    const scope = "4b0f5fef-e5e1-4ac1-904c-8339dad3a070:thread";
+    expect(parseAgentLocation(`/agent/fact-keeper/run/${scope}`)).toEqual({
+      agentId: "fact-keeper",
+      runId: scope,
+    });
+  });
+
+  it("decodes percent-encoded colons in the conversation id", () => {
+    const scope = "4b0f5fef-e5e1-4ac1-904c-8339dad3a070:thread";
+    expect(parseAgentLocation(`/agent/fact-keeper/run/${encodeURIComponent(scope)}`)).toEqual({
+      agentId: "fact-keeper",
+      runId: scope,
+    });
+  });
 });
 
 describe("parseAgentRunSearch", () => {

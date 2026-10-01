@@ -6,6 +6,7 @@ import {
   getAgentSessionByMemoryScope,
   isWorkflowLinkedConversation,
   registerAgentSession,
+  registerAgentSessionFromEpisode,
   registerAgentSessionFromEvent,
   renameAgentSessionTitle,
   applyGeneratedConversationTitle,
@@ -186,6 +187,43 @@ describe("rename and delete sessions", () => {
 
     registerAgentSession(session({ memoryScope, title: "Should stay gone" }));
     expect(getAgentSessionByMemoryScope(memoryScope)).toBeUndefined();
+  });
+});
+
+describe("registerAgentSessionFromEpisode", () => {
+  it("registers a workflow-scoped memoryScope containing a colon", () => {
+    const memoryScope = "4b0f5fef-e5e1-4ac1-904c-8339dad3a070:thread";
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-scoped",
+      agentId: "fact-keeper",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:00.000Z",
+      workflowRunId: "4b0f5fef-e5e1-4ac1-904c-8339dad3a070",
+    });
+    const registered = getAgentSessionByMemoryScope(memoryScope);
+    expect(registered?.agentId).toBe("fact-keeper");
+    expect(registered?.workflowRunId).toBe("4b0f5fef-e5e1-4ac1-904c-8339dad3a070");
+    unregisterAgentSession(memoryScope);
+  });
+
+  it("keeps the first agent as owner when a later episode shares the scope", () => {
+    const memoryScope = "run-nested:notes";
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-1",
+      agentId: "researcher",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:00.000Z",
+      workflowRunId: "run-nested",
+    });
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-2",
+      agentId: "critic",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:01.000Z",
+      workflowRunId: "run-nested",
+    });
+    expect(getAgentSessionByMemoryScope(memoryScope)?.agentId).toBe("researcher");
+    unregisterAgentSession(memoryScope);
   });
 });
 
