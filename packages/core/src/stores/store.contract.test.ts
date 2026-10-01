@@ -346,6 +346,39 @@ describe("sqlite stores share a file", () => {
     ]);
   });
 
+  it("projects modelId and provider from agent_started onto the episode summary", async () => {
+    const dbPath = await uniqueDbPath();
+    const store = sqliteWorkflowStore({ path: dbPath });
+    await store.recordEvent({
+      type: "agent_started",
+      agentCallId: "call-model",
+      agentId: "coder",
+      memoryScope: "conv:model",
+      runSeq: 1,
+      at: "2026-01-01T00:00:00.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      modelId: "gpt-4o-mini",
+      provider: "openai.chat",
+    });
+
+    const reopened = sqliteWorkflowStore({ path: dbPath });
+    const episodes = await reopened.listAgentEpisodes();
+    expect(episodes).toEqual([
+      {
+        agentCallId: "call-model",
+        agentId: "coder",
+        memoryScope: "conv:model",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        workflowRunId: undefined,
+        stepId: undefined,
+        status: "running",
+        finishedAt: undefined,
+        modelId: "gpt-4o-mini",
+        modelProvider: "openai.chat",
+      },
+    ]);
+  });
+
   it("pushes agentId and limit into the query instead of filtering in JavaScript", async () => {
     const store = sqliteWorkflowStore({ path: await uniqueDbPath() });
     for (let i = 0; i < 3; i++) {

@@ -127,8 +127,8 @@ export const AGENT_EPISODE_STATUSES = ["running", "ok", "error"] as const;
  * One row per `agent.run()` episode, projected from `agent_started` /
  * `agent_finished` / `agent_failed` — a single row for the episode's mutable
  * lifecycle (`status`, `finishedAt`) rather than splitting start and terminal
- * state across two event rows. `modelId`/`modelProvider` are nullable
- * placeholders until `agent_started` records `{ modelId, provider }`.
+ * state across two event rows. `modelId`/`modelProvider` are the read-only
+ * descriptor from `agent_started` (`modelId` / `provider`), or null when absent.
  */
 export const agentEpisodes = sqliteTable(
   "adl_agent_episodes",

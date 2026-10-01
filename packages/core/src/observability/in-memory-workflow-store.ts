@@ -341,6 +341,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         stepId: started.stepId,
         status: finished ? (finished.type === "agent_finished" ? "ok" : "error") : "running",
         finishedAt: finished?.at,
+        ...(started.modelId !== undefined ? { modelId: started.modelId } : {}),
+        ...(started.provider !== undefined ? { modelProvider: started.provider } : {}),
         ...(started.toolProviderContext !== undefined
           ? { toolProviderContext: started.toolProviderContext }
           : {}),

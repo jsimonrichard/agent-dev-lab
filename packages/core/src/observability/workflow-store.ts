@@ -26,8 +26,8 @@ export type AgentEpisodeSummary = {
   status: "running" | "ok" | "error";
   finishedAt?: string;
   /**
-   * `{ modelId, provider }` once `agent_started` records it.
-   * Absent until per-call model override lands.
+   * Read-only model descriptor from `agent_started` (`modelId` / `provider`).
+   * Absent when the episode had no inspectable model.
    */
   modelId?: string;
   modelProvider?: string;

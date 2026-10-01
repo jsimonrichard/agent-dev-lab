@@ -146,6 +146,13 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
   /** Per-call override of the agent's `stopWhen`. */
   stopWhen?: AgentStopWhen;
   /**
+   * Per-call live {@link LanguageModel} override. Wins over
+   * {@link AgentDefinition.model} and the runtime `defaults.model`.
+   * Nothing is persisted for later reconstruction — only a read-only
+   * `{ modelId, provider }` descriptor is recorded on `agent_started`.
+   */
+  model?: LanguageModel;
+  /**
    * When a different agent hits this scope with a different system prompt.
    * Defaults to `"keep-pinned"`. Ignored for same-agent follow-ups.
    */
@@ -272,8 +279,10 @@ export interface Agent<
    */
   readonly memoryKind: string;
   /**
-   * Effective model for this agent's episodes (`definition.model`, falling back to the
-   * runtime's `defaults.model`). `null` when no model is configured or the model object
+   * Default model for this agent (`definition.model`, falling back to the
+   * runtime's `defaults.model`). Per-call {@link AgentRunInput.model} is not
+   * reflected here — episode `agent_started` / agent episode summaries carry
+   * the live model used. `null` when no model is configured or the model object
    * reveals neither id nor provider — inspectors should omit the field in that case.
    */
   readonly modelInfo: AgentModelInfo | null;

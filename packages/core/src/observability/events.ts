@@ -164,6 +164,15 @@ export type AgentStartedEvent = AgentEventBase & {
   /** Set from {@link AgentRunInput.tags} plus the automatic project version tag. */
   tags?: string[];
   /**
+   * Read-only descriptor from {@link inspectLanguageModel} for the live model
+   * used this episode (`input.model ?? definition.model ?? defaults.model`).
+   * Omitted when no model is set or the model reveals neither id nor provider.
+   * Not a factory — do not reconstruct a {@link LanguageModel} from these strings.
+   */
+  modelId?: string;
+  /** Provider id when the model exposes one (e.g. `"openai.chat"`). */
+  provider?: string;
+  /**
    * Raw value from {@link AgentRunInput.toolProviderContext} for this episode.
    * Omitted when the caller did not pass one. The framework never parses it —
    * this is a snapshot for inspection / fork seeding.

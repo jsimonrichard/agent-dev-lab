@@ -1145,6 +1145,137 @@ describe("ToolProvider-owned context validation", () => {
   });
 });
 
+describe("AgentImpl per-call model override", () => {
+  it("uses input.model over definition.model and records descriptors on agent_started", async () => {
+    const definitionDoStream = async () => ({
+      stream: convertArrayToReadableStream([
+        { type: "stream-start" as const, warnings: [] },
+        { type: "text-start" as const, id: "text-1" },
+        { type: "text-delta" as const, id: "text-1", delta: "from-definition" },
+        { type: "text-end" as const, id: "text-1" },
+        {
+          type: "finish" as const,
+          finishReason: "stop" as const,
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        },
+      ]),
+    });
+    const defModel = new MockLanguageModelV2({
+      provider: "definition-provider",
+      modelId: "definition-model",
+      doStream: definitionDoStream,
+    });
+    const overrideModel = new MockLanguageModelV2({
+      provider: "override-provider",
+      modelId: "override-model",
+      doStream: async () => ({
+        stream: convertArrayToReadableStream([
+          { type: "stream-start" as const, warnings: [] },
+          { type: "text-start" as const, id: "text-1" },
+          { type: "text-delta" as const, id: "text-1", delta: "from-override" },
+          { type: "text-end" as const, id: "text-1" },
+          {
+            type: "finish" as const,
+            finishReason: "stop" as const,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          },
+        ]),
+      }),
+    });
+
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          provider: "default-provider",
+          modelId: "default-model",
+          doStream: definitionDoStream,
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "switcher",
+      systemPrompt: "Be brief.",
+      model: defModel,
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      model: overrideModel,
+    });
+    const result = await handle.result;
+    expect(result.text).toBe("from-override");
+    expect(overrideModel.doStreamCalls).toHaveLength(1);
+    expect(defModel.doStreamCalls).toHaveLength(0);
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started).toMatchObject({
+      type: "agent_started",
+      modelId: "override-model",
+      provider: "override-provider",
+    });
+
+    const episodes = await adl.services.stores.workflow?.listAgentEpisodes();
+    expect(episodes?.[0]).toMatchObject({
+      agentCallId: handle.agentCallId,
+      modelId: "override-model",
+      modelProvider: "override-provider",
+    });
+  });
+
+  it("falls through definition.model when input.model is omitted", async () => {
+    const defModel = new MockLanguageModelV2({
+      provider: "definition-provider",
+      modelId: "definition-model",
+      doStream: async () => ({
+        stream: convertArrayToReadableStream([
+          { type: "stream-start" as const, warnings: [] },
+          { type: "text-start" as const, id: "text-1" },
+          { type: "text-delta" as const, id: "text-1", delta: "ok" },
+          { type: "text-end" as const, id: "text-1" },
+          {
+            type: "finish" as const,
+            finishReason: "stop" as const,
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          },
+        ]),
+      }),
+    });
+    const adl = createTestRuntime({
+      defaults: {
+        model: new MockLanguageModelV2({
+          provider: "default-provider",
+          modelId: "default-model",
+          doStream: async () => {
+            throw new Error("defaults.model must not run");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "defined",
+      systemPrompt: "Be brief.",
+      model: defModel,
+    });
+
+    const handle = agent.run({ memoryScope: "notes", user: "hi" });
+    await handle.result;
+    expect(defModel.doStreamCalls).toHaveLength(1);
+
+    const started = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_started",
+    );
+    expect(started).toMatchObject({
+      modelId: "definition-model",
+      provider: "definition-provider",
+    });
+  });
+});
+
 describe("AgentImpl model stream failures", () => {
   it("records the doStream throw on agent_failed, not NoOutputGeneratedError", async () => {
     const adl = createTestRuntime({

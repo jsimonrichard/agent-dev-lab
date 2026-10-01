@@ -179,6 +179,9 @@ export class AgentImpl<
       async () => {
         const runRecorder = scope.peekRunRecorder() ?? new RunRecorder(this.services);
 
+        const model = input.model ?? this.definition.model ?? this.services.defaults.model;
+        const modelInfo = inspectLanguageModel(model);
+
         await runRecorder.emit({
           type: "agent_started",
           agentCallId,
@@ -187,6 +190,12 @@ export class AgentImpl<
           agentId: this.definition.id,
           memoryScope,
           tags: withProjectVersionTag(input.tags, this.services.version),
+          ...(modelInfo
+            ? {
+                modelId: modelInfo.modelId,
+                ...(modelInfo.provider !== undefined ? { provider: modelInfo.provider } : {}),
+              }
+            : {}),
           ...(input.toolProviderContext !== undefined
             ? { toolProviderContext: input.toolProviderContext }
             : {}),
@@ -258,11 +267,10 @@ export class AgentImpl<
           );
           const system = systemForEpisode.trim() ? systemForEpisode : undefined;
 
-          const model = this.definition.model ?? this.services.defaults.model;
           if (!model) {
             throw new AdlError(
               "MISSING_MODEL",
-              `Agent "${this.id}" has no model. Set agent.model or createAdlRuntime({ defaults: { model } }).`,
+              `Agent "${this.id}" has no model. Pass run({ model }), set agent.model, or createAdlRuntime({ defaults: { model } }).`,
             );
           }
 

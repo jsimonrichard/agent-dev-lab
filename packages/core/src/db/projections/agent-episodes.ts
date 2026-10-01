@@ -11,9 +11,9 @@ import type { TokenUsage } from "../../observability/token-usage";
  * per `agent.run()` call, replacing the scan-every-`agent_started`-event
  * approach `listAgentEpisodes` used before this table existed.
  *
- * `model_id`/`model_provider` are left untouched here: `agent_started` does
- * not yet carry `{ modelId, provider }`. Once it does, this insert picks
- * those columns up with no further change to this file.
+ * `model_id`/`model_provider` come from `agent_started.modelId` /
+ * `agent_started.provider` when present (read-only descriptors — not a
+ * reconstitutable factory).
  *
  * `tool_provider_context_json` is the raw `toolProviderContext` from
  * `agent_started` (JSON), or null when the caller omitted it.
@@ -25,6 +25,8 @@ export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
   if (event.type === "agent_started") {
     const toolProviderContextJson =
       event.toolProviderContext !== undefined ? JSON.stringify(event.toolProviderContext) : null;
+    const modelId = event.modelId ?? null;
+    const modelProvider = event.provider ?? null;
     db.insert(agentEpisodes)
       .values({
         agentCallId: event.agentCallId,
@@ -35,6 +37,8 @@ export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
         startedAt: event.at,
         finishedAt: null,
         status: "running",
+        modelId,
+        modelProvider,
         toolProviderContextJson,
       })
       .onConflictDoUpdate({
@@ -47,6 +51,8 @@ export function projectAgentEpisode(db: AdlDb, event: RunEvent): void {
           startedAt: event.at,
           finishedAt: null,
           status: "running",
+          modelId,
+          modelProvider,
           toolProviderContextJson,
         },
       })
