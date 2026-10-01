@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
+import { isEpisodeTimingEvent } from "@agent-dev-lab/core/episode-timing";
 
 import type { RunEvent } from "#/lib/view-model/types";
 import { adaptCoreEventsForWorkflowRun } from "#/lib/event-log/event-adapter";
-import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
+import {
+  episodeTimingMapFromEvents,
+  toEpisodeTimingEventDto,
+  type EpisodeTimingEventDto,
+} from "@/lib/view-model/attach-episode-timing";
 
 function isWorkflowRunTerminal(event: RunEvent): boolean {
   return (
@@ -10,8 +17,24 @@ function isWorkflowRunTerminal(event: RunEvent): boolean {
   );
 }
 
-export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = []) {
+function mergeTimingDtos(
+  prev: EpisodeTimingEventDto[],
+  next: EpisodeTimingEventDto,
+): EpisodeTimingEventDto[] {
+  if (prev.some((event) => event.runSeq === next.runSeq)) {
+    return prev;
+  }
+  return [...prev, next];
+}
+
+export function useWorkflowRunEvents(
+  runId: string,
+  initialEvents: RunEvent[] = [],
+  initialTimingEvents: EpisodeTimingEventDto[] = [],
+) {
   const [events, setEvents] = useState<RunEvent[]>(initialEvents);
+  const [timingEvents, setTimingEvents] =
+    useState<EpisodeTimingEventDto[]>(initialTimingEvents);
   const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0));
   const seededRunIdRef = useRef(runId);
 
@@ -34,8 +57,22 @@ export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = 
       }
       return initialEvents;
     });
+    setTimingEvents((prev) => {
+      if (runChanged) {
+        return initialTimingEvents;
+      }
+      const prevMax = prev.reduce((max, e) => Math.max(max, e.runSeq), 0);
+      const seedMax = initialTimingEvents.reduce((max, e) => Math.max(max, e.runSeq), 0);
+      if (seedMax < prevMax) {
+        return prev;
+      }
+      if (seedMax === prevMax && prev.length >= initialTimingEvents.length) {
+        return prev;
+      }
+      return initialTimingEvents;
+    });
     lastSeqRef.current = runChanged ? initialMax : Math.max(lastSeqRef.current, initialMax);
-  }, [runId, initialEvents]);
+  }, [runId, initialEvents, initialTimingEvents]);
 
   useEffect(() => {
     const source = new EventSource(
@@ -46,6 +83,12 @@ export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = 
       try {
         const core = JSON.parse(message.data) as CoreRunEvent;
         lastSeqRef.current = Math.max(lastSeqRef.current, core.runSeq);
+        if (isEpisodeTimingEvent(core)) {
+          const dto = toEpisodeTimingEventDto(core);
+          if (dto) {
+            setTimingEvents((prev) => mergeTimingDtos(prev, dto));
+          }
+        }
         const adapted = adaptCoreEventsForWorkflowRun(runId, [core]);
         if (adapted.length === 0) {
           return;
@@ -70,5 +113,10 @@ export function useWorkflowRunEvents(runId: string, initialEvents: RunEvent[] = 
     };
   }, [runId]);
 
-  return events;
+  const episodeTiming = useMemo(
+    () => episodeTimingMapFromEvents(timingEvents, Date.now()),
+    [timingEvents],
+  );
+
+  return { events, timingEvents, episodeTiming };
 }

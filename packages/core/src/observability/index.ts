@@ -54,5 +54,12 @@ export type {
   WorkflowStore,
 } from "./workflow-store";
 export { EVENT_SCHEMA_VERSION } from "./events";
+export {
+  computeEpisodeTiming,
+  computeEpisodeTimingByAgentCallId,
+  isEpisodeTimingEvent,
+  unionIntervalMs,
+} from "./episode-timing";
+export type { EpisodeTiming, EpisodeTimingSourceEvent } from "./episode-timing";
 export { sumTokenUsage, toTokenUsage } from "./token-usage";
 export type { TokenUsage } from "./token-usage";

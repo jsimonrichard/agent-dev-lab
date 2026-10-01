@@ -9,6 +9,7 @@ import {
   getProjectInspectorMeta,
   getWorkflowRunSummary,
   getWorkflowRunUiEvents,
+  getWorkflowRunTimingEvents,
   listWorkflowRunStepRecords,
   listWorkflowRunSummaries,
   listChildWorkflowRunSummaries,
@@ -72,8 +73,11 @@ export const fetchWorkflowRun = createServerFn({ method: "GET" })
     if (!summary) {
       return null;
     }
-    const events = await getWorkflowRunUiEvents(runId);
-    return { summary, events };
+    const [events, timingEvents] = await Promise.all([
+      getWorkflowRunUiEvents(runId),
+      getWorkflowRunTimingEvents(runId),
+    ]);
+    return { summary, events, timingEvents };
   });
 
 export const fetchWorkflowRunStepRecords = createServerFn({ method: "GET" })

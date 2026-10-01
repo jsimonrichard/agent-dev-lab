@@ -28,6 +28,11 @@ import type {
   RunViewState,
   StepNode,
 } from "@/lib/view-model/types";
+import {
+  attachEpisodeTiming,
+  episodeTimingMapFromEvents,
+  type EpisodeTimingEventDto,
+} from "@/lib/view-model/attach-episode-timing";
 import { useWorkflowRunEvents } from "@/hooks/use-workflow-run-events";
 import { ErrorIndicator } from "@/components/app/error-details";
 import { RunStatusBadge } from "@/components/app/run-status-badge";
@@ -53,6 +58,7 @@ const runRoute = getRouteApi("/_app/workflows/$workflowId/run/$runId");
 interface RunWorkspaceProps {
   summary: InspectorRunSummary;
   initialEvents: RunEvent[];
+  initialTimingEvents?: EpisodeTimingEventDto[];
   seededStepRecords?: SeededStepProjection[];
   messagesPromise: Promise<PrefetchedRunMessages>;
   parentSummary?: InspectorRunSummary | null;
@@ -62,12 +68,14 @@ interface RunWorkspaceProps {
 type NestedCacheEntry = {
   summary: InspectorRunSummary;
   events: RunEvent[];
+  timingEvents: EpisodeTimingEventDto[];
   childRuns: InspectorRunSummary[];
 };
 
 export function RunWorkspace({
   summary,
   initialEvents,
+  initialTimingEvents = [],
   seededStepRecords = [],
   messagesPromise,
   parentSummary = null,
@@ -77,7 +85,11 @@ export function RunWorkspace({
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const router = useRouter();
   const { offline } = useInspectorConnection();
-  const events = useWorkflowRunEvents(summary.runId, initialEvents);
+  const { events, episodeTiming } = useWorkflowRunEvents(
+    summary.runId,
+    initialEvents,
+    initialTimingEvents,
+  );
   const [priorTiming, setPriorTiming] = useState<PriorTimingIndex | null>(null);
   const [pageChildRuns, setPageChildRuns] = useState(initialChildRuns);
   useEffect(() => {
@@ -132,12 +144,13 @@ export function RunWorkspace({
   const { view, displayChildRuns } = useMemo(() => {
     const built = buildRunViewState(summary.runId, events);
     mergeSeededStepRecords(built, seededStepRecords);
+    attachEpisodeTiming(built, episodeTiming);
     const runs = pageChildRuns.map((run) => ({ ...run }));
     if (priorTiming) {
       graftCopiedWaterfallTiming(built, priorTiming, runs, summary.retriesFromRunId);
     }
     return { view: built, displayChildRuns: runs };
-  }, [summary.runId, events, seededStepRecords, priorTiming, pageChildRuns]);
+  }, [summary.runId, events, seededStepRecords, priorTiming, pageChildRuns, episodeTiming]);
   const runWarnings = useMemo(() => collectRunWarnings(view.steps), [view.steps]);
   const runTitle = view.title ?? summary.title;
 
@@ -235,6 +248,7 @@ export function RunWorkspace({
             next.set(runId, {
               summary: data.summary,
               events: data.events,
+              timingEvents: data.timingEvents ?? [],
               childRuns: children,
             });
             return next;
@@ -249,9 +263,11 @@ export function RunWorkspace({
   const nestedByRunId = useMemo(() => {
     const map = new Map<string, NestedRunTreeData>();
     for (const [runId, entry] of nestedCache) {
+      const nestedView = buildRunViewState(runId, entry.events);
+      attachEpisodeTiming(nestedView, episodeTimingMapFromEvents(entry.timingEvents));
       map.set(runId, {
         run: entry.summary,
-        view: buildRunViewState(runId, entry.events),
+        view: nestedView,
         childRuns: entry.childRuns,
       });
     }
@@ -848,7 +864,7 @@ function NestedRunEventsBridge({
   onEvents: (runId: string, events: RunEvent[]) => void;
 }) {
   const seedRef = useRef(seedEvents);
-  const events = useWorkflowRunEvents(runId, seedRef.current);
+  const { events } = useWorkflowRunEvents(runId, seedRef.current);
   useEffect(() => {
     onEvents(runId, events);
   }, [runId, events, onEvents]);

@@ -159,15 +159,21 @@ export type {
 export {
   DEFAULT_EVENT_LOG_MAX_EVENTS,
   EVENT_SCHEMA_VERSION,
+  computeEpisodeTiming,
+  computeEpisodeTimingByAgentCallId,
   inMemoryEventLog,
   InMemoryEventLog,
   inMemoryWorkflowStore,
+  isEpisodeTimingEvent,
   sqliteWorkflowStore,
   sumTokenUsage,
   toTokenUsage,
+  unionIntervalMs,
 } from "./observability";
 export type {
   AgentEpisodeSummary,
+  EpisodeTiming,
+  EpisodeTimingSourceEvent,
   EventLog,
   InMemoryEventLogOptions,
   LoggedRunEvent,

@@ -31,6 +31,7 @@ import { persistInspectorSession } from "#/lib/inspector/inspector-session-persi
 import { mapMessageIdsToAgentCallIds } from "#/lib/agent/agent-call-focus";
 import { findRunningForestRunId } from "#/lib/retry-forest-guard";
 import { sumEpisodeUsageByKey } from "#/lib/token-usage-rollups";
+import { filterTimingEventDtos } from "#/lib/view-model/attach-episode-timing";
 import {
   createMemoryScope,
   getAgentSessionByMemoryScope,
@@ -300,6 +301,11 @@ export async function getWorkflowRunEvents(runId: string): Promise<CoreRunEvent[
 export async function getWorkflowRunUiEvents(runId: string) {
   const events = await getWorkflowRunEvents(runId);
   return adaptCoreEventsForWorkflowRun(runId, events);
+}
+
+export async function getWorkflowRunTimingEvents(runId: string) {
+  const events = await getWorkflowRunEvents(runId);
+  return filterTimingEventDtos(events);
 }
 
 export async function listWorkflowRunStepRecords(runId: string) {

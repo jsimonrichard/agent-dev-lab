@@ -282,6 +282,15 @@ export interface AgentEpisode {
   toolProviderContext?: JsonValue;
   /** Provider-reported token totals from `agent_finished`, when present. */
   usage?: TokenUsage;
+  /**
+   * Union of tool call→final result intervals for this episode (ms).
+   * From core `computeEpisodeTiming`; absent until timing events are attached.
+   */
+  toolWaitMs?: number;
+  /**
+   * Episode wall minus toolWaitMs (ms). From core `computeEpisodeTiming`.
+   */
+  llmActiveMs?: number;
 }
 
 export interface ForkedAgentSession {

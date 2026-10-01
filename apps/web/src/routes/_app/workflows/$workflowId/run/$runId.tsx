@@ -43,13 +43,21 @@ function WorkflowRunError({ error }: ErrorComponentProps) {
 }
 
 function WorkflowRunPage() {
-  const { summary, events, messagesPromise, parentSummary, childRuns, seededStepRecords } =
-    Route.useLoaderData();
+  const {
+    summary,
+    events,
+    timingEvents,
+    messagesPromise,
+    parentSummary,
+    childRuns,
+    seededStepRecords,
+  } = Route.useLoaderData();
   return (
     <RunWorkspace
       key={summary.runId}
       summary={summary}
       initialEvents={events}
+      initialTimingEvents={timingEvents}
       seededStepRecords={seededStepRecords}
       messagesPromise={messagesPromise}
       parentSummary={parentSummary}

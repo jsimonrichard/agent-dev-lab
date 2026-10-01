@@ -56,6 +56,31 @@ Standalone `agent.run` (no `workflowRunId` on events) still gets an agent root s
 
 ---
 
+## Tool-wait vs LLM-active (product path)
+
+OTel alone is not enough for the inspection UI. Use the store event log:
+
+```ts
+import {
+  computeEpisodeTiming,
+  computeEpisodeTimingByAgentCallId,
+} from "@agent-dev-lab/core/episode-timing";
+// also re-exported from `@agent-dev-lab/core` for Node/server consumers
+
+const events = await store.listEvents({ agentCallId });
+const timing = computeEpisodeTiming(events);
+// timing.toolWaitMs — union of call→final result intervals (!preliminary)
+// timing.llmActiveMs — wall (started→finished) minus tool-wait
+```
+
+For a whole workflow run: `computeEpisodeTimingByAgentCallId(await store.listEvents({ workflowRunId }))`.
+
+Today's `agent_tool_call` / `agent_tool_result` pair is the post-materialize stand-in for the effect intent/outcome model in [`execution-control-plan.md`](./execution-control-plan.md). Suspend gaps are not on the event stream yet — when they land, re-attribute them explicitly rather than inventing timestamps.
+
+The episode inspector surfaces the same numbers next to token usage.
+
+---
+
 ## Observers vs OTel SDK
 
 | Approach                                 | When to use                                                                                                              |

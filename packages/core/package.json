@@ -34,6 +34,13 @@
       "import": "./src/result.ts",
       "default": "./dist/result.js"
     },
+    "./episode-timing": {
+      "types": "./src/observability/episode-timing.ts",
+      "bun": "./src/observability/episode-timing.ts",
+      "import": "./src/observability/episode-timing.ts",
+      "development": "./src/observability/episode-timing.ts",
+      "default": "./dist/observability/episode-timing.js"
+    },
     "./db": {
       "types": "./src/db/index.ts",
       "bun": "./src/db/index.ts",

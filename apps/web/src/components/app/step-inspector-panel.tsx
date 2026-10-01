@@ -31,6 +31,7 @@ import {
 } from "@/lib/chat-messages";
 import { formatMemoryScopeLabel } from "@/lib/memory-scope-label";
 import { formatTokenUsageDetail } from "@/lib/format-token-usage";
+import { formatDuration } from "@/lib/workflow/workflow-waterfall";
 import { partitionScopeTranscript } from "@/lib/scope-transcript";
 import { InspectorNoun } from "@/components/app/inspector-noun";
 import { useLiveRunMessages } from "@/hooks/use-live-run-messages";
@@ -230,6 +231,10 @@ function ConversationInspector({
     </InspectorNoun>
   );
   const usageDetail = formatTokenUsageDetail(episode.usage);
+  const timingDetail =
+    episode.llmActiveMs != null && episode.toolWaitMs != null
+      ? `LLM ${formatDuration(episode.llmActiveMs)} · tools ${formatDuration(episode.toolWaitMs)}`
+      : null;
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
@@ -267,6 +272,11 @@ function ConversationInspector({
               {stepLabel}
             </InspectorNoun>
           </p>
+          {timingDetail ? (
+            <p className="truncate text-[11px] text-muted-foreground" title={timingDetail}>
+              Time · {timingDetail}
+            </p>
+          ) : null}
           {usageDetail ? (
             <p className="truncate text-[11px] text-muted-foreground" title={usageDetail}>
               Tokens · {usageDetail}
