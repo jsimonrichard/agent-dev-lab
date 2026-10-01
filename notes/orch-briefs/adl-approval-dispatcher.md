@@ -13,11 +13,11 @@ Ship a tool-call approval gate for `@agent-dev-lab/tools` (file/bash/etc.) whose
 
 ## Scope
 
-1. Read [`notes/execution-control-plan.md`](../execution-control-plan.md) §1 and §5 before coding. If Lane A has not yet sketched types, **propose the minimal `EffectGate` / suspend types in core (or a tools-local interface that core can absorb)** and get them reviewed — do not ship a dead-end `ApprovalDispatcher`-only API.
-2. Wrap tool `execute()` with pre-materialize approval; wire optional project `approvals` config.
-3. Resolve open questions in [`tool-sandboxing.md`](../tool-sandboxing.md): per-call vs per-tool-type; default when no dispatcher (house rule 1 → prefer fail-closed or explicit `autoApprove: true` for tests — **no warn-and-allow silent permit** unless maintainer overrides in review).
+1. Read [`notes/execution-control-plan.md`](../execution-control-plan.md) §1 / §5 and import `EffectGate` / `composeEffectHandlers` / `allowAllGate` from `@agent-dev-lab/core`. Adapter only — do not ship a dead-end `ApprovalDispatcher`-only resume protocol.
+2. Wrap tool `execute()` with pre-materialize approval; require an `EffectGate` on tool constructors (pass `allowAllGate` in tests/playground).
+3. Resolve remaining open question in [`tool-sandboxing.md`](../tool-sandboxing.md): per-call vs per-tool-type. **Fail-closed is decided** — no warn-and-allow silent permit.
 4. Headless test dispatcher; document UI dispatcher as follow-up (inspection Allow/Deny).
-5. Changesets as needed for `tools` / `core`.
+5. Changesets as needed for `tools` (and core only if the adapter needs a follow-up export).
 
 ## Out of scope
 
@@ -35,10 +35,10 @@ Ship a tool-call approval gate for `@agent-dev-lab/tools` (file/bash/etc.) whose
 
 ## Constraints
 
-- **OPEN:** confirm fail-closed default with maintainer before merging if it breaks playground DX.
-- Do not block Lane A by inventing resume-by-workflowRunId-only state machines that ignore suspend handles.
+- **Fail-closed decided (2026-10-01).** Playground/CI must pass `allowAllGate` (or an accept-all handler) explicitly.
+- Do not invent resume-by-workflowRunId-only state machines that ignore suspend handles.
 - Dangerous tools keep required executor/sandbox constructor args.
 
 ## Handoff notes
 
-Parent plan lane map E. Sketches: `notes/future-extensions.md`, `notes/tool-sandboxing.md`. Coordinate type names with Lane A.
+Parent plan lane map E. Core exports `EffectGate`, `composeEffectHandlers`, `allowAllGate`, `SuspendHandle`, `TraceCursor`. Sketches: `notes/future-extensions.md`, `notes/tool-sandboxing.md`.

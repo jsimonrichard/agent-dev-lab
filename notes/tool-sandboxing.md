@@ -401,7 +401,7 @@ interface ApprovalRequest {
 }
 ```
 
-- Each tool in this package wraps its `execute()` with a check: if the project's `adl.config.ts` supplies an `approvals.dispatcher`, call it before running; if none is supplied, default to **auto-approve** (so `bun test` / headless CI / quick playground use isn't blocked) but log a warning that no approval gate is configured — visibility over silently-permissive defaults.
+- Each tool in this package wraps its `execute()` with a check against a **required** `EffectGate` (from `@agent-dev-lab/core`). No dispatcher / no gate → deny (fail closed). Tests and permissive local play pass `allowAllGate` explicitly — never omit→warn-and-allow.
 - The inspection UI is the natural place to implement an interactive dispatcher (block on an in-app "Allow / Deny" button) once this exists — that's UI work, out of scope for this doc, but the dispatcher interface should be designed so the UI's future implementation doesn't need changes to this package.
 - This only covers the tool-call surface, not `ctx.requestApproval` (workflow-level pauses) — that half of `future-extensions.md` remains deferred (it needs persisted run state / resume, which is a separate, larger piece of work).
 
@@ -415,7 +415,8 @@ import { createFileTools, createBashTool, createWebSearchTool } from "@agent-dev
 
 export default {
   // ...
-  approvals: { dispatcher: myDispatcher }, // optional; omit = auto-approve + warn
+  // EffectGate is required on tool constructors (Lane E). Pass allowAllGate explicitly for CI.
+  approvals: { dispatcher: myDispatcher },
   tools: {
     ...createFileTools({ root: "./workspace" }),
     ...createBashTool({ root: "./workspace", timeoutMs: 30_000 }),
@@ -431,7 +432,7 @@ Reuses `AdlRuntimeConfig.tools` (runtime merge) rather than inventing a new regi
 ## Open questions (approval gate)
 
 1. **Per-call vs per-tool-type approval?** Approve "bash" once for a conversation vs every invocation. (Policy on the adapter; substrate stays per-intent.)
-2. **Auto-approve default:** the sketch above warns and allows when no dispatcher is configured. **Execution-control open decision 2 recommends fail-closed** unless the host passes an explicit `allowAllGate` (tests/CI). Reconcile this sketch before Lane E ships — do not land omit=warn-and-allow if the reviewed plan keeps fail-closed.
+2. **Default without a gate / dispatcher:** **Decided fail-closed** ([`execution-control-plan.md`](./execution-control-plan.md)). Hosts pass `allowAllGate` explicitly for tests/CI. Do not land omit=warn-and-allow.
 3. **Resource limits beyond wall-clock timeout** (`ulimit` / cgroups) — still undecided.
 
 ---

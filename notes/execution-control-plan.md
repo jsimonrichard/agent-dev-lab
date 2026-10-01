@@ -1,6 +1,6 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
-**Status:** Design plan (2026-10-01). Deepened for lane A review. Not scheduled for immediate implementation.
+**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools wiring is Lane E; suspend persistence / cursor replay / debugger remain later.
 **Parent for orch lanes:** this file. Briefs live under `notes/orch-briefs/`.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
 
@@ -245,7 +245,7 @@ Expose an **ADL Debug Adapter** (Debug Adapter Protocol) that speaks L1–L3:
 
 **Do not** require Node's inspector for L1–L3 — those pauses are cooperative at the effect gate. L4 remains optional attach.
 
-**MVP DAP surface (recommendation — open decision 4):** map early onto standard `breakpoints` / `stopped` / `continue` / `next`; add custom ADL requests only where DAP has no analogue (e.g. `adl/forkFromCursor`). Avoid an ADL-only protocol that forces a second VS Code client later.
+**MVP DAP surface (decided):** map early onto standard `breakpoints` / `stopped` / `continue` / `next`; add custom ADL requests only where DAP has no analogue (e.g. `adl/forkFromCursor`). Avoid an ADL-only protocol that forces a second VS Code client later.
 
 ---
 
@@ -289,33 +289,22 @@ Cross-links: [`future-extensions.md`](./future-extensions.md) § Human approval;
 
 ## Success criteria (design phase)
 
-1. This note names the shared suspend/effect-gate substrate and how approval + debugger both sit on it.
-2. Granularity ladder L1–L4 is written with a default (L1–L3) and an explicit DAP direction.
-3. Retry rework has a migration story from `seedRetryAttempt` / `fromStepId` to trace cursors.
-4. Open decisions below are listed **with recommendations**; no implementation lands until the design is reviewed.
-5. Orch lanes for independent P1/P2 work exist and point here where they touch pause/retry.
+1. This note names the shared suspend/effect-gate substrate and how approval + debugger both sit on it. **Met.**
+2. Granularity ladder L1–L4 is written with a default (L1–L3) and an explicit DAP direction. **Met.**
+3. Retry rework has a migration story from `seedRetryAttempt` / `fromStepId` to trace cursors. **Met (design).**
+4. Open decisions below are listed; design reviewed 2026-10-01. **Met.**
+5. Orch lanes for independent P1/P2 work exist and point here where they touch pause/retry. **Met.**
 
 ---
 
-## Open decisions (for maintainer review)
+## Decided (2026-10-01)
 
-1. **Cursor identity:** effect intent id vs step id vs synthetic commit hash over `(runId, runSeq)`?
-   - **Recommend:** primary key = **effect intent id**; `runSeq` is ordering; `stepId` is a UI alias when the cursor sits on a step-boundary intent. Synthetic hashes add a third id space without buying fork safety we don't have yet.
-
-2. **Default when no handler / no dispatcher registered:** fail-closed vs warn-and-allow (current tools sketch)?
-   - **Recommend:** **fail-closed for unclear permission in production hosts**; **explicit** `EffectGate` that allows (e.g. `allowAllGate` or `ciAllowGate`) is required in tests/CI — never an implicit warn-and-allow optional omit. Contradicts the current [`tool-sandboxing.md`](./tool-sandboxing.md) "omit = auto-approve + warn" sketch; update that sketch when Lane E ships.
-
-3. **Where the gate lives:** core-only with tools taking required `EffectGate` vs optional project config?
-   - **Recommend:** types + compose in **`packages/core`**; project config supplies the handler chain; **tools constructors require** an `EffectGate` (or a narrow `ToolEffectGate` alias) — no optional default that silently allows. Hosts that want permissive local play pass `allowAllGate` explicitly.
-
-4. **DAP MVP:** custom ADL requests only, or map onto DAP `breakpoints` / `stopped` early?
-   - **Recommend:** **map standard DAP events early**; reserve custom requests for fork/cursor ops. Reduces VS Code integration cost.
-
-5. **Nested-run `parentRunId` on live context** — ship in lane B now, or wait for scope objects here?
-   - **Recommend:** **ship now in lane B** (does not conflict with the gate; scopes can wrap the same fields later).
-
-6. **Persisted run status name while suspended:** reuse `waiting_approval` vs general `suspended`?
-   - **Recommend:** general **`suspended`** (+ `suspendReason` / handle id on the run summary). `waiting_approval` as a deprecated alias or UI label when `reason === "approval"`.
+1. **Cursor identity:** primary key = **effect intent id**; `runSeq` is ordering; `stepId` is a UI alias when the cursor sits on a step-boundary intent. No synthetic commit-hash id space.
+2. **Default when no handler registered:** **fail-closed** (deny). Hosts/tests that want permissive behavior pass an explicit `allowAllGate` (or equivalent accept-all handler). Never omit→warn-and-allow.
+3. **Where the gate lives:** types + compose in **`packages/core`**; project config supplies the handler chain; **tools constructors require** an `EffectGate` — no optional default that silently allows.
+4. **DAP MVP:** map standard DAP `breakpoints` / `stopped` / `continue` / `next` early; custom requests only for fork/cursor ops.
+5. **Nested-run parent on live context:** **ship in lane B now** (does not conflict with the gate).
+6. **Persisted run status while suspended:** general **`suspended`** (+ `suspendReason` / handle id on the run summary) when persistence lands. `waiting_approval` may remain a UI label when `reason === "approval"`. Not in the EffectGate types PR (no schema lock yet).
 
 ---
 
@@ -323,18 +312,18 @@ Cross-links: [`future-extensions.md`](./future-extensions.md) § Human approval;
 
 All A–J provisioned. Briefs under `notes/orch-briefs/`; parent plan is this file.
 
-| Concern                                          | Brief                                    | Priority            | Task        | Notes                                                      |
-| ------------------------------------------------ | ---------------------------------------- | ------------------- | ----------- | ---------------------------------------------------------- |
-| A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Owns §§1–3 design; blocks inventing a one-off approval API |
-| B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | [`nested-run-followups.md`](./nested-run-followups.md)     |
-| C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1                                                 |
-| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | Roadmap §2                                                 |
-| E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | Effect-gate adapter; tool surface only                     |
-| F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | Triage then fix                                            |
-| G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | After C                                                    |
-| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Nested agent calls                                         |
-| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | Waterfall min width, preliminary tool UI, tool vs LLM time |
-| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | Copied bars, nested expand, JSON editor depth              |
+| Concern                                          | Brief                                    | Priority            | Task        | Notes                                                               |
+| ------------------------------------------------ | ---------------------------------------- | ------------------- | ----------- | ------------------------------------------------------------------- |
+| A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 impl later |
+| B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | [`nested-run-followups.md`](./nested-run-followups.md)              |
+| C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1                                                          |
+| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | Roadmap §2                                                          |
+| E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | Effect-gate adapter; tool surface only                              |
+| F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | Triage then fix                                                     |
+| G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | After C                                                             |
+| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Nested agent calls                                                  |
+| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | Waterfall min width, preliminary tool UI, tool vs LLM time          |
+| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | Copied bars, nested expand, JSON editor depth                       |
 
 **Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, structural cleanup, macOS bash, LSP, `writeFile` mkdir.
 
@@ -342,9 +331,10 @@ All A–J provisioned. Briefs under `notes/orch-briefs/`; parent plan is this fi
 
 ---
 
-## Gaps / not done (lane A)
+## Gaps / not done
 
-- No production code, DAP server, or UI spikes.
-- Shepherd paper read for mapping fidelity; Lean appendix and benchmark numbers not re-derived.
-- Lane E must still reconcile the tools "omit = warn-and-allow" sketch with open decision 2 before shipping.
-- Env CoW research (§4) not started.
+- Tools `execute()` wrap over `EffectGate` = Lane E.
+- `SuspendStore` persistence and `suspended` run status (decision 6) — not started; no schema lock in the types PR.
+- `seedRetryFromCursor` / inspector cursor picker — not started.
+- Debugger UI / DAP server — not started.
+- Env CoW research (§4) — not started.

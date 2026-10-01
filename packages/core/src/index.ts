@@ -44,6 +44,20 @@ export {
 export { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from "./result";
 export type { Err, Ok, Result } from "./result";
 export type { MaybePromise } from "./maybe-promise";
+
+export { allowAllGate, composeEffectHandlers, EFFECT_GATE_UNDECIDED_REASON } from "./effect";
+export type {
+  EffectDecision,
+  EffectGate,
+  EffectHandler,
+  EffectIntent,
+  EffectKind,
+  EffectOutcome,
+  Reversibility,
+  SuspendHandle,
+  SuspendReason,
+  TraceCursor,
+} from "./effect";
 export type {
   Agent,
   AnyAgent,
