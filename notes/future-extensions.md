@@ -72,6 +72,8 @@ These hooks see **`ModelMessage[]`** in the same shape committed to [`MessageSto
 
 ## Human approval (future)
 
+> **2026-10-01:** Shared pause substrate with the step debugger is planned in [`execution-control-plan.md`](./execution-control-plan.md) (API sketch: `EffectGate` / `SuspendHandle` / `TraceCursor`). Prefer an effect-gate adapter over a one-off `ApprovalDispatcher` resume protocol — `request()` may return via suspend+resolve, not a second resume API. Near-term tool gating is orch Lane E.
+
 Two surfaces:
 
 ### 1. AI SDK tool approval
@@ -90,7 +92,7 @@ await ctx.requestApproval({
 // Resolves when dispatcher approves; rejects on deny / timeout (policy TBD)
 ```
 
-**Resume:** approval wait implies a **persisted run state** (`WorkflowStore` run status `waiting_approval`) and a way to **resume** the run after approval (future `workflow.resume` or external trigger). Not v1.
+**Resume:** approval wait implies a **persisted run state** and `SuspendStore.resolve` (see execution-control plan). Prefer a general `suspended` status (+ reason) over a one-off `waiting_approval`-only protocol. Not v1.
 
 ### Project `approvals` config (sketch)
 

@@ -1,8 +1,8 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-09-12**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor pool, `ToolProvider.dispose?()` / `onRunEnd?()`, playground, and HMR pin are shipped. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
+**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-10-01** (approval substrate pointer). `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor pool, `ToolProvider.dispose?()` / `onRunEnd?()`, playground, and HMR pin are shipped. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
-Related: [`future-extensions.md`](./future-extensions.md) (approval dispatcher sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
+Related: [`execution-control-plan.md`](./execution-control-plan.md) (shared effect-gate / suspend — approval is an adapter), [`future-extensions.md`](./future-extensions.md) (approval sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
 ---
 
@@ -383,7 +383,9 @@ for either this or the `fetchUrl` tool (`src/web/`), despite the name looking li
 
 ## Approval / permission gate
 
-Sandboxing without a gate is binary — always-allow or always-deny — which is exactly what `future-extensions.md` already anticipated with its `ApprovalDispatcher` sketch. Pulling that forward:
+Sandboxing without a gate is binary — always-allow or always-deny — which is exactly what `future-extensions.md` already anticipated with its `ApprovalDispatcher` sketch. Pulling that forward.
+
+> **2026-10-01:** Ship this as an **adapter** over the effect-gate / `SuspendHandle` shape in [`execution-control-plan.md`](./execution-control-plan.md). Do not invent a resume protocol separate from that suspend store. Lane E owns the tools surface; cursor/debugger reuse the same gate later.
 
 ```ts
 // mirrors future-extensions.md's sketch, scoped to tool calls for now
@@ -428,8 +430,8 @@ Reuses `AdlRuntimeConfig.tools` (runtime merge) rather than inventing a new regi
 
 ## Open questions (approval gate)
 
-1. **Per-call vs per-tool-type approval?** Approve "bash" once for a conversation vs every invocation.
-2. **Auto-approve default:** the sketch below warns and allows when no dispatcher is configured. Confirm that against deny-by-default before shipping. House rule 1 leans fail-closed for unclear permission — this default needs an explicit decision.
+1. **Per-call vs per-tool-type approval?** Approve "bash" once for a conversation vs every invocation. (Policy on the adapter; substrate stays per-intent.)
+2. **Auto-approve default:** the sketch above warns and allows when no dispatcher is configured. **Execution-control open decision 2 recommends fail-closed** unless the host passes an explicit `allowAllGate` (tests/CI). Reconcile this sketch before Lane E ships — do not land omit=warn-and-allow if the reviewed plan keeps fail-closed.
 3. **Resource limits beyond wall-clock timeout** (`ulimit` / cgroups) — still undecided.
 
 ---

@@ -1,20 +1,22 @@
 # Resumability (deferred)
 
+> **Superseding design (2026-10-01):** longer-term retry / pause / re-entry is planned as a Shepherd-shaped effect gate + trace cursor + step debugger in [`execution-control-plan.md`](./execution-control-plan.md) ([arXiv:2605.10913](https://arxiv.org/abs/2605.10913)). Do not extend `seedRetryAttempt` toward Temporal-class checkpoints without reading that plan. This file keeps the **shipped** contract and the residual gaps that are still true under today's API.
+
 Attempt lineage is **shipped**: new-attempt seed (`seedRetryAttempt`), path-stable step skip, `StepOptions.pure`, nested forests (`parentWorkflowRunId` / `parentStepId`), and inspection-UI Retry. User-facing contract lives in the [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md#resumability). Do not restate that API here.
 
-Last reconciled: **2026-09-22**.
+Last reconciled: **2026-10-01**.
 
 ---
 
-## Still open
+## Still open (under today's API; target shape is the execution-control plan)
 
-| Item                                  | Notes                                                                                                                                          |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Crash mid-closure / `ctx.checkpoint`  | Re-enter without calling `workflow.run` again; Temporal-class durability stays out of scope                                                    |
-| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts                                                                                       |
-| Mid-stream token resume               | Resume a partial model stream                                                                                                                  |
-| Skipped-step file edits               | Run-scoped transcripts are copied when the writer step is skipped. File edits are not. See [`retry-side-effects.md`](./retry-side-effects.md). |
-| Copied-bar / nested-expand Playwright | API retry, 409-while-running, and workflow-row Retry are in `retry-attempt.spec.ts`. Visual layout is still manual.                            |
+| Item                                  | Notes                                                                                                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crash mid-closure / `ctx.checkpoint`  | Fold into effect-gate suspend + trace cursor ([`execution-control-plan.md`](./execution-control-plan.md)); Temporal-class durability stays out                                  |
+| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts; express as replay of recorded model outcomes when the gate allows                                                     |
+| Mid-stream token resume               | Still a non-goal                                                                                                                                                                |
+| Skipped-step file edits               | Run-scoped transcripts are copied when the writer step is skipped. File edits are not. See [`retry-side-effects.md`](./retry-side-effects.md). Env CoW is execution-control §4. |
+| Copied-bar / nested-expand Playwright | API retry, 409-while-running, and workflow-row Retry are in `retry-attempt.spec.ts`. Visual layout → lane J (`adl-playwright-gaps`).                                            |
 
 ---
 
