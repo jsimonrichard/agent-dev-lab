@@ -132,6 +132,51 @@ test.describe("packed fresh project (Nitro + watch)", () => {
     await expect(page).toHaveURL(/\/workflows\/demo-counter$/);
   });
 
+  test("document mode starts a run; invalid raw disables Document and fails closed", async ({
+    page,
+  }) => {
+    const { baseURL } = state();
+    await gotoDemoCounter(page, baseURL);
+
+    const documentMode = page.getByRole("button", { name: "Document", exact: true });
+    const jsonMode = page.getByRole("button", { name: "JSON", exact: true });
+    await expect(documentMode).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("steps", { exact: true }).first()).toBeVisible();
+
+    const stepsInput = page.locator('input[inputmode="decimal"]').first();
+    await expect(stepsInput).toHaveValue("3");
+    await stepsInput.click();
+    await stepsInput.fill("2");
+    await stepsInput.blur();
+    await expect(stepsInput).toHaveValue("2");
+
+    await jsonMode.click();
+    await expect(jsonMode).toHaveAttribute("aria-pressed", "true");
+    const editor = page.locator(".cm-content").first();
+    await expect(editor).toBeVisible();
+    await expect(editor).toContainText('"steps"');
+    await expect(editor).toContainText("2");
+
+    await editor.click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+a" : "Control+a");
+    await page.keyboard.insertText("{");
+    await expect(documentMode).toBeDisabled();
+    await page.getByRole("button", { name: "Start run" }).click();
+    await expect(page.getByRole("alert").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/workflows\/demo-counter$/);
+
+    await setWorkflowInputJson(page, '{"steps":2}');
+    await expect(documentMode).toBeEnabled();
+    await documentMode.click();
+    await expect(documentMode).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('input[inputmode="decimal"]').first()).toHaveValue("2");
+
+    const runId = await startRunAndWait(page);
+    expect(runId).toBeTruthy();
+    await expect(page.getByText("Workflow Output")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Copy sum" })).toBeVisible({ timeout: 30_000 });
+  });
+
   test("hot reload updates the input sample and failed reload shows a banner", async ({ page }) => {
     const { baseURL, demoCounterPath, logPath } = state();
     const logs = () => readDashboardLogs(logPath);

@@ -3,7 +3,8 @@ import { adl } from "../adl";
 /** Leaf nested under `retry-nested-lineage` (listed so Non-Root / API can see it). */
 export const retryNestLeaf = adl.createWorkflow({
   id: "retry-nest-leaf",
-  async run() {
+  async run(_input, ctx) {
+    await ctx.step("leaf-work", async () => "leaf");
     return { leaf: true as const };
   },
 });

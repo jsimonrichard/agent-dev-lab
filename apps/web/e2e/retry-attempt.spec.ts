@@ -230,4 +230,58 @@ test.describe("attempt-lineage resumability", () => {
     expect(container?.stepId).toBeTruthy();
     expect(replayed!.parentStepId).toBe(container!.stepId);
   });
+
+  test("retry seed shows copied step badge and waterfall retry-line layout", async ({
+    page,
+    request,
+  }) => {
+    const runId = await startWorkflowRun(request, "retry-lineage", {
+      title: "e2e copied bars",
+    });
+    const settled = await waitForRunStatus(request, runId, "completed");
+    const stepId = stepIdByName(settled, "b");
+
+    const response = await request.post(`/api/runs/${runId}/retry`, {
+      data: { stepId },
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const body = (await response.json()) as { runId: string };
+    await waitForRunStatus(request, body.runId, "completed");
+
+    await openWorkflowRun(page, "retry-lineage", body.runId);
+    await waitForTreeHydration(page);
+
+    await expect(page.getByText("Copied", { exact: true }).first()).toBeVisible();
+    await expect(
+      page
+        .locator('[data-tip="Step result copied from the prior attempt — open original"]')
+        .first(),
+    ).toBeVisible();
+    await expect(page.getByTestId("waterfall-retry-line").first()).toBeVisible();
+    await expect(page.locator('[data-tip*="prior layout"]').first()).toBeVisible();
+  });
+
+  test("expanding a nested run settles without a stuck Loading spinner", async ({
+    page,
+    request,
+  }) => {
+    const runId = await startWorkflowRun(request, "retry-nested-lineage", {
+      title: "e2e nest expand",
+    });
+    await waitForRunStatus(request, runId, "completed");
+    await openWorkflowRun(page, "retry-nested-lineage", runId);
+    await waitForTreeHydration(page);
+
+    const expand = page.getByRole("button", { name: "Expand retry-nest-leaf" }).first();
+    await expect(expand).toBeVisible();
+    await expand.click();
+
+    // Loading flashes while the nest fetch is in flight; the stuck-spinner
+    // regression is that it never clears. Wait for settle, not the flash.
+    await expect(
+      page.getByRole("button", { name: "Collapse retry-nest-leaf" }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Loading retry-nest-leaf" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^leaf-work duration/ }).first()).toBeVisible();
+  });
 });

@@ -16,7 +16,7 @@ Last reconciled: **2026-10-01**.
 | Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts; express as replay of recorded model outcomes when the gate allows                                                     |
 | Mid-stream token resume               | Still a non-goal                                                                                                                                                                |
 | Skipped-step file edits               | Run-scoped transcripts are copied when the writer step is skipped. File edits are not. See [`retry-side-effects.md`](./retry-side-effects.md). Env CoW is execution-control §4. |
-| Copied-bar / nested-expand Playwright | API retry, 409-while-running, and workflow-row Retry are in `retry-attempt.spec.ts`. Visual layout → lane J (`adl-playwright-gaps`).                                            |
+| Copied-bar / nested-expand Playwright | API retry, 409-while-running, workflow-row Retry, **copied-bar layout**, and **nested expand settle** are in `retry-attempt.spec.ts`.                                           |
 
 ---
 

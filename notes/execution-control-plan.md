@@ -321,9 +321,9 @@ All A–J provisioned. Briefs under `notes/orch-briefs/`; parent plan is this fi
 | E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | Effect-gate adapter; tool surface only                                   |
 | F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes                       |
 | G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | After C                                                                  |
-| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Nested agent calls                                                       |
-| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | Waterfall min width, preliminary tool UI, tool vs LLM time               |
-| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | Copied bars, nested expand, JSON editor depth                            |
+| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Rollup shipped; `$` estimates still open                                 |
+| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI    |
+| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e                  |
 
 **Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, structural cleanup, macOS bash, LSP, `writeFile` mkdir.
 
