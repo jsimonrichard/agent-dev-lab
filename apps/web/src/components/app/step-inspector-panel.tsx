@@ -43,6 +43,8 @@ interface StepInspectorPanelProps {
   events: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
   streamingText: string | null;
+  /** Live preliminary tool payloads from SSE (toolCallId → result). */
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
   workflowId: string;
   runId: string;
   tags: string[];
@@ -65,6 +67,7 @@ export function StepInspectorPanel({
   events,
   messagesPromise,
   streamingText,
+  preliminaryByToolCallId,
   workflowId,
   runId,
   tags,
@@ -96,6 +99,7 @@ export function StepInspectorPanel({
       events={events}
       messagesPromise={messagesPromise}
       streamingText={streamingText}
+      preliminaryByToolCallId={preliminaryByToolCallId}
       runStatus={runStatus}
       runError={runError}
       runId={runId}
@@ -194,6 +198,7 @@ function ConversationInspector({
   events,
   messagesPromise,
   streamingText,
+  preliminaryByToolCallId,
   runStatus,
   runError,
   runId,
@@ -206,6 +211,7 @@ function ConversationInspector({
   events: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
   streamingText: string | null;
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
   runStatus: RunStatus;
   runError?: unknown;
   runId: string;
@@ -326,6 +332,7 @@ function ConversationInspector({
         events={events}
         messagesPromise={messagesPromise}
         streamingText={streamingText}
+        preliminaryByToolCallId={preliminaryByToolCallId}
         episodeError={episodeError}
         runSettled={runSettled}
         runId={runId}
@@ -340,6 +347,7 @@ function ConversationPanel({
   events,
   messagesPromise,
   streamingText,
+  preliminaryByToolCallId,
   episodeError,
   runSettled,
   runId,
@@ -349,6 +357,7 @@ function ConversationPanel({
   events: RunEvent[];
   messagesPromise: Promise<PrefetchedRunMessages>;
   streamingText: string | null;
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
   episodeError: unknown;
   runSettled: boolean;
   runId: string;
@@ -392,6 +401,7 @@ function ConversationPanel({
             episode={episode}
             runId={runId}
             streamingText={streamingText}
+            preliminaryByToolCallId={preliminaryByToolCallId}
             fallbackError={episodeError}
             agentRegistered={agentRegistered}
           />
@@ -422,6 +432,7 @@ function EpisodeConversation({
   episode,
   runId,
   streamingText,
+  preliminaryByToolCallId,
   fallbackError,
   agentRegistered,
 }: {
@@ -430,6 +441,7 @@ function EpisodeConversation({
   episode: AgentEpisode;
   runId: string;
   streamingText: string | null;
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
   fallbackError: unknown;
   agentRegistered: boolean;
 }) {
@@ -491,6 +503,7 @@ function EpisodeConversation({
                     messages={current}
                     streamingText={liveStreaming}
                     isStreaming={episode.status === "running"}
+                    preliminaryByToolCallId={preliminaryByToolCallId}
                     compact
                     showEmpty={false}
                     className="flex-none gap-2 p-0"

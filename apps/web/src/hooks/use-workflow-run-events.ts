@@ -10,6 +10,7 @@ import {
   toEpisodeTimingEventDto,
   type EpisodeTimingEventDto,
 } from "@/lib/view-model/attach-episode-timing";
+import { foldPreliminaryToolResult } from "@/lib/preliminary-tool-results";
 
 function isWorkflowRunTerminal(event: RunEvent): boolean {
   return (
@@ -33,8 +34,10 @@ export function useWorkflowRunEvents(
   initialTimingEvents: EpisodeTimingEventDto[] = [],
 ) {
   const [events, setEvents] = useState<RunEvent[]>(initialEvents);
-  const [timingEvents, setTimingEvents] =
-    useState<EpisodeTimingEventDto[]>(initialTimingEvents);
+  const [timingEvents, setTimingEvents] = useState<EpisodeTimingEventDto[]>(initialTimingEvents);
+  const [preliminaryByToolCallId, setPreliminaryByToolCallId] = useState(
+    () => new Map<string, unknown>(),
+  );
   const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0));
   const seededRunIdRef = useRef(runId);
 
@@ -71,6 +74,9 @@ export function useWorkflowRunEvents(
       }
       return initialTimingEvents;
     });
+    if (runChanged) {
+      setPreliminaryByToolCallId(new Map());
+    }
     lastSeqRef.current = runChanged ? initialMax : Math.max(lastSeqRef.current, initialMax);
   }, [runId, initialEvents, initialTimingEvents]);
 
@@ -88,6 +94,9 @@ export function useWorkflowRunEvents(
           if (dto) {
             setTimingEvents((prev) => mergeTimingDtos(prev, dto));
           }
+        }
+        if (core.type === "agent_tool_result") {
+          setPreliminaryByToolCallId((prev) => foldPreliminaryToolResult(prev, core));
         }
         const adapted = adaptCoreEventsForWorkflowRun(runId, [core]);
         if (adapted.length === 0) {
@@ -118,5 +127,5 @@ export function useWorkflowRunEvents(
     [timingEvents],
   );
 
-  return { events, timingEvents, episodeTiming };
+  return { events, timingEvents, episodeTiming, preliminaryByToolCallId };
 }

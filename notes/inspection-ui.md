@@ -4,7 +4,7 @@ How the TanStack Start inspection UI talks to the runtime, plus **takeaways** fr
 
 **Status:** Control plane is server functions; data plane is SSE of persisted `RunEvent`s, implemented only in **`apps/web` wrappers** — never injected into user `createAgent` / `createWorkflow` code.
 
-Still open: template playground, a dedicated token-debug pane, live UI for streaming / preliminary tool results, registry “run a tool manually,” and the questions at the bottom. Backlog: [`near-term-roadmap.md`](./near-term-roadmap.md).
+Still open: template playground, a dedicated token-debug pane, registry “run a tool manually,” and the questions at the bottom. Backlog: [`near-term-roadmap.md`](./near-term-roadmap.md).
 
 Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [AI SDK notes](../packages/core/src/index.ts).
 
@@ -169,23 +169,18 @@ Coalesce `agent_text_delta` in a ref before calling `setState` if updates exceed
 
 ---
 
-## Streaming / preliminary tool results (deferred UI)
+## Streaming / preliminary tool results
 
-Core already streams them. A tool whose `execute` returns an `AsyncIterable` (bash is the
+Core streams them. A tool whose `execute` returns an `AsyncIterable` (bash is the
 shipped case — cumulative `stdout`/`stderr` snapshots while the command runs) emits one
 `agent_tool_result` per yield with `preliminary: true`, then a final non-preliminary result
 for the same `toolCallId`. See `AgentToolResultEvent`.
 Preliminary values never reach `MessageStore` / the model; they exist only on the event stream.
 
-The inspection UI does **not** show that live stream. Chat / run transcripts render tool
-results from committed messages (`chat-tool-call.tsx`), so a long-running bash call is a
-spinner until the final result lands. The event log lists each `agent_tool_result` as a row
-but has no growing output pane.
-
-**Wanted:** a chat/run tool card that tails preliminary `agent_tool_result` events for the
-in-flight `toolCallId` (stdout/stderr or JSON snapshot, replace-in-place as bash does) and
-settles on the final result. Same SSE/`runSeq` path as `agent_text_delta` — no second
-transport. Filter `!event.preliminary` anywhere the finished result is the only thing that
+**UI (2026-10-01):** Chat / episode tool cards subscribe to the same SSE/`runSeq` path as
+`agent_text_delta` and tail the latest preliminary payload for each in-flight `toolCallId`
+(`JsonPreview` "Live result" while pending). The card settles on the MessageStore final
+result. Filter `!event.preliminary` anywhere the finished result is the only thing that
 matters.
 
 Not a token-debug pane and not the registry "run a tool manually" browser.

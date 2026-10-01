@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 import { useInspectorConnection } from "#/lib/inspector-connection";
+import { foldPreliminaryToolResult } from "@/lib/preliminary-tool-results";
 
 interface UseAgentRunEventsOptions {
   /** Connect after a turn starts and the server has linked the session agentCallId. */
@@ -34,6 +35,9 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
   const { enabled = true, onFinished, onTitleSet, onError } = options;
   const { offline } = useInspectorConnection();
   const [streamingText, setStreamingText] = useState("");
+  const [preliminaryByToolCallId, setPreliminaryByToolCallId] = useState(
+    () => new Map<string, unknown>(),
+  );
   const [isRunning, setIsRunning] = useState(false);
   const lastSeqRef = useRef(0);
   const streamingTextRef = useRef("");
@@ -48,6 +52,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
     lastSeqRef.current = 0;
     streamingTextRef.current = "";
     setStreamingText("");
+    setPreliminaryByToolCallId(new Map());
     setIsRunning(false);
   }, [memoryScope]);
 
@@ -64,6 +69,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
       // previous turn cannot reappear beside the next optimistic user message.
       streamingTextRef.current = "";
       setStreamingText("");
+      setPreliminaryByToolCallId(new Map());
       return;
     }
 
@@ -71,6 +77,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
     setIsRunning(true);
     streamingTextRef.current = "";
     setStreamingText("");
+    setPreliminaryByToolCallId(new Map());
 
     const source = new EventSource(
       `/api/agent-runs/${encodeURIComponent(memoryScope)}/events?afterSeq=${lastSeqRef.current}`,
@@ -106,6 +113,7 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
 
     const stop = () => {
       setIsRunning(false);
+      setPreliminaryByToolCallId(new Map());
       refreshAfterCommit();
       source.close();
     };
@@ -117,10 +125,15 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
         if (event.type === "agent_started") {
           setIsRunning(true);
           applyStreamingText("");
+          setPreliminaryByToolCallId(new Map());
         }
 
         if (event.type === "agent_text_delta" && "delta" in event) {
           applyStreamingText((prev) => prev + event.delta);
+        }
+
+        if (event.type === "agent_tool_result") {
+          setPreliminaryByToolCallId((prev) => foldPreliminaryToolResult(prev, event));
         }
 
         if (event.type === "agent_title_set") {
@@ -159,5 +172,9 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
     };
   }, [memoryScope, enabled, offline]);
 
-  return { streamingText, isRunning: isRunning && !offline };
+  return {
+    streamingText,
+    preliminaryByToolCallId,
+    isRunning: isRunning && !offline,
+  };
 }

@@ -1,7 +1,4 @@
-import type {
-  EpisodeTiming,
-  EpisodeTimingSourceEvent,
-} from "@agent-dev-lab/core/episode-timing";
+import type { EpisodeTiming, EpisodeTimingSourceEvent } from "@agent-dev-lab/core/episode-timing";
 import {
   computeEpisodeTimingByAgentCallId,
   isEpisodeTimingEvent,

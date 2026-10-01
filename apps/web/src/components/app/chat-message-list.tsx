@@ -47,6 +47,8 @@ interface ChatMessageListProps {
   focusMessageIds?: ReadonlySet<string>;
   /** When true, include the live streaming bubble in the same call highlight. */
   focusStreaming?: boolean;
+  /** Latest preliminary tool payloads keyed by toolCallId (live SSE). */
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
   /** Episode Inspect link for an agent message (`?call=`). Absent when the message has no mapped call. */
   inspectLinkForMessage?: (messageId: string) => MessageInspectLink | undefined;
 }
@@ -62,6 +64,7 @@ export function ChatMessageList({
   systemPrompt,
   focusMessageIds,
   focusStreaming = false,
+  preliminaryByToolCallId,
   inspectLinkForMessage,
 }: ChatMessageListProps) {
   const hasStoredSystem = messages[0]?.role === "system";
@@ -94,6 +97,7 @@ export function ChatMessageList({
         compact={compact}
         rowRef={lastFocusKey === item.key ? focusRef : undefined}
         inspectLink={inspectLinkForMessage?.(item.messageId)}
+        preliminaryByToolCallId={preliminaryByToolCallId}
       />
     );
   }
@@ -223,11 +227,13 @@ function ChatDisplayItemView({
   compact,
   rowRef,
   inspectLink,
+  preliminaryByToolCallId,
 }: {
   item: ChatDisplayItem;
   compact: boolean;
   rowRef?: Ref<HTMLDivElement>;
   inspectLink?: MessageInspectLink;
+  preliminaryByToolCallId?: ReadonlyMap<string, unknown>;
 }) {
   const actions =
     inspectLink && isAgentDisplayItem(item) ? (
@@ -260,7 +266,14 @@ function ChatDisplayItemView({
   if (item.type === "tool-call") {
     return (
       <ToolMessage compact={compact} rowRef={rowRef} actions={actions}>
-        <ChatToolCall call={item.call} pending={item.pending} compact={compact} />
+        <ChatToolCall
+          call={item.call}
+          pending={item.pending}
+          compact={compact}
+          preliminaryResult={
+            item.pending ? preliminaryByToolCallId?.get(item.call.toolCallId) : undefined
+          }
+        />
       </ToolMessage>
     );
   }

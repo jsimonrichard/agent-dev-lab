@@ -85,7 +85,7 @@ export function RunWorkspace({
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const router = useRouter();
   const { offline } = useInspectorConnection();
-  const { events, episodeTiming } = useWorkflowRunEvents(
+  const { events, episodeTiming, preliminaryByToolCallId } = useWorkflowRunEvents(
     summary.runId,
     initialEvents,
     initialTimingEvents,
@@ -814,6 +814,9 @@ export function RunWorkspace({
                 events={inspectorEvents}
                 messagesPromise={activeMessagesPromise}
                 streamingText={nestedRunSelected || workflowSelected ? null : streamingText}
+                preliminaryByToolCallId={
+                  nestedRunSelected || workflowSelected ? undefined : preliminaryByToolCallId
+                }
                 workflowId={
                   nestedRunSelected
                     ? (inspectorSummary?.workflowId ?? view.workflowId)

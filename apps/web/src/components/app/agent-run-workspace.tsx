@@ -170,23 +170,26 @@ export function AgentRunWorkspace({
     void router.invalidate();
   }, [router]);
 
-  const { streamingText, isRunning } = useAgentRunEvents(conversation.runId, {
-    enabled: streamEnabled,
-    onFinished: async () => {
-      await refreshMessages();
-      refreshConversationMeta();
-      // Inspecting `?call=` only. Latest-turn events wait for `latestAgentCallId` to
-      // update — fetching the pre-send id would re-apply a prior `agent_failed`.
-      if (callId) {
-        const payload = await fetchAgentCallEvents({ data: callId });
-        applyCallEvents(payload, true);
-      }
+  const { streamingText, preliminaryByToolCallId, isRunning } = useAgentRunEvents(
+    conversation.runId,
+    {
+      enabled: streamEnabled,
+      onFinished: async () => {
+        await refreshMessages();
+        refreshConversationMeta();
+        // Inspecting `?call=` only. Latest-turn events wait for `latestAgentCallId` to
+        // update — fetching the pre-send id would re-apply a prior `agent_failed`.
+        if (callId) {
+          const payload = await fetchAgentCallEvents({ data: callId });
+          applyCallEvents(payload, true);
+        }
+      },
+      onTitleSet: refreshConversationMeta,
+      onError: (caught) => {
+        setError(caught);
+      },
     },
-    onTitleSet: refreshConversationMeta,
-    onError: (caught) => {
-      setError(caught);
-    },
-  });
+  );
 
   const showStreamingAssistant = shouldShowStreamingAssistant(messages, streamingText, {
     isRunning,
@@ -467,6 +470,7 @@ export function AgentRunWorkspace({
                       messages={messages}
                       streamingText={showStreamingAssistant ? streamingText : null}
                       isStreaming={isRunning || sending}
+                      preliminaryByToolCallId={preliminaryByToolCallId}
                       systemPrompt={storedSystemPrompt ? null : settings.systemPrompt}
                       focusMessageIds={focusMessageIds}
                       focusStreaming={focusStreaming}

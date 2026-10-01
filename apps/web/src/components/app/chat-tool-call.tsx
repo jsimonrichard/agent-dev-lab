@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 type ChatToolCallProps = {
   compact?: boolean;
+  /** Latest preliminary `agent_tool_result` payload while the call is still pending. */
+  preliminaryResult?: unknown;
 } & (
   | { call: ChatToolCallPart; result?: never; pending?: boolean }
   | { call?: never; result: ChatToolResultPart; pending?: never }
@@ -20,6 +22,8 @@ export function ChatToolCall(props: ChatToolCallProps) {
   const name = isResult ? props.result.toolName : props.call.toolName;
   const isError = isResult && props.result.isError === true;
   const pending = !isResult && props.pending === true;
+  const preliminaryResult = !isResult ? props.preliminaryResult : undefined;
+  const hasPreliminary = pending && preliminaryResult !== undefined;
   const providerExecuted = isResult
     ? props.result.providerExecuted === true
     : props.call.providerExecuted === true;
@@ -30,7 +34,9 @@ export function ChatToolCall(props: ChatToolCallProps) {
     : isResult
       ? "result"
       : pending
-        ? "running"
+        ? hasPreliminary
+          ? "streaming"
+          : "running"
         : providerAction
           ? "openai action"
           : "call";
@@ -90,16 +96,25 @@ export function ChatToolCall(props: ChatToolCallProps) {
             )}
           />
         ) : (
-          <JsonPreview
-            label={argsLabel}
-            value={emptyArgs ? undefined : args}
-            empty={
-              providerExecuted
-                ? "No arguments yet. The hosted action appears after the provider finishes."
-                : "No arguments."
-            }
-            className={cn("bg-card/80", compact ? "max-h-24" : "max-h-40")}
-          />
+          <>
+            <JsonPreview
+              label={argsLabel}
+              value={emptyArgs ? undefined : args}
+              empty={
+                providerExecuted
+                  ? "No arguments yet. The hosted action appears after the provider finishes."
+                  : "No arguments."
+              }
+              className={cn("bg-card/80", compact ? "max-h-24" : "max-h-40")}
+            />
+            {hasPreliminary ? (
+              <JsonPreview
+                label="Live result"
+                value={preliminaryResult}
+                className={cn("bg-card/80", compact ? "max-h-28" : "max-h-48")}
+              />
+            ) : null}
+          </>
         )}
       </CollapsibleContent>
     </Collapsible>
