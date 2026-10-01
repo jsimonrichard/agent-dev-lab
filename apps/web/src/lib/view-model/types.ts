@@ -45,8 +45,9 @@ export interface InspectorRunSummary {
   title?: string;
   tags: string[];
   /**
-   * Sum of finished agent-episode token usage for this workflow run.
-   * Absent when no episode reported usage.
+   * Sum of finished agent-episode token usage for this workflow run and all
+   * nested descendant runs (`parentWorkflowRunId` forest). Absent when no
+   * episode in the subtree reported usage.
    */
   usage?: TokenUsage;
   /** Immediate parent run when nested; null/omitted for roots and isolated. */

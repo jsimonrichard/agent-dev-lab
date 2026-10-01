@@ -30,7 +30,12 @@ import type { ProjectInspectorMeta } from "#/lib/inspector/inspector-types";
 import { persistInspectorSession } from "#/lib/inspector/inspector-session-persist.server";
 import { mapMessageIdsToAgentCallIds } from "#/lib/agent/agent-call-focus";
 import { findRunningForestRunId } from "#/lib/retry-forest-guard";
-import { sumEpisodeUsageByKey } from "#/lib/token-usage-rollups";
+import {
+  buildChildrenByParent,
+  subtreeRunIds,
+  sumEpisodeUsageByKey,
+  sumEpisodeUsageForRunIds,
+} from "#/lib/token-usage-rollups";
 import { filterTimingEventDtos } from "#/lib/view-model/attach-episode-timing";
 import {
   createMemoryScope,
@@ -241,16 +246,21 @@ export async function listWorkflowRunSummaries(options?: {
   const listedWorkflowIds = new Set(project.listWorkflowIds());
   const store = await getWorkflowStore();
   const rootsOnly = options?.rootsOnly !== false;
-  const runs = await store.listRuns(rootsOnly ? { rootsOnly: true } : undefined);
+  const allRuns = await store.listRuns();
+  const childrenByParent = buildChildrenByParent(allRuns);
+  const runs = rootsOnly ? allRuns.filter((run) => run.parentWorkflowRunId == null) : allRuns;
   const episodes = await store.listAgentEpisodes();
-  const usageByRunId = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId);
   const summaries: InspectorRunSummary[] = [];
 
   for (const run of runs) {
     if (!listedWorkflowIds.has(run.workflowId)) {
       continue;
     }
-    summaries.push(await toInspectorRunSummary(store, run, usageByRunId.get(run.workflowRunId)));
+    const usage = sumEpisodeUsageForRunIds(
+      episodes,
+      subtreeRunIds(run.workflowRunId, childrenByParent),
+    );
+    summaries.push(await toInspectorRunSummary(store, run, usage));
   }
 
   return summaries.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
@@ -286,7 +296,11 @@ export async function getWorkflowRunSummary(runId: string): Promise<InspectorRun
     return null;
   }
   const episodes = await store.listAgentEpisodes();
-  const usage = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId).get(runId);
+  const descendants = await store.listDescendantRuns(runId);
+  const usage = sumEpisodeUsageForRunIds(
+    episodes,
+    new Set([runId, ...descendants.map((descendant) => descendant.workflowRunId)]),
+  );
   return toInspectorRunSummary(store, run, usage);
 }
 
@@ -294,11 +308,18 @@ export async function listChildWorkflowRunSummaries(
   parentWorkflowRunId: string,
 ): Promise<InspectorRunSummary[]> {
   const store = await getWorkflowStore();
-  const runs = await store.listRuns({ parentWorkflowRunId });
+  const allRuns = await store.listRuns();
+  const childrenByParent = buildChildrenByParent(allRuns);
+  const runs = allRuns.filter((run) => run.parentWorkflowRunId === parentWorkflowRunId);
   const episodes = await store.listAgentEpisodes();
-  const usageByRunId = sumEpisodeUsageByKey(episodes, (episode) => episode.workflowRunId);
   const summaries = await Promise.all(
-    runs.map((run) => toInspectorRunSummary(store, run, usageByRunId.get(run.workflowRunId))),
+    runs.map((run) => {
+      const usage = sumEpisodeUsageForRunIds(
+        episodes,
+        subtreeRunIds(run.workflowRunId, childrenByParent),
+      );
+      return toInspectorRunSummary(store, run, usage);
+    }),
   );
   return summaries.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
