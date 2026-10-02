@@ -1,7 +1,8 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
-**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools wiring is Lane E; suspend persistence / cursor replay / debugger remain later.
-**Parent for orch lanes:** this file. Briefs live under `notes/orch-briefs/`.
+**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); suspend persistence / cursor replay / debugger remain later.
+**Parent plan:** this file. Historical orch briefs: `notes/orch-briefs/`. **Next provision:** `tsk task fork` + HANDOFFs under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work).
+**Governance (beforehand):** [`mage-governance.md`](./mage-governance.md) — wave 0 review-capacity conversion.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
 
 Supersedes the deferred half of [`resumability.md`](./resumability.md) (crash/`checkpoint`/`cacheable`) as the **target shape**. Today's attempt lineage (`seedRetryAttempt`, path-stable skip, inspector Retry) stays shipped until a migration path is designed; do not silently rewrite it under another concern.
@@ -293,7 +294,7 @@ Cross-links: [`future-extensions.md`](./future-extensions.md) § Human approval;
 2. Granularity ladder L1–L4 is written with a default (L1–L3) and an explicit DAP direction. **Met.**
 3. Retry rework has a migration story from `seedRetryAttempt` / `fromStepId` to trace cursors. **Met (design).**
 4. Open decisions below are listed; design reviewed 2026-10-01. **Met.**
-5. Orch lanes for independent P1/P2 work exist and point here where they touch pause/retry. **Met.**
+5. Orch lanes for independent P1/P2 work exist and point here where they touch pause/retry. **Met (historical).** Next work uses `tsk task fork` + [`tsk-handoffs/`](./tsk-handoffs/); wave 0 = [`mage-governance.md`](./mage-governance.md).
 
 ---
 
@@ -308,33 +309,59 @@ Cross-links: [`future-extensions.md`](./future-extensions.md) § Human approval;
 
 ---
 
-## Lane map (2026-10-01)
+## Lane map (2026-10-01 wave — historical)
 
-All A–J provisioned. Briefs under `notes/orch-briefs/`; parent plan is this file.
+A–J were provisioned via orch. Briefs under `notes/orch-briefs/`. Prefer `tsk task fork` + [`tsk-handoffs/`](./tsk-handoffs/) for anything new.
 
-| Concern                                          | Brief                                    | Priority            | Task        | Notes                                                                    |
-| ------------------------------------------------ | ---------------------------------------- | ------------------- | ----------- | ------------------------------------------------------------------------ |
-| A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 impl later      |
-| B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | **Shipped** — see [`nested-run-followups.md`](./nested-run-followups.md) |
-| C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1                                                               |
-| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | **Shipped** — `createMcpToolProvider` + required EffectGate              |
-| E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | Effect-gate adapter; tool surface only                                   |
-| F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes                       |
-| G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | After C                                                                  |
-| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Rollup shipped; `$` estimates still open                                 |
-| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI    |
-| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e                  |
+| Concern                                          | Brief                                    | Priority            | Task        | Notes                                                                                      |
+| ------------------------------------------------ | ---------------------------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------ |
+| A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 → next forks. **tsk archived**    |
+| B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | **Shipped** — see [`nested-run-followups.md`](./nested-run-followups.md). **tsk archived** |
+| C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1. **tsk archived**                                                               |
+| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | **Shipped** — `createMcpToolProvider` + required EffectGate                                |
+| E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | **Shipped** (tools gate); UI Allow/Deny + suspend still open                               |
+| F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes. **tsk archived**                       |
+| G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | **Shipped** — host catalog + inspector/CLI picker                                          |
+| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Rollup shipped; `$` estimates still open (roadmap). **tsk archived**                       |
+| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI. **tsk archived**    |
+| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e. **tsk archived**                  |
+
+**Still open from that wave:** H `$` estimates; UI Allow/Deny + `ctx.requestApproval` (E follow-up); residual Bugbot session/`workflowRunId` overwrite on nested episodes.
 
 **Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, structural cleanup, macOS bash, LSP, `writeFile` mkdir.
 
-**Integrator WC:** tsk task `tde88a16b` (was Resumability) holds this plan until A takes over implementation.
+**Integrator WC:** tsk task `tde88a16b` holds this plan + governance notes.
+
+---
+
+## Next forks (`tsk task fork` + HANDOFF)
+
+Provision **after** current A–J landings settle on the integrator (or fork from tip when a concern is independent). Wave 0 is **beforehand** so later agents inherit review obligations.
+
+| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                                        |
+| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 0     | `adl-review-governance`   | [`tsk-handoffs/adl-review-governance.md`](./tsk-handoffs/adl-review-governance.md)     | MAGE-style models + cheap CI; inventory Bugbot/house-rule bites ([`mage-governance.md`](./mage-governance.md)) |
+| 1     | `adl-effect-gate-tools`   | [`tsk-handoffs/adl-effect-gate-tools.md`](./tsk-handoffs/adl-effect-gate-tools.md)     | **Mostly landed in stack (E).** Residual: UI Allow/Deny / suspend wiring — or skip to cursor retry             |
+| 2     | `adl-retry-from-cursor`   | [`tsk-handoffs/adl-retry-from-cursor.md`](./tsk-handoffs/adl-retry-from-cursor.md)     | `seedRetryFromCursor`; `fromStepId` wrapper                                                                    |
+| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                                                  |
+| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                                                     |
+
+**Parallel when free (not on the spine):** `$` estimates (H), todo-tool placement. (D/G landed in this linear stack.)
+
+**Example:**
+
+```bash
+tsk task fork --handoff notes/tsk-handoffs/adl-review-governance.md adl-review-governance
+```
 
 ---
 
 ## Gaps / not done
 
-- Tools `execute()` wrap over `EffectGate` = Lane E.
+- Tools `execute()` wrap over `EffectGate` = **landed** (Lane E). UI Allow/Deny / SuspendStore still open.
 - `SuspendStore` persistence and `suspended` run status (decision 6) — not started; no schema lock in the types PR.
 - `seedRetryFromCursor` / inspector cursor picker — not started.
 - Debugger UI / DAP server — not started.
 - Env CoW research (§4) — not started.
+- Wave 0 governance inventory + cheap alignments — notes ready; fork not yet provisioned.
+- Session `workflowRunId` overwrite on nested episode registration (Bugbot) — track in wave 0 or a tiny follow-up fork.
