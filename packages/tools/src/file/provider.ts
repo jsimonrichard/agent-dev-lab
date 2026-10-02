@@ -3,12 +3,14 @@ import path from "node:path";
 import {
   AdlError,
   tool,
+  type EffectGate,
   type Tool,
   type ToolProvider,
   type ToolProviderToolSummary,
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, effectScopeFromToolProviderContext } from "../approval/index.ts";
 import {
   omitAllowReadSchemaDescription,
   omitAllowWriteSchemaDescription,
@@ -96,6 +98,11 @@ const fileAllowReadSchema = z.union([
 ]);
 
 export interface FileToolProviderOptions {
+  /**
+   * Pre-materialize gate for every file / describe-env tool call. Required —
+   * pass {@link import("@agent-dev-lab/core").allowAllGate} explicitly for tests.
+   */
+  effectGate: EffectGate;
   /** Default relative-path base when a call's context doesn't specify one. */
   root?: string;
   /**
@@ -164,6 +171,9 @@ function cacheKey(
   denyRead: readonly string[] | undefined,
   allowWrite: readonly string[] | undefined,
   denyWrite: readonly string[] | undefined,
+  workflowRunId: string,
+  agentCallId: string | null | undefined,
+  stepId: string | null | undefined,
 ): string {
   const read =
     allowRead === undefined
@@ -175,7 +185,10 @@ function cacheKey(
           : allowRead.join("\0");
   // Omitted allowWrite ([root]) must not share a cache slot with [] (no writes).
   const write = allowWrite === undefined ? "omit" : `list:${allowWrite.join("\0")}`;
-  return `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}::${(denyWrite ?? []).join("\0")}`;
+  return (
+    `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}::` +
+    `${(denyWrite ?? []).join("\0")}::${workflowRunId}::${agentCallId ?? ""}::${stepId ?? ""}`
+  );
 }
 
 /**
@@ -229,6 +242,7 @@ export function createFileToolProvider(
       const denyWrite = ctx.toolProviderContext?.denyWrite ?? options.denyWrite;
 
       const resolvedRoot = path.resolve(root);
+      const effectScope = effectScopeFromToolProviderContext(ctx);
       const key = cacheKey(
         resolvedRoot,
         maxReadBytes,
@@ -237,6 +251,9 @@ export function createFileToolProvider(
         denyRead,
         allowWrite,
         denyWrite,
+        effectScope.workflowRunId,
+        effectScope.agentCallId,
+        effectScope.stepId,
       );
       let fileTools = cache.get(key);
       if (!fileTools) {
@@ -248,6 +265,8 @@ export function createFileToolProvider(
           denyWrite,
           maxReadBytes,
           maxWriteBytes,
+          effectGate: options.effectGate,
+          effectScope,
         });
         cache.set(key, fileTools);
       }
@@ -255,17 +274,27 @@ export function createFileToolProvider(
       const describeFileEnv: DescribeFileEnvTool = tool({
         description: describeFileEnvDescription,
         inputSchema: describeFileEnvInputSchema,
-        execute: async () => ({
-          fileAccess: describeFileAccess(
-            resolvedRoot,
-            maxReadBytes,
-            maxWriteBytes,
-            allowRead,
-            denyRead,
-            allowWrite,
-            denyWrite,
-          ),
-        }),
+        execute: async (rawInput, { toolCallId }) => {
+          await assertToolAllowed({
+            gate: options.effectGate,
+            toolName: "describeFileEnv",
+            input: rawInput,
+            effectScope,
+            toolCallId,
+            reversibility: "compensable",
+          });
+          return {
+            fileAccess: describeFileAccess(
+              resolvedRoot,
+              maxReadBytes,
+              maxWriteBytes,
+              allowRead,
+              denyRead,
+              allowWrite,
+              denyWrite,
+            ),
+          };
+        },
       });
 
       return { ...fileTools, describeFileEnv };

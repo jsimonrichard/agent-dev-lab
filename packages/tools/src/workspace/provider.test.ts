@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
+import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 import { OMIT_TMP_DIR_SCHEMA_DESCRIPTION } from "../bash/asrt/tmp-dir.ts";
@@ -94,7 +94,7 @@ afterEach(async () => {
 describe("createWorkspaceToolProvider", () => {
   it("uses one shared cwd for both the file jail root and the bash cwd", async () => {
     const executor = stubExecutor({ allowWrite: [root] });
-    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const provider = createWorkspaceToolProvider({ effectGate: allowAllGate, executor, cwd: root });
     const { writeFile, bash } = await provider.getTools(ctx());
 
     await writeFile.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions);
@@ -113,7 +113,11 @@ describe("createWorkspaceToolProvider", () => {
     const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-workspace-provider-other-"));
     try {
       const executor = stubExecutor({ allowWrite: [otherRoot] });
-      const provider = createWorkspaceToolProvider({ executor, cwd: root });
+      const provider = createWorkspaceToolProvider({
+        effectGate: allowAllGate,
+        executor,
+        cwd: root,
+      });
       const { writeFile, bash } = await provider.getTools(ctx({ cwd: otherRoot }));
 
       await writeFile.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions);
@@ -135,7 +139,11 @@ describe("createWorkspaceToolProvider", () => {
     const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-workspace-provider-other-"));
     try {
       const executor = stubExecutor({ allowWrite: [root] });
-      const provider = createWorkspaceToolProvider({ executor, cwd: root });
+      const provider = createWorkspaceToolProvider({
+        effectGate: allowAllGate,
+        executor,
+        cwd: root,
+      });
       const { writeFile } = await provider.getTools(ctx({ cwd: otherRoot }));
       await expect(
         writeFile.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions),
@@ -146,12 +154,19 @@ describe("createWorkspaceToolProvider", () => {
   });
 
   it("throws when no cwd is given anywhere", () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor() });
+    const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+    });
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
   it("lists fetchUrl unless constructed with fetchUrl: false", () => {
-    const withFetch = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const withFetch = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: root,
+    });
     expect(withFetch.listTools?.().map((summary) => summary.name)).toEqual([
       "readFile",
       "writeFile",
@@ -166,6 +181,7 @@ describe("createWorkspaceToolProvider", () => {
       withFetch.listTools?.().find((summary) => summary.name === "fetchUrl")?.description,
     ).toContain("allowNetwork");
     const withoutFetch = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       fetchUrl: false,
@@ -176,6 +192,7 @@ describe("createWorkspaceToolProvider", () => {
   it("describeWorkspaceEnv reports fileAccess, bashAccess, and webAccess together", async () => {
     const executor = stubExecutor();
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor,
       cwd: root,
       allowNetwork: true,
@@ -216,7 +233,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("describeWorkspaceEnv reports bash allowRead on fileAccess without inserting cwd", async () => {
     const executor = stubExecutor({ allowRead: ["/only-this"] });
-    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const provider = createWorkspaceToolProvider({ effectGate: allowAllGate, executor, cwd: root });
     const { describeWorkspaceEnv } = await provider.getTools(ctx());
     const result = await describeWorkspaceEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({
@@ -233,7 +250,7 @@ describe("createWorkspaceToolProvider", () => {
   it("does not let readFile use the write root when allowRead is a different list", async () => {
     await Bun.write(path.join(root, "inside.txt"), "inside");
     const executor = stubExecutor({ allowRead: ["/only-this"], allowWrite: [root] });
-    const provider = createWorkspaceToolProvider({ executor, cwd: root });
+    const provider = createWorkspaceToolProvider({ effectGate: allowAllGate, executor, cwd: root });
     const { readFile: readFileTool } = await provider.getTools(ctx());
     await expect(readFileTool.execute?.({ path: "inside.txt" }, toolCallOptions)).rejects.toThrow(
       /outside the allowed read roots/,
@@ -242,6 +259,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("keeps bashTimeoutMs and fetchTimeoutMs as independent knobs", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       bashTimeoutMs: 111,
@@ -267,6 +285,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("overrides fetchUrl options via toolProviderContext without touching bashTimeoutMs", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       allowedUrls: ["https://docs.internal:443/**"],
@@ -295,6 +314,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("omits fetchUrl and webAccess when constructed with fetchUrl: false", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       fetchUrl: false,
@@ -342,6 +362,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("omits fetchUrl and webAccess when allowNetwork is false", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
     });
@@ -359,6 +380,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("includes fetchUrl for a call when toolProviderContext.allowNetwork is true", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
     });
@@ -370,6 +392,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("does not treat empty allowedUrls as a deny that removes fetchUrl", () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       allowedUrls: [],
@@ -381,6 +404,7 @@ describe("createWorkspaceToolProvider", () => {
   it("throws when fetch options are set and fetchUrl is disabled", () => {
     expect(() =>
       createWorkspaceToolProvider({
+        effectGate: allowAllGate,
         executor: stubExecutor(),
         cwd: root,
         fetchUrl: false,
@@ -391,6 +415,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("throws when fetch toolProviderContext is set and fetchUrl is disabled", () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       fetchUrl: false,
@@ -402,6 +427,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("carries allowedUrls from workspace context into the fetchUrl tool", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       allowNetwork: true,
@@ -425,6 +451,7 @@ describe("createWorkspaceToolProvider", () => {
 
   it("carries allowedDomains from workspace context into the fetchUrl tool", async () => {
     const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
       executor: stubExecutor(),
       cwd: root,
       allowNetwork: true,
@@ -452,7 +479,11 @@ describe("createWorkspaceToolProvider", () => {
   });
 
   it("declares a contextSchema that accepts glob strings and RegExp allowedUrls entries", () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: root,
+    });
     const pattern = /^https:\/\/docs\.internal:443\/wiki\/[\w-]+$/;
     const parsed = provider.contextSchema?.parse({
       allowedUrls: ["https://docs.internal:443/**", pattern],
@@ -478,7 +509,11 @@ describe("createWorkspaceToolProvider", () => {
   });
 
   it("fills hardcoded runtime defaults when parsing empty context", () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: root,
+    });
     expect(provider.contextSchema?.parse({})).toEqual({
       bashTimeoutMs: DEFAULT_TIMEOUT_MS,
       denyRead: [],
@@ -498,7 +533,11 @@ describe("createWorkspaceToolProvider", () => {
   });
 
   it("describes omit-defaults that depend on cwd", () => {
-    const provider = createWorkspaceToolProvider({ executor: stubExecutor(), cwd: root });
+    const provider = createWorkspaceToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: root,
+    });
     expect(objectSchemaFieldDescription(provider.contextSchema, "cwd")).toBe(
       omitAnchorSchemaDescription("cwd"),
     );

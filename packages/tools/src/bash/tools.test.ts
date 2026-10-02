@@ -1,3 +1,4 @@
+import { allowAllGate } from "@agent-dev-lab/core";
 import { describe, expect, it } from "bun:test";
 
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
@@ -60,7 +61,12 @@ describe("createBashTool", () => {
       return [finalUpdate({ stdout: "ok" })];
     });
 
-    const { bash } = createBashTool({ executor, cwd: "/workspace" });
+    const { bash } = createBashTool({
+      effectGate: allowAllGate,
+      effectScope: { workflowRunId: "test" },
+      executor,
+      cwd: "/workspace",
+    });
     const result = bash.execute?.({ command: "echo hi" }, toolCallOptions);
     if (result) {
       await drain(result as AsyncIterable<BashExecutorUpdate>);
@@ -78,7 +84,13 @@ describe("createBashTool", () => {
       return [finalUpdate()];
     });
 
-    const { bash } = createBashTool({ executor, cwd: "/workspace", timeoutMs: 5_000 });
+    const { bash } = createBashTool({
+      effectGate: allowAllGate,
+      effectScope: { workflowRunId: "test" },
+      executor,
+      cwd: "/workspace",
+      timeoutMs: 5_000,
+    });
     const result = bash.execute?.({ command: "echo hi" }, toolCallOptions);
     if (result) {
       await drain(result as AsyncIterable<BashExecutorUpdate>);
@@ -95,7 +107,12 @@ describe("createBashTool", () => {
     });
 
     const controller = new AbortController();
-    const { bash } = createBashTool({ executor, cwd: "/workspace" });
+    const { bash } = createBashTool({
+      effectGate: allowAllGate,
+      effectScope: { workflowRunId: "test" },
+      executor,
+      cwd: "/workspace",
+    });
     const result = bash.execute?.(
       { command: "echo hi" },
       { ...toolCallOptions, abortSignal: controller.signal },
@@ -110,7 +127,12 @@ describe("createBashTool", () => {
   it("returns a non-zero exit code as data, not a thrown error", async () => {
     const executor = stubExecutor(() => [finalUpdate({ stderr: "no such file", exitCode: 1 })]);
 
-    const { bash } = createBashTool({ executor, cwd: "/workspace" });
+    const { bash } = createBashTool({
+      effectGate: allowAllGate,
+      effectScope: { workflowRunId: "test" },
+      executor,
+      cwd: "/workspace",
+    });
     const result = bash.execute?.({ command: "cat missing.txt" }, toolCallOptions);
     const updates = result ? await drain(result as AsyncIterable<BashExecutorUpdate>) : [];
 
@@ -129,7 +151,12 @@ describe("createBashTool", () => {
     const final = finalUpdate({ stdout: "partial done" });
     const executor = stubExecutor(() => [progress, final]);
 
-    const { bash } = createBashTool({ executor, cwd: "/workspace" });
+    const { bash } = createBashTool({
+      effectGate: allowAllGate,
+      effectScope: { workflowRunId: "test" },
+      executor,
+      cwd: "/workspace",
+    });
     const result = bash.execute?.({ command: "long-running" }, toolCallOptions);
     const updates = result ? await drain(result as AsyncIterable<BashExecutorUpdate>) : [];
 
@@ -138,6 +165,14 @@ describe("createBashTool", () => {
 
   it("rejects a non-positive timeoutMs at construction time", () => {
     const executor = stubExecutor(() => [finalUpdate()]);
-    expect(() => createBashTool({ executor, cwd: "/workspace", timeoutMs: 0 })).toThrow();
+    expect(() =>
+      createBashTool({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor,
+        cwd: "/workspace",
+        timeoutMs: 0,
+      }),
+    ).toThrow();
   });
 });

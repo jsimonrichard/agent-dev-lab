@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
+import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import {
@@ -41,7 +41,7 @@ afterEach(async () => {
 
 describe("createFileToolProvider", () => {
   it("uses options.root as the default when context sets none", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const { writeFile: writeFileTool } = await provider.getTools(ctx());
     await writeFileTool.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions);
     expect(await readFile(path.join(root, "a.txt"), "utf8")).toBe("hi");
@@ -50,7 +50,7 @@ describe("createFileToolProvider", () => {
   it("overrides options.root with toolProviderContext.root per call", async () => {
     const otherRoot = await mkdtemp(path.join(tmpdir(), "adl-file-provider-other-"));
     try {
-      const provider = createFileToolProvider({ root });
+      const provider = createFileToolProvider({ effectGate: allowAllGate, root });
       const { writeFile: writeFileTool } = await provider.getTools(ctx({ root: otherRoot }));
       await writeFileTool.execute?.({ path: "a.txt", content: "hi" }, toolCallOptions);
       expect(await readFile(path.join(otherRoot, "a.txt"), "utf8")).toBe("hi");
@@ -60,7 +60,11 @@ describe("createFileToolProvider", () => {
   });
 
   it("overrides options.maxWriteBytes with toolProviderContext.maxWriteBytes per call", async () => {
-    const provider = createFileToolProvider({ root, maxWriteBytes: 1_000 });
+    const provider = createFileToolProvider({
+      effectGate: allowAllGate,
+      root,
+      maxWriteBytes: 1_000,
+    });
     const { writeFile: writeFileTool } = await provider.getTools(ctx({ maxWriteBytes: 2 }));
     await expect(
       writeFileTool.execute?.({ path: "a.txt", content: "too long" }, toolCallOptions),
@@ -68,26 +72,31 @@ describe("createFileToolProvider", () => {
   });
 
   it("throws when neither options.root nor toolProviderContext.root is given", () => {
-    const provider = createFileToolProvider({});
+    const provider = createFileToolProvider({ effectGate: allowAllGate });
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
   it("reuses one cached FileTools instance for the same resolved root/caps", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const first = await provider.getTools(ctx());
     const second = await provider.getTools(ctx());
     expect(first.readFile).toBe(second.readFile);
   });
 
   it("does not reuse the cached instance when maxReadBytes differs for the same root", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const first = await provider.getTools(ctx({ maxReadBytes: 10 }));
     const second = await provider.getTools(ctx({ maxReadBytes: 20 }));
     expect(first.readFile).not.toBe(second.readFile);
   });
 
   it("describeFileEnv reports the resolved root as allowRead when omitted", async () => {
-    const provider = createFileToolProvider({ root, maxReadBytes: 111, maxWriteBytes: 222 });
+    const provider = createFileToolProvider({
+      effectGate: allowAllGate,
+      root,
+      maxReadBytes: 111,
+      maxWriteBytes: 222,
+    });
     const { describeFileEnv } = await provider.getTools(ctx());
     const result = await describeFileEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
@@ -104,7 +113,11 @@ describe("createFileToolProvider", () => {
   });
 
   it("describeFileEnv reports unbounded when constructed with UNBOUNDED_ALLOW_READ", async () => {
-    const provider = createFileToolProvider({ root, allowRead: UNBOUNDED_ALLOW_READ });
+    const provider = createFileToolProvider({
+      effectGate: allowAllGate,
+      root,
+      allowRead: UNBOUNDED_ALLOW_READ,
+    });
     const { describeFileEnv } = await provider.getTools(ctx());
     const result = await describeFileEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({
@@ -113,7 +126,7 @@ describe("createFileToolProvider", () => {
   });
 
   it("describeFileEnv reports an empty allowRead when constructed with null", async () => {
-    const provider = createFileToolProvider({ root, allowRead: null });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root, allowRead: null });
     const { describeFileEnv } = await provider.getTools(ctx());
     const result = await describeFileEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({
@@ -122,14 +135,14 @@ describe("createFileToolProvider", () => {
   });
 
   it("does not reuse the cached instance when allowRead differs for the same root", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const first = await provider.getTools(ctx());
     const second = await provider.getTools(ctx({ allowRead: null }));
     expect(first.readFile).not.toBe(second.readFile);
   });
 
   it("does not treat allowWrite [] as omitted (cache and enforcement)", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const omitted = await provider.getTools(ctx());
     const empty = await provider.getTools(ctx({ allowWrite: [] }));
     expect(omitted.writeFile).not.toBe(empty.writeFile);
@@ -143,6 +156,7 @@ describe("createFileToolProvider", () => {
   it("enforces denyWrite even under the default allowWrite", async () => {
     await mkdir(path.join(root, "hidden"), { recursive: true });
     const provider = createFileToolProvider({
+      effectGate: allowAllGate,
       root,
       denyWrite: [path.join(root, "hidden")],
     });
@@ -160,7 +174,7 @@ describe("createFileToolProvider", () => {
   });
 
   it("treats toolProviderContext.allowRead null as nothing-readable, not as omitted", async () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const { describeFileEnv, readFile: readFileTool } = await provider.getTools(
       ctx({ allowRead: null }),
     );
@@ -173,7 +187,7 @@ describe("createFileToolProvider", () => {
   });
 
   it("fills hardcoded byte-cap defaults when parsing empty context", () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     expect(provider.contextSchema?.parse({})).toEqual({
       denyRead: [],
       denyWrite: [],
@@ -183,7 +197,7 @@ describe("createFileToolProvider", () => {
   });
 
   it("describes omit-defaults that depend on root", () => {
-    const provider = createFileToolProvider({ root });
+    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     expect(objectSchemaFieldDescription(provider.contextSchema, "root")).toBe(
       omitAnchorSchemaDescription("root"),
     );

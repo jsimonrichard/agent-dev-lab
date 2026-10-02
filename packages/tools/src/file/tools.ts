@@ -3,6 +3,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, type GatedToolOptions } from "../approval/index.ts";
 import { createFileJail, type FileAllowRead } from "./jail.ts";
 
 export { resolveFileAllowRead, type FileAllowRead } from "./jail.ts";
@@ -17,7 +18,7 @@ export const EDIT_FILE_DESCRIPTION =
   "Replace one exact occurrence of `find` with `replace` in a text file. Fails if `find` " +
   "isn't unique — add more context.";
 
-export interface FileToolsOptions {
+export interface FileToolsOptions extends GatedToolOptions {
   /**
    * Relative-path base and omit-default for allow lists (passed to the jail as `cwd`).
    * Required so factories do not silently fall back to the home directory.
@@ -130,7 +131,15 @@ export function createFileTools(options: FileToolsOptions): FileTools {
           .string()
           .describe("Path relative to the sandbox root, or an absolute path within allowRead."),
       }),
-      execute: async ({ path: requestedPath }) => {
+      execute: async (rawInput, { toolCallId }) => {
+        const { path: requestedPath } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "readFile",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
         const resolved = await jail.resolveForRead(requestedPath);
         await assertReadable(resolved, requestedPath);
         return { content: await readFile(resolved, "utf8") };
@@ -143,7 +152,15 @@ export function createFileTools(options: FileToolsOptions): FileTools {
         path: z.string().describe("Path relative to the sandbox root."),
         content: z.string(),
       }),
-      execute: async ({ path: requestedPath, content }) => {
+      execute: async (rawInput, { toolCallId }) => {
+        const { path: requestedPath, content } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "writeFile",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
         const bytes = Buffer.byteLength(content, "utf8");
         assertWritable(bytes);
         const resolved = await jail.resolveForWrite(requestedPath);
@@ -159,7 +176,19 @@ export function createFileTools(options: FileToolsOptions): FileTools {
         find: z.string().min(1),
         replace: z.string(),
       }),
-      execute: async ({ path: requestedPath, find, replace }) => {
+      execute: async (rawInput, { toolCallId }) => {
+        const {
+          path: requestedPath,
+          find,
+          replace,
+        } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "editFile",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
         const resolved = await jail.resolveForWrite(requestedPath);
         await assertReadable(resolved, requestedPath);
         const original = await readFile(resolved, "utf8");

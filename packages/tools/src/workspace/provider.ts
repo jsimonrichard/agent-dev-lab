@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   AdlError,
   tool,
+  type EffectGate,
   type ExtendedToolProviderContext,
   type Tool,
   type ToolProvider,
@@ -10,6 +11,7 @@ import {
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, effectScopeFromToolProviderContext } from "../approval/index.ts";
 import type { BashExecutor, BashExecutorDescription } from "../bash/executor";
 import {
   ALLOWED_DOMAINS_DESCRIPTION,
@@ -169,6 +171,11 @@ export interface WorkspaceToolProviderContext
 
 export interface WorkspaceToolProviderOptions extends WorkspaceToolProviderContext {
   /**
+   * Pre-materialize gate for every workspace tool. Required — pass
+   * {@link import("@agent-dev-lab/core").allowAllGate} explicitly for tests / playground.
+   */
+  effectGate: EffectGate;
+  /**
    * Isolation strategy for the `bash` / search tools. Optional when policy (`allowWrite`, …)
    * is provided — acquires from the process pool. Escape hatch; mutually exclusive with
    * policy fields and `backend`.
@@ -319,12 +326,14 @@ export function createWorkspaceToolProvider(
   }
 
   const fileProvider = createFileToolProvider({
+    effectGate: options.effectGate,
     root: options.cwd,
     maxReadBytes: options.maxReadBytes,
     maxWriteBytes: options.maxWriteBytes,
   });
   const webProvider = fetchUrlOptionEnabled
     ? createWebToolProvider({
+        effectGate: options.effectGate,
         allowedUrls: options.allowedUrls,
         allowPrivateNetwork: options.allowPrivateNetwork,
         timeoutMs: options.fetchTimeoutMs,
@@ -377,6 +386,7 @@ export function createWorkspaceToolProvider(
       : workspaceOwnContextSchema,
     listTools(): ToolProviderToolSummary[] {
       const bashList = createBashToolProvider({
+        effectGate: options.effectGate,
         executor: options.executor,
         allowWrite: options.allowWrite,
         backend: options.backend,
@@ -468,6 +478,7 @@ export function createWorkspaceToolProvider(
       }
 
       const bashProvider = createBashToolProvider({
+        effectGate: options.effectGate,
         executor,
         cwd: options.cwd,
         timeoutMs: options.bashTimeoutMs,
@@ -481,6 +492,8 @@ export function createWorkspaceToolProvider(
         allowWrite: fileAllowWrite,
         denyWrite: fileDenyWrite,
       } = filePolicyFromExecutor(described);
+
+      const effectScope = effectScopeFromToolProviderContext(ctx);
 
       const [fileTools, bashTools, webTools] = await Promise.all([
         fileProvider.getTools({
@@ -520,39 +533,51 @@ export function createWorkspaceToolProvider(
         allowRead: fileAllowRead,
         denyRead: fileDenyRead,
         timeoutMs: bashTimeoutMs,
+        effectGate: options.effectGate,
+        effectScope,
       });
 
       const describeWorkspaceEnv: DescribeWorkspaceEnvTool = tool({
         description: describeWorkspaceEnvDescription(fetchUrlOptionEnabled),
         inputSchema: describeWorkspaceEnvInputSchema,
-        execute: async () => ({
-          fileAccess: describeFileAccess(
-            path.resolve(cwd),
-            maxReadBytes,
-            maxWriteBytes,
-            fileAllowRead,
-            fileDenyRead,
-            fileAllowWrite,
-            fileDenyWrite,
-          ),
-          bashAccess: workspaceBashAccess(
-            describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
-          ),
-          ...(webTools
-            ? {
-                webAccess: workspaceWebAccess(
-                  describeWebAccess(
-                    allowedUrls,
-                    allowPrivateNetwork,
-                    fetchTimeoutMs,
-                    maxResponseBytes,
-                    maxRedirects,
-                    { allowedDomains, deniedDomains },
+        execute: async (rawInput, { toolCallId }) => {
+          await assertToolAllowed({
+            gate: options.effectGate,
+            toolName: "describeWorkspaceEnv",
+            input: rawInput,
+            effectScope,
+            toolCallId,
+            reversibility: "compensable",
+          });
+          return {
+            fileAccess: describeFileAccess(
+              path.resolve(cwd),
+              maxReadBytes,
+              maxWriteBytes,
+              fileAllowRead,
+              fileDenyRead,
+              fileAllowWrite,
+              fileDenyWrite,
+            ),
+            bashAccess: workspaceBashAccess(
+              describeBashAccess(executor, cwd, bashTimeoutMs ?? DEFAULT_TIMEOUT_MS),
+            ),
+            ...(webTools
+              ? {
+                  webAccess: workspaceWebAccess(
+                    describeWebAccess(
+                      allowedUrls,
+                      allowPrivateNetwork,
+                      fetchTimeoutMs,
+                      maxResponseBytes,
+                      maxRedirects,
+                      { allowedDomains, deniedDomains },
+                    ),
                   ),
-                ),
-              }
-            : {}),
-        }),
+                }
+              : {}),
+          };
+        },
       });
 
       // Picked explicitly (not `{ ...fileTools, ...bashTools, ...webTools, describeWorkspaceEnv }`)

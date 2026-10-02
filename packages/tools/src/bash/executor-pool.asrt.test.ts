@@ -1,3 +1,4 @@
+import { allowAllGate } from "@agent-dev-lab/core";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -60,6 +61,7 @@ describe("pooled createBashToolProvider (ASRT)", () => {
       await resetBashExecutorPoolForTests();
       // Explicit allowRead so a cwd change does not rewrite omitted → [cwd] into a new policy.
       const provider = createBashToolProvider({
+        effectGate: allowAllGate,
         allowWrite: [sandboxA],
         allowRead: [sandboxA],
         cwd: sandboxA,
@@ -85,6 +87,7 @@ describe("pooled createBashToolProvider (ASRT)", () => {
     async () => {
       await resetBashExecutorPoolForTests();
       const provider = createBashToolProvider({
+        effectGate: allowAllGate,
         allowWrite: [sandboxA],
         cwd: sandboxA,
       });
@@ -104,6 +107,7 @@ describe("pooled createBashToolProvider (ASRT)", () => {
   it("spawns a different executor when policy differs", { timeout: 30_000 }, async () => {
     await resetBashExecutorPoolForTests();
     const provider = createBashToolProvider({
+      effectGate: allowAllGate,
       allowWrite: [sandboxA],
       cwd: sandboxA,
     });

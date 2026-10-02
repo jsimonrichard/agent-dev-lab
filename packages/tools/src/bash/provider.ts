@@ -1,6 +1,7 @@
 import {
   AdlError,
   tool,
+  type EffectGate,
   type ExtendedToolProviderContext,
   type Tool,
   type ToolProvider,
@@ -10,6 +11,7 @@ import {
 import path from "node:path";
 import { z } from "zod";
 
+import { assertToolAllowed, effectScopeFromToolProviderContext } from "../approval/index.ts";
 import {
   omitAllowReadSchemaDescription,
   omitAllowWriteSchemaDescription,
@@ -171,6 +173,11 @@ export interface BashToolProviderContext extends Partial<BashSandboxPolicy> {
 }
 
 export interface BashToolProviderOptions extends Partial<BashSandboxPolicy> {
+  /**
+   * Pre-materialize gate for bash / describe-env. Required — pass
+   * {@link import("@agent-dev-lab/core").allowAllGate} explicitly for tests.
+   */
+  effectGate: EffectGate;
   /**
    * Isolation strategy. Optional when policy (`allowWrite`, …) is provided — the provider
    * acquires a shared executor from the process pool. Escape hatch for tests / custom
@@ -384,6 +391,7 @@ export function createBashToolProvider(
       }
       const timeoutMs = ctx.toolProviderContext?.timeoutMs ?? options.timeoutMs;
       const resolvedTimeoutMs = timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const effectScope = effectScopeFromToolProviderContext(ctx);
 
       const { executor, poolKey } = resolveBashExecutorForCall({
         executor: options.executor,
@@ -398,14 +406,30 @@ export function createBashToolProvider(
         heldKeys.add(poolKey);
       }
 
-      const base = createBashTool({ executor, cwd, timeoutMs });
+      const base = createBashTool({
+        executor,
+        cwd,
+        timeoutMs,
+        effectGate: options.effectGate,
+        effectScope,
+      });
 
       const describeBashEnv: DescribeBashEnvTool = tool({
         description: describeBashEnvDescription,
         inputSchema: describeBashEnvInputSchema,
-        execute: async () => ({
-          bashAccess: describeBashAccess(executor, cwd, resolvedTimeoutMs),
-        }),
+        execute: async (rawInput, { toolCallId }) => {
+          await assertToolAllowed({
+            gate: options.effectGate,
+            toolName: "describeBashEnv",
+            input: rawInput,
+            effectScope,
+            toolCallId,
+            reversibility: "compensable",
+          });
+          return {
+            bashAccess: describeBashAccess(executor, cwd, resolvedTimeoutMs),
+          };
+        },
       });
 
       if (!options.safetyCheck) {
@@ -416,7 +440,17 @@ export function createBashToolProvider(
       const safeBash: BashTools["bash"] = tool({
         description: base.bash.description,
         inputSchema: base.bash.inputSchema,
-        execute: async function* (input, toolOptions) {
+        execute: async function* (rawInput, toolOptions) {
+          // Gate before safety check and before executor — order: gate → safety → materialize.
+          // Calls assertToolAllowed here (not via base.bash.execute) so the gate runs once.
+          const input = await assertToolAllowed({
+            gate: options.effectGate,
+            toolName: "bash",
+            input: rawInput,
+            effectScope,
+            toolCallId: toolOptions.toolCallId,
+            reversibility: "compensable",
+          });
           const verdict = await runSafetyCheck(safetyCheck, { command: input.command, cwd });
           if (!verdict.safe) {
             const blocked: BashExecutorResult = {

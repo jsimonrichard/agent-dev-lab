@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
+import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import { createWebToolProvider, type WebToolProviderContext } from "./provider.ts";
 import {
@@ -27,7 +27,7 @@ function ctx(
 
 describe("createWebToolProvider", () => {
   it("needs no options at all, and defaults to the strictest configuration", async () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const { describeWebEnv } = await provider.getTools(ctx());
     const result = await describeWebEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
@@ -43,7 +43,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("exposes both tools with descriptions", () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     expect(provider.listTools?.().map((summary) => summary.name)).toEqual([
       "fetchUrl",
       "describeWebEnv",
@@ -55,7 +55,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("declares a contextSchema accepting both glob strings and RegExp entries", () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const pattern = /^https:\/\/docs\.internal:443\/wiki\/[\w-]+$/;
     const parsed = provider.contextSchema?.parse({
       allowedUrls: ["https://docs.internal:443/**", pattern],
@@ -73,7 +73,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("fills hardcoded runtime defaults when parsing empty context", () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     expect(provider.contextSchema?.parse({})).toEqual({
       allowedUrls: [],
       allowPrivateNetwork: false,
@@ -84,12 +84,13 @@ describe("createWebToolProvider", () => {
   });
 
   it("rejects a contextSchema entry that is neither a string nor a RegExp", () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     expect(provider.contextSchema?.safeParse({ allowedUrls: [42] }).success).toBe(false);
   });
 
   it("uses options as the defaults when context sets none", async () => {
     const provider = createWebToolProvider({
+      effectGate: allowAllGate,
       allowedUrls: ["https://docs.internal:443/**"],
       timeoutMs: 111,
       maxResponseBytes: 222,
@@ -110,7 +111,10 @@ describe("createWebToolProvider", () => {
   });
 
   it("enforces constructor allowedDomains on fetchUrl", async () => {
-    const provider = createWebToolProvider({ allowedDomains: ["example.com"] });
+    const provider = createWebToolProvider({
+      effectGate: allowAllGate,
+      allowedDomains: ["example.com"],
+    });
     const { fetchUrl, describeWebEnv } = await provider.getTools(ctx());
     expect(await describeWebEnv.execute?.({}, toolCallOptions)).toMatchObject({
       webAccess: { allowedDomains: ["example.com"] },
@@ -122,6 +126,7 @@ describe("createWebToolProvider", () => {
 
   it("overrides each option with its toolProviderContext counterpart per call", async () => {
     const provider = createWebToolProvider({
+      effectGate: allowAllGate,
       allowedUrls: ["https://docs.internal:443/**"],
       timeoutMs: 111,
       maxResponseBytes: 222,
@@ -154,7 +159,7 @@ describe("createWebToolProvider", () => {
     // result carrying one raw would silently lose exactly the information this endpoint exists
     // to report once an AI SDK turn serializes it. `describeWebEnv` must convert it instead.
     const pattern = /^https:\/\/docs\.internal:443\/wiki\/[\w-]+$/i;
-    const provider = createWebToolProvider({ allowedUrls: [pattern] });
+    const provider = createWebToolProvider({ effectGate: allowAllGate, allowedUrls: [pattern] });
     const { describeWebEnv } = await provider.getTools(ctx());
     const result = await describeWebEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
@@ -171,7 +176,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("carries the resolved allowedUrls into the fetchUrl tool, not just the description", async () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const { fetchUrl } = await provider.getTools(ctx({ allowedUrls: ["http://127.0.0.1:9/**"] }));
 
     // The exempt origin gets *past* the address check, which is the whole claim here. What
@@ -193,7 +198,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("carries a RegExp allowedUrls entry through to the fetchUrl tool the same way", async () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const { fetchUrl } = await provider.getTools(
       ctx({ allowedUrls: [/^http:\/\/127\.0\.0\.1:9\/x$/] }),
     );
@@ -217,7 +222,7 @@ describe("createWebToolProvider", () => {
   it("rejects a URL whose hostname is a literal non-public IP address, when nothing exempts it", async () => {
     // Named precisely: there is no such thing as a "non-public URL" — only a literal address
     // written in one can be classified that way, and only when nothing in allowedUrls covers it.
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const { fetchUrl } = await provider.getTools(ctx());
     await expect(
       fetchUrl.execute?.({ url: "http://169.254.169.254/latest/meta-data/" }, toolCallOptions),
@@ -225,14 +230,14 @@ describe("createWebToolProvider", () => {
   });
 
   it("allowPrivateNetwork defaults to false — the address check stays on unless a host opts out", async () => {
-    const provider = createWebToolProvider();
+    const provider = createWebToolProvider({ effectGate: allowAllGate });
     const { describeWebEnv } = await provider.getTools(ctx());
     const result = await describeWebEnv.execute?.({}, toolCallOptions);
     expect(result).toMatchObject({ webAccess: { allowPrivateNetwork: false } });
   });
 
   it("allowPrivateNetwork carries through to the fetchUrl tool, disabling the address check", async () => {
-    const provider = createWebToolProvider({ allowPrivateNetwork: true });
+    const provider = createWebToolProvider({ effectGate: allowAllGate, allowPrivateNetwork: true });
     const { fetchUrl } = await provider.getTools(ctx());
 
     // Nothing listens on 127.0.0.1:9 — "connection refused" comes back immediately, fast and
@@ -250,13 +255,19 @@ describe("createWebToolProvider", () => {
   });
 
   it("toolProviderContext.allowPrivateNetwork overrides the constructor default per call", async () => {
-    const onProvider = createWebToolProvider({ allowPrivateNetwork: true });
+    const onProvider = createWebToolProvider({
+      effectGate: allowAllGate,
+      allowPrivateNetwork: true,
+    });
     const { fetchUrl: onFetchUrl } = await onProvider.getTools(ctx({ allowPrivateNetwork: false }));
     await expect(
       onFetchUrl.execute?.({ url: "http://169.254.169.254/latest/meta-data/" }, toolCallOptions),
     ).rejects.toThrow(/not a public address/);
 
-    const offProvider = createWebToolProvider({ allowPrivateNetwork: false });
+    const offProvider = createWebToolProvider({
+      effectGate: allowAllGate,
+      allowPrivateNetwork: false,
+    });
     const { fetchUrl: offFetchUrl } = await offProvider.getTools(
       ctx({ allowPrivateNetwork: true }),
     );
@@ -270,7 +281,7 @@ describe("createWebToolProvider", () => {
   });
 
   it("does not exempt a scheme-rejected URL — allowPrivateNetwork only affects the address check", async () => {
-    const provider = createWebToolProvider({ allowPrivateNetwork: true });
+    const provider = createWebToolProvider({ effectGate: allowAllGate, allowPrivateNetwork: true });
     const { fetchUrl } = await provider.getTools(ctx());
     await expect(
       fetchUrl.execute?.({ url: "file:///etc/passwd" }, toolCallOptions),

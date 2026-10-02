@@ -1,3 +1,4 @@
+import { allowAllGate } from "@agent-dev-lab/core";
 import assert from "node:assert/strict";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -221,17 +222,32 @@ after(async () => {
   }
 });
 
+/** Optional overrides for {@link fetchPath} / {@link fetchRaw} — gate is always allowAll. */
+type FetchUrlTestOverrides = Omit<FetchUrlToolOptions, "effectGate" | "effectScope">;
+
 /** Runs `fetchUrl` against the main fixture with its origin exempted. */
-async function fetchPath(path: string, options: FetchUrlToolOptions = {}): Promise<FetchUrlResult> {
-  const fetchUrl = createFetchUrlTool({ allowedUrls: [`${main.origin}/**`], ...options });
+async function fetchPath(
+  path: string,
+  options: FetchUrlTestOverrides = {},
+): Promise<FetchUrlResult> {
+  const fetchUrl = createFetchUrlTool({
+    effectGate: allowAllGate,
+    effectScope: { workflowRunId: "test" },
+    allowedUrls: [`${main.origin}/**`],
+    ...options,
+  });
   const execute = fetchUrl.execute;
   assert.ok(execute, "fetchUrl tool has no execute");
   return asFetchUrlResult(await execute({ url: `${main.origin}${path}` }, toolCallOptions));
 }
 
 /** Runs `fetchUrl` on a raw URL with nothing in `allowedUrls` — production configuration. */
-async function fetchRaw(url: string, options: FetchUrlToolOptions = {}): Promise<FetchUrlResult> {
-  const fetchUrl = createFetchUrlTool(options);
+async function fetchRaw(url: string, options: FetchUrlTestOverrides = {}): Promise<FetchUrlResult> {
+  const fetchUrl = createFetchUrlTool({
+    effectGate: allowAllGate,
+    effectScope: { workflowRunId: "test" },
+    ...options,
+  });
   const execute = fetchUrl.execute;
   assert.ok(execute, "fetchUrl tool has no execute");
   return asFetchUrlResult(await execute({ url }, toolCallOptions));
@@ -452,7 +468,11 @@ describe("fetchUrl", () => {
 
   describe("allowedUrls path/regex scoping, end to end", () => {
     it("a glob scoped to one directory allows it and everything under it", async () => {
-      const fetchUrl = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const fetchUrl = createFetchUrlTool({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        allowedUrls: [`${main.origin}/scoped/*`],
+      });
       const execute = fetchUrl.execute;
       assert.ok(execute);
 
@@ -468,7 +488,11 @@ describe("fetchUrl", () => {
     });
 
     it("that same glob does not reach outside its own directory", async () => {
-      const fetchUrl = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const fetchUrl = createFetchUrlTool({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        allowedUrls: [`${main.origin}/scoped/*`],
+      });
       const execute = fetchUrl.execute;
       assert.ok(execute);
       await assert.rejects(
@@ -479,6 +503,8 @@ describe("fetchUrl", () => {
 
     it("a RegExp entry scopes by pattern instead of by path prefix", async () => {
       const fetchUrl = createFetchUrlTool({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
         allowedUrls: [new RegExp(`^${main.origin.replace(/[.]/g, "\\.")}/regex-only$`)],
       });
       const execute = fetchUrl.execute;
@@ -499,7 +525,11 @@ describe("fetchUrl", () => {
       // Same guarantee `address guard across redirects` exercises for the whole-origin case
       // above, repeated for a path-scoped entry: scoping the exemption more tightly doesn't
       // loosen the per-hop re-check in any way.
-      const fetchUrl = createFetchUrlTool({ allowedUrls: [`${main.origin}/scoped/*`] });
+      const fetchUrl = createFetchUrlTool({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        allowedUrls: [`${main.origin}/scoped/*`],
+      });
       const execute = fetchUrl.execute;
       assert.ok(execute);
       await assert.rejects(
@@ -511,14 +541,40 @@ describe("fetchUrl", () => {
 
   describe("option validation", () => {
     it("refuses options that would disable the protection they configure", () => {
-      assert.throws(() => createFetchUrlTool({ timeoutMs: 0 }), /timeoutMs must be positive/);
-      assert.throws(() => createFetchUrlTool({ timeoutMs: -1 }), /timeoutMs must be positive/);
       assert.throws(
-        () => createFetchUrlTool({ maxResponseBytes: 0 }),
+        () =>
+          createFetchUrlTool({
+            effectGate: allowAllGate,
+            effectScope: { workflowRunId: "test" },
+            timeoutMs: 0,
+          }),
+        /timeoutMs must be positive/,
+      );
+      assert.throws(
+        () =>
+          createFetchUrlTool({
+            effectGate: allowAllGate,
+            effectScope: { workflowRunId: "test" },
+            timeoutMs: -1,
+          }),
+        /timeoutMs must be positive/,
+      );
+      assert.throws(
+        () =>
+          createFetchUrlTool({
+            effectGate: allowAllGate,
+            effectScope: { workflowRunId: "test" },
+            maxResponseBytes: 0,
+          }),
         /maxResponseBytes must be positive/,
       );
       assert.throws(
-        () => createFetchUrlTool({ maxRedirects: -1 }),
+        () =>
+          createFetchUrlTool({
+            effectGate: allowAllGate,
+            effectScope: { workflowRunId: "test" },
+            maxRedirects: -1,
+          }),
         /maxRedirects must not be negative/,
       );
     });

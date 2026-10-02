@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
-import { AdlError } from "@agent-dev-lab/core";
+import { AdlError, allowAllGate } from "@agent-dev-lab/core";
 
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import {
@@ -125,6 +125,7 @@ describe("createBashToolProvider pooled vs executor", () => {
   it("rejects executor together with policy fields", () => {
     expect(() =>
       createBashToolProvider({
+        effectGate: allowAllGate,
         executor: {
           async *run() {
             yield { done: true, stdout: "", stderr: "", exitCode: 0, truncated: false };
@@ -146,6 +147,7 @@ describe("createBashToolProvider pooled vs executor", () => {
 
   it("acquires from the pool when policy is given", async () => {
     const provider = createBashToolProvider({
+      effectGate: allowAllGate,
       allowWrite: ["/tmp/sandbox"],
       cwd: "/tmp/sandbox",
     });

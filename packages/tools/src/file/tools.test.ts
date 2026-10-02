@@ -1,3 +1,4 @@
+import { allowAllGate } from "@agent-dev-lab/core";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -26,13 +27,21 @@ describe("createFileTools", () => {
   describe("readFile", () => {
     it("reads an existing UTF-8 text file", async () => {
       await Bun.write(path.join(root, "a.txt"), "hello world");
-      const { readFile: readFileTool } = createFileTools({ root });
+      const { readFile: readFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       const result = await readFileTool.execute?.({ path: "a.txt" }, toolCallOptions);
       expect(result).toEqual({ content: "hello world" });
     });
 
     it("rejects a missing file", async () => {
-      const { readFile: readFileTool } = createFileTools({ root });
+      const { readFile: readFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(
         readFileTool.execute?.({ path: "missing.txt" }, toolCallOptions),
       ).rejects.toThrow();
@@ -40,18 +49,31 @@ describe("createFileTools", () => {
 
     it("rejects reading a directory", async () => {
       await mkdir(path.join(root, "sub"), { recursive: true });
-      const { readFile: readFileTool } = createFileTools({ root });
+      const { readFile: readFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(readFileTool.execute?.({ path: "sub" }, toolCallOptions)).rejects.toThrow();
     });
 
     it("rejects a file over the read byte cap", async () => {
       await Bun.write(path.join(root, "big.txt"), "0123456789");
-      const { readFile: readFileTool } = createFileTools({ root, maxReadBytes: 5 });
+      const { readFile: readFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+        maxReadBytes: 5,
+      });
       await expect(readFileTool.execute?.({ path: "big.txt" }, toolCallOptions)).rejects.toThrow();
     });
 
     it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
-      const { readFile: readFileTool } = createFileTools({ root });
+      const { readFile: readFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(
         readFileTool.execute?.({ path: "../outside.txt" }, toolCallOptions),
       ).rejects.toThrow();
@@ -62,7 +84,11 @@ describe("createFileTools", () => {
       try {
         const outsideFile = path.join(outsideDir, "out.txt");
         await Bun.write(outsideFile, "out");
-        const { readFile: readFileTool } = createFileTools({ root });
+        const { readFile: readFileTool } = createFileTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
+          root,
+        });
         await expect(
           readFileTool.execute?.({ path: outsideFile }, toolCallOptions),
         ).rejects.toThrow();
@@ -77,6 +103,8 @@ describe("createFileTools", () => {
         const outsideFile = path.join(outsideDir, "out.txt");
         await Bun.write(outsideFile, "out");
         const { readFile: readFileTool } = createFileTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
           root,
           allowRead: UNBOUNDED_ALLOW_READ,
         });
@@ -90,7 +118,11 @@ describe("createFileTools", () => {
 
   describe("writeFile", () => {
     it("creates a new file", async () => {
-      const { writeFile: writeFileTool } = createFileTools({ root });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       const result = await writeFileTool.execute?.(
         { path: "new.txt", content: "hello" },
         toolCallOptions,
@@ -101,20 +133,33 @@ describe("createFileTools", () => {
 
     it("overwrites an existing file", async () => {
       await Bun.write(path.join(root, "a.txt"), "old");
-      const { writeFile: writeFileTool } = createFileTools({ root });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await writeFileTool.execute?.({ path: "a.txt", content: "new" }, toolCallOptions);
       expect(await readFile(path.join(root, "a.txt"), "utf8")).toBe("new");
     });
 
     it("rejects when the parent directory doesn't exist", async () => {
-      const { writeFile: writeFileTool } = createFileTools({ root });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(
         writeFileTool.execute?.({ path: "missing-dir/new.txt", content: "hi" }, toolCallOptions),
       ).rejects.toThrow();
     });
 
     it("rejects content over the write byte cap", async () => {
-      const { writeFile: writeFileTool } = createFileTools({ root, maxWriteBytes: 3 });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+        maxWriteBytes: 3,
+      });
       await expect(
         writeFileTool.execute?.({ path: "new.txt", content: "0123456789" }, toolCallOptions),
       ).rejects.toThrow();
@@ -126,7 +171,11 @@ describe("createFileTools", () => {
         const outsideFile = path.join(outsideDir, "secret.txt");
         await writeFile(outsideFile, "secret", "utf8");
         await symlink(outsideFile, path.join(root, "link.txt"));
-        const { writeFile: writeFileTool } = createFileTools({ root });
+        const { writeFile: writeFileTool } = createFileTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
+          root,
+        });
         await expect(
           writeFileTool.execute?.({ path: "link.txt", content: "pwned" }, toolCallOptions),
         ).rejects.toThrow();
@@ -139,7 +188,11 @@ describe("createFileTools", () => {
     it("allows writing through an inbound leaf symlink", async () => {
       await writeFile(path.join(root, "target.txt"), "orig", "utf8");
       await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
-      const { writeFile: writeFileTool } = createFileTools({ root });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await writeFileTool.execute?.({ path: "link.txt", content: "via-link" }, toolCallOptions);
       expect(await readFile(path.join(root, "target.txt"), "utf8")).toBe("via-link");
     });
@@ -147,6 +200,8 @@ describe("createFileTools", () => {
     it("rejects a write whose resolved path is outside allowWrite", async () => {
       await mkdir(path.join(root, "allowed"), { recursive: true });
       const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
         root,
         allowWrite: [path.join(root, "allowed")],
       });
@@ -158,7 +213,12 @@ describe("createFileTools", () => {
     });
 
     it("rejects every write when allowWrite is an empty list", async () => {
-      const { writeFile: writeFileTool } = createFileTools({ root, allowWrite: [] });
+      const { writeFile: writeFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+        allowWrite: [],
+      });
       await expect(
         writeFileTool.execute?.({ path: "nope.txt", content: "x" }, toolCallOptions),
       ).rejects.toThrow(/outside the allowed write roots/);
@@ -168,7 +228,11 @@ describe("createFileTools", () => {
   describe("editFile", () => {
     it("replaces a unique occurrence", async () => {
       await Bun.write(path.join(root, "a.txt"), "the quick brown fox");
-      const { editFile: editFileTool } = createFileTools({ root });
+      const { editFile: editFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       const result = await editFileTool.execute?.(
         { path: "a.txt", find: "brown", replace: "red" },
         toolCallOptions,
@@ -179,7 +243,11 @@ describe("createFileTools", () => {
 
     it("rejects when `find` isn't in the file", async () => {
       await Bun.write(path.join(root, "a.txt"), "the quick brown fox");
-      const { editFile: editFileTool } = createFileTools({ root });
+      const { editFile: editFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(
         editFileTool.execute?.({ path: "a.txt", find: "purple", replace: "red" }, toolCallOptions),
       ).rejects.toThrow();
@@ -187,7 +255,11 @@ describe("createFileTools", () => {
 
     it("rejects when `find` appears more than once", async () => {
       await Bun.write(path.join(root, "a.txt"), "a a a");
-      const { editFile: editFileTool } = createFileTools({ root });
+      const { editFile: editFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+      });
       await expect(
         editFileTool.execute?.({ path: "a.txt", find: "a", replace: "b" }, toolCallOptions),
       ).rejects.toThrow();
@@ -197,7 +269,12 @@ describe("createFileTools", () => {
 
     it("rejects when the result would exceed the write byte cap", async () => {
       await Bun.write(path.join(root, "a.txt"), "hi");
-      const { editFile: editFileTool } = createFileTools({ root, maxWriteBytes: 3 });
+      const { editFile: editFileTool } = createFileTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        root,
+        maxWriteBytes: 3,
+      });
       await expect(
         editFileTool.execute?.(
           { path: "a.txt", find: "hi", replace: "much too long" },
@@ -212,7 +289,11 @@ describe("createFileTools", () => {
         const outsideFile = path.join(outsideDir, "secret.txt");
         await writeFile(outsideFile, "the secret value", "utf8");
         await symlink(outsideFile, path.join(root, "link.txt"));
-        const { editFile: editFileTool } = createFileTools({ root });
+        const { editFile: editFileTool } = createFileTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
+          root,
+        });
         await expect(
           editFileTool.execute?.(
             { path: "link.txt", find: "secret", replace: "pwned" },

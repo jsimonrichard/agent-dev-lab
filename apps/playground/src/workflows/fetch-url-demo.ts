@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AdlError } from "@agent-dev-lab/core";
+import { AdlError, allowAllGate } from "@agent-dev-lab/core";
 import {
   createFetchUrlTool,
   type FetchUrlResult,
@@ -101,7 +101,11 @@ export const fetchUrlDemo = adl.createWorkflow({
         expected: "allowed" | "blocked",
       ): Promise<CheckResult> {
         return ctx.step(name, async () => {
-          const fetchUrl = createFetchUrlTool({ allowedUrls });
+          const fetchUrl = createFetchUrlTool({
+            effectGate: allowAllGate,
+            effectScope: { workflowRunId: "test" },
+            allowedUrls,
+          });
           const execute = fetchUrl.execute;
           if (!execute) {
             throw new AdlError("INIT_FAILED", "fetchUrl tool has no execute.");
@@ -187,7 +191,10 @@ export const fetchUrlDemo = adl.createWorkflow({
 
       const publicProbe = probePublicUrl
         ? await ctx.step("public-probe", async () => {
-            const fetchUrl = createFetchUrlTool();
+            const fetchUrl = createFetchUrlTool({
+              effectGate: allowAllGate,
+              effectScope: { workflowRunId: "test" },
+            });
             const execute = fetchUrl.execute;
             if (!execute) {
               throw new AdlError("INIT_FAILED", "fetchUrl tool has no execute.");

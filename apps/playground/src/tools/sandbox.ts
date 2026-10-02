@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { allowAllGate } from "@agent-dev-lab/core";
 import { createWorkspaceToolProvider, resolveDefaultSandboxRoot } from "@agent-dev-lab/tools";
 
 import { bashSafetyCheck } from "../workflows/bash-safety-check";
@@ -27,6 +28,7 @@ mkdirSync(sandboxRoot, { recursive: true });
  * itself can't catch. `LoadedAdlProject` supplies `projectRoot` for pool keying.
  */
 export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
+  effectGate: allowAllGate,
   allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
   safetyCheck: bashSafetyCheck,
@@ -40,6 +42,7 @@ export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
  * (with and without one) stay exercised.
  */
 export const sandboxWorkspaceNative = createWorkspaceToolProvider({
+  effectGate: allowAllGate,
   allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
   backend: "native",

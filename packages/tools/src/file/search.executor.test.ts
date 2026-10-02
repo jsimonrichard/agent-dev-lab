@@ -1,3 +1,4 @@
+import { allowAllGate } from "@agent-dev-lab/core";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -40,7 +41,12 @@ describe("createSearchTools — native executor", () => {
         const payload = "safe; $(echo pwned) `echo pwned` && echo pwned";
         await writeFile(path.join(root, "hit.txt"), `${payload}\n`);
         const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
-        const { grep } = createSearchTools({ executor, root });
+        const { grep } = createSearchTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
+          executor,
+          root,
+        });
         const result = await finalUpdate(
           grep.execute?.(
             { pattern: payload },
@@ -74,7 +80,12 @@ describe("createSearchTools — native executor", () => {
       await symlink(outside, path.join(root, "link"));
       try {
         const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
-        const { grep } = createSearchTools({ executor, root });
+        const { grep } = createSearchTools({
+          effectGate: allowAllGate,
+          effectScope: { workflowRunId: "test" },
+          executor,
+          root,
+        });
         const result = await finalUpdate(
           grep.execute?.(
             { pattern: "needle" },
@@ -99,7 +110,12 @@ describe("createSearchTools — native executor", () => {
     await writeFile(path.join(outside, "leak.ts"), "");
     try {
       const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
-      const { glob } = createSearchTools({ executor, root });
+      const { glob } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor,
+        root,
+      });
       const result = await finalUpdate(
         glob.execute?.(
           { pattern: "**/*.ts" },

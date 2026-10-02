@@ -1,6 +1,7 @@
 import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, type GatedToolOptions } from "../approval/index.ts";
 import type { BashExecutor, BashExecutorUpdate } from "./executor";
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
@@ -10,7 +11,7 @@ export const BASH_TOOL_DESCRIPTION =
   "Run a shell command in a sandboxed working directory. Returns stdout, stderr, and exit " +
   "code — a non-zero exit code is not itself a tool error.";
 
-export interface BashToolOptions {
+export interface BashToolOptions extends GatedToolOptions {
   /**
    * Isolation strategy. Required: this
    * tool never picks an executor on its own, and there's no unsandboxed default.
@@ -59,12 +60,21 @@ export function createBashTool(options: BashToolOptions): BashTools {
       inputSchema: z.object({
         command: z.string().min(1).describe("The shell command to run."),
       }),
-      execute: ({ command }, { abortSignal }) =>
-        options.executor.run(["/bin/bash", "-c", command], {
+      execute: async function* (rawInput, { abortSignal, toolCallId }) {
+        const { command } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "bash",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
+        yield* options.executor.run(["/bin/bash", "-c", command], {
           cwd: options.cwd,
           timeoutMs,
           signal: abortSignal,
-        }),
+        });
+      },
     }),
   };
 }

@@ -1,6 +1,7 @@
 import { AdlError, tool, type Tool } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, type GatedToolOptions } from "../approval/index.ts";
 import type { BashExecutor, BashExecutorUpdate } from "../bash/executor.ts";
 import { resolveCommandOnPath } from "../bash/resolve-command.ts";
 import { DEFAULT_TIMEOUT_MS } from "../bash/tools.ts";
@@ -12,7 +13,7 @@ export const GREP_DESCRIPTION =
 
 export const GLOB_DESCRIPTION = "List files whose paths match a glob. No flags.";
 
-export interface SearchToolsOptions {
+export interface SearchToolsOptions extends GatedToolOptions {
   /**
    * Isolation strategy — required: this tool never picks an executor, and there's no
    * unsandboxed default.
@@ -104,7 +105,19 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
           .optional()
           .describe("Optional glob filter (ripgrep `--glob`). Not a flag."),
       }),
-      execute: async function* ({ pattern, path: requestedPath, glob }, { abortSignal }) {
+      execute: async function* (rawInput, { abortSignal, toolCallId }) {
+        const {
+          pattern,
+          path: requestedPath,
+          glob,
+        } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "grep",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
         const searchPath = await jail.resolveForRead(requestedPath ?? ".");
         yield* options.executor.run(grepArgv(pattern, searchPath, glob, rgPath), {
           cwd: jail.cwd,
@@ -119,7 +132,15 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
       inputSchema: z.object({
         pattern: z.string().min(1).describe("Glob of files to list, relative to the sandbox root."),
       }),
-      execute: async function* ({ pattern }, { abortSignal }) {
+      execute: async function* (rawInput, { abortSignal, toolCallId }) {
+        const { pattern } = await assertToolAllowed({
+          gate: options.effectGate,
+          toolName: "glob",
+          input: rawInput,
+          effectScope: options.effectScope,
+          toolCallId,
+          reversibility: "compensable",
+        });
         const searchPath = await jail.resolveForRead(".");
         yield* options.executor.run(globArgv(pattern, searchPath, rgPath), {
           cwd: jail.cwd,

@@ -1,6 +1,6 @@
 # `@agent-dev-lab/tools`: sandboxed file/bash/web-search tools + approval gate (design)
 
-**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), and `fetchUrl`. Still open: approval dispatcher, `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-10-01** (approval substrate pointer). `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor pool, `ToolProvider.dispose?()` / `onRunEnd?()`, playground, and HMR pin are shipped. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
+**Status:** `@agent-dev-lab/tools` has file, grep/glob, Linux bash (ASRT + native), `fetchUrl`, and a required `EffectGate` on tool constructors (approval adapter). Still open: `createNativeBashExecutor` macOS backend, `writeFile` parent-dir creation, inspection UI Allow/Deny dispatcher. Do not build a custom web-search tool — use provider-native search. Last reconciled: **2026-10-02**. `packages/core/src/tools/` stays adapters + `ToolProvider`. Supervisor pool, `ToolProvider.dispose?()` / `onRunEnd?()`, playground, and HMR pin are shipped. Open backlog: [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
 Related: [`execution-control-plan.md`](./execution-control-plan.md) (shared effect-gate / suspend — approval is an adapter), [`future-extensions.md`](./future-extensions.md) (approval sketch, pulled forward here), [`near-term-roadmap.md`](./near-term-roadmap.md) §2/§3 (tool package + AI-SDK-tool audit), AGENTS.md ("No Docker, no external services required" — a real constraint on the design below).
 
@@ -383,45 +383,58 @@ for either this or the `fetchUrl` tool (`src/web/`), despite the name looking li
 
 ## Approval / permission gate
 
-Sandboxing without a gate is binary — always-allow or always-deny — which is exactly what `future-extensions.md` already anticipated with its `ApprovalDispatcher` sketch. Pulling that forward.
-
-> **2026-10-01:** Ship this as an **adapter** over the effect-gate / `SuspendHandle` shape in [`execution-control-plan.md`](./execution-control-plan.md). Do not invent a resume protocol separate from that suspend store. Lane E owns the tools surface; cursor/debugger reuse the same gate later.
+> **2026-10-02 (Lane E):** Shipped. Factories/providers require `effectGate` + (for factories) `effectScope`. Public adapter: `ApprovalDispatcher` / `approvalDispatcherAsHandler` / `assertToolAllowed` / `createStickyToolAllowHandler` in `@agent-dev-lab/tools`. Substrate: `EffectGate` from `@agent-dev-lab/core` (`allowAllGate`, `composeEffectHandlers`). Mapping: tool call → `kind: "tool"` intent with `payload: { toolName, input }` → `EffectDecision`. Suspend on the tool path throws until SuspendStore lands — interactive hosts should await allow/deny inside the dispatcher. Inspection UI Allow/Deny remains a follow-up.
 
 ```ts
-// mirrors future-extensions.md's sketch, scoped to tool calls for now
-interface ApprovalDispatcher {
-  request(req: ApprovalRequest): Promise<ApprovalDecision>;
-}
+import { allowAllGate, composeEffectHandlers } from "@agent-dev-lab/core";
+import {
+  approvalDispatcherAsHandler,
+  createFileTools,
+  type ApprovalDispatcher,
+} from "@agent-dev-lab/tools";
 
-interface ApprovalRequest {
-  toolName: string;
-  input: unknown;
-  agentId?: string;
-  workflowRunId?: string;
-}
+const dispatcher: ApprovalDispatcher = {
+  async request(req) {
+    // Headless: allow/deny. UI: await human, then return allow/deny (do not return suspend yet).
+    return { decision: "allow" };
+  },
+};
+
+const effectGate = composeEffectHandlers([approvalDispatcherAsHandler(dispatcher)]);
+// Or pass allowAllGate explicitly for tests / permissive local hosts.
+
+createFileTools({
+  root: "./workspace",
+  effectGate,
+  effectScope: { workflowRunId: "standalone" },
+});
 ```
 
-- Each tool in this package wraps its `execute()` with a check against a **required** `EffectGate` (from `@agent-dev-lab/core`). No dispatcher / no gate → deny (fail closed). Tests and permissive local play pass `allowAllGate` explicitly — never omit→warn-and-allow.
-- The inspection UI is the natural place to implement an interactive dispatcher (block on an in-app "Allow / Deny" button) once this exists — that's UI work, out of scope for this doc, but the dispatcher interface should be designed so the UI's future implementation doesn't need changes to this package.
-- This only covers the tool-call surface, not `ctx.requestApproval` (workflow-level pauses) — that half of `future-extensions.md` remains deferred (it needs persisted run state / resume, which is a separate, larger piece of work).
+- Every tool `execute()` (including describe-env) calls the gate **before** materialize. Bash providers with `safetyCheck` run **gate → safetyCheck → executor**.
+- Sticky “allow this tool name for the rest of the session” is handler policy (`createStickyToolAllowHandler`), not a core decision variant — substrate stays per-call.
+- `ctx.requestApproval` (workflow-level pauses) remains deferred — needs SuspendStore / resume.
 
 ---
 
 ## Config surface (sketch)
 
 ```ts
-// adl.config.ts
-import { createFileTools, createBashTool, createWebSearchTool } from "@agent-dev-lab/tools";
+// Host wires the gate at construction — no AdlProjectConfig.approvals auto-injection yet.
+import { allowAllGate } from "@agent-dev-lab/core";
+import { createFileTools, createBashTool } from "@agent-dev-lab/tools";
 
-export default {
-  // ...
-  // EffectGate is required on tool constructors (Lane E). Pass allowAllGate explicitly for CI.
-  approvals: { dispatcher: myDispatcher },
-  tools: {
-    ...createFileTools({ root: "./workspace" }),
-    ...createBashTool({ root: "./workspace", timeoutMs: 30_000 }),
-    ...createWebSearchTool(), // picks provider-native search when the model supports it
-  },
+const tools = {
+  ...createFileTools({
+    root: "./workspace",
+    effectGate: allowAllGate,
+    effectScope: { workflowRunId: "playground" },
+  }),
+  ...createBashTool({
+    executor,
+    cwd: "./workspace",
+    effectGate: allowAllGate,
+    effectScope: { workflowRunId: "playground" },
+  }),
 };
 ```
 
@@ -431,9 +444,10 @@ Reuses `AdlRuntimeConfig.tools` (runtime merge) rather than inventing a new regi
 
 ## Open questions (approval gate)
 
-1. **Per-call vs per-tool-type approval?** Approve "bash" once for a conversation vs every invocation. (Policy on the adapter; substrate stays per-intent.)
+1. **Per-call vs per-tool-type approval?** **Decided (2026-10-02):** substrate is per-call. Sticky allow-by-tool-name is adapter/handler policy (`createStickyToolAllowHandler`).
 2. **Default without a gate / dispatcher:** **Decided fail-closed** ([`execution-control-plan.md`](./execution-control-plan.md)). Hosts pass `allowAllGate` explicitly for tests/CI. Do not land omit=warn-and-allow.
 3. **Resource limits beyond wall-clock timeout** (`ulimit` / cgroups) — still undecided.
+4. **Inspection UI Allow/Deny dispatcher** — follow-up (await human inside `ApprovalDispatcher.request`).
 
 ---
 

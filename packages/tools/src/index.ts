@@ -3,8 +3,26 @@
  *
  * Sandboxed file, bash, search (`grep`/`glob`), and `fetchUrl` tools for
  * `@agent-dev-lab/core`. Providers take sandbox policy (pooled) or an escape-hatch
- * executor — there is no zero-config unsandboxed default.
+ * executor — there is no zero-config unsandboxed default. Side-effecting tools
+ * require an {@link import("@agent-dev-lab/core").EffectGate} (pass `allowAllGate`
+ * explicitly for tests / permissive hosts).
  */
+export {
+  assertToolAllowed,
+  approvalDispatcherAsHandler,
+  createStickyToolAllowHandler,
+  effectScopeFromToolProviderContext,
+  TOOL_SUSPEND_UNSUPPORTED_MESSAGE,
+} from "./approval";
+export type {
+  ApprovalDecision,
+  ApprovalDispatcher,
+  ApprovalRequest,
+  GatedToolOptions,
+  ToolEffectPayload,
+  ToolEffectScope,
+  ToolReversibility,
+} from "./approval";
 export {
   createFileJail,
   createFileToolProvider,

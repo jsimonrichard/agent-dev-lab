@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import type { ExtendedToolProviderContext } from "@agent-dev-lab/core";
+import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "./executor";
 import type { BashExecutorDescription } from "./executor";
@@ -135,7 +135,11 @@ describe("mergePolicy", () => {
 describe("createBashToolProvider", () => {
   it("uses options.cwd as the default when context sets none", async () => {
     const executor = stubExecutor();
-    const provider = createBashToolProvider({ executor, cwd: "/from-options" });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor,
+      cwd: "/from-options",
+    });
     const { bash } = await provider.getTools(ctx());
     await drain(
       (await bash.execute?.(
@@ -148,7 +152,11 @@ describe("createBashToolProvider", () => {
 
   it("overrides options.cwd with toolProviderContext.cwd per call", async () => {
     const executor = stubExecutor();
-    const provider = createBashToolProvider({ executor, cwd: "/from-options" });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor,
+      cwd: "/from-options",
+    });
     const { bash } = await provider.getTools(ctx({ cwd: "/from-context" }));
     await drain(
       (await bash.execute?.(
@@ -161,7 +169,12 @@ describe("createBashToolProvider", () => {
 
   it("overrides options.timeoutMs with toolProviderContext.timeoutMs per call", async () => {
     const executor = stubExecutor();
-    const provider = createBashToolProvider({ executor, cwd: "/root", timeoutMs: 5_000 });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor,
+      cwd: "/root",
+      timeoutMs: 5_000,
+    });
     const { bash } = await provider.getTools(ctx({ timeoutMs: 9_000 }));
     await drain(
       (await bash.execute?.(
@@ -173,13 +186,18 @@ describe("createBashToolProvider", () => {
   });
 
   it("throws when neither options.cwd nor toolProviderContext.cwd is given", () => {
-    const provider = createBashToolProvider({ executor: stubExecutor() });
+    const provider = createBashToolProvider({ effectGate: allowAllGate, executor: stubExecutor() });
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
   it("describeBashEnv reports the resolved cwd/timeoutMs and the executor's own config", async () => {
     const executor = stubExecutor();
-    const provider = createBashToolProvider({ executor, cwd: "/root", timeoutMs: 12_345 });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor,
+      cwd: "/root",
+      timeoutMs: 12_345,
+    });
     const { describeBashEnv } = await provider.getTools(ctx());
     const result = await describeBashEnv.execute?.({}, toolCallOptions);
     expect(result).toEqual({
@@ -271,7 +289,12 @@ describe("createBashToolProvider", () => {
     it("runs the command when the safety check reports safe", async () => {
       const executor = stubExecutor();
       const safetyCheck = stubSafetyCheckWorkflow(async () => ({ safe: true, reason: "fine" }));
-      const provider = createBashToolProvider({ executor, cwd: "/root", safetyCheck });
+      const provider = createBashToolProvider({
+        effectGate: allowAllGate,
+        executor,
+        cwd: "/root",
+        safetyCheck,
+      });
       const { bash } = await provider.getTools(ctx());
       const updates = await drain(
         (await bash.execute?.(
@@ -289,7 +312,12 @@ describe("createBashToolProvider", () => {
         safe: false,
         reason: "looks like a fork bomb",
       }));
-      const provider = createBashToolProvider({ executor, cwd: "/root", safetyCheck });
+      const provider = createBashToolProvider({
+        effectGate: allowAllGate,
+        executor,
+        cwd: "/root",
+        safetyCheck,
+      });
       const { bash } = await provider.getTools(ctx());
       const updates = await drain(
         (await bash.execute?.(
@@ -314,7 +342,12 @@ describe("createBashToolProvider", () => {
       const safetyCheck = stubSafetyCheckWorkflow(async () => {
         throw new Error("checker unavailable");
       });
-      const provider = createBashToolProvider({ executor, cwd: "/root", safetyCheck });
+      const provider = createBashToolProvider({
+        effectGate: allowAllGate,
+        executor,
+        cwd: "/root",
+        safetyCheck,
+      });
       const { bash } = await provider.getTools(ctx());
       const updates = await drain(
         (await bash.execute?.(
@@ -331,7 +364,11 @@ describe("createBashToolProvider", () => {
   });
 
   it("fills hardcoded runtime defaults when parsing empty context", () => {
-    const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: "/root",
+    });
     expect(provider.contextSchema?.parse({})).toEqual({
       timeoutMs: DEFAULT_TIMEOUT_MS,
       denyRead: [],
@@ -344,7 +381,11 @@ describe("createBashToolProvider", () => {
   });
 
   it("describes omit-defaults that depend on cwd", () => {
-    const provider = createBashToolProvider({ executor: stubExecutor(), cwd: "/root" });
+    const provider = createBashToolProvider({
+      effectGate: allowAllGate,
+      executor: stubExecutor(),
+      cwd: "/root",
+    });
     expect(objectSchemaFieldDescription(provider.contextSchema, "cwd")).toBe(
       omitAnchorSchemaDescription("cwd"),
     );

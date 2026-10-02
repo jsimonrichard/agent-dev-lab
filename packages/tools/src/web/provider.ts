@@ -1,11 +1,13 @@
 import {
   tool,
+  type EffectGate,
   type Tool,
   type ToolProvider,
   type ToolProviderToolSummary,
 } from "@agent-dev-lab/core";
 import { z } from "zod";
 
+import { assertToolAllowed, effectScopeFromToolProviderContext } from "../approval/index.ts";
 import { ALLOWED_URL_SCHEMES } from "./address-policy.ts";
 import {
   createFetchUrlTool,
@@ -114,10 +116,14 @@ export type WebToolProviderContext = z.input<typeof webToolProviderContextSchema
 
 /**
  * Defaults for `createWebToolProvider`'s `fetchUrl` — every `WebToolProviderContext` field, used
- * when a call's `toolProviderContext` doesn't override it, plus `resolver`, which has no per-call
- * override because it's fixed at construction time.
+ * when a call's `toolProviderContext` doesn't override it, plus `effectGate` / `resolver`.
  */
 export interface WebToolProviderOptions extends WebToolProviderContext {
+  /**
+   * Pre-materialize gate for fetchUrl / describe-env. Required — pass
+   * {@link import("@agent-dev-lab/core").allowAllGate} explicitly for tests.
+   */
+  effectGate: EffectGate;
   /** Hostname resolver override, fixed at construction time — see `FetchUrlToolOptions`. */
   resolver?: FetchUrlToolOptions["resolver"];
 }
@@ -139,7 +145,7 @@ export type WebProviderTools = {
  * file+bash+fetch surface). Use this provider directly when an agent only needs `fetchUrl`.
  */
 export function createWebToolProvider(
-  options: WebToolProviderOptions = {},
+  options: WebToolProviderOptions,
 ): ToolProvider<WebProviderTools, WebToolProviderContext | undefined> {
   return {
     contextSchema: webToolProviderContextSchema,
@@ -163,6 +169,7 @@ export function createWebToolProvider(
         DEFAULT_MAX_RESPONSE_BYTES;
       const maxRedirects =
         ctx.toolProviderContext?.maxRedirects ?? options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+      const effectScope = effectScopeFromToolProviderContext(ctx);
 
       const fetchUrl = createFetchUrlTool({
         allowedUrls,
@@ -173,21 +180,33 @@ export function createWebToolProvider(
         timeoutMs,
         maxResponseBytes,
         maxRedirects,
+        effectGate: options.effectGate,
+        effectScope,
       });
 
       const describeWebEnv: DescribeWebEnvTool = tool({
         description: describeWebEnvDescription,
         inputSchema: describeWebEnvInputSchema,
-        execute: async () => ({
-          webAccess: describeWebAccess(
-            allowedUrls,
-            allowPrivateNetwork,
-            timeoutMs,
-            maxResponseBytes,
-            maxRedirects,
-            { allowedDomains, deniedDomains },
-          ),
-        }),
+        execute: async (rawInput, { toolCallId }) => {
+          await assertToolAllowed({
+            gate: options.effectGate,
+            toolName: "describeWebEnv",
+            input: rawInput,
+            effectScope,
+            toolCallId,
+            reversibility: "compensable",
+          });
+          return {
+            webAccess: describeWebAccess(
+              allowedUrls,
+              allowPrivateNetwork,
+              timeoutMs,
+              maxResponseBytes,
+              maxRedirects,
+              { allowedDomains, deniedDomains },
+            ),
+          };
+        },
       });
 
       return { fetchUrl, describeWebEnv };

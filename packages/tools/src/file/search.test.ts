@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import { isAdlError } from "@agent-dev-lab/core";
+import { isAdlError, allowAllGate } from "@agent-dev-lab/core";
 
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
@@ -117,13 +117,26 @@ describe("grepArgv / globArgv", () => {
 
 describe("createSearchTools", () => {
   it("rejects a non-positive timeoutMs at construction time", () => {
-    expect(() => createSearchTools({ executor: stubExecutor(), root, timeoutMs: 0 })).toThrow();
+    expect(() =>
+      createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor: stubExecutor(),
+        root,
+        timeoutMs: 0,
+      }),
+    ).toThrow();
   });
 
   describe("grep", () => {
     it("resolves the default path to the jail root and records a fixed argv", async () => {
       const executor = stubExecutor();
-      const { grep } = createSearchTools({ executor, root });
+      const { grep } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor,
+        root,
+      });
       const result = grep.execute?.({ pattern: "needle" }, toolCallOptions);
       if (result) {
         await drain(result as AsyncIterable<BashExecutorUpdate>);
@@ -141,7 +154,12 @@ describe("createSearchTools", () => {
 
     it("puts a metacharacter pattern in its own argv element", async () => {
       const executor = stubExecutor();
-      const { grep } = createSearchTools({ executor, root });
+      const { grep } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor,
+        root,
+      });
       const pattern = "x; $(echo pwned) `echo pwned` && echo pwned";
       const result = grep.execute?.({ pattern }, toolCallOptions);
       if (result) {
@@ -152,7 +170,12 @@ describe("createSearchTools", () => {
     });
 
     it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
-      const { grep } = createSearchTools({ executor: stubExecutor(), root });
+      const { grep } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor: stubExecutor(),
+        root,
+      });
       const result = grep.execute?.({ pattern: "x", path: "../outside" }, toolCallOptions);
       await expectInvalidInput(
         Promise.resolve(result).then((iter) => drain(iter as AsyncIterable<unknown>)),
@@ -160,7 +183,12 @@ describe("createSearchTools", () => {
     });
 
     it("rejects an absolute path outside the root when allowRead is omitted", async () => {
-      const { grep } = createSearchTools({ executor: stubExecutor(), root });
+      const { grep } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor: stubExecutor(),
+        root,
+      });
       const result = grep.execute?.({ pattern: "x", path: "/etc/passwd" }, toolCallOptions);
       await expectInvalidInput(
         Promise.resolve(result).then((iter) => drain(iter as AsyncIterable<unknown>)),
@@ -170,7 +198,12 @@ describe("createSearchTools", () => {
     it("rejects a symlink that points outside the root when allowRead is omitted", async () => {
       await writeFile(path.join(outside, "secret.txt"), "needle secret\n");
       await symlink(outside, path.join(root, "link"));
-      const { grep } = createSearchTools({ executor: stubExecutor(), root });
+      const { grep } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor: stubExecutor(),
+        root,
+      });
       const result = grep.execute?.(
         { pattern: "needle", path: "link/secret.txt" },
         toolCallOptions,
@@ -184,7 +217,12 @@ describe("createSearchTools", () => {
   describe("glob", () => {
     it("records a --files argv rooted at the jail root", async () => {
       const executor = stubExecutor();
-      const { glob } = createSearchTools({ executor, root });
+      const { glob } = createSearchTools({
+        effectGate: allowAllGate,
+        effectScope: { workflowRunId: "test" },
+        executor,
+        root,
+      });
       const result = glob.execute?.({ pattern: "**/*.ts" }, toolCallOptions);
       if (result) {
         await drain(result as AsyncIterable<BashExecutorUpdate>);
