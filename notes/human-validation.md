@@ -55,7 +55,7 @@ Remaining `.changeset/*.md` drive the next Version Packages PR (`.github/workflo
 
 For external / sibling-repo installs without `file:` or `pack:local`:
 
-1. Maintainer: `bunx changeset pre enter rc` → `bun run version` → land the bump → dispatch **Publish RC** (`release-rc.yml`) with confirm `publish-rc` (or `NPM_DIST_TAG=rc bun run ci:publish`). Details: `scripts/README.md`.
+1. Maintainer: `bunx changeset pre enter rc` → `bun run version` → land the bump → dispatch **Release** with `confirm=publish-rc` and `ref` (Publish RC job in `release.yml`; or `NPM_DIST_TAG=rc bun run ci:publish`). Details: `scripts/README.md`.
 2. Confirm `npm view @agent-dev-lab/core dist-tags` shows `rc` → the new version and `latest` unchanged.
 3. In a sibling project: `npm install @agent-dev-lab/core@rc` (or pin `x.y.z-rc.n`) resolves from the registry.
 4. Before the next stable release on `main`: `bunx changeset pre exit` and do not leave `.changeset/pre.json` active after stable intent.

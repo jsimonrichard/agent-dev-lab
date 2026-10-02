@@ -13,10 +13,10 @@ Build and release helpers. These are **not** Bun test files except `*.test.ts`.
 
 ## Registry release candidates vs `pack:local`
 
-| Path               | Audience                            | How                                                                                                  |
-| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **npm RC** (`@rc`) | External projects / sibling repos   | Changesets `pre` mode → version bump → Publish RC workflow (or `NPM_DIST_TAG=rc bun run ci:publish`) |
-| **`pack:local`**   | In-repo e2e / local vendor symlinks | Tarballs under `.data/packed-e2e/`; never hits the registry                                          |
+| Path               | Audience                            | How                                                                                                              |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **npm RC** (`@rc`) | External projects / sibling repos   | Changesets `pre` mode → version bump → Release workflow Publish RC job (or `NPM_DIST_TAG=rc bun run ci:publish`) |
+| **`pack:local`**   | In-repo e2e / local vendor symlinks | Tarballs under `.data/packed-e2e/`; never hits the registry                                                      |
 
 Consumers install registry RCs with no `file:` paths:
 
@@ -36,7 +36,7 @@ npm install @agent-dev-lab/core@0.0.7-rc.1
    ```
 2. Land the version bump + `.changeset/pre.json` on a branch / merge to the ref you will publish.
 3. Publish with dist-tag `rc` (does **not** move `latest`):
-   - GitHub Actions → **Publish RC** → confirm `publish-rc`, set `ref` to that commit; or
+   - GitHub Actions → **Release** → `workflow_dispatch` with `confirm=publish-rc` and `ref` set to that commit (Publish RC job in `release.yml`; npm OIDC is bound to this workflow file); or
    - Locally (OIDC/npm auth as today): `NPM_DIST_TAG=rc bun run ci:publish` (tag also inferred from `-rc.*` versions).
 4. Before the next **stable** Version Packages on `main`:
    ```bash
@@ -44,7 +44,7 @@ npm install @agent-dev-lab/core@0.0.7-rc.1
    ```
    Commit the exit (remove/update `.changeset/pre.json`). Do not leave `pre` mode on `main` after a stable intent.
 
-Stable releases stay on `.github/workflows/release.yml` (push/`workflow_dispatch` on `main` → Changesets version PR or publish `latest`).
+Stable releases stay on the same `.github/workflows/release.yml` (push / empty `workflow_dispatch` on `main` → Changesets version PR or publish `latest`).
 
 ## `pack:local`
 

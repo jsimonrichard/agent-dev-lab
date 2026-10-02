@@ -54,7 +54,7 @@ All standard commands are in root `package.json`:
     and verifies `bwrap` can create a sandbox (`packages/tools`' executors test against
     the real primitives and never fall back to running unsandboxed); then `typecheck`,
     `test`, `test:node`, `build`, Playwright Chromium install, `test:e2e`.
-- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/tools`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private). Manual RCs: Changesets `pre enter rc` → version → `.github/workflows/release-rc.yml` (`NPM_DIST_TAG=rc`); `pre exit` before stable. See `scripts/README.md`.
+- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/tools`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private). Manual RCs: Changesets `pre enter rc` → version → same workflow’s **Publish RC** job (`workflow_dispatch` with `confirm=publish-rc`, `NPM_DIST_TAG=rc`); lives in `release.yml` because npm OIDC trusted publishers are bound to that file. `pre exit` before stable. See `scripts/README.md`.
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
 - Bun is the monorepo dev/tooling runtime (install, `bun run dev`, most tests), but **Node is the reference runtime going forward** for process/spawn-level code, where Bun and Node have been found to disagree (e.g. `spawn`/`spawnSync` PATH resolution — see `notes/tool-sandboxing.md`). New code in that category should get `node:test`-based coverage runnable under both, not just `bun test`.
 

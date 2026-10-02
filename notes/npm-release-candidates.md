@@ -1,6 +1,6 @@
 # npm release candidates (registry RCs)
 
-**Status:** Implemented (2026-10-02). Script + Publish RC workflow + docs landed; live npm smoke deferred to maintainer OIDC (see Gaps).
+**Status:** Implemented (2026-10-02). Script + Publish RC job in `release.yml` (OIDC-bound) + docs landed; live npm smoke deferred to maintainer OIDC (see Gaps). Sibling `release-rc.yml` was removed after E404 — npm trusted publishers only authorize `release.yml`.
 **HANDOFF:** [`tsk-handoffs/adl-npm-release-candidates.md`](./tsk-handoffs/adl-npm-release-candidates.md)
 
 ---
@@ -129,5 +129,5 @@ Same as Release.yml but `if: github.ref == 'refs/heads/rc'` and `NPM_DIST_TAG=rc
 ### Landed
 
 - `scripts/npm-dist-tag.ts` + `ci-publish.sh` `--tag` / refuse prerelease+`latest`.
-- `.github/workflows/release-rc.yml` — `workflow_dispatch` publish-only with `NPM_DIST_TAG=rc`.
+- `.github/workflows/release.yml` **Publish RC** job — `workflow_dispatch` with `confirm=publish-rc` + `ref`, publish-only with `NPM_DIST_TAG=rc` (same file as stable Release so npm OIDC trusts it).
 - Maintainer docs: `scripts/README.md`, `AGENTS.md` pointer, `human-validation.md` checklist.
