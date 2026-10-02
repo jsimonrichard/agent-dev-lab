@@ -52,6 +52,20 @@ Inventory + encode. No EffectGate rewrite here.
 
 **Success:** a maintainer can skim an agent PR for _product_ judgment; effect/layer/provenance questions are either green in CI or listed as known open.
 
+### Review question → check → gap (wave 0 inventory)
+
+| # | Review question | Existing check | Gap / disposition |
+| - | --------------- | -------------- | ----------------- |
+| 1 | May a tool materialize a side effect without an `EffectGate`? | Lane E: providers require `effectGate`; `assertToolAllowed` before execute | **Gated** (types + tools tests). Residual: UI Allow/Deny + SuspendStore (spine forks). |
+| 2 | Does omitting a gate silently allow? | `execution-control-plan.md` decision; constructors require the arg | **Gated** in tools. README quick start must show `allowAllGate` explicitly (doc drift). |
+| 3 | May `packages/core` import `web` / `cli` / `tools`? | AGENTS.md layer prose only | **Wave 0:** ESLint `no-restricted-imports` smoke on core (+ tools ↛ web/cli). |
+| 4 | Shared root `memoryScope`: which `workflowRunId` owns the inspector session? | Comment said first-writer; code overwrote on every nested episode (Bugbot) | **Wave 0:** first-writer-wins attach in `registerAgentSessionFromEpisode` / `FromEvent` + regression tests. |
+| 5 | Public package change without a Changeset? | Release workflow + human review; many pending `.changeset/*.md` | **Deferred:** naive “any package diff needs a new changeset file” is noisy on stacked unpublished changesets; needs a dedicated design. Still human-only. |
+| 6 | Is retry a new attempt forest or in-place mutate of a prior run? | `seedRetryAttempt`, store contracts, immutable forests | **Gated** by existing contracts; keep watching for rewrite regressions. |
+| 7 | Do user-reachable run failures show in the inspection UI (not only console)? | House rule 1 + UI paths for start-run / reload errors | **Human-only** for new surfaces; e2e covers some paths. No new automated check in wave 0. |
+
+Lane E already landed required gates in tools — “document fail-closed if E not merged” is N/A; tighten the tools README quick start instead.
+
 ---
 
 ## Later waves (after current A–J land + wave 0)
