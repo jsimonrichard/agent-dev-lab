@@ -17,12 +17,12 @@ bun add @agent-dev-lab/tools
 
 ## Quick start
 
-The usual surface is `createWorkspaceToolProvider`: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`. Pass policy (not a constructed executor); load via `loadAdlProject` so `projectRoot` is on the tool-provider envelope for pooling.
+The usual surface is `createWorkspaceToolProvider`: file tools, `grep` / `glob`, `bash` sharing one working directory, and `fetchUrl`. Pass policy (not a constructed executor); load via `loadAdlProject` so `projectRoot` is on the tool-provider envelope for pooling. Every side-effecting provider requires an `effectGate` — there is no omit→allow default; pass `allowAllGate` explicitly for tests or permissive local hosts.
 
 ```ts
 import { mkdirSync } from "node:fs";
 
-import { createAdlRuntime } from "@agent-dev-lab/core";
+import { allowAllGate, createAdlRuntime } from "@agent-dev-lab/core";
 import { createWorkspaceToolProvider, resolveDefaultSandboxRoot } from "@agent-dev-lab/tools";
 import { openai } from "@ai-sdk/openai";
 
@@ -38,6 +38,7 @@ const coder = adl.createAgent({
   id: "coder",
   systemPrompt: "You edit files and run commands only inside the sandbox.",
   tools: createWorkspaceToolProvider({
+    effectGate: allowAllGate, // or a real approval / policy gate
     allowWrite: [cwd],
     cwd,
   }),
