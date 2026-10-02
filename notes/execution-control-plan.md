@@ -317,7 +317,7 @@ All A–J provisioned. Briefs under `notes/orch-briefs/`; parent plan is this fi
 | A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 impl later      |
 | B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | **Shipped** — see [`nested-run-followups.md`](./nested-run-followups.md) |
 | C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1                                                               |
-| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | Roadmap §2                                                               |
+| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | **Shipped** — `createMcpToolProvider` + required EffectGate              |
 | E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | Effect-gate adapter; tool surface only                                   |
 | F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes                       |
 | G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | After C                                                                  |

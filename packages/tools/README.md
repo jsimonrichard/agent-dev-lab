@@ -2,9 +2,9 @@
 
 # `@agent-dev-lab/tools`
 
-Sandboxed file, bash, search (`grep` / `glob`), and `fetchUrl` tools for [`@agent-dev-lab/core`](https://www.npmjs.com/package/@agent-dev-lab/core) agents.
+Sandboxed file, bash, search (`grep` / `glob`), `fetchUrl`, and MCP client tools for [`@agent-dev-lab/core`](https://www.npmjs.com/package/@agent-dev-lab/core) agents.
 
-This package is optional. Core does not depend on it. Providers take a sandbox **policy** (`allowWrite`, …) and share a process-scoped executor pool, or an escape-hatch `executor`. There is no unsandboxed default. Missing host prerequisites fail with a clear error instead of running without a sandbox. The sandbox limits what a model can do through tool calls on this machine; it does not isolate tenants or untrusted project authors.
+This package is optional. Core does not depend on it. Providers take a sandbox **policy** (`allowWrite`, …) and share a process-scoped executor pool, or an escape-hatch `executor`. There is no unsandboxed default. Missing host prerequisites fail with a clear error instead of running without a sandbox. The sandbox limits what a model can do through tool calls on this machine; it does not isolate tenants or untrusted project authors. MCP tools are not sandboxed here — constructing `createMcpToolProvider` with a transport trusts that server at the agent's privilege level, and every call goes through a required `EffectGate`.
 
 ## Install
 
@@ -66,6 +66,7 @@ Call `dispose()` on the tool provider (or reload the project) to release pool re
 | `createSearchTools`                            | `grep`, `glob`                                                                                  | Filesystem search only (`rg` via the executor) |
 | `createBashTool` / `createBashToolProvider`    | `bash`                                                                                          | Shell only                                     |
 | `createFetchUrlTool` / `createWebToolProvider` | `fetchUrl`                                                                                      | Read one http(s) URL as text or markdown       |
+| `createMcpToolProvider`                        | Tools discovered from one MCP server                                                            | Connect a trusted MCP server                   |
 
 Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, bash permissions, and `fetchUrl` allowlist before it hits a denial.
 
@@ -154,6 +155,28 @@ const fetchUrl = createFetchUrlTool({
 ```
 
 Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set a concrete-host `allowedUrls` entry or `allowPrivateNetwork: true`. Host-wildcard patterns like `**` alone do not bypass the address check. On `createWorkspaceToolProvider`, `allowedDomains` / `deniedDomains` also restrict which hosts `fetchUrl` may reach (same pattern language as bash/ASRT). A non-2xx status is returned as data. Treat the body as untrusted third-party content.
+
+## MCP
+
+Wraps the AI SDK MCP client (`@ai-sdk/mcp`) as a `ToolProvider`. One provider = one server; use `combineToolProviders` for multiple. Both `transport` and `effectGate` are required — there is no ambient default server and no omit→allow gate. Pass `allowAllGate` from `@agent-dev-lab/core` explicitly for tests or permissive local hosts.
+
+```ts
+import { allowAllGate } from "@agent-dev-lab/core";
+import { createMcpToolProvider } from "@agent-dev-lab/tools";
+
+const mcpTools = createMcpToolProvider({
+  transport: {
+    type: "http",
+    url: "https://mcp.example.com/mcp",
+    headers: { Authorization: `Bearer ${process.env.MCP_TOKEN}` },
+  },
+  effectGate: allowAllGate, // or a real approval / policy gate
+});
+```
+
+For local stdio servers, pass `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio` as `transport`. The client connects lazily on the first `getTools` call and closes in `dispose()` (process-scoped — not per agent episode). Constructing the provider trusts that server's tools at the agent's privilege level; this package does not sandbox MCP side effects. Every tool `execute` goes through `effectGate` before the MCP call (allow / deny / rewrite). Suspend decisions fail closed until SuspendStore exists.
+
+Pin `@ai-sdk/mcp` to the AI SDK 5 line (`0.0.x` / `ai-v5` dist-tag). Do not mix with `@ai-sdk/mcp@2` (AI SDK 6).
 
 ## Platform support
 

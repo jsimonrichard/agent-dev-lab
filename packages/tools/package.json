@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",
+    "@ai-sdk/mcp": "0.0.39",
     "@anthropic-ai/sandbox-runtime": "0.0.75",
     "ipaddr.js": "^2.5.0",
     "turndown": "^7.2.4",
@@ -43,7 +44,7 @@
     "tsdown": "^0.22.3",
     "typescript": "^6.0.2"
   },
-  "description": "Sandboxed file, bash, search, and fetchUrl tools for @agent-dev-lab/core",
+  "description": "Sandboxed file, bash, search, fetchUrl, and MCP client tools for @agent-dev-lab/core",
   "author": "J. Simon Richard",
   "repository": {
     "type": "git",

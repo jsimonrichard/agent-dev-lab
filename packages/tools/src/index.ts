@@ -1,11 +1,12 @@
 /**
  * @packageDocumentation
  *
- * Sandboxed file, bash, search (`grep`/`glob`), and `fetchUrl` tools for
+ * Sandboxed file, bash, search (`grep`/`glob`), `fetchUrl`, and MCP client tools for
  * `@agent-dev-lab/core`. Providers take sandbox policy (pooled) or an escape-hatch
  * executor — there is no zero-config unsandboxed default. Side-effecting tools
- * require an {@link import("@agent-dev-lab/core").EffectGate} (pass `allowAllGate`
- * explicitly for tests / permissive hosts).
+ * (including MCP) require an {@link import("@agent-dev-lab/core").EffectGate}
+ * (pass `allowAllGate` explicitly for tests / permissive hosts); MCP also
+ * requires an explicit transport.
  */
 export {
   assertToolAllowed,
@@ -120,3 +121,11 @@ export type {
   WebToolProviderContext,
   WebToolProviderOptions,
 } from "./web";
+export { createMcpToolProvider } from "./mcp";
+export type {
+  McpToolEffectPayload,
+  McpToolProviderOptions,
+  McpToolSchemas,
+  McpTransport,
+  MCPTransport,
+} from "./mcp";
