@@ -346,7 +346,7 @@ Provision **after** current A–J landings settle on the integrator (or fork fro
 | 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                                                  |
 | 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                                                     |
 
-**Parallel when free (not on the spine):** AI SDK 5→7 ([`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md) / `adl-ai-sdk-upgrade`), `$` estimates (H), todo-tool placement. (D/G landed in this linear stack.)
+**Parallel when free (not on the spine):** AI SDK 5→7 ([`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md) / `adl-ai-sdk-upgrade`), npm RCs ([`npm-release-candidates.md`](./npm-release-candidates.md) / `adl-npm-release-candidates`), `$` estimates (H), todo-tool placement. (D/G landed in this linear stack.)
 
 **Example:**
 
