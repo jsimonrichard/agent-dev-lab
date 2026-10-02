@@ -1,8 +1,8 @@
 ---
-"@agent-dev-lab/core": major
-"@agent-dev-lab/tools": major
-"@agent-dev-lab/web": major
-"@agent-dev-lab/cli": major
+"@agent-dev-lab/core": patch
+"@agent-dev-lab/tools": patch
+"@agent-dev-lab/web": patch
+"@agent-dev-lab/cli": patch
 ---
 
 **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).

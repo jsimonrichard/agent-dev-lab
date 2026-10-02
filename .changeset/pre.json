@@ -1,0 +1,25 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@agent-dev-lab/cli": "0.0.8",
+    "@agent-dev-lab/docs": "0.0.1",
+    "@agent-dev-lab/web": "0.0.6",
+    "@agent-dev-lab/core": "0.0.6",
+    "@agent-dev-lab/tools": "0.0.3"
+  },
+  "changesets": [
+    "ai-sdk-v7-peer",
+    "effect-gate-substrate",
+    "episode-tool-llm-timing",
+    "mcp-tool-provider",
+    "model-catalog-picker",
+    "nested-conv-session-hydration",
+    "nested-run-memory-scope",
+    "nested-usage-forest-rollup",
+    "per-call-model-override",
+    "preliminary-tool-result-ui",
+    "tools-effect-gate",
+    "waterfall-bar-min-width"
+  ]
+}

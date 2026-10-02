@@ -1,5 +1,30 @@
 # @agent-dev-lab/tools
 
+## 0.0.4-rc.0
+
+### Patch Changes
+
+- **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2` (replaces `0.0.x`).
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+- Add `createMcpToolProvider`: wrap `@ai-sdk/mcp` (AI SDK 5 / `0.0.39`) as a ToolProvider with required transport and EffectGate, process-scoped dispose, and fail-closed defaults.
+- Require `EffectGate` (+ `effectScope` on factories) before tool materialize; ship `ApprovalDispatcher` adapter, sticky-allow handler policy, and explicit `allowAllGate` at tests/playground. Breaking: constructors no longer omit a gate.
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies
+  - @agent-dev-lab/core@0.0.7-rc.0
+
 ## 0.0.3
 
 ### Patch Changes
