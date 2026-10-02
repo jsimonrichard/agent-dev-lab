@@ -29,9 +29,9 @@ All standard commands are in root `package.json`:
 - **Lint**: `bun run lint` — ESLint across all packages
 - **Typecheck**: `bun run typecheck` — TypeScript checking via Turbo
 - **Test**: `bun run test` — Turbo `test` in packages that define it (`core`, `tools`, `cli`, `web`), then `bun test scripts`
-- **E2E**: `bun run test:e2e` — CLI scaffold smoke plus Playwright Chromium chat specs (`apps/web`). First-time browsers: `cd apps/web && bunx playwright install chromium` (CI uses `--with-deps`)
+- **E2E**: `bun run test:e2e` — CLI scaffold smoke plus Playwright Chromium chat specs (`apps/web`). First-time browsers: `cd apps/web && bunx playwright install chromium` (CI uses `--with-deps`). Web Playwright listens on port **3100** by default; set `ADL_E2E_PORT` to a fixed port or `0` for an ephemeral loopback port (parallel lanes). `.claude/gate.sh full` defaults to `ADL_E2E_PORT=0`. Fresh-project and CLI e2e already allocate their own ports.
 - **Build**: `bun run build`
-- **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` attaches a consumer via a stable `vendor/` symlink. See `scripts/README.md`.
+- **Pack local tarballs**: `bun run pack:local` — isolated `bun pm pack` of core/web/cli/tools as `*-e2e` prereleases (restores version bumps). Optional `--project` attaches a consumer via a stable `vendor/` symlink. For **registry** RCs (`@rc`), see `scripts/README.md` (not `pack:local`).
 
 ### Non-obvious notes
 
@@ -54,17 +54,17 @@ All standard commands are in root `package.json`:
     and verifies `bwrap` can create a sandbox (`packages/tools`' executors test against
     the real primitives and never fall back to running unsandboxed); then `typecheck`,
     `test`, `test:node`, `build`, Playwright Chromium install, `test:e2e`.
-- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/tools`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private).
+- Releases: `.github/workflows/release.yml` versions and publishes `@agent-dev-lab/core`, `@agent-dev-lab/tools`, `@agent-dev-lab/cli`, and `@agent-dev-lab/web` via Changesets (docs and playground stay private). Manual RCs: Changesets `pre enter rc` → version → `.github/workflows/release-rc.yml` (`NPM_DIST_TAG=rc`); `pre exit` before stable. See `scripts/README.md`.
 - No `.env` file is required to load the repo. LLM API keys are needed to **execute** agents (playground `.env` / `.env.local`).
 - Bun is the monorepo dev/tooling runtime (install, `bun run dev`, most tests), but **Node is the reference runtime going forward** for process/spawn-level code, where Bun and Node have been found to disagree (e.g. `spawn`/`spawnSync` PATH resolution — see `notes/tool-sandboxing.md`). New code in that category should get `node:test`-based coverage runnable under both, not just `bun test`.
 
 ### Tests vs other files
 
 - **`*.test.ts` / `*.e2e.test.ts`** — Bun tests (`bun test`). CLI `apps/cli/src/e2e/*.e2e.test.ts` is this, not Playwright.
-- **`apps/web/e2e/*.spec.ts`** — Playwright Chromium (`cd apps/web && bun run test:e2e`; also root `bun run test:e2e`). Fixture project: `apps/web/e2e/fixture/` (mock LLM, no API keys). In `.claude/gate.sh full` after build, not in `fast`. `vitest` is a web e2e devDependency because `ai/test` (`MockLanguageModelV2`) imports it at module scope; the Vite server is not `bun test`.
+- **`apps/web/e2e/*.spec.ts`** — Playwright Chromium (`cd apps/web && bun run test:e2e`; also root `bun run test:e2e`). Fixture project: `apps/web/e2e/fixture/` (mock LLM, no API keys). Port via `ADL_E2E_PORT` (see Commands → E2E). In `.claude/gate.sh full` after build, not in `fast`. `vitest` is a web e2e devDependency because `ai/test` (`MockLanguageModelV2`) imports it at module scope; the Vite server is not `bun test`.
 - **`packages/tools/src/bash/{process-channel,native-executor}.test.ts`** and **`packages/tools/src/bash/asrt/executor.test.ts`** — `node:test`-based, not `bun:test`; run under both `bun test` and `node --test` (`bun run test:node`). See `notes/tool-sandboxing.md`'s testing section.
 - **`apps/cli/scripts/`** — build helpers, not tests (`verify-web-output.ts`, `package-scaffold.ts`). See `apps/cli/scripts/README.md`.
-- **`scripts/`** — monorepo helpers (`ci-publish.sh`, `ci-install-jj.sh`, `patch-lock.ts`, `pack-local.ts`). `scripts/*.test.ts` is included in `bun run test`. See `scripts/README.md`.
+- **`scripts/`** — monorepo helpers (`ci-publish.sh`, `npm-dist-tag.ts`, `ci-install-jj.sh`, `patch-lock.ts`, `pack-local.ts`). `scripts/*.test.ts` is included in `bun run test`. See `scripts/README.md`.
 - **`packages/core/src/stores/store.contract.test.ts`** — shared store contract suite (test infra).
 - **`packages/core/src/template/fixtures/`** — prompt fixtures used by template tests.
 
