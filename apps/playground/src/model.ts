@@ -20,6 +20,16 @@ export const DEFAULT_MODEL_ID = process.env.ADL_MODEL ?? "gpt-5.4-mini";
 
 export const model: LanguageModel = openai(DEFAULT_MODEL_ID);
 
+/** Catalog / override factory for the default OpenAI chat model. */
+export function createDefaultModel(): LanguageModel {
+  return openai(DEFAULT_MODEL_ID);
+}
+
+/** Alternate catalog entry — same provider, explicit mini id for the picker. */
+export function createGpt4oMiniModel(): LanguageModel {
+  return openai("gpt-4o-mini");
+}
+
 /** Whether an OpenAI key is configured — used by the CLI demo to give a friendly hint. */
 export function hasOpenAiKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY ?? process.env.openai_api_key);

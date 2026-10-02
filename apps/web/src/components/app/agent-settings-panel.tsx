@@ -12,7 +12,10 @@ import { Link } from "@tanstack/react-router";
 import { useId, useRef, useState } from "react";
 
 import type { TokenUsage } from "@agent-dev-lab/core";
-import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
+import type {
+  AgentInspectorMeta,
+  ModelCatalogInspectorMeta,
+} from "#/lib/inspector/inspector-types";
 import { buildToolProviderContextInput } from "#/lib/agent/agent-tools";
 import type { ResolvedAgentConversation } from "@/lib/view-model/types";
 import { RunTagsFooter } from "@/components/app/run-tags-footer";
@@ -41,6 +44,13 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   buildWorkflowInput,
   workflowInputValuesFromSample,
@@ -86,6 +96,11 @@ interface AgentSettingsPanelProps {
   episodeToolContext?: EpisodeToolProviderContextView;
   /** Provider-reported usage for the focused agent call (`?call=` / latest). */
   episodeUsage?: TokenUsage | null;
+  /** Host catalog for next-turn model override (omit / empty → no picker). */
+  modelCatalog?: ModelCatalogInspectorMeta[];
+  /** Selected catalog id for the next turn, or `null` for agent/runtime default. */
+  selectedModelCatalogId?: string | null;
+  onSelectedModelCatalogIdChange?: (catalogId: string | null) => void;
 }
 
 export function AgentSettingsPanel({
@@ -94,6 +109,9 @@ export function AgentSettingsPanel({
   contextForm,
   episodeToolContext,
   episodeUsage,
+  modelCatalog,
+  selectedModelCatalogId,
+  onSelectedModelCatalogIdChange,
 }: AgentSettingsPanelProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-muted/10">
@@ -110,6 +128,9 @@ export function AgentSettingsPanel({
             contextForm={contextForm}
             episodeToolContext={episodeToolContext}
             episodeUsage={episodeUsage}
+            modelCatalog={modelCatalog}
+            selectedModelCatalogId={selectedModelCatalogId}
+            onSelectedModelCatalogIdChange={onSelectedModelCatalogIdChange}
           />
         </div>
       </ScrollArea>
@@ -124,12 +145,18 @@ export function AgentConfigBody({
   contextForm,
   episodeToolContext,
   episodeUsage,
+  modelCatalog,
+  selectedModelCatalogId,
+  onSelectedModelCatalogIdChange,
 }: {
   settings: AgentInspectorMeta;
   conversation?: ResolvedAgentConversation;
   contextForm?: ToolProviderContextFormState;
   episodeToolContext?: EpisodeToolProviderContextView;
   episodeUsage?: TokenUsage | null;
+  modelCatalog?: ModelCatalogInspectorMeta[];
+  selectedModelCatalogId?: string | null;
+  onSelectedModelCatalogIdChange?: (catalogId: string | null) => void;
 }) {
   const fork = conversation?.forkSession;
   const workflowLink = conversation?.workflowLink;
@@ -143,16 +170,68 @@ export function AgentConfigBody({
   const conversationUsageRows = tokenUsageSettingRows(conversation?.usage);
   const episodeUsageRows = tokenUsageSettingRows(episodeUsage ?? undefined);
   const showUsage = conversationUsageRows.length > 0 || episodeUsageRows.length > 0;
+  const catalog = modelCatalog ?? [];
+  const showModelSection = Boolean(settings.model) || catalog.length > 0;
+  const selectedEntry =
+    selectedModelCatalogId != null
+      ? (catalog.find((entry) => entry.id === selectedModelCatalogId) ?? null)
+      : null;
+  const missingKeyWarning =
+    selectedEntry?.apiKeyEnv !== undefined && selectedEntry.apiKeyPresent === false
+      ? `Missing ${selectedEntry.apiKeyEnv} — set it before sending with this catalog model.`
+      : null;
 
   return (
     <div className="space-y-5">
-      {settings.model ? (
+      {showModelSection ? (
         <>
           <SettingsSection icon={Cpu} title="Model">
             <dl className="space-y-2 text-xs">
-              <SettingRow label="Model" value={settings.model.modelId} mono />
-              {settings.model.provider ? (
-                <SettingRow label="Provider" value={settings.model.provider} mono />
+              {settings.model ? (
+                <>
+                  <SettingRow label="Default" value={settings.model.modelId} mono />
+                  {settings.model.provider ? (
+                    <SettingRow label="Provider" value={settings.model.provider} mono />
+                  ) : null}
+                </>
+              ) : null}
+              {catalog.length > 0 && onSelectedModelCatalogIdChange ? (
+                <div className="space-y-1.5">
+                  <dt className="text-muted-foreground">Next turn</dt>
+                  <dd>
+                    <Select
+                      value={selectedModelCatalogId ?? "__default__"}
+                      onValueChange={(value) => {
+                        onSelectedModelCatalogIdChange(value === "__default__" ? null : value);
+                      }}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="w-full max-w-full"
+                        data-testid="model-catalog-select"
+                      >
+                        <SelectValue placeholder="Agent default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Agent default</SelectItem>
+                        {catalog.map((entry) => (
+                          <SelectItem key={entry.id} value={entry.id}>
+                            {entry.label}
+                            <span className="text-muted-foreground"> ({entry.provider})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </dd>
+                  {missingKeyWarning ? (
+                    <p
+                      className="text-[11px] text-destructive"
+                      data-testid="model-catalog-key-warning"
+                    >
+                      {missingKeyWarning}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </dl>
           </SettingsSection>

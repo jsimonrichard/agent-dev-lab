@@ -6,7 +6,12 @@ import type { AnyAgent } from "../agent/types";
 import { AdlError } from "../errors";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
-import { ADL_CONFIG_FILENAMES, type AdlConfigFilename, type AdlProjectConfig } from "./config";
+import {
+  ADL_CONFIG_FILENAMES,
+  type AdlConfigFilename,
+  type AdlModelCatalogEntry,
+  type AdlProjectConfig,
+} from "./config";
 import { importAdlConfigModule, invalidateAdlConfigCache } from "./load-config";
 import { loadAdlProjectEnv } from "./load-env";
 import { pinRuntimeStores } from "./pin-stores";
@@ -90,12 +95,16 @@ export interface LoadedAdlProject {
   listAgentIds(): string[];
   getTemplate(name: string): Template<unknown> | undefined;
   listTemplateNames(): string[];
+  /** Host-only catalog entry; core never uses this during agent resolution. */
+  getModel(id: string): AdlModelCatalogEntry | undefined;
+  listModelIds(): string[];
 }
 
 type ProjectIndexes = {
   workflowById: Map<string, Workflow<unknown, unknown>>;
   agentById: Map<string, AnyAgent>;
   templateByName: Map<string, Template<unknown>>;
+  modelById: Map<string, AdlModelCatalogEntry>;
 };
 
 type ProjectState = {
@@ -164,6 +173,7 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
   const agents = record.agents;
   const workflows = record.workflows;
   const templates = record.templates;
+  const models = record.models;
 
   if (agents !== undefined && !Array.isArray(agents)) {
     throw new AdlError(
@@ -183,6 +193,12 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
       `Invalid ADL config at ${configPath}: "templates" must be an array`,
     );
   }
+  if (models !== undefined && !Array.isArray(models)) {
+    throw new AdlError(
+      "INVALID_CONFIG",
+      `Invalid ADL config at ${configPath}: "models" must be an array`,
+    );
+  }
 
   return {
     name,
@@ -190,6 +206,7 @@ function normalizeConfig(value: unknown, configPath: string): AdlProjectConfig {
     agents: agents as AdlProjectConfig["agents"],
     workflows: workflows as AdlProjectConfig["workflows"],
     templates: templates as AdlProjectConfig["templates"],
+    models: models as AdlProjectConfig["models"],
     tools: record.tools as AdlProjectConfig["tools"],
   };
 }
@@ -199,6 +216,7 @@ function buildIndexes(config: AdlProjectConfig, configPath: string): ProjectInde
     workflowById: indexById(config.workflows ?? [], "workflow"),
     agentById: indexById(config.agents ?? [], "agent"),
     templateByName: indexTemplates(config.templates ?? [], configPath),
+    modelById: indexModels(config.models ?? [], configPath),
   };
 }
 
@@ -266,6 +284,12 @@ function buildLoadedProject(parts: {
     listTemplateNames() {
       return [...state.templateByName.keys()];
     },
+    getModel(id) {
+      return state.modelById.get(id);
+    },
+    listModelIds() {
+      return [...state.modelById.keys()];
+    },
     reload() {
       if (reloadPromise) {
         return reloadPromise;
@@ -299,6 +323,7 @@ function buildLoadedProject(parts: {
       state.workflowById = indexes.workflowById;
       state.agentById = indexes.agentById;
       state.templateByName = indexes.templateByName;
+      state.modelById = indexes.modelById;
       state.generation += 1;
       state.lastReloadError = null;
       disposed = false;
@@ -345,6 +370,61 @@ function indexTemplates(
       throw new Error(`Duplicate template name "${template.name}" in adl.config`);
     }
     map.set(template.name, template);
+  }
+  return map;
+}
+
+function indexModels(
+  models: AdlModelCatalogEntry[],
+  configPath: string,
+): Map<string, AdlModelCatalogEntry> {
+  const map = new Map<string, AdlModelCatalogEntry>();
+  for (const entry of models) {
+    if (!entry || typeof entry !== "object") {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Invalid model catalog entry in ${configPath}: expected an object`,
+      );
+    }
+    if (typeof entry.id !== "string" || entry.id.trim().length === 0) {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Invalid model catalog entry in ${configPath}: each entry must have a non-empty string "id"`,
+      );
+    }
+    if (typeof entry.label !== "string" || entry.label.trim().length === 0) {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Invalid model catalog entry "${entry.id}" in ${configPath}: "label" must be a non-empty string`,
+      );
+    }
+    if (typeof entry.provider !== "string" || entry.provider.trim().length === 0) {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Invalid model catalog entry "${entry.id}" in ${configPath}: "provider" must be a non-empty string`,
+      );
+    }
+    if (typeof entry.factory !== "function") {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Invalid model catalog entry "${entry.id}" in ${configPath}: "factory" must be a function (JSON configs cannot supply factories — omit models)`,
+      );
+    }
+    if (entry.apiKeyEnv !== undefined) {
+      if (typeof entry.apiKeyEnv !== "string" || entry.apiKeyEnv.trim().length === 0) {
+        throw new AdlError(
+          "INVALID_CONFIG",
+          `Invalid model catalog entry "${entry.id}" in ${configPath}: "apiKeyEnv" must be a non-empty string when set`,
+        );
+      }
+    }
+    if (map.has(entry.id)) {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Duplicate model catalog id "${entry.id}" in adl.config`,
+      );
+    }
+    map.set(entry.id, entry);
   }
   return map;
 }

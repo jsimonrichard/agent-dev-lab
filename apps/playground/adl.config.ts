@@ -15,6 +15,7 @@ import {
 } from "./src/agents";
 import { critic } from "./src/agents/critic";
 import { researcher } from "./src/agents/researcher";
+import { createDefaultModel, createGpt4oMiniModel } from "./src/model";
 import { promptTemplates } from "./src/prompts";
 import { answerQuestion } from "./src/workflows/answer-question";
 import { copyMemory } from "./src/workflows/copy-memory";
@@ -55,6 +56,22 @@ export default {
   name: "playground",
   adl,
   agents,
+  models: [
+    {
+      id: "default",
+      label: "Default (ADL_MODEL)",
+      provider: "openai",
+      apiKeyEnv: "OPENAI_API_KEY",
+      factory: createDefaultModel,
+    },
+    {
+      id: "gpt-4o-mini",
+      label: "GPT-4o mini",
+      provider: "openai",
+      apiKeyEnv: "OPENAI_API_KEY",
+      factory: createGpt4oMiniModel,
+    },
+  ],
   workflows: [
     demoCounter,
     nestedDemo,

@@ -245,16 +245,20 @@ export {
   loadAdlProject,
   loadAdlEnv,
   loadAdlProjectEnv,
+  resolveCatalogModel,
+  assertCatalogModelApiKey,
   resolveProjectRoot,
   shouldReloadAdlProjectPath,
   isIgnoredAdlProjectSegment,
   watchAdlProject,
   type AdlConfigFilename,
+  type AdlModelCatalogEntry,
   type AdlProjectConfig,
   type AdlProjectReloadInfo,
   type AdlProjectWatcher,
   type AdlProjectWatchHandlers,
   type LoadedAdlProject,
+  type ModelCatalogLookup,
 } from "./project";
 
 export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "./db";

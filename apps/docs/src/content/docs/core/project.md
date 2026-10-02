@@ -7,10 +7,10 @@ The project config module is the **discovery surface** for CLI, inspection UI, a
 
 ## Design Decisions
 
-- **Registry arrays** at load time — agents, workflows, and templates are indexed when `loadAdlProject()` runs (and again on `reload()`).
-- **Arrays** of definitions; each carries its own **`id`** (agents/workflows) or **`name`** (templates from filename).
+- **Registry arrays** at load time — agents, workflows, templates, and host-only model catalog entries are indexed when `loadAdlProject()` runs (and again on `reload()`).
+- **Arrays** of definitions; each carries its own **`id`** (agents/workflows/models) or **`name`** (templates from filename).
 - **Runtime via config** — tooling reads `config.adl` from the loaded config; it does not import a project runtime file by convention path.
-- **JSON config** (`adl.config.json`) suits `name` only — registries and `adl` need TS/JS for imports.
+- **JSON config** (`adl.config.json`) suits `name` only — registries, `models` factories, and `adl` need TS/JS for imports.
 
 ## AdlProjectConfig
 
@@ -21,6 +21,7 @@ import { adl } from "#adl";
 import { researcher, writer } from "./agents";
 import { literatureReview, quickSummary } from "./workflows";
 import { findPapersPrompt, outlinePrompt } from "./prompts";
+import { createMiniModel } from "./model";
 
 export { adl }; // optional — tooling uses the default export's `adl` field
 
@@ -34,6 +35,21 @@ export default {
   workflows: [literatureReview, quickSummary],
   templates: [findPapersPrompt, outlinePrompt],
 
+  /**
+   * Host-only catalog for the inspector picker / `adl agent run --model`.
+   * Core never resolves agents from these entries — hosts call `factory()` and
+   * pass the live LanguageModel as `AgentRunInput.model`.
+   */
+  models: [
+    {
+      id: "mini",
+      label: "Mini",
+      provider: "openai",
+      apiKeyEnv: "OPENAI_API_KEY",
+      factory: createMiniModel,
+    },
+  ],
+
   tools: {
     /* registry-only — runtime merge uses createAdlRuntime({ tools }).
        Future UI: list and run a tool manually (no agent turn). */
@@ -44,8 +60,9 @@ export default {
 Validation at load time:
 
 - `name` required
-- Unique **`id`** within agents and within workflows (separate namespaces; throws on same-kind duplicate)
+- Unique **`id`** within agents, within workflows, and within models (separate namespaces; throws on same-kind duplicate)
 - Unique **`name`** per template (throws on duplicate)
+- Each `models[]` entry requires non-empty `id` / `label` / `provider` and a `factory` function (JSON configs cannot supply factories — omit `models`)
 
 ## loadAdlProject
 
@@ -57,6 +74,8 @@ const project: LoadedAdlProject = await loadAdlProject();
 project.getAdl();
 project.getWorkflow("literature-review");
 project.listAgentIds();
+project.listModelIds();
+project.getModel("mini");
 ```
 
 Discovery walks upward from cwd for `adl.config.*` (`findAdlProjectRootFromCwd`) or accepts an explicit root via `ADL_PROJECT_ROOT`. The inspection UI uses the same `loadAdlProject()` path as the CLI — never a hard-coded `src/adl.ts` import.

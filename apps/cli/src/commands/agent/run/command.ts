@@ -38,12 +38,19 @@ export const agentsRunCommand = buildCommand({
         optional: true,
         parse: String,
       },
+      model: {
+        kind: "parsed",
+        brief: "Model catalog id from adl.config models[] (omit to use agent/runtime default)",
+        optional: true,
+        parse: String,
+      },
     },
     aliases: {
       p: "project",
       i: "input",
       s: "scope",
       c: "tool-context",
+      m: "model",
     },
   },
   docs: {

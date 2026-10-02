@@ -3,10 +3,12 @@ export type AdlErrorCode =
   | "INVALID_CONFIG"
   | "UNKNOWN_WORKFLOW"
   | "UNKNOWN_AGENT"
+  | "UNKNOWN_MODEL"
   | "INVALID_INPUT"
   | "INVALID_CONTEXT"
   | "MISSING_RUNTIME"
   | "MISSING_MODEL"
+  | "MISSING_API_KEY"
   | "INIT_FAILED";
 
 /** Typed ADL error for CLI and host mapping. */

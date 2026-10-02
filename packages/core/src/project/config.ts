@@ -1,9 +1,37 @@
-import type { ToolSet } from "ai";
+import type { LanguageModel, ToolSet } from "ai";
 
 import type { AnyAgent } from "../agent/types";
 import type { AdlRuntime } from "../runtime/types";
 import type { Template } from "../template/types";
 import type { Workflow } from "../workflow/types";
+
+/**
+ * Host-only model catalog entry in `adl.config` `models[]`.
+ *
+ * The inspection UI / CLI list `{ id, label, provider }` and call {@link factory}
+ * when the user picks an id for the next `agent.run({ model })`. Core agent
+ * resolution never consults this catalog — only live {@link LanguageModel} values.
+ *
+ * JSON configs cannot supply `factory`; omit `models` there or load fails validation.
+ */
+export type AdlModelCatalogEntry = {
+  /** Stable picker / CLI id (project-unique). */
+  id: string;
+  /** Human-readable label for the inspector picker. */
+  label: string;
+  /** Provider label for display (e.g. `"openai"`). Not used for resolution. */
+  provider: string;
+  /**
+   * Builds the live model for a selected catalog id.
+   * Hosts call this; core never calls it during `agent.run`.
+   */
+  factory: () => LanguageModel;
+  /**
+   * Optional env var name for host preflight (e.g. `"OPENAI_API_KEY"`).
+   * When set, UI/CLI can flag a missing key before starting a run.
+   */
+  apiKeyEnv?: string;
+};
 
 /**
  * Shape of `adl.config.*` at a project root.
@@ -27,6 +55,12 @@ export interface AdlProjectConfig {
   workflows?: Workflow<unknown, unknown>[];
   /** Registry key is `template.name` (filename basename). */
   templates?: Template<unknown>[];
+  /**
+   * Host-only model catalog for the inspector picker / CLI `--model`.
+   * Core never resolves agents from these entries — hosts call {@link AdlModelCatalogEntry.factory}
+   * and pass the live {@link LanguageModel} as `AgentRunInput.model`.
+   */
+  models?: AdlModelCatalogEntry[];
   /**
    * Registry-only shared tools. Runtime merge uses {@link AdlRuntimeConfig.tools}
    * on `createAdlRuntime` — agents are created before this config object is

@@ -4,6 +4,7 @@ export {
   ADL_PROJECT_WATCH_ENV,
   shouldWatchAdlProject,
   type AdlConfigFilename,
+  type AdlModelCatalogEntry,
   type AdlProjectConfig,
 } from "./config";
 export { AdlError, isAdlError } from "../errors";
@@ -36,6 +37,8 @@ export {
   resolveProjectRoot,
   type LoadedAdlProject,
 } from "./resolve";
+export { assertCatalogModelApiKey, resolveCatalogModel } from "./resolve-catalog-model";
+export type { ModelCatalogLookup } from "./resolve-catalog-model";
 export { disposeRegistryProviders } from "./dispose-providers";
 export { shouldReloadAdlProjectPath, isIgnoredAdlProjectSegment } from "./watch-path";
 export {

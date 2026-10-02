@@ -1,5 +1,7 @@
 import {
   AdlError,
+  assertCatalogModelApiKey,
+  resolveCatalogModel,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
   type AgentRunHandle,
@@ -208,6 +210,26 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
       systemPromptPath: agent?.systemPromptPath ?? null,
     };
   });
+  const models = project.listModelIds().map((id) => {
+    const entry = project.getModel(id);
+    if (!entry) {
+      throw new AdlError(
+        "INVALID_CONFIG",
+        `Model catalog id "${id}" is indexed but getModel returned undefined`,
+      );
+    }
+    const descriptor: ProjectInspectorMeta["models"][number] = {
+      id: entry.id,
+      label: entry.label,
+      provider: entry.provider,
+    };
+    if (entry.apiKeyEnv !== undefined) {
+      descriptor.apiKeyEnv = entry.apiKeyEnv;
+      const value = process.env[entry.apiKeyEnv];
+      descriptor.apiKeyPresent = typeof value === "string" && value.trim().length > 0;
+    }
+    return descriptor;
+  });
   return {
     name: project.config.name,
     root: project.root,
@@ -219,6 +241,7 @@ export async function getProjectInspectorMeta(): Promise<ProjectInspectorMeta> {
     workflows,
     agentIds: agents.map((agent) => agent.id),
     agents,
+    models,
   };
 }
 
@@ -548,6 +571,8 @@ export async function startAgentTurn(options: {
   memoryScope: string;
   user: string;
   toolProviderContext?: unknown;
+  /** Host catalog id — resolved to a live LanguageModel before `agent.run`. */
+  modelCatalogId?: string;
   workflow?: { workflowRunId: string; stepId: string | null };
 }): Promise<{ agentCallId: string }> {
   await ensureSessionsHydrated();
@@ -565,6 +590,21 @@ export async function startAgentTurn(options: {
     throw new Error(`Unknown agent: ${options.agentId}`);
   }
 
+  let modelOverride: ReturnType<typeof resolveCatalogModel> | undefined;
+  if (options.modelCatalogId !== undefined) {
+    const entry = project.getModel(options.modelCatalogId);
+    if (!entry) {
+      throw new AdlError(
+        "UNKNOWN_MODEL",
+        `Unknown model catalog id "${options.modelCatalogId}". Known ids: ${
+          project.listModelIds().join(", ") || "(none)"
+        }`,
+      );
+    }
+    assertCatalogModelApiKey(entry);
+    modelOverride = resolveCatalogModel(project, options.modelCatalogId);
+  }
+
   touchAgentSession(options.memoryScope);
   setConversationTurnActive(options.memoryScope, true);
 
@@ -575,6 +615,7 @@ export async function startAgentTurn(options: {
     ...(options.toolProviderContext !== undefined
       ? { toolProviderContext: options.toolProviderContext }
       : {}),
+    ...(modelOverride !== undefined ? { model: modelOverride } : {}),
   });
   linkAgentCallId(options.memoryScope, handle.agentCallId);
   activeAgentTurns.set(handle.agentCallId, handle);

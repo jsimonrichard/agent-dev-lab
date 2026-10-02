@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Bot, GitBranch, MessageSquare, PanelRight } from "lucide-react";
 
-import type { AgentInspectorMeta } from "#/lib/inspector/inspector-types";
+import type {
+  AgentInspectorMeta,
+  ModelCatalogInspectorMeta,
+} from "#/lib/inspector/inspector-types";
 import {
   buildToolProviderContextInput,
   seedToolProviderContextForm,
@@ -51,6 +54,7 @@ interface AgentRunWorkspaceProps {
   conversation: ResolvedAgentConversation;
   settings: AgentInspectorMeta;
   callId?: string;
+  modelCatalog?: ModelCatalogInspectorMeta[];
 }
 
 export function AgentRunWorkspace({
@@ -58,6 +62,7 @@ export function AgentRunWorkspace({
   conversation,
   settings,
   callId,
+  modelCatalog = [],
 }: AgentRunWorkspaceProps) {
   const router = useRouter();
   const navigate = useNavigate();
@@ -77,6 +82,7 @@ export function AgentRunWorkspace({
   const [inspectedToolContext, setInspectedToolContext] = useState<unknown | null | undefined>(
     undefined,
   );
+  const [selectedModelCatalogId, setSelectedModelCatalogId] = useState<string | null>(null);
   const [contextValues, setContextValues] = useState<Record<string, string | boolean>>(
     () =>
       seedToolProviderContextForm({
@@ -103,6 +109,7 @@ export function AgentRunWorkspace({
     setForking(false);
     setStreamEnabled(false);
     setWarnings([]);
+    setSelectedModelCatalogId(null);
   }, [conversation.runId]);
 
   useEffect(() => {
@@ -292,6 +299,21 @@ export function AgentRunWorkspace({
         return;
       }
     }
+    if (selectedModelCatalogId !== null) {
+      const entry = modelCatalog.find((item) => item.id === selectedModelCatalogId);
+      if (!entry) {
+        setError(
+          `Unknown model catalog id "${selectedModelCatalogId}". Reload the project or pick another model.`,
+        );
+        return;
+      }
+      if (entry.apiKeyEnv !== undefined && entry.apiKeyPresent === false) {
+        setError(
+          `Model catalog entry "${entry.id}" requires ${entry.apiKeyEnv} to be set before running`,
+        );
+        return;
+      }
+    }
     setSending(true);
     setError(null);
     setWarnings([]);
@@ -322,6 +344,7 @@ export function AgentRunWorkspace({
         memoryScope: conversation.runId,
         user: text,
         ...(toolProviderContext !== undefined ? { toolProviderContext } : {}),
+        ...(selectedModelCatalogId !== null ? { modelCatalogId: selectedModelCatalogId } : {}),
       },
     });
     if (result.isErr) {
@@ -529,6 +552,11 @@ export function AgentRunWorkspace({
                 conversation={conversation}
                 episodeToolContext={episodeToolContext}
                 episodeUsage={episodeUsage}
+                modelCatalog={modelCatalog}
+                selectedModelCatalogId={selectedModelCatalogId}
+                onSelectedModelCatalogIdChange={
+                  workflowLink ? undefined : setSelectedModelCatalogId
+                }
                 contextForm={
                   workflowLink
                     ? undefined

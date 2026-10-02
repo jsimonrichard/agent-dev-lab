@@ -1,4 +1,10 @@
-import { AdlError } from "@agent-dev-lab/core";
+import {
+  AdlError,
+  assertCatalogModelApiKey,
+  resolveCatalogModel,
+  type AdlModelCatalogEntry,
+  type LanguageModel,
+} from "@agent-dev-lab/core";
 
 import type { AdlCliContext } from "../../../context";
 import { loadCliProject, requireAgent } from "../../../load-project";
@@ -8,6 +14,7 @@ interface RunFlags {
   input: string;
   scope?: string;
   "tool-context"?: string;
+  model?: string;
 }
 
 export default async function run(
@@ -32,10 +39,32 @@ export default async function run(
     }
   }
 
+  let model: LanguageModel | undefined;
+  if (flags.model !== undefined) {
+    const entry = project.getModel(flags.model);
+    if (!entry) {
+      throw new AdlError(
+        "UNKNOWN_MODEL",
+        `Unknown model catalog id "${flags.model}". Known ids: ${
+          project.listModelIds().join(", ") || "(none)"
+        }`,
+      );
+    }
+    assertCatalogModelApiKey(entry as AdlModelCatalogEntry);
+    model = resolveCatalogModel(
+      {
+        getModel: (id) => project.getModel(id) as AdlModelCatalogEntry | undefined,
+        listModelIds: () => project.listModelIds(),
+      },
+      flags.model,
+    );
+  }
+
   const handle = agent.run({
     user: flags.input,
     ...(flags.scope !== undefined ? { memoryScope: flags.scope } : {}),
     ...(toolContextJson !== undefined ? { toolProviderContext } : {}),
+    ...(model !== undefined ? { model } : {}),
   });
   this.process.stdout.write(`agentCallId ${handle.agentCallId}\n`);
   this.process.stdout.write(`memoryScope ${handle.memoryScope}\n`);

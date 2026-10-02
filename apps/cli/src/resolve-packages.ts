@@ -125,7 +125,12 @@ export interface LoadedProjectForCli {
         id: string;
         /** `definition.tools` — duck-typed for `isToolProvider` / `contextSchema`. */
         tools?: unknown;
-        run: (input: { user?: string; memoryScope?: string; toolProviderContext?: unknown }) => {
+        run: (input: {
+          user?: string;
+          memoryScope?: string;
+          toolProviderContext?: unknown;
+          model?: unknown;
+        }) => {
           agentCallId: string;
           memoryScope: string;
           result: Promise<{ output: unknown }>;
@@ -134,6 +139,16 @@ export interface LoadedProjectForCli {
     | undefined;
   listWorkflowIds(): string[];
   listAgentIds(): string[];
+  getModel(id: string):
+    | {
+        id: string;
+        label: string;
+        provider: string;
+        factory: () => unknown;
+        apiKeyEnv?: string;
+      }
+    | undefined;
+  listModelIds(): string[];
 }
 
 export interface ProjectRuntimeProjectModule {

@@ -170,6 +170,7 @@ export const sendAgentMessage = createServerFn({ method: "POST" })
       memoryScope: string;
       user: string;
       toolProviderContext?: unknown;
+      modelCatalogId?: string;
     }) => payload,
   )
   .handler(async ({ data }) => {
@@ -179,6 +180,7 @@ export const sendAgentMessage = createServerFn({ method: "POST" })
         memoryScope: data.memoryScope,
         user: data.user,
         toolProviderContext: data.toolProviderContext,
+        modelCatalogId: data.modelCatalogId,
       }),
     );
   });

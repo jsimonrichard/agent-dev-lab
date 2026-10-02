@@ -16,6 +16,24 @@ export interface ProjectInspectorMeta {
   workflows: WorkflowInspectorMeta[];
   agentIds: string[];
   agents: AgentInspectorMeta[];
+  /**
+   * Host-only model catalog descriptors from `adl.config` `models[]`.
+   * Empty when the project defines no catalog — picker stays hidden.
+   */
+  models: ModelCatalogInspectorMeta[];
+}
+
+/**
+ * Serializable catalog row for the inspector picker (no factory).
+ * `apiKeyPresent` is set only when {@link apiKeyEnv} is configured.
+ */
+export interface ModelCatalogInspectorMeta {
+  id: string;
+  label: string;
+  provider: string;
+  apiKeyEnv?: string;
+  /** False when `apiKeyEnv` is set and the process env value is missing/blank. */
+  apiKeyPresent?: boolean;
 }
 
 export type WorkflowInputFieldKind = "string" | "number" | "boolean" | "json";

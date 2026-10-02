@@ -51,6 +51,7 @@ function AgentRunPage() {
       conversation={conversation}
       settings={settings}
       callId={call}
+      modelCatalog={project.models}
     />
   );
 }
