@@ -11,6 +11,7 @@ import { createFileTools } from "./tools";
 const toolCallOptions = {
   toolCallId: "test-tool-call",
   messages: [] as [],
+  context: {},
 };
 
 let root: string;

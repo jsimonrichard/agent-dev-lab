@@ -40,10 +40,10 @@ bunx adl dashboard      # inspection UI
 Or add the packages to an existing project (still need `adl.config.ts`, `src/adl.ts`, and `.env`):
 
 ```bash
-bun add @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
+bun add @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web ai @ai-sdk/openai @ai-sdk/otel
 # optional sandboxed file/bash/fetchUrl tools:
 # bun add @agent-dev-lab/tools
-# or: npm install @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web @ai-sdk/openai
+# or: npm install @agent-dev-lab/core @agent-dev-lab/cli @agent-dev-lab/web ai @ai-sdk/openai @ai-sdk/otel
 cp .env.example .env   # or create one with OPENAI_API_KEY
 ```
 

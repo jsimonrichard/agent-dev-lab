@@ -1,11 +1,4 @@
-import {
-  Output,
-  streamText,
-  type LanguageModel,
-  type ModelMessage,
-  type StreamTextResult,
-  type ToolSet,
-} from "ai";
+import { Output, streamText, type LanguageModel, type ModelMessage, type ToolSet } from "ai";
 import type { z } from "zod";
 
 import { createAsyncChannel, type AsyncChannel } from "../async-channel";
@@ -44,10 +37,11 @@ import {
   type AgentStreamHandle,
   type AgentStreamInput,
   type AgentStreamResult,
+  type AgentSdkStreamResult,
 } from "./types";
 
 type FullStreamPart =
-  StreamTextResult<ToolSet, unknown>["fullStream"] extends AsyncIterable<infer Part> ? Part : never;
+  AgentSdkStreamResult["fullStream"] extends AsyncIterable<infer Part> ? Part : never;
 
 /**
  * Default agent implementation: definition plus resolved runtime services.
@@ -260,12 +254,12 @@ export class AgentImpl<
             });
           }
 
-          // Conversation turns only — system text is passed via `streamText({ system })`
+          // Conversation turns only — system text is passed via `streamText({ instructions })`
           // and pinned as the first stored message on a new memoryScope.
           let messages: ModelMessage[] = [...storedTranscript, ...turnMessages].filter(
             (message) => message.role !== "system",
           );
-          const system = systemForEpisode.trim() ? systemForEpisode : undefined;
+          const instructions = systemForEpisode.trim() ? systemForEpisode : undefined;
 
           if (!model) {
             throw new AdlError(
@@ -276,7 +270,7 @@ export class AgentImpl<
 
           const outputSchema = input.outputSchema ?? this.definition.outputSchema;
 
-          const { tools, toolProviderContext } = await resolveAgentTools({
+          const { tools } = await resolveAgentTools({
             agentId: this.definition.id,
             agentCallId,
             definitionTools: this.definition.tools,
@@ -290,7 +284,6 @@ export class AgentImpl<
           const initialMessages = messages;
           let allNewMessages: ModelMessage[] = [];
           let lastPersisted = storedMessages;
-          let committedFromResponse = 0;
 
           const pinnedSystem =
             storedSystemPrompt ??
@@ -313,18 +306,14 @@ export class AgentImpl<
             await persistTranscript(messages);
           }
 
+          // AI SDK 7: `step.response.messages` is per-step only (not cumulative).
+          // Append each step's messages; do not replace the transcript.
           const persistResponseMessages = async (responseMessages: ModelMessage[]) => {
-            const stepMessages = responseMessages.slice(committedFromResponse);
-            committedFromResponse = responseMessages.length;
-            const conversationMessages =
-              responseMessages.length > 0 ? [...initialMessages, ...responseMessages] : messages;
-            const persistedMessages =
-              responseMessages.length > 0
-                ? await persistTranscript(conversationMessages)
-                : lastPersisted;
-
+            let persistedMessages = lastPersisted;
             if (responseMessages.length > 0) {
-              allNewMessages = responseMessages;
+              allNewMessages = [...allNewMessages, ...responseMessages];
+              const conversationMessages = [...initialMessages, ...allNewMessages];
+              persistedMessages = await persistTranscript(conversationMessages);
               messages = conversationMessages;
             }
 
@@ -334,7 +323,7 @@ export class AgentImpl<
               workflowRunId,
               stepId,
               memoryScope,
-              count: stepMessages.length,
+              count: responseMessages.length,
               total: persistedMessages.length,
             });
           };
@@ -342,9 +331,8 @@ export class AgentImpl<
           throwIfAborted(abortSignal);
           const streamed = await this.consumeModelStream({
             model,
-            system,
+            instructions,
             tools,
-            toolProviderContext,
             messages,
             abortSignal,
             stopWhen,
@@ -427,15 +415,14 @@ export class AgentImpl<
 
   /**
    * Runs `streamText`, drains the stream, persists step messages via
-   * `onStepFinish`, and returns the episode text/output/turns. Emit
+   * `onStepEnd`, and returns the episode text/output/turns. Emit
    * `agent_finished` / title updates in the caller after this resolves.
    * `persistResponseMessages` may mutate caller message locals via closure.
    */
   private async consumeModelStream(options: {
     model: LanguageModel;
-    system: string | undefined;
+    instructions: string | undefined;
     tools: ToolSet | undefined;
-    toolProviderContext: unknown;
     messages: ModelMessage[];
     abortSignal: AbortSignal;
     stopWhen: AgentStopWhen;
@@ -452,14 +439,13 @@ export class AgentImpl<
     text: string;
     output: TOutput;
     turns: number;
-    sdk: StreamTextResult<Tools, TOutput>;
+    sdk: AgentSdkStreamResult<Tools>;
     usage?: TokenUsage;
   }> {
     const {
       model,
-      system,
+      instructions,
       tools,
-      toolProviderContext,
       messages,
       abortSignal,
       stopWhen,
@@ -475,48 +461,55 @@ export class AgentImpl<
     } = options;
     const telemetry = this.services.telemetry;
 
+    const runtimeContext: Record<string, string> = {
+      "adl.agent_id": this.definition.id,
+      "adl.agent_call_id": agentCallId,
+      ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
+      ...(stepId ? { "adl.step_id": stepId } : {}),
+      ...telemetry?.metadata,
+    };
+    const includeRuntimeContext = Object.fromEntries(
+      Object.keys(runtimeContext).map((key) => [key, true as const]),
+    );
+
     // streamText puts model failures on fullStream error parts and calls
     // onError; awaiting `.text` / `.steps` then rejects with
     // NoOutputGeneratedError ("check the stream for errors"). Keep the
     // onError payload so agent_failed records the model error, not the wrapper.
+    // Tool provider context is closed over when tools are built — AI SDK 7 no
+    // longer has a shared `experimental_context` blob on streamText.
     const streamResult = streamText({
       model,
-      ...(system ? { system } : {}),
+      ...(instructions ? { instructions } : {}),
       allowSystemInMessages: false,
       tools,
       messages: messages.filter(
         (message): message is Exclude<ModelMessage, { role: "system" }> =>
           message.role !== "system",
       ),
-      experimental_context: toolProviderContext,
+      runtimeContext,
       abortSignal,
       stopWhen,
       onError: ({ error }) => {
         onStreamError(error);
       },
-      experimental_telemetry: {
+      telemetry: {
         isEnabled: telemetry?.isEnabled !== false,
         ...(telemetry?.recordInputs !== undefined ? { recordInputs: telemetry.recordInputs } : {}),
         ...(telemetry?.recordOutputs !== undefined
           ? { recordOutputs: telemetry.recordOutputs }
           : {}),
         functionId: telemetry?.functionId ?? this.definition.id,
-        metadata: {
-          "adl.agent_id": this.definition.id,
-          "adl.agent_call_id": agentCallId,
-          ...(workflowRunId ? { "adl.workflow_run_id": workflowRunId } : {}),
-          ...(stepId ? { "adl.step_id": stepId } : {}),
-          ...telemetry?.metadata,
-        },
+        includeRuntimeContext,
       },
       ...(outputSchema
         ? {
-            experimental_output: Output.object({
+            output: Output.object({
               schema: outputSchema,
             }),
           }
         : {}),
-      onStepFinish: async (step) => {
+      onStepEnd: async (step) => {
         await persistResponseMessages(step.response.messages);
       },
       onChunk: ({ chunk }) => {
@@ -556,12 +549,10 @@ export class AgentImpl<
           });
         }
       },
-    }) as unknown as StreamTextResult<Tools, TOutput>;
+    }) as unknown as AgentSdkStreamResult<Tools>;
 
     const structuredPromise = outputSchema
-      ? readStructuredOutputFromStream(
-          streamResult as unknown as StreamTextResult<ToolSet, unknown>,
-        )
+      ? readStructuredOutputFromStream(streamResult as unknown as AgentSdkStreamResult)
       : undefined;
 
     if (fullChannel) {
@@ -630,12 +621,10 @@ export class AgentImpl<
 }
 
 /** AI SDK exposes structured stream output only via partialOutputStream on streamText. */
-async function readStructuredOutputFromStream(
-  stream: StreamTextResult<ToolSet, unknown>,
-): Promise<unknown> {
+async function readStructuredOutputFromStream(stream: AgentSdkStreamResult): Promise<unknown> {
   let last: unknown;
   try {
-    for await (const partial of stream.experimental_partialOutputStream) {
+    for await (const partial of stream.partialOutputStream) {
       last = partial;
     }
   } catch {

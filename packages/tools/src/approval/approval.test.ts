@@ -24,7 +24,7 @@ import { createFileTools } from "../file/tools.ts";
 import { createBashTool } from "../bash/tools.ts";
 import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "../bash/executor.ts";
 
-const toolCallOptions = { toolCallId: "gate-test-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "gate-test-call", messages: [] as [], context: {} };
 const effectScope = { workflowRunId: "test-run", agentCallId: "agent-call-1" };
 
 function denyGate(reason = "denied by test"): EffectGate {

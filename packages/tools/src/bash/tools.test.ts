@@ -13,6 +13,7 @@ import { createBashTool } from "./tools";
 const toolCallOptions = {
   toolCallId: "test-tool-call",
   messages: [] as [],
+  context: {},
 };
 
 function finalUpdate(

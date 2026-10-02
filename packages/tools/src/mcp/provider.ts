@@ -8,9 +8,9 @@ import {
   type ToolSet,
 } from "@agent-dev-lab/core";
 import {
-  experimental_createMCPClient as createMCPClient,
-  type experimental_MCPClient as MCPClient,
-  type experimental_MCPClientConfig as MCPClientConfig,
+  createMCPClient,
+  type MCPClient,
+  type MCPClientConfig,
   type MCPTransport,
 } from "@ai-sdk/mcp";
 import { randomUUID } from "node:crypto";

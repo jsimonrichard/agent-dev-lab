@@ -165,8 +165,10 @@ export interface ToolProvider<Tools extends ToolSet = ToolSet, ToolProviderConte
  *
  * Narrowing `toolProviderContext` this way is a trust boundary, not a guarantee — nothing
  * stops a caller from passing an `AgentRunInput.toolProviderContext` of a different shape at
- * runtime. It mirrors how the AI SDK itself types `streamText`'s `experimental_context` as
- * `unknown` for the same reason.
+ * runtime. It mirrors how the AI SDK types per-tool `toolsContext` /
+ * `runtimeContext` on `streamText` — ADL keeps a single opaque
+ * `toolProviderContext` closed over when tools are built (AI SDK 7 no longer
+ * has a shared `experimental_context` blob).
  *
  * The framework never validates `toolProviderContext` on your behalf — if you want Zod
  * validation with defaults, parse it yourself as the first line of `getTools`, and pass the

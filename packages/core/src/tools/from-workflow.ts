@@ -25,7 +25,7 @@ export function createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToo
   workflow: Workflow<TInput, TOutput, TRawInput>,
   options: CreateToolFromWorkflowOptions<TRawInput, TToolInput>,
 ): Tool<TToolInput, TOutput> {
-  return tool<TToolInput, TOutput>({
+  return tool({
     ...(options.name !== undefined ? { name: options.name } : {}),
     description: options.description,
     inputSchema: (options.inputSchema ?? defaultInputSchema) as z.ZodType<TToolInput>,
@@ -35,5 +35,5 @@ export function createToolFromWorkflow<TInput, TOutput, TRawInput = TInput, TToo
         : (toolArgs as unknown as TRawInput);
       return workflow.run(input).result;
     },
-  } as unknown as Tool<TToolInput, TOutput>);
+  } as never) as Tool<TToolInput, TOutput>;
 }

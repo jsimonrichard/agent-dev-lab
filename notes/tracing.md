@@ -2,7 +2,7 @@
 
 How ADL fits with **OpenTelemetry** — no parallel tracing API in `@agent-dev-lab/core`.
 
-**Status:** Workflow / step / agent boundaries start OTel spans (`withActiveSpan`); `RunRecorder` also mirrors run events onto the active span. Agent `streamText` calls forward AI SDK `experimental_telemetry` (OpenTelemetry, not Vercel analytics) via `createAdlRuntime({ telemetry })`. Install an exporter in the application; ADL does not ship a parallel tracing API.
+**Status:** Workflow / step / agent boundaries start OTel spans (`withActiveSpan`); `RunRecorder` also mirrors run events onto the active span. Agent `streamText` calls forward AI SDK `telemetry` (OpenTelemetry, not Vercel analytics) via `createAdlRuntime({ telemetry })`, which registers peer `@ai-sdk/otel`. Install an exporter in the application; ADL does not ship a parallel tracing API.
 
 Related: [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
 
@@ -95,9 +95,9 @@ An OTel-backed observer can map `onEvent` payloads to spans without core exposin
 
 ## AI SDK
 
-`generateText` / `streamText` support **`experimental_telemetry`** when the provider stack is configured.
+`generateText` / `streamText` support **`telemetry`** when a telemetry integration is registered (AI SDK 7: peer `@ai-sdk/otel`).
 
-The agent runner forwards the **active OTel context** into AI SDK `experimental_telemetry` on `streamText` so model and tool spans nest under the ADL **agent** span. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`.
+`createAdlRuntime` registers `OpenTelemetry` from `@ai-sdk/otel` once per process (unless `telemetry: { isEnabled: false }`). Agent episodes pass `telemetry: { functionId, metadata, … }` on `streamText` so model and tool spans nest under the ADL **agent** span.
 
 See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentation`).
 
@@ -114,6 +114,6 @@ See [AI SDK compatibility](../packages/core/src/index.ts) (`@packageDocumentatio
 ## v1 checklist
 
 - [x] Activate OTel context at workflow / step / agent boundaries (`withActiveSpan` in the runner)
-- [x] Forward context into AI SDK `experimental_telemetry` on agent episodes
+- [x] Forward context into AI SDK `telemetry` on agent episodes (`@ai-sdk/otel` registration in `createAdlRuntime`)
 - [ ] Document env / config for enabling tracing in playground
 - [ ] Example `OtelWorkflowObserver` in app or `@agent-dev-lab/core` (optional)

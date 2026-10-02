@@ -1,14 +1,13 @@
 import { tool } from "@agent-dev-lab/core";
-import { MockLanguageModelV2 } from "ai/test";
 import { z } from "zod";
 
 import { adl } from "../adl";
-import { finalTextStream, toolCallStream } from "../mock-streams";
+import { finalTextStream, fixtureMockModel, toolCallStream } from "../mock-streams";
 import { TOOL_LOOP_DONE, TOOL_LOOP_TOOL_NAME } from "../replies";
 
 function promptHasCompletedToolCall(prompt: unknown): boolean {
   if (!Array.isArray(prompt)) {
-    throw new Error("tool-loop-agent: expected LanguageModelV2 prompt array");
+    throw new Error("tool-loop-agent: expected language-model prompt array");
   }
   for (const message of prompt) {
     if (!message || typeof message !== "object" || !("role" in message)) {
@@ -33,13 +32,11 @@ function promptHasCompletedToolCall(prompt: unknown): boolean {
 export const toolLoopAgent = adl.createAgent({
   id: "tool-loop-agent",
   systemPrompt: "Call lookup, then reply with the fixture done token.",
-  model: new MockLanguageModelV2({
-    doStream: async ({ prompt }) => {
-      if (promptHasCompletedToolCall(prompt)) {
-        return finalTextStream(TOOL_LOOP_DONE);
-      }
-      return toolCallStream(TOOL_LOOP_TOOL_NAME, JSON.stringify({ topic: "adl" }));
-    },
+  model: fixtureMockModel(async ({ prompt }: { prompt: unknown }) => {
+    if (promptHasCompletedToolCall(prompt)) {
+      return finalTextStream(TOOL_LOOP_DONE);
+    }
+    return toolCallStream(TOOL_LOOP_TOOL_NAME, JSON.stringify({ topic: "adl" }));
   }),
   tools: {
     lookup: tool({

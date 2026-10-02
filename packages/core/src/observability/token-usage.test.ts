@@ -27,6 +27,24 @@ describe("toTokenUsage", () => {
     expect(toTokenUsage({})).toBeUndefined();
     expect(toTokenUsage({ inputTokens: Number.NaN })).toBeUndefined();
   });
+
+  it("maps AI SDK 7 nested cache/reasoning fields into flat TokenUsage", () => {
+    expect(
+      toTokenUsage({
+        inputTokens: 10,
+        outputTokens: 2,
+        totalTokens: 12,
+        inputTokenDetails: { cacheReadTokens: 3 },
+        outputTokenDetails: { reasoningTokens: 1 },
+      }),
+    ).toEqual({
+      inputTokens: 10,
+      outputTokens: 2,
+      totalTokens: 12,
+      cachedInputTokens: 3,
+      reasoningTokens: 1,
+    });
+  });
 });
 
 describe("sumTokenUsage", () => {

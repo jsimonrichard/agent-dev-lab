@@ -149,6 +149,8 @@ export function buildInitPackageJson(
       "@agent-dev-lab/core": adlDep("core"),
       "@agent-dev-lab/web": adlDep("web"),
       "@ai-sdk/openai": requireDep(scaffoldPkg.dependencies, "@ai-sdk/openai", "package.json"),
+      "@ai-sdk/otel": requireDep(scaffoldPkg.dependencies, "@ai-sdk/otel", "package.json"),
+      ai: requireDep(scaffoldPkg.dependencies, "ai", "package.json"),
       zod: requireDep(scaffoldPkg.dependencies, "zod", "package.json"),
     },
     devDependencies: {

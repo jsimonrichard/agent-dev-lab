@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { convertArrayToReadableStream } from "ai/test";
 import { describe, expect, it } from "bun:test";
 
 import { sqliteWorkflowStore } from "../../observability/sqlite-workflow-store";
@@ -10,9 +10,10 @@ import { createTestRuntime } from "../../runtime/create-test";
 import { sqliteConversationMetadataStore } from "../../stores/conversation-metadata";
 
 import type { ConversationTitleInput, ConversationTitleOutput } from "../../agent/types";
+import { mockLanguageModel } from "../../test/mock-language-model";
 
 function mockTextModel(text = "briefing") {
-  return new MockLanguageModelV2({
+  return mockLanguageModel({
     doStream: async () => ({
       stream: convertArrayToReadableStream([
         { type: "stream-start", warnings: [] },
@@ -21,8 +22,11 @@ function mockTextModel(text = "briefing") {
         { type: "text-end", id: "text-1" },
         {
           type: "finish",
-          finishReason: "stop",
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          finishReason: { unified: "stop" },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
         },
       ]),
     }),

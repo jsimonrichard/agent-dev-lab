@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@agent-dev-lab/core": "workspace:*",
-    "@ai-sdk/mcp": "0.0.39",
+    "@ai-sdk/mcp": "^2.0.66",
     "@anthropic-ai/sandbox-runtime": "0.0.75",
     "ipaddr.js": "^2.5.0",
     "turndown": "^7.2.4",

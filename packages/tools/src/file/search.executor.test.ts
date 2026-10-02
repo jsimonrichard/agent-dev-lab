@@ -10,7 +10,7 @@ import type { BashExecutorUpdate } from "../bash/executor.ts";
 import { createNativeBashExecutor } from "../bash/native-executor.ts";
 import { createSearchTools } from "./search.ts";
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 async function drain<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   const values: T[] = [];

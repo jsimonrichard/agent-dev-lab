@@ -27,7 +27,7 @@ import {
 
 import { createWorkspaceToolProvider, type WorkspaceToolProviderContext } from "./provider";
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function ctx(
   toolProviderContext?: WorkspaceToolProviderContext,

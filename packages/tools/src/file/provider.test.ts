@@ -16,7 +16,7 @@ import {
 import { createFileToolProvider, type FileToolProviderContext } from "./provider";
 import { DEFAULT_MAX_BYTES } from "./tools";
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function ctx(
   toolProviderContext?: FileToolProviderContext,

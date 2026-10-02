@@ -10,7 +10,7 @@ import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from ".
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createSearchTools, globArgv, grepArgv } from "./search";
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function stubExecutor(): BashExecutor & {
   calls: Array<{ argv: readonly string[]; opts: BashExecutorRunOptions }>;

@@ -24,7 +24,7 @@ import {
   omitAnchorSchemaDescription,
 } from "../fs-bounds.ts";
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function ctx(
   toolProviderContext?: BashToolProviderContext,

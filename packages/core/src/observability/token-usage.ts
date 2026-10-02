@@ -1,8 +1,11 @@
 /**
  * Provider-reported token counts for one agent episode (or a rollup of episodes).
  *
- * Mirrors AI SDK `LanguageModelUsage`. Fields are omitted when the provider did
- * not report them — never invent zeros.
+ * Persisted/UI shape keeps flat `cachedInputTokens` / `reasoningTokens` (SQLite columns).
+ * {@link toTokenUsage} also maps AI SDK 7 nested `inputTokenDetails.cacheReadTokens` /
+ * `outputTokenDetails.reasoningTokens` into those fields.
+ *
+ * Fields are omitted when the provider did not report them — never invent zeros.
  */
 export type TokenUsage = {
   inputTokens?: number;
@@ -20,21 +23,50 @@ const USAGE_KEYS = [
   "reasoningTokens",
 ] as const satisfies ReadonlyArray<keyof TokenUsage>;
 
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 /**
  * Normalize an AI SDK (or partial) usage object into {@link TokenUsage}.
  * Returns `undefined` when every field is missing/non-finite.
+ *
+ * Accepts both the flat ADL/v5 fields and AI SDK 7 nested detail fields.
  */
 export function toTokenUsage(raw: unknown): TokenUsage | undefined {
   if (raw === null || typeof raw !== "object") {
     return undefined;
   }
   const source = raw as Record<string, unknown>;
+  const inputDetails =
+    source.inputTokenDetails !== null && typeof source.inputTokenDetails === "object"
+      ? (source.inputTokenDetails as Record<string, unknown>)
+      : undefined;
+  const outputDetails =
+    source.outputTokenDetails !== null && typeof source.outputTokenDetails === "object"
+      ? (source.outputTokenDetails as Record<string, unknown>)
+      : undefined;
+
   const usage: TokenUsage = {};
   let any = false;
   for (const key of USAGE_KEYS) {
-    const value = source[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
+    const value = readFiniteNumber(source[key]);
+    if (value !== undefined) {
       usage[key] = value;
+      any = true;
+    }
+  }
+  if (usage.cachedInputTokens === undefined) {
+    const cacheRead = readFiniteNumber(inputDetails?.cacheReadTokens);
+    if (cacheRead !== undefined) {
+      usage.cachedInputTokens = cacheRead;
+      any = true;
+    }
+  }
+  if (usage.reasoningTokens === undefined) {
+    const reasoning = readFiniteNumber(outputDetails?.reasoningTokens);
+    if (reasoning !== undefined) {
+      usage.reasoningTokens = reasoning;
       any = true;
     }
   }

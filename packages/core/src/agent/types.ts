@@ -17,6 +17,18 @@ import type { Workflow } from "../workflow/types";
 import type { AgentModelInfo } from "./inspect";
 
 /**
+ * AI SDK `streamText` result for an ADL agent episode.
+ * Runtime context is unused (empty); structured `Output` brand is not tied to
+ * {@link AgentRunResult.output} (that comes from our schema parse / text).
+ */
+export type AgentSdkStreamResult<Tools extends ToolSet = ToolSet> = StreamTextResult<
+  Tools,
+  Record<string, never>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AI SDK Output brand ≠ TOutput
+  any
+>;
+
+/**
  * AI SDK `stopWhen` accepted by {@link Agent.run} / {@link Agent.stream}.
  * Passed through to `streamText`. See https://ai-sdk.dev/docs/agents/loop-control
  */
@@ -221,7 +233,7 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
   /** Scope this episode persisted to (caller-supplied or a generated id). */
   memoryScope: string;
   /** Raw AI SDK stream result for this episode. */
-  sdk: StreamTextResult<Tools, TOutput>;
+  sdk: AgentSdkStreamResult<Tools>;
   /**
    * Provider-reported token totals for this episode (`streamText.totalUsage`).
    * Absent when the provider did not report usage.
@@ -232,8 +244,8 @@ export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = 
 export type AgentStreamInput<ToolProviderContext = unknown> = AgentRunInput<ToolProviderContext>;
 
 export type AgentStreamResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
-  textStream: StreamTextResult<Tools, TOutput>["textStream"];
-  fullStream: StreamTextResult<Tools, TOutput>["fullStream"];
+  textStream: AgentSdkStreamResult<Tools>["textStream"];
+  fullStream: AgentSdkStreamResult<Tools>["fullStream"];
   finished: Promise<AgentRunResult<Tools, TOutput>>;
 };
 

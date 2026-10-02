@@ -39,10 +39,14 @@ export type AdlRuntimeDefaults = {
 };
 
 /**
- * OpenTelemetry settings forwarded to AI SDK `streamText` as `experimental_telemetry`
+ * OpenTelemetry settings forwarded to AI SDK `streamText` as `telemetry`
  * so model and tool spans nest under the ADL agent episode span. This is **not**
- * Vercel analytics — it uses `@opentelemetry/api`. Defaults to enabled
- * (`isEnabled` is not `false`). Pass `{ isEnabled: false }` to disable.
+ * Vercel analytics — it uses `@opentelemetry/api` via peer `@ai-sdk/otel`.
+ * Defaults to enabled (`isEnabled` is not `false`). Pass `{ isEnabled: false }`
+ * to disable (and skip registering the AI SDK OpenTelemetry integration).
+ *
+ * `metadata` is forwarded as AI SDK `runtimeContext` (included in telemetry)
+ * because AI SDK 7 removed `telemetry.metadata`.
  */
 export type AdlOpenTelemetrySettings = {
   isEnabled?: boolean;
@@ -60,7 +64,7 @@ export type AdlRuntimeConfig = AdlRuntimeOptions & {
   defaults?: AdlRuntimeDefaults;
   /** Merged under each agent's `tools` (agent keys win). */
   tools?: ToolSet;
-  /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
+  /** OpenTelemetry / AI SDK `telemetry` (not Vercel product telemetry). */
   telemetry?: AdlOpenTelemetrySettings;
   /**
    * Identifies which version of the project's code a run came from, recorded
@@ -102,7 +106,7 @@ export type RuntimeServices = {
   workflowContextScope: WorkflowContextScope;
   defaults: AdlRuntimeDefaults;
   tools: ToolSet;
-  /** OpenTelemetry / AI SDK `experimental_telemetry` (not Vercel product telemetry). */
+  /** OpenTelemetry / AI SDK `telemetry` (not Vercel product telemetry). */
   telemetry?: AdlOpenTelemetrySettings;
   /** See {@link AdlRuntimeConfig.version}. */
   version?: string | false;

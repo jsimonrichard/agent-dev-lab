@@ -15,7 +15,7 @@ import { createFetchUrlTool, type FetchUrlResult, type FetchUrlToolOptions } fro
  * non-exempt hop).
  */
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 /** Narrows the AI SDK's `execute` return union to this tool's result, checking every field's
  * type on the way through rather than casting — so each test also asserts the result shape. */

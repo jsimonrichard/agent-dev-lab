@@ -50,8 +50,9 @@ export function createToolFromAgent<
   agent: Agent<ToolProviderContext, Tools, TOutput>,
   options: CreateToolFromAgentOptions<ToolProviderContext, TToolInput>,
 ): Tool<TToolInput, TOutput> {
-  // AI SDK `NeverOptional<OUTPUT, …>` does not resolve while OUTPUT is generic.
-  return tool<TToolInput, TOutput>({
+  // AI SDK `tool` overloads do not resolve cleanly while INPUT/OUTPUT are
+  // unconstrained generics — cast at the boundary (same pattern as before).
+  return tool({
     ...(options.name !== undefined ? { name: options.name } : {}),
     description: options.description,
     inputSchema: options.inputSchema ?? (defaultInputSchema as z.ZodType<TToolInput>),
@@ -62,5 +63,5 @@ export function createToolFromAgent<
       const result = await handle.result;
       return result.output;
     },
-  } as unknown as Tool<TToolInput, TOutput>);
+  } as never) as Tool<TToolInput, TOutput>;
 }

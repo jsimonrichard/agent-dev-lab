@@ -188,7 +188,12 @@ const SCAFFOLD_PKG = {
     dashboard: "bun --bun adl dashboard",
     typecheck: "tsc --noEmit",
   },
-  dependencies: { "@ai-sdk/openai": "^2.0.42", zod: "^3.25.76" },
+  dependencies: {
+    "@ai-sdk/openai": "^4.0.83",
+    "@ai-sdk/otel": "^1.0.127",
+    ai: "^7.0.127",
+    zod: "^3.25.76",
+  },
   devDependencies: { "@types/bun": "^1.3.13", typescript: "^6.0.2" },
 };
 

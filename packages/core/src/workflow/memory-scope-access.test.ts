@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { convertArrayToReadableStream } from "ai/test";
 
 import { createTestRuntime } from "../runtime/create-test";
 import type { AdlRuntime } from "../runtime/types";
 import type { WorkflowStore } from "../observability/workflow-store";
+import { mockLanguageModel } from "../test/mock-language-model";
 
 function workflowStore(adl: AdlRuntime): WorkflowStore {
   const store = adl.services.stores.workflow;
@@ -14,7 +15,7 @@ function workflowStore(adl: AdlRuntime): WorkflowStore {
 }
 
 function mockTextModel(text = "ok") {
-  return new MockLanguageModelV2({
+  return mockLanguageModel({
     doStream: async () => ({
       stream: convertArrayToReadableStream([
         { type: "stream-start", warnings: [] },
@@ -23,8 +24,11 @@ function mockTextModel(text = "ok") {
         { type: "text-end", id: "text-1" },
         {
           type: "finish",
-          finishReason: "stop",
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          finishReason: { unified: "stop" },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
         },
       ]),
     }),

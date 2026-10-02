@@ -68,7 +68,6 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@types/better-sqlite3": "^9.6.0",
-    "ai": "^5.0.86",
     "better-sqlite3": "^13.0.3",
     "chokidar": "^5.0.0",
     "drizzle-orm": "^0.44.7",
@@ -77,13 +76,20 @@
     "pino": "^10.1.0",
     "zod": "^4.1.8"
   },
+  "peerDependencies": {
+    "@ai-sdk/otel": "^1.0.127",
+    "ai": "^7.0.127"
+  },
   "devDependencies": {
+    "@ai-sdk/otel": "^1.0.127",
     "@types/bun": "1.4.2",
     "@types/node": "^22.10.2",
+    "ai": "^7.0.127",
     "drizzle-kit": "^0.31.6",
     "tsdown": "^0.22.3",
     "typescript": "^6.0.2",
-    "unrun": "^0.3.1"
+    "unrun": "^0.3.1",
+    "@ai-sdk/provider": "4.0.21"
   },
   "description": "Headless Agent Dev Lab runtime — agents, workflows, templates, and stores on the Vercel AI SDK",
   "author": "J. Simon Richard",

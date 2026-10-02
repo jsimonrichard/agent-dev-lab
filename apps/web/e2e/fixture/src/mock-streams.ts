@@ -1,8 +1,18 @@
-import { convertArrayToReadableStream } from "ai/test";
+import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 
 import { ECHO_CHUNK_DELAY_MS, ECHO_FIRST_CHUNK, ECHO_SECOND_CHUNK } from "./replies";
 
-const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+const usage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 1, text: 1, reasoning: undefined },
+};
+
+/** Fixture mock model — casts away stream-part union friction across AI SDK majors. */
+export function fixtureMockModel(doStream: (...args: never[]) => unknown) {
+  return new MockLanguageModelV4({ doStream } as ConstructorParameters<
+    typeof MockLanguageModelV4
+  >[0]);
+}
 
 /** Copied from `packages/core/src/agent/agent-impl.test.ts` — do not import `*.test.ts`. */
 export function toolCallStream(toolName: string, input: string) {
@@ -13,7 +23,7 @@ export function toolCallStream(toolName: string, input: string) {
       { type: "tool-input-delta" as const, id: "call-1", delta: input },
       { type: "tool-input-end" as const, id: "call-1" },
       { type: "tool-call" as const, toolCallId: "call-1", toolName, input },
-      { type: "finish" as const, finishReason: "tool-calls" as const, usage },
+      { type: "finish" as const, finishReason: { unified: "tool-calls" as const }, usage },
     ]),
   };
 }
@@ -26,7 +36,7 @@ export function finalTextStream(text: string) {
       { type: "text-start" as const, id: "text-1" },
       { type: "text-delta" as const, id: "text-1", delta: text },
       { type: "text-end" as const, id: "text-1" },
-      { type: "finish" as const, finishReason: "stop" as const, usage },
+      { type: "finish" as const, finishReason: { unified: "stop" as const }, usage },
     ]),
   };
 }
@@ -52,7 +62,7 @@ export function delayedEchoStream() {
         controller.enqueue({ type: "text-end", id: "text-1" });
         controller.enqueue({
           type: "finish",
-          finishReason: "stop",
+          finishReason: { unified: "stop" },
           usage,
         });
         controller.close();

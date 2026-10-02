@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ModelMessage } from "ai";
-import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { convertArrayToReadableStream } from "ai/test";
 import { tool } from "ai";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ import { createTestRuntime } from "../runtime/create-test";
 import { createToolProvider } from "../tools/provider";
 import type { ExtendedToolProviderContext } from "../tools/provider";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
+import { mockLanguageModel } from "../test/mock-language-model";
 
 function flattenText(message: ModelMessage): string {
   if (typeof message.content === "string") {
@@ -22,7 +23,7 @@ function flattenText(message: ModelMessage): string {
 }
 
 function mockTextModel(text = "briefing") {
-  return new MockLanguageModelV2({
+  return mockLanguageModel({
     doStream: async () => ({
       stream: convertArrayToReadableStream([
         { type: "stream-start", warnings: [] },
@@ -31,8 +32,11 @@ function mockTextModel(text = "briefing") {
         { type: "text-end", id: "text-1" },
         {
           type: "finish",
-          finishReason: "stop",
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          finishReason: { unified: "stop" },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
         },
       ]),
     }),
@@ -51,7 +55,7 @@ describe("AgentImpl streamText prompt", () => {
       let capturedPrompt: unknown;
       const adl = createTestRuntime({
         defaults: {
-          model: new MockLanguageModelV2({
+          model: mockLanguageModel({
             doStream: async (options) => {
               capturedPrompt = options.prompt;
               return {
@@ -62,8 +66,16 @@ describe("AgentImpl streamText prompt", () => {
                   { type: "text-end", id: "text-1" },
                   {
                     type: "finish",
-                    finishReason: "stop",
-                    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                    finishReason: { unified: "stop" },
+                    usage: {
+                      inputTokens: {
+                        total: 1,
+                        noCache: 1,
+                        cacheRead: undefined,
+                        cacheWrite: undefined,
+                      },
+                      outputTokens: { total: 1, text: 1, reasoning: undefined },
+                    },
                   },
                 ]),
               };
@@ -226,7 +238,7 @@ describe("AgentImpl first-turn persist", () => {
     let storedWhenModelStarted: ModelMessage[] | undefined;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             storedWhenModelStarted = await adl.services.stores.message.load("notes");
             return {
@@ -237,8 +249,16 @@ describe("AgentImpl first-turn persist", () => {
                 { type: "text-end", id: "text-1" },
                 {
                   type: "finish",
-                  finishReason: "stop",
-                  usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  finishReason: { unified: "stop" },
+                  usage: {
+                    inputTokens: {
+                      total: 1,
+                      noCache: 1,
+                      cacheRead: undefined,
+                      cacheWrite: undefined,
+                    },
+                    outputTokens: { total: 1, text: 1, reasoning: undefined },
+                  },
                 },
               ]),
             };
@@ -442,7 +462,7 @@ describe("AgentImpl system prompt conflict", () => {
       const seenPrompts: unknown[] = [];
       const adl = createTestRuntime({
         defaults: {
-          model: new MockLanguageModelV2({
+          model: mockLanguageModel({
             doStream: async (options) => {
               seenPrompts.push(options.prompt);
               return {
@@ -453,8 +473,16 @@ describe("AgentImpl system prompt conflict", () => {
                   { type: "text-end", id: "text-1" },
                   {
                     type: "finish",
-                    finishReason: "stop",
-                    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                    finishReason: { unified: "stop" },
+                    usage: {
+                      inputTokens: {
+                        total: 1,
+                        noCache: 1,
+                        cacheRead: undefined,
+                        cacheWrite: undefined,
+                      },
+                      outputTokens: { total: 1, text: 1, reasoning: undefined },
+                    },
                   },
                 ]),
               };
@@ -503,7 +531,7 @@ describe("AgentImpl system prompt conflict", () => {
     const seenPrompts: unknown[] = [];
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async (options) => {
             seenPrompts.push(options.prompt);
             return {
@@ -514,8 +542,16 @@ describe("AgentImpl system prompt conflict", () => {
                 { type: "text-end", id: "text-1" },
                 {
                   type: "finish",
-                  finishReason: "stop",
-                  usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  finishReason: { unified: "stop" },
+                  usage: {
+                    inputTokens: {
+                      total: 1,
+                      noCache: 1,
+                      cacheRead: undefined,
+                      cacheWrite: undefined,
+                    },
+                    outputTokens: { total: 1, text: 1, reasoning: undefined },
+                  },
                 },
               ]),
             };
@@ -605,7 +641,7 @@ describe("AgentImpl stream and abort", () => {
     const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async ({ abortSignal }) => {
             markStarted();
             await new Promise((_, reject) => {
@@ -637,7 +673,7 @@ describe("AgentImpl stream and abort", () => {
     const { promise: started, resolve: markStarted } = Promise.withResolvers<void>();
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async ({ abortSignal }) => {
             markStarted();
             await new Promise((_, reject) => {
@@ -684,7 +720,7 @@ describe("AgentImpl outputSchema", () => {
     });
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => ({
             stream: convertArrayToReadableStream([
               { type: "stream-start", warnings: [] },
@@ -694,8 +730,16 @@ describe("AgentImpl outputSchema", () => {
               { type: "text-end", id: "text-1" },
               {
                 type: "finish",
-                finishReason: "stop",
-                usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                finishReason: { unified: "stop" },
+                usage: {
+                  inputTokens: {
+                    total: 1,
+                    noCache: 1,
+                    cacheRead: undefined,
+                    cacheWrite: undefined,
+                  },
+                  outputTokens: { total: 1, text: 1, reasoning: undefined },
+                },
               },
             ]),
           }),
@@ -714,7 +758,10 @@ describe("AgentImpl outputSchema", () => {
   });
 });
 
-const toolUsage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+const toolUsage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 1, text: 1, reasoning: undefined },
+};
 
 function toolCallStream(toolName: string, input: string) {
   return {
@@ -724,7 +771,11 @@ function toolCallStream(toolName: string, input: string) {
       { type: "tool-input-delta" as const, id: "call-1", delta: input },
       { type: "tool-input-end" as const, id: "call-1" },
       { type: "tool-call" as const, toolCallId: "call-1", toolName, input },
-      { type: "finish" as const, finishReason: "tool-calls" as const, usage: toolUsage },
+      {
+        type: "finish" as const,
+        finishReason: { unified: "tool-calls" as const },
+        usage: toolUsage,
+      },
     ]),
   };
 }
@@ -736,7 +787,7 @@ function finalTextStream(text: string) {
       { type: "text-start" as const, id: "text-1" },
       { type: "text-delta" as const, id: "text-1", delta: text },
       { type: "text-end" as const, id: "text-1" },
-      { type: "finish" as const, finishReason: "stop" as const, usage: toolUsage },
+      { type: "finish" as const, finishReason: { unified: "stop" as const }, usage: toolUsage },
     ]),
   };
 }
@@ -765,7 +816,7 @@ describe("AgentImpl token usage", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -783,8 +834,16 @@ describe("AgentImpl token usage", () => {
                   },
                   {
                     type: "finish" as const,
-                    finishReason: "tool-calls" as const,
-                    usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 },
+                    finishReason: { unified: "tool-calls" as const },
+                    usage: {
+                      inputTokens: {
+                        total: 10,
+                        noCache: 10,
+                        cacheRead: undefined,
+                        cacheWrite: undefined,
+                      },
+                      outputTokens: { total: 2, text: 2, reasoning: undefined },
+                    },
                   },
                 ]),
               };
@@ -797,12 +856,15 @@ describe("AgentImpl token usage", () => {
                 { type: "text-end" as const, id: "text-1" },
                 {
                   type: "finish" as const,
-                  finishReason: "stop" as const,
+                  finishReason: { unified: "stop" as const },
                   usage: {
-                    inputTokens: 5,
-                    outputTokens: 3,
-                    totalTokens: 8,
-                    cachedInputTokens: 4,
+                    inputTokens: {
+                      total: 5,
+                      noCache: 1,
+                      cacheRead: 4,
+                      cacheWrite: undefined,
+                    },
+                    outputTokens: { total: 3, text: 3, reasoning: undefined },
                   },
                 },
               ]),
@@ -842,12 +904,75 @@ describe("AgentImpl token usage", () => {
 });
 
 describe("AgentImpl tools", () => {
+  it("keeps per-step tool call/result messages across a multi-step tool loop (AI SDK 7)", async () => {
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: mockLanguageModel({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("lookup", JSON.stringify({ topic: "adl" }));
+            }
+            return finalTextStream("TOOL_LOOP_DONE");
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "tool-loop-persist",
+      systemPrompt: "Use lookup then answer.",
+      tools: {
+        lookup: tool({
+          description: "Look up a topic",
+          inputSchema: z.object({ topic: z.string() }),
+          execute: async ({ topic }) => ({ topic, fact: "ok" }),
+        }),
+      },
+    });
+
+    const result = await agent.run({ memoryScope: "tool-loop-notes", user: "run-tools" }).result;
+
+    expect(result.text).toBe("TOOL_LOOP_DONE");
+    expect(result.turns).toBe(2);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(result.newMessages.map((message) => message.role)).toEqual([
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+
+    const stored = await adl.services.stores.message.load("tool-loop-notes");
+    const conversation = stored.filter((message) => message.role !== "system");
+    expect(conversation.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+
+    const commits = (
+      await adl.services.stores.workflow?.listEvents({
+        agentCallId: (await adl.services.stores.workflow!.listAgentEpisodes())[0]!.agentCallId,
+      })
+    )?.filter((event) => event.type === "agent_messages_committed");
+    expect(commits).toEqual([
+      expect.objectContaining({ type: "agent_messages_committed", count: 2, total: 4 }),
+      expect.objectContaining({ type: "agent_messages_committed", count: 1, total: 5 }),
+    ]);
+  });
+
   it("resolves a ToolProvider on AgentDefinition.tools and executes its tool", async () => {
     let call = 0;
     let receivedCtx: ExtendedToolProviderContext | undefined;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -888,7 +1013,7 @@ describe("AgentImpl tools", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -939,7 +1064,7 @@ describe("AgentImpl tools", () => {
     let seenRoot: string | undefined;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -982,7 +1107,7 @@ describe("AgentImpl streaming tool results", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -1044,7 +1169,7 @@ describe("ToolProvider-owned context validation", () => {
     let seenRoot: string | undefined;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -1088,7 +1213,7 @@ describe("ToolProvider-owned context validation", () => {
   it("propagates AdlError INVALID_CONTEXT when a provider throws its own on invalid input", async () => {
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => finalTextStream("unreachable"),
         }),
       },
@@ -1128,7 +1253,7 @@ describe("ToolProvider-owned context validation", () => {
 
   it("exposes definition.tools via agent.tools for UI introspection of contextSchema", () => {
     const adl = createTestRuntime({
-      defaults: { model: new MockLanguageModelV2({ doStream: async () => finalTextStream("ok") }) },
+      defaults: { model: mockLanguageModel({ doStream: async () => finalTextStream("ok") }) },
     });
     const contextSchema = z.object({ root: z.string() });
     const agent = adl.createAgent({
@@ -1155,17 +1280,20 @@ describe("AgentImpl per-call model override", () => {
         { type: "text-end" as const, id: "text-1" },
         {
           type: "finish" as const,
-          finishReason: "stop" as const,
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          finishReason: { unified: "stop" as const },
+          usage: {
+            inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
         },
       ]),
     });
-    const defModel = new MockLanguageModelV2({
+    const defModel = mockLanguageModel({
       provider: "definition-provider",
       modelId: "definition-model",
       doStream: definitionDoStream,
     });
-    const overrideModel = new MockLanguageModelV2({
+    const overrideModel = mockLanguageModel({
       provider: "override-provider",
       modelId: "override-model",
       doStream: async () => ({
@@ -1176,8 +1304,11 @@ describe("AgentImpl per-call model override", () => {
           { type: "text-end" as const, id: "text-1" },
           {
             type: "finish" as const,
-            finishReason: "stop" as const,
-            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            finishReason: { unified: "stop" as const },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+              outputTokens: { total: 1, text: 1, reasoning: undefined },
+            },
           },
         ]),
       }),
@@ -1185,7 +1316,7 @@ describe("AgentImpl per-call model override", () => {
 
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           provider: "default-provider",
           modelId: "default-model",
           doStream: definitionDoStream,
@@ -1227,7 +1358,7 @@ describe("AgentImpl per-call model override", () => {
   });
 
   it("falls through definition.model when input.model is omitted", async () => {
-    const defModel = new MockLanguageModelV2({
+    const defModel = mockLanguageModel({
       provider: "definition-provider",
       modelId: "definition-model",
       doStream: async () => ({
@@ -1238,15 +1369,18 @@ describe("AgentImpl per-call model override", () => {
           { type: "text-end" as const, id: "text-1" },
           {
             type: "finish" as const,
-            finishReason: "stop" as const,
-            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            finishReason: { unified: "stop" as const },
+            usage: {
+              inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+              outputTokens: { total: 1, text: 1, reasoning: undefined },
+            },
           },
         ]),
       }),
     });
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           provider: "default-provider",
           modelId: "default-model",
           doStream: async () => {
@@ -1280,7 +1414,7 @@ describe("AgentImpl model stream failures", () => {
   it("records the doStream throw on agent_failed, not NoOutputGeneratedError", async () => {
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             throw new Error("Fixture model refused to stream");
           },

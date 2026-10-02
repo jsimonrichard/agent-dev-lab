@@ -12,7 +12,7 @@ import {
 /** `bun:test`, matching `file/provider.test.ts` and `bash/provider.test.ts` — per-call config
  * resolution, none of the surface that puts the other `src/web/` test files on `node:test`. */
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function ctx(
   toolProviderContext?: WebToolProviderContext,

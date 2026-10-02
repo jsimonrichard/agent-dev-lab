@@ -129,7 +129,7 @@ Volatile turn context belongs in **user** messages, not in the system prompt.
 | Agent default | `adl.createAgent({ outputSchema })` | Every `run` / `stream` uses structured output unless overridden |
 | Per call      | `agent.run({ outputSchema })`       | Overrides agent default for one episode                         |
 
-Implementation uses **`streamText`** with `experimental_output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
+Implementation uses **`streamText`** with `output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
 
 ### What Agents Do Not Carry
 
@@ -250,7 +250,7 @@ await researcher.run({
 
 ## Tool Calls and Persistence
 
-ADL persists **only** AI SDK `ModelMessage` lists. `CoreMessage` is still re-exported as the deprecated AI SDK alias. Tool usage round-trips through SDK message shape:
+ADL persists **only** AI SDK `ModelMessage` lists. Tool usage round-trips through SDK message shape:
 
 - Assistant parts with `tool-call`
 - Tool role messages with `tool-result`

@@ -11,7 +11,7 @@ import { adl } from "#adl";
 
 import { startFetchFixture } from "../tools/fetch-fixture";
 
-const toolCallOptions = { toolCallId: "fetch-url-demo", messages: [] as [] };
+const toolCallOptions = { toolCallId: "fetch-url-demo", messages: [] as [], context: {} };
 
 const checkResultSchema = z.object({
   name: z.string(),

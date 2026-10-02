@@ -156,4 +156,4 @@ Pass `defaults.model` (or a mock `LanguageModel`) when the test constructs agent
 
 ## Tracing
 
-`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `experimental_telemetry` on `streamText` so **OpenTelemetry** model and tool spans nest under the agent span — this is not Vercel product analytics. Disable with `createAdlRuntime({ telemetry: { isEnabled: false } })`. The option type is `AdlOpenTelemetrySettings`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API.
+`RunRecorder` already mirrors run events onto the active OpenTelemetry span. Agent episodes also forward AI SDK `telemetry` on `streamText` so **OpenTelemetry** model and tool spans nest under the agent span — this is not Vercel product analytics. `createAdlRuntime` registers peer `@ai-sdk/otel` unless disabled with `createAdlRuntime({ telemetry: { isEnabled: false } })`. The option type is `AdlOpenTelemetrySettings`. Install an OTel SDK exporter in the application; ADL does not ship a parallel tracing API.

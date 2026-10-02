@@ -1,12 +1,16 @@
 import { describe, expect, it } from "bun:test";
-import { convertArrayToReadableStream, MockLanguageModelV2 } from "ai/test";
+import { convertArrayToReadableStream } from "ai/test";
 import { stepCountIs, tool, type ModelMessage } from "ai";
 import { z } from "zod";
 
 import { createTestRuntime } from "../runtime/create-test";
 import { countToolCallParts, hasAssistantText, lastAssistantEndPart } from "./stop-when";
+import { mockLanguageModel } from "../test/mock-language-model";
 
-const usage = { inputTokens: 1, outputTokens: 1, totalTokens: 2 };
+const usage = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 1, text: 1, reasoning: undefined },
+};
 
 function textStream(text: string) {
   return {
@@ -15,7 +19,7 @@ function textStream(text: string) {
       { type: "text-start" as const, id: "text-1" },
       { type: "text-delta" as const, id: "text-1", delta: text },
       { type: "text-end" as const, id: "text-1" },
-      { type: "finish" as const, finishReason: "stop" as const, usage },
+      { type: "finish" as const, finishReason: { unified: "stop" as const }, usage },
     ]),
   };
 }
@@ -33,7 +37,7 @@ function toolCallStream(toolName: string, input: string) {
         toolName,
         input,
       },
-      { type: "finish" as const, finishReason: "tool-calls" as const, usage },
+      { type: "finish" as const, finishReason: { unified: "tool-calls" as const }, usage },
     ]),
   };
 }
@@ -138,7 +142,7 @@ describe("agent.run stopWhen", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {
@@ -169,7 +173,7 @@ describe("agent.run stopWhen", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             return toolCallStream("lookup", JSON.stringify({ topic: "adl" }));
@@ -194,7 +198,7 @@ describe("agent.run stopWhen", () => {
     let call = 0;
     const adl = createTestRuntime({
       defaults: {
-        model: new MockLanguageModelV2({
+        model: mockLanguageModel({
           doStream: async () => {
             call += 1;
             if (call === 1) {

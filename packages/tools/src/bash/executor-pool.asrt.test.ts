@@ -26,7 +26,7 @@ after(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const toolCallOptions = { toolCallId: "t", messages: [] as [] };
+const toolCallOptions = { toolCallId: "t", messages: [] as [], context: {} };
 
 async function runBash(
   provider: ReturnType<typeof createBashToolProvider>,

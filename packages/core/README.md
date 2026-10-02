@@ -9,11 +9,11 @@ This package has no UI and no CLI dependency — it runs from scripts, tests, or
 ## Install
 
 ```bash
-bun add @agent-dev-lab/core @ai-sdk/openai
-# or: npm install @agent-dev-lab/core @ai-sdk/openai
+bun add @agent-dev-lab/core ai @ai-sdk/openai @ai-sdk/otel
+# or: npm install @agent-dev-lab/core ai @ai-sdk/openai @ai-sdk/otel
 ```
 
-`ai` (the Vercel AI SDK) and `zod` are dependencies of this package — `ModelMessage`, `streamText`, `tool`, and `stepCountIs` are re-exported from `@agent-dev-lab/core` so you don't need to depend on `ai` directly. You do need a model provider package such as `@ai-sdk/openai`.
+`ai` (Vercel AI SDK **v7**) and `@ai-sdk/otel` are **peer dependencies** — install them in the host. `zod` remains a dependency of this package. `ModelMessage`, `streamText`, `tool`, and `stepCountIs` are re-exported from `@agent-dev-lab/core` for convenience; you still need a model provider such as `@ai-sdk/openai`. `createAdlRuntime` registers `@ai-sdk/otel` unless you pass `telemetry: { isEnabled: false }`.
 
 ## Quick start
 

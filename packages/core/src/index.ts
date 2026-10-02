@@ -9,14 +9,15 @@ import { readFileSync } from "node:fs";
  * live on the documentation site.
  * Focused API docs live here as JSDoc on exports.
  *
- * **AI SDK (v5):** re-exports `generateText`, `streamText`, `tool`, `stepCountIs`,
- * `hasToolCall`, `StopCondition`, `ModelMessage` (preferred; `CoreMessage` is
- * the deprecated AI SDK alias), `LanguageModel`. Single internal `streamText`
+ * **AI SDK (v7):** `ai` is a **peer dependency** — install it alongside this package.
+ * Re-exports `generateText`, `streamText`, `tool`, `stepCountIs`, `hasToolCall`,
+ * `StopCondition`, `ModelMessage`, `LanguageModel`. Single internal `streamText`
  * path for `agent.run` and `agent.stream`; commits `response.messages` to
  * MessageStore. `agent.run` passes AI SDK
  * [`stopWhen`](https://ai-sdk.dev/docs/agents/loop-control) through (default
  * `stepCountIs(20)`). Tool call/result events still fire. Agent turns forward
- * OpenTelemetry via AI SDK `experimental_telemetry` (disable with
+ * OpenTelemetry via AI SDK `telemetry` after `createAdlRuntime` registers
+ * `@ai-sdk/otel` (also a peer; disable with
  * `createAdlRuntime({ telemetry: { isEnabled: false } })`).
  *
  * **ADL additions:** `adl.createAgent`, `adl.createWorkflow`, `adl.createWorkflowFromAgent`,
@@ -265,7 +266,6 @@ export { resolveAdlSqlitePath, DEFAULT_SQLITE_RELATIVE_PATH } from "./db";
 
 export { generateText, hasToolCall, stepCountIs, streamText, tool } from "ai";
 export type {
-  CoreMessage,
   InferToolInput,
   InferToolOutput,
   LanguageModel,

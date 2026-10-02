@@ -14,7 +14,7 @@ import { createMcpToolProvider } from "./provider.ts";
 
 const FIXTURE_SERVER = fileURLToPath(new URL("./fixtures/echo-server.mjs", import.meta.url));
 
-const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [] };
+const toolCallOptions = { toolCallId: "test-tool-call", messages: [] as [], context: {} };
 
 function ctx(): ExtendedToolProviderContext<undefined> {
   return {
