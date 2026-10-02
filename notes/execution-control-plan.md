@@ -326,7 +326,7 @@ A–J were provisioned via orch; those lane briefs were removed after the work l
 | I Inspector polish                               | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI. **tsk archived**    |
 | J Playwright gaps                                | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e. **tsk archived**                  |
 
-**Still open from that wave:** H `$` estimates; UI Allow/Deny + `ctx.requestApproval` (E follow-up); residual Bugbot session/`workflowRunId` overwrite on nested episodes.
+**Still open from that wave:** H `$` estimates; UI Allow/Deny + `ctx.requestApproval` (E follow-up). Session/`workflowRunId` overwrite on nested episodes — **fixed in wave 0**.
 
 **Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, structural cleanup, macOS bash, LSP, `writeFile` mkdir.
 
@@ -338,13 +338,13 @@ A–J were provisioned via orch; those lane briefs were removed after the work l
 
 Provision **after** current A–J landings settle on the integrator (or fork from tip when a concern is independent). Wave 0 is **beforehand** so later agents inherit review obligations.
 
-| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                                        |
-| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 0     | `adl-review-governance`   | [`tsk-handoffs/adl-review-governance.md`](./tsk-handoffs/adl-review-governance.md)     | MAGE-style models + cheap CI; inventory Bugbot/house-rule bites ([`mage-governance.md`](./mage-governance.md)) |
-| 1     | `adl-effect-gate-tools`   | [`tsk-handoffs/adl-effect-gate-tools.md`](./tsk-handoffs/adl-effect-gate-tools.md)     | **Mostly landed in stack (E).** Residual: UI Allow/Deny / suspend wiring — or skip to cursor retry             |
-| 2     | `adl-retry-from-cursor`   | [`tsk-handoffs/adl-retry-from-cursor.md`](./tsk-handoffs/adl-retry-from-cursor.md)     | `seedRetryFromCursor`; `fromStepId` wrapper                                                                    |
-| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                                                  |
-| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                                                     |
+| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                            |
+| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 0     | `adl-review-governance`   | [`tsk-handoffs/adl-review-governance.md`](./tsk-handoffs/adl-review-governance.md)     | **Shipped** — inventory + session fix + layer ESLint + tools README (`t7e08c6c7`)                  |
+| 1     | `adl-effect-gate-tools`   | [`tsk-handoffs/adl-effect-gate-tools.md`](./tsk-handoffs/adl-effect-gate-tools.md)     | **Mostly landed in stack (E).** Residual: UI Allow/Deny / suspend wiring — or skip to cursor retry |
+| 2     | `adl-retry-from-cursor`   | [`tsk-handoffs/adl-retry-from-cursor.md`](./tsk-handoffs/adl-retry-from-cursor.md)     | `seedRetryFromCursor`; `fromStepId` wrapper                                                        |
+| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                                      |
+| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                                         |
 
 **Parallel when free (not on the spine):** AI SDK 5→7 ([`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md) / `adl-ai-sdk-upgrade`), npm RCs ([`npm-release-candidates.md`](./npm-release-candidates.md) / `adl-npm-release-candidates`), `$` estimates (H), todo-tool placement. (D/G landed in this linear stack.)
 
@@ -363,5 +363,5 @@ tsk task fork --handoff notes/tsk-handoffs/adl-review-governance.md adl-review-g
 - `seedRetryFromCursor` / inspector cursor picker — not started.
 - Debugger UI / DAP server — not started.
 - Env CoW research (§4) — not started.
-- Wave 0 governance inventory + cheap alignments — notes ready; fork not yet provisioned.
-- Session `workflowRunId` overwrite on nested episode registration (Bugbot) — track in wave 0 or a tiny follow-up fork.
+- Wave 0 governance inventory + cheap alignments — **shipped** (`t7e08c6c7`). Changeset-presence CI still deferred (see [`mage-governance.md`](./mage-governance.md) inventory #5).
+- Session `workflowRunId` overwrite on nested episode registration — **fixed** in wave 0.
