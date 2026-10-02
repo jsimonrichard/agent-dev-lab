@@ -123,7 +123,8 @@ export function registerAgentSessionFromEvent(
   if (pending) {
     linkAgentCallId(event.memoryScope, event.agentCallId);
     pending.updatedAt = event.at;
-    if (event.workflowRunId) {
+    // First writer owns workflowRunId; nested episodes must not clobber it.
+    if (event.workflowRunId && !pending.workflowRunId) {
       pending.workflowRunId = event.workflowRunId;
     }
     return;
@@ -169,7 +170,8 @@ export function registerAgentSessionFromEpisode(episode: {
 }): void {
   const existing = byMemoryScope.get(episode.memoryScope);
   if (existing) {
-    if (episode.workflowRunId) {
+    // First writer owns workflowRunId; nested episodes must not clobber it.
+    if (episode.workflowRunId && !existing.workflowRunId) {
       existing.workflowRunId = episode.workflowRunId;
     }
     return;

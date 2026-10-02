@@ -225,6 +225,45 @@ describe("registerAgentSessionFromEpisode", () => {
     expect(getAgentSessionByMemoryScope(memoryScope)?.agentId).toBe("researcher");
     unregisterAgentSession(memoryScope);
   });
+
+  it("does not overwrite workflowRunId when a nested episode shares the root scope", () => {
+    const memoryScope = "root-run:thread";
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-root",
+      agentId: "researcher",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:00.000Z",
+      workflowRunId: "root-run",
+    });
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-nested",
+      agentId: "critic",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:01.000Z",
+      workflowRunId: "nested-run",
+    });
+    expect(getAgentSessionByMemoryScope(memoryScope)?.workflowRunId).toBe("root-run");
+    unregisterAgentSession(memoryScope);
+  });
+
+  it("attaches workflowRunId when the first episode had none", () => {
+    const memoryScope = "late-link:thread";
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-1",
+      agentId: "researcher",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:00.000Z",
+    });
+    registerAgentSessionFromEpisode({
+      agentCallId: "call-2",
+      agentId: "critic",
+      memoryScope,
+      startedAt: "2026-01-01T00:00:01.000Z",
+      workflowRunId: "root-run",
+    });
+    expect(getAgentSessionByMemoryScope(memoryScope)?.workflowRunId).toBe("root-run");
+    unregisterAgentSession(memoryScope);
+  });
 });
 
 describe("registerAgentSessionFromEvent listed agents", () => {
@@ -296,6 +335,38 @@ describe("registerAgentSessionFromEvent listed agents", () => {
     const session = getAgentSessionByMemoryScope(memoryScope);
     expect(session?.agentId).toBe("drafter");
     expect(session?.agentCallId).toBe("call-reviser");
+    unregisterAgentSession(memoryScope);
+  });
+
+  it("does not overwrite workflowRunId when a nested agent_started shares the root scope", () => {
+    const memoryScope = "live-root-run:thread";
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-live-root",
+        agentId: "drafter",
+        memoryScope,
+        workflowRunId: "live-root-run",
+        runSeq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds: new Set(["drafter", "reviser"]) },
+    );
+    registerAgentSessionFromEvent(
+      {
+        type: "agent_started",
+        agentCallId: "call-live-nested",
+        agentId: "reviser",
+        memoryScope,
+        workflowRunId: "live-nested-run",
+        runSeq: 2,
+        at: "2026-01-01T00:00:01.000Z",
+        eventSchemaVersion: 1,
+      },
+      { listedAgentIds: new Set(["drafter", "reviser"]) },
+    );
+    expect(getAgentSessionByMemoryScope(memoryScope)?.workflowRunId).toBe("live-root-run");
     unregisterAgentSession(memoryScope);
   });
 });
