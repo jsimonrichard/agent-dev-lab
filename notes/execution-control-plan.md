@@ -1,7 +1,7 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
 **Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); suspend persistence / cursor replay / debugger remain later.
-**Parent plan:** this file. Historical orch briefs: `notes/orch-briefs/`. **Next provision:** `tsk task fork` + HANDOFFs under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work).
+**Parent plan:** this file. **Next provision:** `tsk task fork` + HANDOFFs under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work; landed orch briefs were deleted).
 **Governance (beforehand):** [`mage-governance.md`](./mage-governance.md) — wave 0 review-capacity conversion.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
 
@@ -311,20 +311,20 @@ Cross-links: [`future-extensions.md`](./future-extensions.md) § Human approval;
 
 ## Lane map (2026-10-01 wave — historical)
 
-A–J were provisioned via orch. Briefs under `notes/orch-briefs/`. Prefer `tsk task fork` + [`tsk-handoffs/`](./tsk-handoffs/) for anything new.
+A–J were provisioned via orch; those lane briefs were removed after the work landed (or was superseded by [`tsk-handoffs/`](./tsk-handoffs/)). Prefer `tsk task fork` for anything new.
 
-| Concern                                          | Brief                                    | Priority            | Task        | Notes                                                                                      |
-| ------------------------------------------------ | ---------------------------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------ |
-| A Execution control (Shepherd + debugger design) | `orch-briefs/adl-execution-control.md`   | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 → next forks. **tsk archived**    |
-| B Nested-run context + memory scope              | `orch-briefs/adl-nested-run-context.md`  | P1                  | `t8d512e60` | **Shipped** — see [`nested-run-followups.md`](./nested-run-followups.md). **tsk archived** |
-| C Per-call model override                        | `orch-briefs/adl-model-override.md`      | P1                  | `t7cbbce46` | Roadmap §1. **tsk archived**                                                               |
-| D MCP `ToolProvider`                             | `orch-briefs/adl-mcp-provider.md`        | P1                  | `t779666c3` | **Shipped** — `createMcpToolProvider` + required EffectGate                                |
-| E Approval dispatcher                            | `orch-briefs/adl-approval-dispatcher.md` | P1                  | `t2d60c763` | **Shipped** (tools gate); UI Allow/Deny + suspend still open                               |
-| F Nested conversation 404                        | `orch-briefs/adl-nested-conv-404.md`     | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes. **tsk archived**                       |
-| G Model catalog + picker                         | `orch-briefs/adl-model-catalog.md`       | P2                  | `tdd02dbd5` | **Shipped** — host catalog + inspector/CLI picker                                          |
-| H Usage rollup + `$` estimates                   | `orch-briefs/adl-usage-rollup.md`        | P2                  | `tae696237` | Rollup shipped; `$` estimates still open (roadmap). **tsk archived**                       |
-| I Inspector polish                               | `orch-briefs/adl-inspector-polish.md`    | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI. **tsk archived**    |
-| J Playwright gaps                                | `orch-briefs/adl-playwright-gaps.md`     | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e. **tsk archived**                  |
+| Concern                                          | Priority            | Task        | Notes                                                                                      |
+| ------------------------------------------------ | ------------------- | ----------- | ------------------------------------------------------------------------------------------ |
+| A Execution control (Shepherd + debugger design) | long / design-first | `t5d9a0e83` | Design reviewed; EffectGate types in core; further §§2–3 → next forks. **tsk archived**    |
+| B Nested-run context + memory scope              | P1                  | `t8d512e60` | **Shipped** — see [`nested-run-followups.md`](./nested-run-followups.md). **tsk archived** |
+| C Per-call model override                        | P1                  | `t7cbbce46` | Roadmap §1. **tsk archived**                                                               |
+| D MCP `ToolProvider`                             | P1                  | `t779666c3` | **Shipped** — `createMcpToolProvider` + required EffectGate                                |
+| E Approval dispatcher                            | P1                  | `t2d60c763` | **Shipped** (tools gate); UI Allow/Deny + suspend still open                               |
+| F Nested conversation 404                        | P2                  | `t788887a0` | **Shipped** — hydration race / episode-only scopes. **tsk archived**                       |
+| G Model catalog + picker                         | P2                  | `tdd02dbd5` | **Shipped** — host catalog + inspector/CLI picker                                          |
+| H Usage rollup + `$` estimates                   | P2                  | `tae696237` | Rollup shipped; `$` estimates still open (roadmap). **tsk archived**                       |
+| I Inspector polish                               | P2                  | `ta7cd7c57` | **Shipped** — waterfall min width, tool/LLM time, preliminary tool UI. **tsk archived**    |
+| J Playwright gaps                                | P2                  | `t9b778653` | **Shipped** — copied bars, nest expand, JSON editor e2e. **tsk archived**                  |
 
 **Still open from that wave:** H `$` estimates; UI Allow/Deny + `ctx.requestApproval` (E follow-up); residual Bugbot session/`workflowRunId` overwrite on nested episodes.
 

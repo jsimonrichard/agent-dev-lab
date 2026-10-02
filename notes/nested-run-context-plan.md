@@ -1,6 +1,6 @@
 # Nested-run context + memory scope (Lane B)
 
-**Status:** Done — `.claude/gate.sh full` green. Parent orch brief: `notes/orch-briefs/adl-nested-run-context.md`. Detail: `notes/nested-run-followups.md`.
+**Status:** Done — `.claude/gate.sh full` green. Detail: `notes/nested-run-followups.md`. (Orch brief removed after land.)
 
 ## Goal
 
