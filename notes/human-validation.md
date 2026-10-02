@@ -10,8 +10,8 @@ Opening a pre-migration SQLite file runs `2026-09-path-stable-step-slots`, which
 
 From the repo root: `bun install`, then `lint`, `format:check`, `typecheck`, `test`, `test:node`, `build`. CLI e2e (`init-smoke` + `init-pack`) is part of `apps/cli`'s `bun test src`. Web Playwright (`bun run test:e2e`) covers:
 
-- Fixture chat streaming plus `retry-attempt.spec.ts` (running-forest 409, workflow-row Retry, API `retriesFromRunId`, nested `parentStepId` patch, collapse/expand).
-- **Fresh-project packed suite** (`playwright.fresh-project.config.ts`): `pack:local` into a tmp consumer, Node Nitro dashboard with watch on — `#adl` / `.env.example` / SQLite, start `demo-counter` via the JSON editor, reopen the run, event log, start-run errors in the UI, and hot-reload success + failed banner. It does not cover copied-bar layout, nested expand spinners, or playground API-key workflows.
+- Fixture chat streaming plus `retry-attempt.spec.ts` (running-forest 409, workflow-row Retry, API `retriesFromRunId`, nested `parentStepId` patch, collapse/expand, **copied-bar layout after retry seed**, **nested expand settles without a stuck Loading spinner**).
+- **Fresh-project packed suite** (`playwright.fresh-project.config.ts`): `pack:local` into a tmp consumer, Node Nitro dashboard with watch on — `#adl` / `.env.example` / SQLite, start `demo-counter` via the JSON editor (raw paste **and document mode**), Document↔JSON toggle with invalid raw failing closed, reopen the run, event log, start-run errors in the UI, and hot-reload success + failed banner. It does not cover playground API-key workflows.
 
 `workflow-tree-inp.bench.spec.ts` is local-only (`ADL_INP_BENCH=1`), not CI. API-only pack and watch coverage stays in CLI `init-pack` and `packages/core` `watch.e2e.test.ts`.
 
@@ -50,3 +50,14 @@ Covered by the fresh-project Playwright suite (Node `cli.js` dashboard, no Bun r
 ## Publish
 
 Remaining `.changeset/*.md` drive the next Version Packages PR (`.github/workflows/release.yml`); merging that PR publishes core, tools, cli, and web. Do not link `notes/` from product docs. npm OIDC trusted publishing must include all four packages for this repo/`release.yml`.
+
+### Registry release candidates (optional smoke)
+
+For external / sibling-repo installs without `file:` or `pack:local`:
+
+1. Maintainer: `bunx changeset pre enter rc` → `bun run version` → land the bump → dispatch **Publish RC** (`release-rc.yml`) with confirm `publish-rc` (or `NPM_DIST_TAG=rc bun run ci:publish`). Details: `scripts/README.md`.
+2. Confirm `npm view @agent-dev-lab/core dist-tags` shows `rc` → the new version and `latest` unchanged.
+3. In a sibling project: `npm install @agent-dev-lab/core@rc` (or pin `x.y.z-rc.n`) resolves from the registry.
+4. Before the next stable release on `main`: `bunx changeset pre exit` and do not leave `.changeset/pre.json` active after stable intent.
+
+**Deferred in fork lanes without npm OIDC:** steps 2–3 stay a maintainer checklist after first Production publish.

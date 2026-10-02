@@ -18,18 +18,23 @@ When a plan or note is fully landed, **delete it** (or shrink it to remaining op
 
 ## Files
 
-| File                                                   | Purpose                                                                                       |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| [`near-term-roadmap.md`](./near-term-roadmap.md)       | Open backlog and priority                                                                     |
-| [`human-validation.md`](./human-validation.md)         | Pre-publish checklist                                                                         |
-| [`tool-sandboxing.md`](./tool-sandboxing.md)           | `@agent-dev-lab/tools` threat model, remaining approval / macOS work                          |
-| [`inspection-ui.md`](./inspection-ui.md)               | Control vs data plane, SSE, deferred streaming-tool UI                                        |
-| [`tracing.md`](./tracing.md)                           | OTel spans vs AI SDK telemetry                                                                |
-| [`resumability.md`](./resumability.md)                 | Deferred crash resume / `cacheable` (attempt lineage is in the guides)                        |
-| [`retry-side-effects.md`](./retry-side-effects.md)     | Skipped-step mutations, the appendable-list store limitation, `WorkflowStore`                 |
-| [`nested-run-followups.md`](./nested-run-followups.md) | Root/parent signal on context; `memoryScopeWithSuffix` vs own-id nesting; `MessageStore.copy` |
-| [`structural-cleanup.md`](./structural-cleanup.md)     | Post-release splits, and moving `WorkflowStore` into `stores/`                                |
-| [`memory-pipeline.md`](./memory-pipeline.md)           | Deferred message shaping                                                                      |
-| [`future-extensions.md`](./future-extensions.md)       | Approvals, hooks, HTTP host                                                                   |
-| [`workflow-catalog.md`](./workflow-catalog.md)         | Folder / tag / namespaced-id browsing                                                         |
-| [`se-paper-framing.md`](./se-paper-framing.md)         | SE paper thesis, landscape, novelty plan                                                      |
+| File                                                       | Purpose                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`near-term-roadmap.md`](./near-term-roadmap.md)           | Open backlog and priority                                                                   |
+| [`execution-control-plan.md`](./execution-control-plan.md) | Shepherd-shaped traces, step debugger, shared approval/suspend gate (design)                |
+| [`mage-governance.md`](./mage-governance.md)               | MAGE-style review capacity — wave 0 before next effect/retry forks                          |
+| [`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md)                 | Plan: bump Vercel `ai` / `@ai-sdk/*` from v5 through v6 to v7                               |
+| [`npm-release-candidates.md`](./npm-release-candidates.md) | Registry RCs: `*-rc.N` / `@rc` via Changesets `pre` + Publish RC workflow                   |
+| [`tsk-handoffs/`](./tsk-handoffs/)                         | HANDOFF.md templates for `tsk task fork` (governance + execution spine + AI SDK)            |
+| [`human-validation.md`](./human-validation.md)             | Pre-publish checklist                                                                       |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)               | `@agent-dev-lab/tools` threat model, remaining approval / macOS work                        |
+| [`inspection-ui.md`](./inspection-ui.md)                   | Control vs data plane, SSE, deferred streaming-tool UI                                      |
+| [`tracing.md`](./tracing.md)                               | OTel spans vs AI SDK telemetry                                                              |
+| [`resumability.md`](./resumability.md)                     | Shipped attempt lineage + residual gaps; long-term shape → execution-control plan           |
+| [`retry-side-effects.md`](./retry-side-effects.md)         | Skipped-step mutations, the appendable-list store limitation, `WorkflowStore`               |
+| [`nested-run-followups.md`](./nested-run-followups.md)     | Shipped: live parent/root on context; root-scoped `memoryScopeWithSuffix` + `runLocalScope` |
+| [`structural-cleanup.md`](./structural-cleanup.md)         | Post-release splits, and moving `WorkflowStore` into `stores/`                              |
+| [`memory-pipeline.md`](./memory-pipeline.md)               | Deferred message shaping                                                                    |
+| [`future-extensions.md`](./future-extensions.md)           | Approvals, hooks, HTTP host                                                                 |
+| [`workflow-catalog.md`](./workflow-catalog.md)             | Folder / tag / namespaced-id browsing                                                       |
+| [`se-paper-framing.md`](./se-paper-framing.md)             | SE paper thesis, landscape, novelty plan                                                    |
