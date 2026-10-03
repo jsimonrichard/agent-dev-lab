@@ -175,7 +175,7 @@ const mcpTools = createMcpToolProvider({
 });
 ```
 
-For local stdio servers, pass `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio` as `transport`. The client connects lazily on the first `getTools` call and closes in `dispose()` (process-scoped — not per agent episode). Constructing the provider trusts that server's tools at the agent's privilege level; this package does not sandbox MCP side effects. Every tool `execute` goes through `effectGate` before the MCP call (allow / deny / rewrite). Suspend decisions fail closed until SuspendStore exists.
+For local stdio servers, pass `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio` as `transport`. The client connects lazily on the first `getTools` call and closes in `dispose()` (process-scoped — not per agent episode). Constructing the provider trusts that server's tools at the agent's privilege level; this package does not sandbox MCP side effects. Every tool `execute` goes through `effectGate` before the MCP call (allow / deny / rewrite). Suspend decisions fail closed unless the host wraps the gate with `parkingEffectGate` from `@agent-dev-lab/core`.
 
 Pin `@ai-sdk/mcp` to the AI SDK 7 line (`^2` / matching `ai@^7`). Do not mix with `@ai-sdk/mcp@0.0.x` (AI SDK 5).
 

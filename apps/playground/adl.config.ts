@@ -25,6 +25,7 @@ import { literatureReview } from "./src/workflows/literature-review";
 import { nestLeafAlpha, nestLeafBeta, nestPhase, nestedDemo } from "./src/workflows/nested-demo";
 import { sandboxDemo } from "./src/workflows/sandbox-demo";
 import { sharedScope } from "./src/workflows/shared-scope";
+import { suspendDemo } from "./src/workflows/suspend-demo";
 import { writeArticle } from "./src/workflows/write-article";
 
 // `AdlProjectConfig.agents` wants `AnyAgent[]` (`Agent<any, any, any>[]`). Each agent below is
@@ -85,6 +86,7 @@ export default {
     copyMemory,
     sandboxDemo,
     fetchUrlDemo,
+    suspendDemo,
   ],
   templates: promptTemplates,
 } satisfies AdlProjectConfig;

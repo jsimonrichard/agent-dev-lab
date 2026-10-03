@@ -322,7 +322,7 @@ export function runSummaryAsTimedSpan(run: InspectorRunSummary): TimedSpan {
 }
 
 export function runStatusAsStepStatus(status: RunStatus): StepNodeStatus {
-  if (status === "running") return "running";
+  if (status === "running" || status === "suspended") return "running";
   if (status === "failed") return "failed";
   return "completed";
 }

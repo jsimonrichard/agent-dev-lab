@@ -11,7 +11,7 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-export type RunStatus = "running" | "completed" | "failed" | "cancelled";
+export type RunStatus = "running" | "completed" | "failed" | "cancelled" | "suspended";
 
 export type DevMode = "framework-dev" | "project-dev" | "serve";
 
@@ -74,6 +74,9 @@ export interface InspectorRunSummary {
   displayAfterAnchor?: boolean;
   priorContinuationMs?: number;
   priorDurationMs?: number;
+  /** Pending suspend handle while {@link status} is `suspended`. */
+  suspendHandleId?: string;
+  suspendReason?: "approval" | "debugger" | "policy" | "meta_agent";
 }
 
 export type RunEventType =
@@ -90,6 +93,8 @@ export type RunEventType =
   | "run_finished"
   | "run_failed"
   | "run_cancelled"
+  | "run_suspended"
+  | "run_resumed"
   | "agent_failed"
   | "run_title_set";
 
@@ -189,6 +194,20 @@ export interface RunCancelledEvent extends RunEventBase {
   type: "run_cancelled";
 }
 
+export interface RunSuspendedEvent extends RunEventBase {
+  type: "run_suspended";
+  handleId: string;
+  reason: "approval" | "debugger" | "policy" | "meta_agent";
+  intentId: string;
+  payload?: JsonValue;
+}
+
+export interface RunResumedEvent extends RunEventBase {
+  type: "run_resumed";
+  handleId: string;
+  action: "allow" | "deny" | "rewrite";
+}
+
 export interface RunTitleSetEvent extends RunEventBase {
   type: "run_title_set";
   title: string;
@@ -226,6 +245,8 @@ export type RunEvent =
   | RunFinishedEvent
   | RunFailedEvent
   | RunCancelledEvent
+  | RunSuspendedEvent
+  | RunResumedEvent
   | RunTitleSetEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";

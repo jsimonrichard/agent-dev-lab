@@ -99,7 +99,7 @@ Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md
 | **done**   | npm release candidates (`*-rc.N` / `@rc` dist-tag) — Publish RC job in `release.yml`                                 | `adl-npm-release-candidates`    |
 | **done**   | EffectGate at tools materialize (E) — UI Allow/Deny + `ctx.requestApproval` still deferred                           | E                               |
 | **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias; `effectId` not persisted                                | `adl-retry-from-cursor`         |
-| **spine**  | SuspendStore persistence + resume                                                                                    | `adl-suspend-persistence`       |
+| **done**   | SuspendStore persistence + resume (`WorkflowStore.createSuspend` / `resolveSuspend`, `suspended` run status)         | `adl-suspend-persistence`       |
 | **spine**  | Step debugger L1–L3 on suspend substrate                                                                             | `adl-debugger-l1`               |
 | **P3**     | Split `workflow-tree-panel.tsx` (keep INP comparators)                                                               | `adl-split-workflow-tree-panel` |
 | **done**   | Move `WorkflowStore` to `stores/`                                                                                    | `adl-move-workflow-store`       |

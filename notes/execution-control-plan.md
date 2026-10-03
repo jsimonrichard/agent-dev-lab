@@ -1,6 +1,6 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
-**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); suspend persistence / cursor replay / debugger remain later.
+**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); suspend persistence landed (`t36a26405`); cursor replay / debugger remain later.
 **Parent plan:** this file. **Next provision:** `tsk task fork` + HANDOFFs under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work; landed orch briefs were deleted).
 **Governance (beforehand):** [`mage-governance.md`](./mage-governance.md) — wave 0 review-capacity conversion.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
@@ -343,7 +343,7 @@ Open briefs live under [`tsk-handoffs/`](./tsk-handoffs/). Landed HANDOFFs (gove
 | 0     | `adl-review-governance`   | —                                                                                      | **Shipped** (`t7e08c6c7`) — inventory, session first-writer-wins, layer ESLint         |
 | 1     | `adl-effect-gate-tools`   | —                                                                                      | **Shipped** (Lane E). Residual: UI Allow/Deny + suspend wiring                         |
 | 2     | `adl-retry-from-cursor`   | —                                                                                      | **API landed** — `seedRetryFromCursor`; `fromStepId` wrapper; `effectId` not persisted |
-| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                          |
+| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | **API landed** — `WorkflowStore` suspend methods + `suspended` status; UI Allow/Deny   |
 | 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                             |
 
 **Parallel (not on the spine):**
@@ -376,8 +376,8 @@ tsk task fork --handoff notes/tsk-handoffs/adl-suspend-persistence.md adl-suspen
 
 ## Gaps / not done
 
-- Tools `execute()` wrap over `EffectGate` = **landed** (Lane E). UI Allow/Deny / SuspendStore still open.
-- `SuspendStore` persistence and `suspended` run status (decision 6) — not started; no schema lock in the types PR.
+- Tools `execute()` wrap over `EffectGate` = **landed** (Lane E). Tool path still throws if a gate returns suspend without `parkingEffectGate`.
+- `SuspendStore` persistence and `suspended` run status (decision 6) — **landed** on `WorkflowStore` (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`). `ctx.requestApproval` parks until resolve. Inspector Allow/Deny calls `resolveSuspend`.
 - `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing and inspector effect-id picker not started.
 - Debugger UI / DAP server — not started.
 - Env CoW research (§4) — not started.

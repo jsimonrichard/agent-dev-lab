@@ -10,6 +10,7 @@ import {
   type TokenUsage,
   type WorkflowRunHandle,
   type WorkflowRunSummary,
+  type SuspendResolveDecision,
 } from "@agent-dev-lab/core";
 import {
   resolveAdlSqlitePath,
@@ -309,6 +310,8 @@ async function toInspectorRunSummary(
     parentStepId: run.parentStepId ?? null,
     retriesFromRunId: run.retriesFromRunId ?? null,
     replayOfRunId: run.replayOfRunId ?? null,
+    ...(run.suspendHandleId ? { suspendHandleId: run.suspendHandleId } : {}),
+    ...(run.suspendReason ? { suspendReason: run.suspendReason } : {}),
   };
 }
 
@@ -526,6 +529,26 @@ export async function retryWorkflowRun(args: {
   }
 
   return { runId: handle.workflowRunId, workflowId: root.workflowId };
+}
+
+export async function resolveWorkflowSuspend(args: {
+  runId: string;
+  handleId: string;
+  decision: SuspendResolveDecision;
+}): Promise<{ ok: true }> {
+  const store = await getWorkflowStore();
+  const record = await store.getSuspend(args.handleId);
+  if (!record) {
+    throw new AdlError("INVALID_INPUT", `Suspend handle "${args.handleId}" was not found.`);
+  }
+  if (record.handle.workflowRunId !== args.runId) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      `Suspend handle "${args.handleId}" does not belong to run "${args.runId}".`,
+    );
+  }
+  await store.resolveSuspend(args.handleId, args.decision);
+  return { ok: true };
 }
 
 export async function getAgentRunEvents(agentCallId: string): Promise<CoreRunEvent[]> {

@@ -5,8 +5,7 @@ import type { ToolEffectPayload } from "./types.ts";
 /**
  * Headless / host approval surface — thin adapter over {@link EffectHandler} for
  * `kind: "tool"` (and later `kind: "approval"`). Not a parallel resume protocol:
- * interactive UIs should await the human inside {@link ApprovalDispatcher.request}
- * and return allow/deny. Returning suspend requires SuspendStore (not in this package).
+ * interactive UIs should return suspend and call WorkflowStore.resolveSuspend later.
  */
 export interface ApprovalRequest {
   toolName: string;

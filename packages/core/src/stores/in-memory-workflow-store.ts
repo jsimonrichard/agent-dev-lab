@@ -13,6 +13,28 @@ import type {
   WorkflowStore,
 } from "./workflow-store";
 import type {
+  EffectIntent,
+  SuspendHandle,
+  SuspendRecord,
+  SuspendResolveDecision,
+} from "../effect/types";
+import {
+  alreadyResolvedSuspendError,
+  missingSuspendError,
+  pendingSuspendConflictError,
+  SuspendWaiterHub,
+  terminalRunSuspendError,
+  unknownRunForSuspendError,
+  waitForRecordResolution,
+} from "./suspend-waiters";
+import {
+  nextRunSeq,
+  toSuspendRecord,
+  workflowResumedEvent,
+  workflowSuspendedEvent,
+} from "./suspend-records";
+import { isLiveWorkflowRunStatus } from "../observability/events";
+import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
 } from "../workflow/retry-attempt";
@@ -31,6 +53,8 @@ export class InMemoryWorkflowStore implements WorkflowStore {
   private readonly runOutputs = new Map<string, unknown>();
   private readonly stepOutputs = new Map<string, Map<StepKey, unknown>>();
   private readonly stepRecords = new Map<string, Map<string, StepRecord>>();
+  private readonly suspends = new Map<string, SuspendRecord>();
+  private readonly waiters = new SuspendWaiterHub();
 
   async recordEvent(event: RunEvent): Promise<void> {
     if ("workflowRunId" in event && event.workflowRunId) {
@@ -72,6 +96,47 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         const run = this.runs.get(wfId);
         if (run) {
           this.runs.set(wfId, { ...run, status: "cancelled", finishedAt: event.at });
+        }
+      }
+      if (event.type === "workflow_suspended") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, {
+            ...run,
+            status: "suspended",
+            finishedAt: undefined,
+            suspendHandleId: event.handle.id,
+            suspendReason: event.handle.reason,
+          });
+        }
+        this.suspends.set(
+          event.handle.id,
+          toSuspendRecord({ handle: event.handle, intent: event.intent, status: "pending" }),
+        );
+      }
+      if (event.type === "workflow_resumed") {
+        const run = this.runs.get(wfId);
+        if (run) {
+          this.runs.set(wfId, {
+            ...run,
+            status: "running",
+            finishedAt: undefined,
+            suspendHandleId: undefined,
+            suspendReason: undefined,
+          });
+        }
+        const existing = this.suspends.get(event.handleId);
+        if (existing) {
+          this.suspends.set(
+            event.handleId,
+            toSuspendRecord({
+              handle: existing.handle,
+              intent: existing.intent,
+              status: "resolved",
+              decision: event.decision,
+              resolvedAt: event.at,
+            }),
+          );
         }
       }
       if (event.type === "workflow_title_set") {
@@ -314,6 +379,19 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     this.runOutputs.delete(workflowRunId);
     this.stepOutputs.delete(workflowRunId);
     this.stepRecords.delete(workflowRunId);
+    const handleIds: string[] = [];
+    for (const [handleId, record] of this.suspends) {
+      if (record.handle.workflowRunId === workflowRunId) {
+        handleIds.push(handleId);
+      }
+    }
+    this.waiters.failAll(
+      handleIds,
+      new Error(`Suspend handle was deleted with run "${workflowRunId}"`),
+    );
+    for (const handleId of handleIds) {
+      this.suspends.delete(handleId);
+    }
   }
 
   async listAgentEpisodes(filter?: {
@@ -408,6 +486,77 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       map.set(stepSlotKey({ path: step.path }), step.output);
       this.stepOutputs.set(step.workflowRunId, map);
     }
+  }
+
+  async createSuspend(args: { handle: SuspendHandle; intent: EffectIntent }): Promise<void> {
+    const run = this.runs.get(args.handle.workflowRunId);
+    if (!run) {
+      throw unknownRunForSuspendError(args.handle.workflowRunId);
+    }
+    if (this.suspends.has(args.handle.id)) {
+      throw pendingSuspendConflictError(args.handle.workflowRunId);
+    }
+    for (const record of this.suspends.values()) {
+      if (
+        record.handle.workflowRunId === args.handle.workflowRunId &&
+        record.status === "pending"
+      ) {
+        throw pendingSuspendConflictError(args.handle.workflowRunId);
+      }
+    }
+    const runSeq = nextRunSeq(this.eventsByWorkflowRun.get(args.handle.workflowRunId) ?? []);
+    await this.recordEvent(
+      workflowSuspendedEvent({ handle: args.handle, intent: args.intent, runSeq }),
+    );
+  }
+
+  async getSuspend(handleId: string): Promise<SuspendRecord | null> {
+    return this.suspends.get(handleId) ?? null;
+  }
+
+  async listPendingSuspends(filter?: { workflowRunId?: string }): Promise<SuspendRecord[]> {
+    const list: SuspendRecord[] = [];
+    for (const record of this.suspends.values()) {
+      if (record.status !== "pending") {
+        continue;
+      }
+      if (filter?.workflowRunId && record.handle.workflowRunId !== filter.workflowRunId) {
+        continue;
+      }
+      list.push(record);
+    }
+    return list;
+  }
+
+  async resolveSuspend(handleId: string, decision: SuspendResolveDecision): Promise<void> {
+    const record = this.suspends.get(handleId);
+    if (!record) {
+      throw missingSuspendError(handleId);
+    }
+    if (record.status === "resolved") {
+      throw alreadyResolvedSuspendError(handleId);
+    }
+    const run = this.runs.get(record.handle.workflowRunId);
+    if (!run) {
+      throw unknownRunForSuspendError(record.handle.workflowRunId);
+    }
+    if (!isLiveWorkflowRunStatus(run.status)) {
+      throw terminalRunSuspendError(record.handle.workflowRunId, run.status);
+    }
+    const runSeq = nextRunSeq(this.eventsByWorkflowRun.get(record.handle.workflowRunId) ?? []);
+    await this.recordEvent(
+      workflowResumedEvent({
+        workflowRunId: record.handle.workflowRunId,
+        handleId,
+        decision,
+        runSeq,
+      }),
+    );
+    this.waiters.settle(handleId, decision);
+  }
+
+  waitForSuspendResolution(handleId: string): Promise<SuspendResolveDecision> {
+    return waitForRecordResolution(this.waiters, handleId, () => this.getSuspend(handleId));
   }
 }
 

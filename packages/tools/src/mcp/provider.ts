@@ -144,8 +144,8 @@ function wrapToolWithGate(
         case "suspend":
           throw new AdlError(
             "INVALID_CONTEXT",
-            "createMcpToolProvider: EffectGate suspend is not supported yet " +
-              "(SuspendStore / resume lands with Lane E). Fail closed — call was not sent to the MCP server.",
+            "createMcpToolProvider: EffectGate suspend is not parked. Wrap the gate with " +
+              "parkingEffectGate from @agent-dev-lab/core so the call can wait for resolveSuspend.",
           );
         default: {
           const _exhaustive: never = decision;

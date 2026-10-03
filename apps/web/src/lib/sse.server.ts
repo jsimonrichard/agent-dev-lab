@@ -36,7 +36,10 @@ export function shouldCloseWorkflowRunStream(options: {
     return true;
   }
   return (
-    options.eventBatchEmpty && options.runStatus !== undefined && options.runStatus !== "running"
+    options.eventBatchEmpty &&
+    options.runStatus !== undefined &&
+    options.runStatus !== "running" &&
+    options.runStatus !== "suspended"
   );
 }
 

@@ -1,4 +1,5 @@
 import type { WorkflowRunSummary } from "@agent-dev-lab/core";
+import { isLiveWorkflowRunStatus } from "@agent-dev-lab/core";
 
 /**
  * If any run in the attempt forest is still live, return its id.
@@ -8,11 +9,11 @@ export function findRunningForestRunId(
   root: Pick<WorkflowRunSummary, "workflowRunId" | "status">,
   descendants: ReadonlyArray<Pick<WorkflowRunSummary, "workflowRunId" | "status">>,
 ): string | null {
-  if (root.status === "running") {
+  if (isLiveWorkflowRunStatus(root.status)) {
     return root.workflowRunId;
   }
   for (const run of descendants) {
-    if (run.status === "running") {
+    if (isLiveWorkflowRunStatus(run.status)) {
       return run.workflowRunId;
     }
   }

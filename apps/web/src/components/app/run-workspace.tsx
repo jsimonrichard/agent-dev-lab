@@ -8,6 +8,7 @@ import {
   fetchMessagesForWorkflowRun,
   fetchWorkflowRun,
   retryInspectionWorkflowRun,
+  resolveInspectionWorkflowSuspend,
 } from "#/lib/inspector/inspector-server";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
@@ -278,13 +279,13 @@ export function RunWorkspace({
   // listRuns while any watched run is still live so new nests appear in the tree.
   const liveChildParentsKey = useMemo(() => {
     const parents: string[] = [];
-    if (view.status === "running" && !offline) {
+    if (view.status === "running" || view.status === "suspended") {
       parents.push(summary.runId);
     }
     for (const runId of neededNestedIds) {
       const nestedView = nestedByRunId.get(runId)?.view;
       const status = nestedView?.status ?? nestedCache.get(runId)?.summary.status;
-      if (status === "running" && !offline) {
+      if ((status === "running" || status === "suspended") && !offline) {
         parents.push(runId);
       }
     }
@@ -461,7 +462,34 @@ export function RunWorkspace({
     : null;
 
   const streamingText = activeEpisode?.status === "running" ? activeEpisode.streamingText : null;
-  const canRetry = !offline && view.status !== "running" && ownerView.steps.length > 0;
+  const canRetry =
+    !offline &&
+    view.status !== "running" &&
+    view.status !== "suspended" &&
+    ownerView.steps.length > 0;
+
+  const pendingSuspend = useMemo(() => {
+    let handleId: string | undefined;
+    let reason: InspectorRunSummary["suspendReason"];
+    for (const event of events) {
+      if (event.type === "run_suspended") {
+        handleId = event.handleId;
+        reason = event.reason;
+      }
+      if (event.type === "run_resumed") {
+        handleId = undefined;
+        reason = undefined;
+      }
+    }
+    if (!handleId) {
+      handleId = summary.suspendHandleId;
+      reason = summary.suspendReason;
+    }
+    if (!handleId || view.status !== "suspended") {
+      return null;
+    }
+    return { handleId, reason };
+  }, [events, summary.suspendHandleId, summary.suspendReason, view.status]);
 
   const workflowSelected =
     selectedStepId === null && selectedEpisodeId === null && selectedNestedRunId === null;
@@ -609,6 +637,35 @@ export function RunWorkspace({
     }
   }
 
+  const [suspendBusy, setSuspendBusy] = useState(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+
+  async function handleResolveSuspend(action: "allow" | "deny") {
+    if (!pendingSuspend) {
+      setSuspendError("No pending suspend handle on this run.");
+      return;
+    }
+    setSuspendBusy(true);
+    setSuspendError(null);
+    try {
+      const result = await resolveInspectionWorkflowSuspend({
+        data: {
+          runId: summary.runId,
+          handleId: pendingSuspend.handleId,
+          decision:
+            action === "allow"
+              ? { action: "allow" }
+              : { action: "deny", reason: "Denied from inspector" },
+        },
+      });
+      if (result.isErr) {
+        setSuspendError(result.error);
+      }
+    } finally {
+      setSuspendBusy(false);
+    }
+  }
+
   function openNestedRunPage(run: InspectorRunSummary) {
     void navigate({
       to: "/workflows/$workflowId/run/$runId",
@@ -658,7 +715,9 @@ export function RunWorkspace({
           <p className="truncate text-xs text-muted-foreground">
             {view.workflowId}
             {view.status === "running" && !offline ? " · live" : ""}
+            {view.status === "suspended" && !offline ? " · waiting" : ""}
             {view.status === "running" && offline ? " · server stopped" : ""}
+            {view.status === "suspended" && offline ? " · server stopped" : ""}
           </p>
         </div>
         {view.status === "running" && !offline ? (
@@ -724,6 +783,43 @@ export function RunWorkspace({
             Cancelled
           </span>
           <p className="truncate text-xs text-muted-foreground">Workflow run cancelled.</p>
+        </div>
+      ) : null}
+
+      {view.status === "suspended" ? (
+        <div
+          data-testid="run-suspended-banner"
+          className="flex shrink-0 items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5"
+        >
+          <span className="text-[10px] font-medium tracking-wide text-amber-800 uppercase dark:text-amber-200">
+            {pendingSuspend?.reason === "approval" ? "Waiting approval" : "Suspended"}
+          </span>
+          <p className="min-w-0 flex-1 truncate text-xs text-amber-800 dark:text-amber-200">
+            Resolve to continue from this cursor — the run does not restart from step 0.
+          </p>
+          {suspendError ? <ErrorIndicator error={suspendError} className="min-w-0" /> : null}
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="resolve-suspend-allow"
+            disabled={suspendBusy || !pendingSuspend || offline}
+            onClick={() => {
+              void handleResolveSuspend("allow");
+            }}
+          >
+            Allow
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="resolve-suspend-deny"
+            disabled={suspendBusy || !pendingSuspend || offline}
+            onClick={() => {
+              void handleResolveSuspend("deny");
+            }}
+          >
+            Deny
+          </Button>
         </div>
       ) : null}
 

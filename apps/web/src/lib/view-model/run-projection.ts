@@ -230,6 +230,12 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         finishedAt = event.at;
         settleOpenWork(stepMap, "completed", event.at);
         break;
+      case "run_suspended":
+        status = "suspended";
+        break;
+      case "run_resumed":
+        status = "running";
+        break;
       case "run_title_set":
         title = event.title;
         break;

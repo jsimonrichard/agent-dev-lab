@@ -82,6 +82,13 @@ describe("shouldCloseWorkflowRunStream", () => {
         runStatus: "running",
       }),
     ).toBe(false);
+    expect(
+      shouldCloseWorkflowRunStream({
+        sawTerminalEvent: false,
+        eventBatchEmpty: true,
+        runStatus: "suspended",
+      }),
+    ).toBe(false);
   });
 });
 

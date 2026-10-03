@@ -3,6 +3,7 @@ import type { RunStatus } from "@/lib/view-model/types";
 
 const variantByStatus: Record<RunStatus, "default" | "secondary" | "destructive" | "outline"> = {
   running: "default",
+  suspended: "outline",
   completed: "secondary",
   failed: "destructive",
   cancelled: "outline",

@@ -79,6 +79,20 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
       .run();
   }
 
+  if (event.type === "workflow_suspended") {
+    db.update(workflowRuns)
+      .set({ status: "suspended", finishedAt: null })
+      .where(eq(workflowRuns.workflowRunId, event.workflowRunId))
+      .run();
+  }
+
+  if (event.type === "workflow_resumed") {
+    db.update(workflowRuns)
+      .set({ status: "running", finishedAt: null })
+      .where(eq(workflowRuns.workflowRunId, event.workflowRunId))
+      .run();
+  }
+
   if (event.type === "workflow_title_set") {
     db.insert(workflowRuns)
       .values({

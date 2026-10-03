@@ -263,12 +263,13 @@ export function WorkflowRunsSidebar() {
 function RunStatusDot({ status }: { status: RunStatus }) {
   const { offline } = useInspectorConnection();
   if (status === "completed" || status === "cancelled") return null;
-  const showPulse = status === "running" && !offline;
+  const showPulse = (status === "running" || status === "suspended") && !offline;
   return (
     <span
       className={cn(
         "size-2 shrink-0 rounded-full",
         showPulse && "animate-pulse bg-primary",
+        status === "suspended" && "bg-amber-500",
         status === "running" && offline && "bg-muted-foreground/50",
         status === "failed" && "bg-destructive",
       )}

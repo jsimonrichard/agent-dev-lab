@@ -276,6 +276,50 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(attempt.reExecStepIds.has(step.stepId)).toBe(true);
       expect((await store.getRun(handle.workflowRunId))?.workflowRunId).toBe(handle.workflowRunId);
     });
+
+    it("parks a run on requestApproval and resumes from the same store", async () => {
+      const store = await createStore();
+      const runtime = createAdlRuntime({
+        stores: { workflow: store },
+        loadEnv: false,
+        version: false,
+      });
+      const workflow = runtime.createWorkflow({
+        id: "contract-suspend",
+        run: async (_input, ctx) => {
+          const before = await ctx.step("before", async () => "ready");
+          await ctx.requestApproval({ message: "continue?" });
+          const after = await ctx.step("after", async () => "done");
+          return { before, after };
+        },
+      });
+
+      const handle = workflow.run({});
+      const parkedAt = Date.now();
+      let status = (await store.getRun(handle.workflowRunId))?.status;
+      while (status !== "suspended" && Date.now() - parkedAt < 5_000) {
+        await Bun.sleep(20);
+        status = (await store.getRun(handle.workflowRunId))?.status;
+      }
+      expect(status).toBe("suspended");
+
+      const pending = await store.listPendingSuspends({ workflowRunId: handle.workflowRunId });
+      expect(pending).toHaveLength(1);
+      const parked = pending[0]!;
+      expect(parked.handle.reason).toBe("approval");
+      expect(parked.intent.kind).toBe("approval");
+
+      await store.resolveSuspend(parked.handle.id, { action: "allow" });
+      await expect(handle.result).resolves.toEqual({ before: "ready", after: "done" });
+      expect((await store.getRun(handle.workflowRunId))?.status).toBe("ok");
+    });
+
+    it("fails closed when resolving a missing suspend handle", async () => {
+      const store = await createStore();
+      await expect(store.resolveSuspend("missing-handle", { action: "allow" })).rejects.toThrow(
+        /was not found/,
+      );
+    });
   });
 }
 
@@ -341,6 +385,50 @@ describe("sqlite stores share a file", () => {
       cachedInputTokens: 2,
       reasoningTokens: 1,
     });
+  });
+
+  it("keeps a pending suspend after reopen and resumes on the new store", async () => {
+    const dbPath = await uniqueDbPath();
+    const first = sqliteWorkflowStore({ path: dbPath });
+    await first.recordEvent({
+      type: "workflow_started",
+      workflowRunId: "run-suspend",
+      workflowId: "suspend-demo",
+      input: {},
+      runSeq: 1,
+      at: "2026-01-01T00:00:00.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+    });
+    await first.createSuspend({
+      handle: {
+        id: "handle-1",
+        intentId: "intent-1",
+        workflowRunId: "run-suspend",
+        reason: "debugger",
+        createdAt: "2026-01-01T00:00:01.000Z",
+      },
+      intent: {
+        id: "intent-1",
+        kind: "step",
+        reversibility: "irreversible",
+        workflowRunId: "run-suspend",
+        payload: { path: ["pause"] },
+      },
+    });
+    expect((await first.getRun("run-suspend"))?.status).toBe("suspended");
+    expect((await first.getRun("run-suspend"))?.suspendReason).toBe("debugger");
+
+    const reopened = sqliteWorkflowStore({ path: dbPath });
+    const pending = await reopened.listPendingSuspends({ workflowRunId: "run-suspend" });
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.handle.reason).toBe("debugger");
+    expect(pending[0]?.intent.kind).toBe("step");
+
+    const waited = reopened.waitForSuspendResolution("handle-1");
+    await reopened.resolveSuspend("handle-1", { action: "allow" });
+    await expect(waited).resolves.toEqual({ action: "allow" });
+    expect((await reopened.getRun("run-suspend"))?.status).toBe("running");
+    expect(await reopened.listPendingSuspends({ workflowRunId: "run-suspend" })).toEqual([]);
   });
 
   it("projects toolProviderContext from agent_started onto the episode summary", async () => {

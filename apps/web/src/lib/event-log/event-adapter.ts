@@ -56,6 +56,28 @@ export function adaptCoreEventsForWorkflowRun(
           at: event.at,
         });
         break;
+      case "workflow_suspended":
+        out.push({
+          runSeq: event.runSeq,
+          runId: event.workflowRunId,
+          type: "run_suspended",
+          at: event.at,
+          handleId: event.handle.id,
+          reason: event.handle.reason,
+          intentId: event.handle.intentId,
+          payload: asJson(event.intent.payload),
+        });
+        break;
+      case "workflow_resumed":
+        out.push({
+          runSeq: event.runSeq,
+          runId: event.workflowRunId,
+          type: "run_resumed",
+          at: event.at,
+          handleId: event.handleId,
+          action: event.decision.action,
+        });
+        break;
       case "step_started":
         if (!event.workflowRunId) break;
         out.push({
@@ -211,7 +233,9 @@ export function adaptCoreEventsForWorkflowRun(
   return out;
 }
 
-export function mapWorkflowRunStatus(status: "running" | "ok" | "error" | "cancelled"): RunStatus {
+export function mapWorkflowRunStatus(
+  status: "running" | "ok" | "error" | "cancelled" | "suspended",
+): RunStatus {
   switch (status) {
     case "ok":
       return "completed";
@@ -219,6 +243,8 @@ export function mapWorkflowRunStatus(status: "running" | "ok" | "error" | "cance
       return "failed";
     case "cancelled":
       return "cancelled";
+    case "suspended":
+      return "suspended";
     default:
       return "running";
   }

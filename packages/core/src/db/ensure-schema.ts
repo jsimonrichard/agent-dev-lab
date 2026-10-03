@@ -61,6 +61,17 @@ const TABLES = [
     tag TEXT NOT NULL,
     PRIMARY KEY (workflow_run_id, tag)
   )`,
+  `CREATE TABLE IF NOT EXISTS adl_suspends (
+    handle_id TEXT PRIMARY KEY NOT NULL,
+    workflow_run_id TEXT NOT NULL,
+    intent_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    intent_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    decision_json TEXT,
+    resolved_at TEXT
+  )`,
   // agent_call_id is nullable: a conversation can exist before its first
   // episode does (a fork is created before its first turn runs), and the
   // NOT NULL this replaced is what forced apps/web to invent a
@@ -117,6 +128,8 @@ const INDEXES = [
     ON adl_workflow_runs (parent_workflow_run_id)`,
   `CREATE INDEX IF NOT EXISTS adl_workflow_runs_parent_step
     ON adl_workflow_runs (parent_step_id)`,
+  `CREATE INDEX IF NOT EXISTS adl_suspends_run
+    ON adl_suspends (workflow_run_id)`,
   `CREATE INDEX IF NOT EXISTS adl_agent_episodes_started_at
     ON adl_agent_episodes (started_at)`,
   `CREATE INDEX IF NOT EXISTS adl_agent_episodes_agent_started_at

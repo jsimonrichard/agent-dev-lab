@@ -39,6 +39,21 @@ export interface SuspendHandle {
   createdAt: string;
 }
 
+/** Allow / deny / rewrite — the resume vocabulary. Never another suspend. */
+export type SuspendResolveDecision = Exclude<EffectDecision, { action: "suspend" }>;
+
+/**
+ * Persisted pause. Approval and debugger share this shape; {@link SuspendHandle.reason}
+ * is the subtype.
+ */
+export type SuspendRecord = {
+  handle: SuspendHandle;
+  intent: EffectIntent;
+  status: "pending" | "resolved";
+  decision?: SuspendResolveDecision;
+  resolvedAt?: string;
+};
+
 export type EffectDecision =
   | { action: "allow" }
   | { action: "deny"; reason: string }

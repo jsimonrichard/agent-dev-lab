@@ -25,6 +25,10 @@ const BACKFILLS: { key: string; eventTypes: RunEvent["type"][] }[] = [
     key: "backfill:adl_conversation_metadata:v1",
     eventTypes: ["agent_title_set", "conversation_forked"],
   },
+  {
+    key: "backfill:adl_suspends:v1",
+    eventTypes: ["workflow_suspended", "workflow_resumed"],
+  },
 ];
 
 function appliedKeys(db: AdlDb): Set<string> {

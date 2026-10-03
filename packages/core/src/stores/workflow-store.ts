@@ -8,6 +8,12 @@ import type {
 } from "../observability/events";
 import type { TokenUsage } from "../observability/token-usage";
 import type {
+  EffectIntent,
+  SuspendHandle,
+  SuspendRecord,
+  SuspendResolveDecision,
+} from "../effect/types";
+import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
   ForkFromCursorArgs,
@@ -138,4 +144,27 @@ export interface WorkflowStore {
 
   /** Write a seeded step projection + path-stable output slot. */
   materializeAttemptStep(step: AttemptStepMaterialization): Promise<void>;
+
+  /**
+   * Persist a pending suspend (and park the run). Emits `workflow_suspended`.
+   * At most one pending suspend per run.
+   */
+  createSuspend(args: { handle: SuspendHandle; intent: EffectIntent }): Promise<void>;
+
+  getSuspend(handleId: string): Promise<SuspendRecord | null>;
+
+  /** Pending (unresolved) suspends, optionally for one run. */
+  listPendingSuspends(filter?: { workflowRunId?: string }): Promise<SuspendRecord[]>;
+
+  /**
+   * Resume with allow / deny / rewrite. Missing or already-resolved handles fail
+   * closed — the effect is not allowed.
+   */
+  resolveSuspend(handleId: string, decision: SuspendResolveDecision): Promise<void>;
+
+  /**
+   * Wait until {@link resolveSuspend} (same process or after store reopen).
+   * Already-resolved handles return the stored decision.
+   */
+  waitForSuspendResolution(handleId: string): Promise<SuspendResolveDecision>;
 }

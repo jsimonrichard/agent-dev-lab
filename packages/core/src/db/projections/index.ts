@@ -12,6 +12,7 @@ import type { AdlDb } from "../index";
 import { projectAgentEpisode } from "./agent-episodes";
 import { projectConversationMetadata } from "./conversation-metadata";
 import { projectStepRecord } from "./step-records";
+import { projectSuspend } from "./suspends";
 import { projectWorkflowRun } from "./workflow-runs";
 
 import type { RunEvent } from "../../observability/events";
@@ -24,4 +25,5 @@ export function applyProjections(db: AdlDb, event: RunEvent): void {
   projectStepRecord(db, event);
   projectAgentEpisode(db, event);
   projectConversationMetadata(db, event);
+  projectSuspend(db, event);
 }

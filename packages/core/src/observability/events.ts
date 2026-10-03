@@ -1,5 +1,11 @@
 import type { ModelMessage } from "ai";
 
+import type {
+  EffectIntent,
+  SuspendHandle,
+  SuspendReason,
+  SuspendResolveDecision,
+} from "../effect/types";
 import type { TokenUsage } from "./token-usage";
 
 /**
@@ -78,6 +84,18 @@ export type WorkflowFailedEvent = WorkflowRunEventBase & {
 
 export type WorkflowCancelledEvent = WorkflowRunEventBase & {
   type: "workflow_cancelled";
+};
+
+export type WorkflowSuspendedEvent = WorkflowRunEventBase & {
+  type: "workflow_suspended";
+  handle: SuspendHandle;
+  intent: EffectIntent;
+};
+
+export type WorkflowResumedEvent = WorkflowRunEventBase & {
+  type: "workflow_resumed";
+  handleId: string;
+  decision: SuspendResolveDecision;
 };
 
 export type StepStartedEvent = WorkflowRunEventBase & {
@@ -295,6 +313,8 @@ export type RunEvent =
   | WorkflowFinishedEvent
   | WorkflowFailedEvent
   | WorkflowCancelledEvent
+  | WorkflowSuspendedEvent
+  | WorkflowResumedEvent
   | StepStartedEvent
   | StepFinishedEvent
   | StepSkippedEvent
@@ -327,6 +347,8 @@ export type WorkflowObserverEvent =
   | WorkflowFinishedEvent
   | WorkflowFailedEvent
   | WorkflowCancelledEvent
+  | WorkflowSuspendedEvent
+  | WorkflowResumedEvent
   | StepStartedEvent
   | StepFinishedEvent
   | StepSkippedEvent
@@ -349,9 +371,13 @@ export type AgentObserverEvent =
 export type WorkflowRunSummary = {
   workflowRunId: string;
   workflowId: string;
-  status: "running" | "ok" | "error" | "cancelled";
+  status: "running" | "ok" | "error" | "cancelled" | "suspended";
   startedAt: string;
   finishedAt?: string;
+  /** Set while {@link status} is `suspended` — the pending handle. */
+  suspendHandleId?: string;
+  /** Set while {@link status} is `suspended`. */
+  suspendReason?: SuspendReason;
   /** Inspector display name; omitted until the user renames the run. */
   title?: string;
   /** Freeform labels for filtering/organizing runs. Empty until tagged. */
@@ -369,6 +395,11 @@ export type WorkflowRunSummary = {
   /** Prior run this summary replays. */
   replayOfRunId?: string | null;
 };
+
+/** True while the invocation is still parked or executing — not a terminal outcome. */
+export function isLiveWorkflowRunStatus(status: WorkflowRunSummary["status"]): boolean {
+  return status === "running" || status === "suspended";
+}
 
 export type StepRecord = {
   stepId: string;

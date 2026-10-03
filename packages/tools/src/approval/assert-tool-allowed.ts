@@ -9,8 +9,8 @@ import { randomUUID } from "node:crypto";
 import type { ToolEffectPayload, ToolEffectScope } from "./types.ts";
 
 export const TOOL_SUSPEND_UNSUPPORTED_MESSAGE =
-  "EffectGate returned suspend for a tool call, but SuspendStore is not wired yet. " +
-  "Interactive approval handlers must await the human decision and return allow or deny.";
+  "EffectGate returned suspend for a tool call without parkingEffectGate. " +
+  "Wrap the gate with parkingEffectGate (core) so suspend persists, or await allow/deny in the handler.";
 
 function isToolEffectPayload(value: unknown): value is ToolEffectPayload {
   return (
@@ -30,7 +30,7 @@ function isToolEffectPayload(value: unknown): value is ToolEffectPayload {
  * - `allow` — return the original input
  * - `rewrite` — return `payload.input` from the rewritten tool payload
  * - `deny` — throw {@link AdlError} (`INVALID_INPUT`)
- * - `suspend` — throw (SuspendStore not available on the tool path yet)
+ * - `suspend` — throw unless the host wrapped the gate with `parkingEffectGate`
  */
 export async function assertToolAllowed<TInput>(args: {
   gate: EffectGate;

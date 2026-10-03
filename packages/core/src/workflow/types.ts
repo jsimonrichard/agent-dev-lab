@@ -108,6 +108,13 @@ export interface WorkflowContext {
    * of `run`, after a first step, or just before returning — blank titles are ignored.
    */
   setTitle(title: string): Promise<void>;
+
+  /**
+   * Park this run until {@link import("../stores/workflow-store").WorkflowStore.resolveSuspend}
+   * (inspector Allow/Deny, debugger continue, or a programmatic resolve). Requires a
+   * workflow store. Deny throws; rewrite is rejected (approval is not a rewriteable tool).
+   */
+  requestApproval(payload?: unknown): Promise<void>;
 }
 
 export type StepFn = <T>(

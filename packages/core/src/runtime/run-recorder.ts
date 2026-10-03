@@ -115,6 +115,16 @@ export class RunRecorder {
     return event as RunEvent;
   }
 
+  /**
+   * Advance the in-memory seq so store-appended suspend/resume events do not collide
+   * with the next {@link emit}.
+   */
+  adoptRunSeq(runSeq: number): void {
+    if (runSeq > this.workflowSeq) {
+      this.workflowSeq = runSeq;
+    }
+  }
+
   private recordOnActiveSpan(event: RunEvent): void {
     if (event.type === "agent_text_delta") {
       return;
@@ -165,6 +175,8 @@ export class RunRecorder {
       event.type === "workflow_finished" ||
       event.type === "workflow_failed" ||
       event.type === "workflow_cancelled" ||
+      event.type === "workflow_suspended" ||
+      event.type === "workflow_resumed" ||
       event.type.startsWith("step_") ||
       event.type === "custom" ||
       event.type === "workflow_title_set"

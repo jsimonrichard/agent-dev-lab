@@ -47,6 +47,8 @@ export type { Err, Ok, Result } from "./result";
 export type { MaybePromise } from "./maybe-promise";
 
 export { allowAllGate, composeEffectHandlers, EFFECT_GATE_UNDECIDED_REASON } from "./effect";
+export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./effect";
+export type { ParkOnSuspend } from "./effect";
 export type {
   EffectDecision,
   EffectGate,
@@ -57,6 +59,8 @@ export type {
   Reversibility,
   SuspendHandle,
   SuspendReason,
+  SuspendRecord,
+  SuspendResolveDecision,
   TraceCursor,
 } from "./effect";
 export type {
@@ -173,6 +177,7 @@ export {
   inMemoryEventLog,
   InMemoryEventLog,
   isEpisodeTimingEvent,
+  isLiveWorkflowRunStatus,
   sumTokenUsage,
   toTokenUsage,
   unionIntervalMs,

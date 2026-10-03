@@ -26,9 +26,11 @@ export type {
   WorkflowFailedEvent,
   WorkflowFinishedEvent,
   WorkflowObserverEvent,
+  WorkflowResumedEvent,
   WorkflowRunEventBase,
   WorkflowRunSummary,
   WorkflowStartedEvent,
+  WorkflowSuspendedEvent,
   WorkflowTitleSetEvent,
   AgentTitleSetEvent,
 } from "./events";
@@ -45,7 +47,7 @@ export {
 } from "./in-memory-event-log";
 export type { InMemoryEventLogOptions } from "./in-memory-event-log";
 export type { EventLog, ListLoggedEventsFilter, LoggedRunEvent } from "./event-log";
-export { EVENT_SCHEMA_VERSION } from "./events";
+export { EVENT_SCHEMA_VERSION, isLiveWorkflowRunStatus } from "./events";
 export {
   computeEpisodeTiming,
   computeEpisodeTimingByAgentCallId,

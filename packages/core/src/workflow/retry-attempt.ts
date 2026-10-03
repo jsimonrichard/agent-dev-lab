@@ -6,6 +6,7 @@ import type {
   StepRecord,
   WorkflowRunSummary,
 } from "../observability/events";
+import { isLiveWorkflowRunStatus } from "../observability/events";
 import type { WorkflowStore } from "../stores/workflow-store";
 
 export type SeedRetryAttemptArgs = {
@@ -631,7 +632,7 @@ export async function seedRetryAttemptOnStore(
       copyStatus = "ok";
       copyFinishedAt = priorRun.finishedAt;
     } else if (isStillValidCopy) {
-      copyStatus = priorRun.status === "running" ? "error" : priorRun.status;
+      copyStatus = isLiveWorkflowRunStatus(priorRun.status) ? "error" : priorRun.status;
       copyFinishedAt = priorRun.finishedAt;
     }
 

@@ -4,6 +4,9 @@ import { serializeError } from "../internal/serialize-error";
 import type { MemoryScopeSnapshot } from "../observability/events";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
+import { AdlError } from "../errors";
+import { createSuspendHandle, parkUntilResolved } from "../effect/park";
+import type { EffectIntent } from "../effect/types";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { StepOptions, WorkflowContext } from "./types";
 import { retargetMemoryScope, type RetryAttempt } from "./retry-attempt";
@@ -94,6 +97,42 @@ export class WorkflowContextImpl implements WorkflowContext {
       stepId: this.stepId,
       title: trimmed,
     });
+  };
+
+  requestApproval = async (payload?: unknown): Promise<void> => {
+    throwIfAborted(this.signal);
+    const store = this.services.stores.workflow;
+    if (!store) {
+      throw new AdlError(
+        "INVALID_CONTEXT",
+        "requestApproval requires a workflow store — suspends cannot be persisted without one.",
+      );
+    }
+    const intent: EffectIntent = {
+      id: createId(),
+      kind: "approval",
+      reversibility: "irreversible",
+      workflowRunId: this.workflowRunId,
+      stepId: this.stepId,
+      payload: payload ?? {},
+    };
+    const handle = createSuspendHandle({ intent, reason: "approval" });
+    const decision = await parkUntilResolved({
+      store,
+      handle,
+      intent,
+      recorder: this.runRecorder,
+      signal: this.signal,
+    });
+    if (decision.action === "deny") {
+      throw new AdlError("INVALID_INPUT", `Approval denied: ${decision.reason}`);
+    }
+    if (decision.action === "rewrite") {
+      throw new AdlError(
+        "INVALID_INPUT",
+        "Approval resume does not accept rewrite; resolve with allow or deny.",
+      );
+    }
   };
 
   step = async <T>(
