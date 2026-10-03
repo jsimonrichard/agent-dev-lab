@@ -8,6 +8,8 @@ import {
   flattenWorkflowRows,
   formatDuration,
   stepTimeRange,
+  waterfallAxisStyle,
+  waterfallSegmentStyle,
   waterfallTickCount,
   waterfallTickMarks,
 } from "./workflow-waterfall";
@@ -212,6 +214,22 @@ describe("computeWaterfallScale + bars", () => {
     const bar = computeWaterfallBar({ startMs: originMs, endMs: originMs + 2 }, scale);
     expect(bar.durationMs).toBe(2);
     expect(bar.widthPct).toBeCloseTo((2 / 60_000) * 100);
+    expect(bar.startMs).toBe(originMs);
+    expect(bar.endMs).toBe(originMs + 2);
+  });
+});
+
+describe("waterfallAxisStyle", () => {
+  it("exposes origin, span, and now for CSS re-scale", () => {
+    expect(waterfallAxisStyle({ originMs: 1000, spanMs: 4000 }, 5000)).toEqual({
+      "--wf-origin": "1000",
+      "--wf-span": "4000",
+      "--wf-now": "5000",
+    });
+    expect(waterfallSegmentStyle({ startMs: 1500, endMs: 2500 })).toEqual({
+      "--wf-start": "1500",
+      "--wf-end": "2500",
+    });
   });
 });
 

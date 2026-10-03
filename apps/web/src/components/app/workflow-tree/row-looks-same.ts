@@ -70,6 +70,8 @@ function barLooksSame(a: WaterfallBar | null, b: WaterfallBar | null): boolean {
     a.leftPct === b.leftPct &&
     a.widthPct === b.widthPct &&
     a.durationMs === b.durationMs &&
+    a.startMs === b.startMs &&
+    a.endMs === b.endMs &&
     a.copied === b.copied &&
     a.afterAnchor === b.afterAnchor &&
     a.priorDurationMs === b.priorDurationMs &&

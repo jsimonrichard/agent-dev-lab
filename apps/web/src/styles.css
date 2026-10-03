@@ -147,3 +147,37 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Live waterfall: parent `--wf-span`/`--wf-now` re-scale bars without React. */
+[data-waterfall-axis] {
+  --wf-origin: 0;
+  --wf-span: 1;
+  --wf-now: 0;
+}
+
+[data-waterfall-segment] {
+  left: calc((var(--wf-start) - var(--wf-origin)) / var(--wf-span) * 100%);
+  width: calc((var(--wf-end) - var(--wf-start)) / var(--wf-span) * 100%);
+}
+
+[data-waterfall-track][data-wf-live] {
+  --wf-end: var(--wf-now);
+}
+
+[data-waterfall-duration] {
+  left: min(
+    calc((var(--wf-end) - var(--wf-origin)) / var(--wf-span) * 100% + 6px),
+    calc(100% - 2.75rem)
+  );
+}
+
+[data-waterfall-duration-clip] {
+  clip-path: inset(
+    0 calc(100% - (var(--wf-end) - var(--wf-origin)) / var(--wf-span) * 100%) 0
+      calc((var(--wf-start) - var(--wf-origin)) / var(--wf-span) * 100%)
+  );
+}
+
+[data-waterfall-retry] {
+  left: calc((var(--wf-retry) - var(--wf-origin)) / var(--wf-span) * 100%);
+}

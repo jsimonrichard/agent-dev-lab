@@ -1,16 +1,53 @@
+import { useContext, useSyncExternalStore, type CSSProperties } from "react";
+
 import { cn } from "@/lib/utils";
-import { formatDuration, type WaterfallBar } from "@/lib/workflow/workflow-waterfall";
+import {
+  formatDuration,
+  waterfallSegmentStyle,
+  waterfallTickCount,
+  waterfallTickMarks,
+  type WaterfallBar,
+  type WaterfallScale,
+} from "@/lib/workflow/workflow-waterfall";
 import type { StepNodeStatus } from "@/lib/view-model/types";
 
 import { PANE_HEADER_CLASS } from "./constants";
+import { LiveNowStoreContext, noopSubscribe } from "./layout";
 
 export function WaterfallHeader({
-  ticks,
-  retryLinePct,
+  scale,
+  zoom,
+  live,
+  retryAnchorMs,
 }: {
-  ticks: { pct: number; label: string }[];
-  retryLinePct: number | null;
+  scale: WaterfallScale;
+  zoom: number;
+  live: boolean;
+  retryAnchorMs: number | null;
 }) {
+  const store = useContext(LiveNowStoreContext);
+  const nowMs = useSyncExternalStore(
+    live && store ? store.subscribe : noopSubscribe,
+    store?.getSnapshot ?? (() => 0),
+    () => 0,
+  );
+  if (live && store == null) {
+    throw new Error("waterfall live clock is required");
+  }
+  const liveScale =
+    live && nowMs > 0
+      ? {
+          originMs: scale.originMs,
+          spanMs: Math.max(scale.spanMs, nowMs - scale.originMs, 1),
+        }
+      : scale;
+  const ticks = waterfallTickMarks(liveScale, waterfallTickCount(zoom));
+  const retryPct =
+    retryAnchorMs == null || liveScale.spanMs <= 0
+      ? null
+      : ((retryAnchorMs - liveScale.originMs) / liveScale.spanMs) * 100;
+  const showRetry =
+    retryPct != null && Number.isFinite(retryPct) && retryPct > 0.5 && retryPct < 99.5;
   return (
     <div className={cn(PANE_HEADER_CLASS, "px-3")}>
       <div className="relative h-full">
@@ -31,7 +68,9 @@ export function WaterfallHeader({
             {tick.label}
           </span>
         ))}
-        {retryLinePct != null ? <WaterfallRetryLine pct={retryLinePct} tip /> : null}
+        {showRetry && retryAnchorMs != null ? (
+          <WaterfallRetryLine anchorMs={retryAnchorMs} tip />
+        ) : null}
       </div>
     </div>
   );
@@ -107,10 +146,17 @@ export function WaterfallTrack({
 }) {
   const tone = WATERFALL_KIND_CLASS[kind];
   const heightClass = kind === "agent" ? "h-2.5" : "h-3.5";
+  const live = !bar?.copied && status === "running";
   return (
-    <div className="relative h-8 overflow-hidden">
+    <div
+      className="relative h-8 overflow-hidden"
+      data-waterfall-track={bar ? "" : undefined}
+      data-wf-live={live ? "" : undefined}
+      style={bar ? (waterfallSegmentStyle(bar) as CSSProperties) : undefined}
+    >
       {bar?.continuation ? (
         <span
+          data-waterfall-segment
           data-tip={`Copied ${formatDuration(bar.continuation.durationMs)} from the prior attempt, past the retry point. Not re-measured here — order versus re-executed steps is not meaningful.`}
           className={cn(
             "absolute top-1/2 z-0 -translate-y-1/2 rounded-sm",
@@ -118,8 +164,7 @@ export function WaterfallTrack({
             heightClass,
           )}
           style={{
-            left: `${bar.continuation.leftPct}%`,
-            width: `${bar.continuation.widthPct}%`,
+            ...(waterfallSegmentStyle(bar.continuation) as CSSProperties),
             minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
           }}
           aria-hidden
@@ -127,6 +172,7 @@ export function WaterfallTrack({
       ) : null}
       {bar?.copiedPrefix ? (
         <span
+          data-waterfall-segment
           data-tip={`Copied ${formatDuration(bar.copiedPrefix.durationMs)} from the prior attempt, before the retry point.`}
           className={cn(
             "absolute top-1/2 z-[2] -translate-y-1/2 rounded-sm",
@@ -134,8 +180,7 @@ export function WaterfallTrack({
             heightClass,
           )}
           style={{
-            left: `${bar.copiedPrefix.leftPct}%`,
-            width: `${bar.copiedPrefix.widthPct}%`,
+            ...(waterfallSegmentStyle(bar.copiedPrefix) as CSSProperties),
             minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
           }}
           aria-hidden
@@ -143,7 +188,10 @@ export function WaterfallTrack({
       ) : null}
       {bar ? (
         <span
+          data-waterfall-segment
           data-tip={waterfallBarTooltip(bar, label, status)}
+          data-wf-live-start={live ? String(bar.startMs) : undefined}
+          data-wf-live-label={live ? label : undefined}
           className={cn(
             "absolute top-1/2 z-[1] -translate-y-1/2 rounded-sm",
             heightClass,
@@ -153,11 +201,7 @@ export function WaterfallTrack({
             !bar.copied && status === "completed" && tone.real,
             !bar.copied && status === "failed" && "bg-destructive/55",
           )}
-          style={{
-            left: `${bar.leftPct}%`,
-            width: `${bar.widthPct}%`,
-            minWidth: WATERFALL_BAR_MIN_WIDTH_PX,
-          }}
+          style={{ minWidth: WATERFALL_BAR_MIN_WIDTH_PX }}
         >
           {!bar.copied && status === "running" ? (
             <span className={cn("absolute inset-y-0 right-0 w-0.5 rounded-r-sm", tone.edge)} />
@@ -171,35 +215,32 @@ export function WaterfallTrack({
   );
 }
 
-function waterfallDurationOffset(bar: WaterfallBar): string {
-  return `min(calc(${bar.leftPct + bar.widthPct}% + 6px), calc(100% - 2.75rem))`;
-}
-
-function WaterfallDuration({ bar, status }: { bar: WaterfallBar; status: StepNodeStatus }) {
-  const duration = formatDuration(bar.durationMs);
-  const left = waterfallDurationOffset(bar);
-  const rightClipPct = Math.max(0, 100 - bar.leftPct - bar.widthPct);
+function WaterfallDurationLabels({
+  duration,
+  status,
+}: {
+  duration: string;
+  status: StepNodeStatus;
+}) {
   const labelClass =
     "absolute top-1/2 -translate-y-1/2 font-mono text-[10px] leading-none tabular-nums";
 
   return (
     <>
       <span
+        data-waterfall-duration
         className={cn("pointer-events-none z-1 text-muted-foreground", labelClass)}
-        style={{ left }}
       >
         {duration}
       </span>
       <span
         aria-hidden
+        data-waterfall-duration-clip
         className="pointer-events-none absolute inset-0 z-1 overflow-hidden"
-        style={{
-          clipPath: `inset(0 ${rightClipPct}% 0 ${bar.leftPct}%)`,
-        }}
       >
         <span
+          data-waterfall-duration
           className={cn(labelClass, status === "failed" ? "text-white" : "text-black")}
-          style={{ left }}
         >
           {duration}
         </span>
@@ -208,21 +249,44 @@ function WaterfallDuration({ bar, status }: { bar: WaterfallBar; status: StepNod
   );
 }
 
+function LiveWaterfallDuration({ bar, status }: { bar: WaterfallBar; status: StepNodeStatus }) {
+  const store = useContext(LiveNowStoreContext);
+  const nowMs = useSyncExternalStore(
+    store?.subscribe ?? noopSubscribe,
+    store?.getSnapshot ?? (() => bar.endMs),
+    () => bar.endMs,
+  );
+  if (store == null) {
+    throw new Error("waterfall live clock is required");
+  }
+  const durationMs = Math.max(0, nowMs - bar.startMs);
+  return <WaterfallDurationLabels duration={formatDuration(durationMs)} status={status} />;
+}
+
+function WaterfallDuration({ bar, status }: { bar: WaterfallBar; status: StepNodeStatus }) {
+  const live = status === "running" && !bar.copied;
+  if (live) {
+    return <LiveWaterfallDuration bar={bar} status={status} />;
+  }
+  return <WaterfallDurationLabels duration={formatDuration(bar.durationMs)} status={status} />;
+}
+
 const RETRY_LINE_TIP =
   "Retry point. Time left of this line was copied from the prior attempt; this run starts here.";
 
 /** 1px marker at the first re-executed step. Sits with the grid, under the bars. */
-export function WaterfallRetryLine({ pct, tip = false }: { pct: number; tip?: boolean }) {
+export function WaterfallRetryLine({ anchorMs, tip = false }: { anchorMs: number; tip?: boolean }) {
   return (
     <span
       data-testid="waterfall-retry-line"
+      data-waterfall-retry
       data-tip={tip ? RETRY_LINE_TIP : undefined}
       className={cn(
         "absolute inset-y-0 -translate-x-1/2",
         // The ruler copy is the hover target. The chart copy stays click-through.
         tip ? "pointer-events-auto w-3" : "pointer-events-none w-px",
       )}
-      style={{ left: `${pct}%` }}
+      style={{ ["--wf-retry" as string]: String(anchorMs) }}
     >
       <span
         aria-hidden

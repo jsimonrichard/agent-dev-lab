@@ -16,6 +16,9 @@ export interface WaterfallBar {
   leftPct: number;
   widthPct: number;
   durationMs: number;
+  /** Absolute times so CSS can re-scale `--wf-span` without React. */
+  startMs: number;
+  endMs: number;
   /** Copied/prefix layout (grafted prior timing), not this attempt's wall clock. */
   copied?: boolean;
   /**
@@ -30,12 +33,16 @@ export interface WaterfallBar {
     leftPct: number;
     widthPct: number;
     durationMs: number;
+    startMs: number;
+    endMs: number;
   };
   /** Prior beginning drawn before this attempt's start. Not the whole bar. */
   copiedPrefix?: {
     leftPct: number;
     widthPct: number;
     durationMs: number;
+    startMs: number;
+    endMs: number;
   };
 }
 
@@ -396,6 +403,30 @@ export function computeWaterfallBar(
     leftPct,
     widthPct: clamp(Math.max(rawWidthPct, minWidthPct), 0, 100 - leftPct),
     durationMs,
+    startMs: range.startMs,
+    endMs: range.endMs,
+  };
+}
+
+/** Axis custom properties for the waterfall pane (`[data-waterfall-axis]`). */
+export function waterfallAxisStyle(
+  scale: WaterfallScale,
+  nowMs: number,
+): { "--wf-origin": string; "--wf-span": string; "--wf-now": string } {
+  return {
+    "--wf-origin": String(scale.originMs),
+    "--wf-span": String(Math.max(1, scale.spanMs)),
+    "--wf-now": String(nowMs),
+  };
+}
+
+export function waterfallSegmentStyle(segment: { startMs: number; endMs: number }): {
+  "--wf-start": string;
+  "--wf-end": string;
+} {
+  return {
+    "--wf-start": String(segment.startMs),
+    "--wf-end": String(segment.endMs),
   };
 }
 

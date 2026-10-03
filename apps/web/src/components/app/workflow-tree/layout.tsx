@@ -1,5 +1,5 @@
 import {
-  startTransition,
+  createContext,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,19 +12,35 @@ import {
 
 import { cn } from "@/lib/utils";
 
-export function useLiveNow(active: boolean): number {
-  // Start at 0 on both server and client so SSR HTML matches hydration. A real
-  // clock is applied after mount (see hydration mismatch on duration labels).
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    setNow(Date.now());
-    if (!active) return;
-    const id = window.setInterval(() => {
-      startTransition(() => setNow(Date.now()));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [active]);
-  return now;
+export type LiveNowStore = {
+  getSnapshot: () => number;
+  subscribe: (onStoreChange: () => void) => () => void;
+  set: (now: number) => void;
+};
+
+export function createLiveNowStore(initial: number): LiveNowStore {
+  let now = initial;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => now,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    set: (next) => {
+      if (next === now) return;
+      now = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+export const LiveNowStoreContext = createContext<LiveNowStore | null>(null);
+
+export function noopSubscribe(): () => void {
+  return () => {};
 }
 
 const TREE_COL_MIN = 224;

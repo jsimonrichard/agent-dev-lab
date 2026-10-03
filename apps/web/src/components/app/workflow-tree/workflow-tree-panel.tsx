@@ -1,6 +1,7 @@
 import {
   startTransition,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -24,8 +25,8 @@ import {
   flattenWorkflowRows,
   nestedRunHasExpandableChildren,
   runStatusAsStepStatus,
+  waterfallAxisStyle,
   waterfallTickCount,
-  waterfallTickMarks,
   type NestedRunTreeData,
   type WorkflowTreeRow,
 } from "@/lib/workflow/workflow-waterfall";
@@ -34,8 +35,9 @@ import { ROW_DIVIDER, WORKFLOW_ROW_ID } from "./constants";
 import { hideHoverTip, scheduleHoverTip } from "./hover-tip";
 import {
   ColumnResizeHandle,
+  createLiveNowStore,
+  LiveNowStoreContext,
   useColumnSplit,
-  useLiveNow,
   useScrollbarGutter,
   useSyncedVerticalScroll,
   useWaterfallZoom,
@@ -94,7 +96,9 @@ export function WorkflowTreePanel({
 }: WorkflowTreePanelProps) {
   const { offline } = useInspectorConnection();
   const live = view.status === "running" && !offline;
-  const nowMs = useLiveNow(live);
+  const liveNowStoreRef = useRef(createLiveNowStore(0));
+  const waterfallAxisRef = useRef<HTMLDivElement>(null);
+  const [nowMs, setNowMs] = useState(0);
   const [collapsedStepIds, setCollapsedStepIds] = useState<Set<string>>(() => new Set());
   const [zoom, setZoom] = useState(1);
   const scale = useMemo(
@@ -124,16 +128,58 @@ export function WorkflowTreePanel({
       expandedNestedRunIds,
     ],
   );
-  const ticks = useMemo(() => waterfallTickMarks(scale, waterfallTickCount(zoom)), [scale, zoom]);
-  const retryLinePct = useMemo(() => {
-    if (!priorAttemptRunId || scale.spanMs <= 0) return null;
-    const anchorMs = retryAnchorMs(view.steps);
-    if (anchorMs == null) return null;
-    const pct = ((anchorMs - scale.originMs) / scale.spanMs) * 100;
-    // A line on the axis duplicates the first or last gridline.
-    if (!Number.isFinite(pct) || pct <= 0.5 || pct >= 99.5) return null;
-    return pct;
-  }, [priorAttemptRunId, scale.originMs, scale.spanMs, view.steps]);
+  useEffect(() => {
+    const store = liveNowStoreRef.current;
+    const applyAxis = (now: number) => {
+      store.set(now);
+      const nextScale = computeWaterfallScale({
+        runStartedAt: view.startedAt,
+        runFinishedAt: view.finishedAt,
+        runStatus: view.status,
+        steps: view.steps,
+        nowMs: now,
+        ownerRunId: view.runId,
+        nestedRuns: childRuns,
+        nestedByRunId,
+        expandedNestedRunIds,
+        runCopiedPrefixMs: view.copiedPrefixMs,
+      });
+      const el = waterfallAxisRef.current;
+      if (!el) return;
+      const vars = waterfallAxisStyle(nextScale, now);
+      el.style.setProperty("--wf-origin", vars["--wf-origin"]);
+      el.style.setProperty("--wf-span", vars["--wf-span"]);
+      el.style.setProperty("--wf-now", vars["--wf-now"]);
+    };
+    const now = Date.now();
+    setNowMs(now);
+    applyAxis(now);
+    if (!live) return;
+    const id = window.setInterval(() => {
+      applyAxis(Date.now());
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [
+    live,
+    view.startedAt,
+    view.finishedAt,
+    view.status,
+    view.steps,
+    view.runId,
+    view.copiedPrefixMs,
+    childRuns,
+    nestedByRunId,
+    expandedNestedRunIds,
+  ]);
+  const ticks = useMemo(() => {
+    const count = waterfallTickCount(zoom);
+    const last = Math.max(2, count) - 1;
+    return Array.from({ length: last + 1 }, (_, i) => ({ pct: (i / last) * 100 }));
+  }, [zoom]);
+  const retryAnchor = useMemo(() => {
+    if (!priorAttemptRunId) return null;
+    return retryAnchorMs(view.steps);
+  }, [priorAttemptRunId, view.steps]);
   const workflowCollapsed = collapsedStepIds.has(WORKFLOW_ROW_ID);
   // Count rows as if the workflow row were expanded. `rows` is empty while it
   // is collapsed, and the chevron uses this count to decide it has children.
@@ -391,77 +437,83 @@ export function WorkflowTreePanel({
   };
 
   return (
-    <div
-      ref={split.containerRef}
-      className={cn(
-        "relative flex h-full min-h-0 bg-background",
-        split.dragging && "cursor-col-resize select-none",
-      )}
-      onMouseOver={(event) => {
-        const target = event.target as Element | null;
-        const row = target?.closest?.("[data-row-id]");
-        syncCrossHover(row?.getAttribute("data-row-id") ?? null);
-        scheduleHoverTip(tipRef.current, target);
-      }}
-      onMouseLeave={() => {
-        syncCrossHover(null);
-        hideHoverTip(tipRef.current);
-      }}
-      onContextMenuCapture={onPanelContextMenu}
-    >
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div className="flex h-full min-h-0 w-full">
-            <TreePane
-              scrollRef={treeScrollRef}
-              width={split.treeWidth ?? "40%"}
-              scrollbarGutter={scrollbarGutter}
-            >
-              <WorkflowRow pane="tree" {...workflowRowProps} />
-              {rows.map((row) => renderTreeRow(row, "tree"))}
-              {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
-                <WorkflowLoadingPlaceholder />
-              ) : null}
-            </TreePane>
-            <WaterfallPane
-              scrollRef={waterfallScrollRef}
-              zoom={zoom}
-              ticks={ticks}
-              retryLinePct={retryLinePct}
-            >
-              <WorkflowRow pane="waterfall" {...workflowRowProps} />
-              {rows.map((row) => renderTreeRow(row, "waterfall"))}
-              {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
-                <div className={cn("relative z-[1] h-9 shrink-0", ROW_DIVIDER)} aria-hidden />
-              ) : null}
-            </WaterfallPane>
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
-          <PanelRowMenu
-            menu={openMenuRef.current ?? openMenu}
-            onRetryFromStep={(stepId, ownerRunId) =>
-              actionsRef.current.onRetryFromStep?.(stepId, ownerRunId)
-            }
-            onRetryWorkflow={() => actionsRef.current.onRetryWorkflow?.()}
-            onOpenNestedRunPage={(run) => actionsRef.current.onOpenNestedRunPage?.(run)}
-          />
-        </ContextMenuContent>
-      </ContextMenu>
+    <LiveNowStoreContext.Provider value={liveNowStoreRef.current}>
       <div
-        ref={tipRef}
-        data-testid="waterfall-hover-tip"
-        className="pointer-events-none fixed z-50 hidden w-fit max-w-xs -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-3 py-1.5 text-center text-xs text-balance text-background"
-      />
-      <ColumnResizeHandle
-        left={split.handleLeft}
-        dragging={split.dragging}
-        onPointerDown={split.onPointerDown}
-        onPointerMove={split.onPointerMove}
-        onPointerUp={split.onPointerUp}
-        onKeyDown={split.onKeyDown}
-        onDoubleClick={split.onReset}
-      />
-    </div>
+        ref={split.containerRef}
+        className={cn(
+          "relative flex h-full min-h-0 bg-background",
+          split.dragging && "cursor-col-resize select-none",
+        )}
+        onMouseOver={(event) => {
+          const target = event.target as Element | null;
+          const row = target?.closest?.("[data-row-id]");
+          syncCrossHover(row?.getAttribute("data-row-id") ?? null);
+          scheduleHoverTip(tipRef.current, target);
+        }}
+        onMouseLeave={() => {
+          syncCrossHover(null);
+          hideHoverTip(tipRef.current);
+        }}
+        onContextMenuCapture={onPanelContextMenu}
+      >
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="flex h-full min-h-0 w-full">
+              <TreePane
+                scrollRef={treeScrollRef}
+                width={split.treeWidth ?? "40%"}
+                scrollbarGutter={scrollbarGutter}
+              >
+                <WorkflowRow pane="tree" {...workflowRowProps} />
+                {rows.map((row) => renderTreeRow(row, "tree"))}
+                {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+                  <WorkflowLoadingPlaceholder />
+                ) : null}
+              </TreePane>
+              <WaterfallPane
+                scrollRef={waterfallScrollRef}
+                axisRef={waterfallAxisRef}
+                zoom={zoom}
+                scale={scale}
+                nowMs={nowMs}
+                live={live}
+                ticks={ticks}
+                retryAnchorMs={retryAnchor}
+              >
+                <WorkflowRow pane="waterfall" {...workflowRowProps} />
+                {rows.map((row) => renderTreeRow(row, "waterfall"))}
+                {view.status === "running" && rows.length === 0 && !workflowCollapsed ? (
+                  <div className={cn("relative z-[1] h-9 shrink-0", ROW_DIVIDER)} aria-hidden />
+                ) : null}
+              </WaterfallPane>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none">
+            <PanelRowMenu
+              menu={openMenuRef.current ?? openMenu}
+              onRetryFromStep={(stepId, ownerRunId) =>
+                actionsRef.current.onRetryFromStep?.(stepId, ownerRunId)
+              }
+              onRetryWorkflow={() => actionsRef.current.onRetryWorkflow?.()}
+              onOpenNestedRunPage={(run) => actionsRef.current.onOpenNestedRunPage?.(run)}
+            />
+          </ContextMenuContent>
+        </ContextMenu>
+        <div
+          ref={tipRef}
+          data-testid="waterfall-hover-tip"
+          className="pointer-events-none fixed z-50 hidden w-fit max-w-xs -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-3 py-1.5 text-center text-xs text-balance text-background"
+        />
+        <ColumnResizeHandle
+          left={split.handleLeft}
+          dragging={split.dragging}
+          onPointerDown={split.onPointerDown}
+          onPointerMove={split.onPointerMove}
+          onPointerUp={split.onPointerUp}
+          onKeyDown={split.onKeyDown}
+          onDoubleClick={split.onReset}
+        />
+      </div>
+    </LiveNowStoreContext.Provider>
   );
 }

@@ -1,3 +1,5 @@
+import { formatDuration } from "@/lib/workflow/workflow-waterfall";
+
 let hoverTipTimer = 0;
 let hoverTipSource: Element | null = null;
 
@@ -21,7 +23,17 @@ export function scheduleHoverTip(tip: HTMLDivElement | null, target: Element | n
     }
     return;
   }
-  const text = source.getAttribute("data-tip");
+  const text = (() => {
+    const liveStart = source.getAttribute("data-wf-live-start");
+    const liveLabel = source.getAttribute("data-wf-live-label");
+    if (liveStart != null && liveLabel != null) {
+      const startMs = Number(liveStart);
+      if (Number.isFinite(startMs)) {
+        return `${liveLabel}: ${formatDuration(Date.now() - startMs)} elapsed`;
+      }
+    }
+    return source.getAttribute("data-tip");
+  })();
   if (!text) {
     tip.style.display = "none";
     tip.textContent = "";
