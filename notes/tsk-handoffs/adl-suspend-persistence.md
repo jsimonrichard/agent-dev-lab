@@ -38,4 +38,4 @@ Persist `EffectDecision.suspend` (and approval waits) so a run can resume after 
 
 ## Handoff notes
 
-Depends on: `adl-effect-gate-tools` + preferably `adl-retry-from-cursor`. Next: `adl-debugger-l1`.
+Depends on: EffectGate at tools (landed) + `seedRetryFromCursor` (step alias landed; `effectId` still unwired). Next: `adl-debugger-l1`.

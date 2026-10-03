@@ -336,22 +336,22 @@ A–J were provisioned via orch; those lane briefs were removed after the work l
 
 ## Next forks (`tsk task fork` + HANDOFF)
 
-Provision **after** current A–J landings settle on the integrator (or fork from tip when a concern is independent). Wave 0 is **beforehand** so later agents inherit review obligations.
+Open briefs live under [`tsk-handoffs/`](./tsk-handoffs/). Landed HANDOFFs (governance, effect-gate-tools, retry-from-cursor, AI SDK, npm RC) were deleted.
 
-| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                            |
-| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| 0     | `adl-review-governance`   | [`tsk-handoffs/adl-review-governance.md`](./tsk-handoffs/adl-review-governance.md)     | **Shipped** — inventory + session fix + layer ESLint + tools README (`t7e08c6c7`)                  |
-| 1     | `adl-effect-gate-tools`   | [`tsk-handoffs/adl-effect-gate-tools.md`](./tsk-handoffs/adl-effect-gate-tools.md)     | **Mostly landed in stack (E).** Residual: UI Allow/Deny / suspend wiring — or skip to cursor retry |
-| 2     | `adl-retry-from-cursor`   | [`tsk-handoffs/adl-retry-from-cursor.md`](./tsk-handoffs/adl-retry-from-cursor.md)     | `seedRetryFromCursor`; `fromStepId` wrapper                                                        |
-| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                                      |
-| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                                         |
+| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                |
+| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 0     | `adl-review-governance`   | —                                                                                      | **Shipped** (`t7e08c6c7`) — inventory, session first-writer-wins, layer ESLint         |
+| 1     | `adl-effect-gate-tools`   | —                                                                                      | **Shipped** (Lane E). Residual: UI Allow/Deny + suspend wiring                         |
+| 2     | `adl-retry-from-cursor`   | —                                                                                      | **API landed** — `seedRetryFromCursor`; `fromStepId` wrapper; `effectId` not persisted |
+| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                          |
+| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                             |
 
-**Parallel when free (not on the spine):** AI SDK 5→7 ([`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md) / `adl-ai-sdk-upgrade`), npm RCs ([`npm-release-candidates.md`](./npm-release-candidates.md) / `adl-npm-release-candidates`), `$` estimates (H), todo-tool placement. (D/G landed in this linear stack.)
+**Parallel when free (not on the spine):** `$` estimates (H), todo-tool placement. AI SDK 5→7 and npm RCs shipped (`main` + `@rc`).
 
 **Example:**
 
 ```bash
-tsk task fork --handoff notes/tsk-handoffs/adl-review-governance.md adl-review-governance
+tsk task fork --handoff notes/tsk-handoffs/adl-suspend-persistence.md adl-suspend-persistence
 ```
 
 ---
@@ -360,7 +360,7 @@ tsk task fork --handoff notes/tsk-handoffs/adl-review-governance.md adl-review-g
 
 - Tools `execute()` wrap over `EffectGate` = **landed** (Lane E). UI Allow/Deny / SuspendStore still open.
 - `SuspendStore` persistence and `suspended` run status (decision 6) — not started; no schema lock in the types PR.
-- `seedRetryFromCursor` / inspector cursor picker — not started.
+- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing and inspector effect-id picker not started.
 - Debugger UI / DAP server — not started.
 - Env CoW research (§4) — not started.
 - Wave 0 governance inventory + cheap alignments — **shipped** (`t7e08c6c7`). Changeset-presence CI still deferred (see [`mage-governance.md`](./mage-governance.md) inventory #5).

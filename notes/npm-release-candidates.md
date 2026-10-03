@@ -1,7 +1,6 @@
 # npm release candidates (registry RCs)
 
-**Status:** Implemented (2026-10-02). Script + Publish RC job in `release.yml` (OIDC-bound) + docs landed; live npm smoke deferred to maintainer OIDC (see Gaps). Sibling `release-rc.yml` was removed after E404 — npm trusted publishers only authorize `release.yml`.
-**HANDOFF:** [`tsk-handoffs/adl-npm-release-candidates.md`](./tsk-handoffs/adl-npm-release-candidates.md)
+**Status:** Implemented (2026-10-02). Script + Publish RC job in `release.yml` (OIDC-bound) + docs landed; live `@rc` smoke is maintainer OIDC. Sibling `release-rc.yml` was removed after E404 — npm trusted publishers only authorize `release.yml`.
 
 ---
 
