@@ -4,7 +4,7 @@ Open work after the published **core/web 0.0.6** / **cli 0.0.8** / **tools 0.0.3
 
 Last reconciled: **2026-10-03**.
 
-**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** spine = suspend persistence → debugger L1. Parallel = tree-panel split, `WorkflowStore` move, waterfall perf (measure first; not D3). Briefs in [`tsk-handoffs/`](./tsk-handoffs/).
+**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** DAP, env CoW, `effectId` cursor addressing, `$` estimates, todo-tool placement, json-editor `showErrors`. Spine suspend + debugger L1 landed on the integrator (unpushed).
 
 ---
 
@@ -90,20 +90,20 @@ One long run should combine: nested + isolated workflows, parallel keyed steps, 
 
 ## Priority
 
-Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md) § Lane map. Next provision: § Next forks + [`tsk-handoffs/`](./tsk-handoffs/).
+Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md) § Lane map. Next provision: § Next forks (none open).
 
 | Priority   | Item                                                                                                                 | Lane / fork                     |
 | ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | **done**   | MAGE-style review governance (inventory + cheap CI)                                                                  | `adl-review-governance`         |
 | **done**   | AI SDK upgrade `ai` 5 → 7 + `ai` peerDependency (breaking) — on `main` and `@rc`                                     | `adl-ai-sdk-upgrade`            |
 | **done**   | npm release candidates (`*-rc.N` / `@rc` dist-tag) — Publish RC job in `release.yml`                                 | `adl-npm-release-candidates`    |
-| **done**   | EffectGate at tools materialize (E) — UI Allow/Deny + `ctx.requestApproval` still deferred                           | E                               |
+| **done**   | EffectGate at tools materialize (E) — inspector Allow/Deny + `ctx.requestApproval`                                   | E                               |
 | **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias; `effectId` not persisted                                | `adl-retry-from-cursor`         |
 | **done**   | SuspendStore persistence + resume (`WorkflowStore.createSuspend` / `resolveSuspend`, `suspended` run status)         | `adl-suspend-persistence`       |
-| **spine**  | Step debugger L1–L3 on suspend substrate                                                                             | `adl-debugger-l1`               |
-| **P3**     | Split `workflow-tree-panel.tsx` (keep INP comparators)                                                               | `adl-split-workflow-tree-panel` |
+| **done**   | Step debugger L1 on suspend substrate (Pause / Continue / Step; no DAP)                                              | `adl-debugger-l1`               |
+| **done**   | Split `workflow-tree-panel.tsx` (keep INP comparators)                                                               | `adl-split-workflow-tree-panel` |
 | **done**   | Move `WorkflowStore` to `stores/`                                                                                    | `adl-move-workflow-store`       |
-| **P3**     | Waterfall lag: measure INP + streaming; reduce dual-pane DOM (not D3-first)                                          | `adl-waterfall-perf`            |
+| **done**   | Waterfall lag: CSS axis vars (measure in [`waterfall-perf-plan.md`](./waterfall-perf-plan.md))                       | `adl-waterfall-perf`            |
 | **design** | Shepherd-shaped execution control + step debugger (design locked)                                                    | A (done as design)              |
 | **P1**     | Per-call model override + episode `{ modelId, provider }` (§1)                                                       | C                               |
 | **done**   | MCP client `ToolProvider` (§2)                                                                                       | D                               |

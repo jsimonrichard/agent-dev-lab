@@ -1,12 +1,12 @@
 # Structural cleanup (after this release)
 
-**Status:** Open. Publish is no longer a blocker. Last reconciled: **2026-10-03**. Each item is its own `tsk` fork under [`tsk-handoffs/`](./tsk-handoffs/).
+**Status:** Split + `WorkflowStore` move landed (2026-10-03). Remaining: json-editor `showErrors`, `tool-sandboxing.md` trim. Last reconciled: **2026-10-03**.
 
 These are the structures called out in the pre-release review. They are worth changing, and they are not release blockers. Each item is its own later change.
 
 ## `workflow-tree-panel.tsx`
 
-`apps/web/src/components/app/workflow-tree-panel.tsx` is about 2,000 lines: the tree, the waterfall, row menus, and the memo comparators (`workflowRowLooksSame`, `stepRowLooksSame`, `nestedRunRowLooksSame`, `episodeRowLooksSame`) live in one file. HANDOFF: [`tsk-handoffs/adl-split-workflow-tree-panel.md`](./tsk-handoffs/adl-split-workflow-tree-panel.md).
+`apps/web/src/components/app/workflow-tree-panel.tsx` is a re-export; tree + waterfall live under `workflow-tree/`. Memo comparators stayed. Live clock uses CSS axis vars ([`waterfall-perf-plan.md`](./waterfall-perf-plan.md)).
 
 The shared `PanelRowMenu` replaced per-row menus. The comparators restate visible fields because that is what got settled wide-tree clicks under 200ms. Splitting the file is fine only if those two stay intact.
 
@@ -24,7 +24,7 @@ A later edit should stop drilling the flag by hand. It should not start showing 
 
 The surface that grew is [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts): `seedRetryAttempt`, `materializeAttemptRun`, `materializeAttemptStep`, `listStepRecords`, `listDescendantRuns`. A custom store implements every one of them. Do not add another required method family on top. The revisit is already in [`retry-side-effects.md`](./retry-side-effects.md).
 
-**Status (folder move, 2026-10-03):** `WorkflowStore` and its in-memory / SQLite implementations live in `packages/core/src/stores/` next to `MessageStore`. Observer interfaces stay in `observability/`. HANDOFF: [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md).
+**Status (folder move, 2026-10-03):** `WorkflowStore` and its in-memory / SQLite implementations live in `packages/core/src/stores/` next to `MessageStore`. Observer interfaces stay in `observability/`.
 
 ## `notes/tool-sandboxing.md`
 

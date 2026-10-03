@@ -1,7 +1,7 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
-**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); suspend persistence landed (`t36a26405`); cursor replay / debugger remain later.
-**Parent plan:** this file. **Next provision:** `tsk task fork` + HANDOFFs under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work; landed orch briefs were deleted).
+**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); `WorkflowStore` suspend + inspection debugger L1 landed on the integrator stack (2026-10-03). DAP / env CoW remain later.
+**Parent plan:** this file. **Next provision:** none open under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work; landed briefs were deleted).
 **Governance (beforehand):** [`mage-governance.md`](./mage-governance.md) — wave 0 review-capacity conversion.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
 
@@ -336,50 +336,29 @@ A–J were provisioned via orch; those lane briefs were removed after the work l
 
 ## Next forks (`tsk task fork` + HANDOFF)
 
-Open briefs live under [`tsk-handoffs/`](./tsk-handoffs/). Landed HANDOFFs (governance, effect-gate-tools, retry-from-cursor, AI SDK, npm RC) were deleted.
+No open briefs. The 2026-10-03 stack (store move → tree split → waterfall CSS axis → suspend persistence → debugger L1) is on the integrator.
 
-| Order | Fork id (suggested)       | HANDOFF                                                                                | Concern                                                                                |
-| ----- | ------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 0     | `adl-review-governance`   | —                                                                                      | **Shipped** (`t7e08c6c7`) — inventory, session first-writer-wins, layer ESLint         |
-| 1     | `adl-effect-gate-tools`   | —                                                                                      | **Shipped** (Lane E). Residual: UI Allow/Deny + suspend wiring                         |
-| 2     | `adl-retry-from-cursor`   | —                                                                                      | **API landed** — `seedRetryFromCursor`; `fromStepId` wrapper; `effectId` not persisted |
-| 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | **API landed** — `WorkflowStore` suspend methods + `suspended` status; UI Allow/Deny   |
-| 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                             |
+| Order | Fork id                         | Concern                                                                                                    |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 0     | `adl-review-governance`         | **Shipped** (`t7e08c6c7`)                                                                                  |
+| 1     | `adl-effect-gate-tools`         | **Shipped** (Lane E). Residual: `ctx.requestApproval` is now wired; DAP still later                        |
+| 2     | `adl-retry-from-cursor`         | **API landed** — `seedRetryFromCursor`; `effectId` not persisted                                           |
+| 3     | `adl-suspend-persistence`       | **Shipped** (`t36a26405`) — `WorkflowStore` suspend + inspector Allow/Deny                                 |
+| 4     | `adl-debugger-l1`               | **Shipped** (`tca825881`) — Pause / Continue / Step on the same store; no DAP                              |
+| —     | `adl-split-workflow-tree-panel` | **Shipped** (`t877b5370`)                                                                                  |
+| —     | `adl-move-workflow-store`       | **Shipped** (`ta7c2bdf7`)                                                                                  |
+| —     | `adl-waterfall-perf`            | **Shipped** (`td705fa38`) — CSS axis vars; numbers in [`waterfall-perf-plan.md`](./waterfall-perf-plan.md) |
 
-**Parallel (not on the spine):**
-
-| Fork                            | HANDOFF                                                                                            | Concern                                            |
-| ------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `adl-split-workflow-tree-panel` | [`tsk-handoffs/adl-split-workflow-tree-panel.md`](./tsk-handoffs/adl-split-workflow-tree-panel.md) | Split tree panel; keep INP comparators             |
-| `adl-move-workflow-store`       | [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md)             | **Shipped** — `WorkflowStore` in `stores/`         |
-| `adl-waterfall-perf`            | [`tsk-handoffs/adl-waterfall-perf.md`](./tsk-handoffs/adl-waterfall-perf.md)                       | Measure then cut dual-pane DOM cost (not D3-first) |
-
-Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim. AI SDK 5→7 and npm RCs shipped (`main` + `@rc`).
-
-**Provisioned (2026-10-03)** from integrator `tde88a16b`:
-
-| Fork                            | tsk id      |
-| ------------------------------- | ----------- |
-| `adl-suspend-persistence`       | `t36a26405` |
-| `adl-debugger-l1`               | `tca825881` |
-| `adl-split-workflow-tree-panel` | `t877b5370` |
-| `adl-move-workflow-store`       | `ta7c2bdf7` |
-| `adl-waterfall-perf`            | `td705fa38` |
-
-**Example:**
-
-```bash
-tsk task fork --handoff notes/tsk-handoffs/adl-suspend-persistence.md adl-suspend-persistence
-```
+Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim, DAP, env CoW, `effectId` cursor addressing.
 
 ---
 
 ## Gaps / not done
 
-- Tools `execute()` wrap over `EffectGate` = **landed** (Lane E). Tool path still throws if a gate returns suspend without `parkingEffectGate`.
-- `SuspendStore` persistence and `suspended` run status (decision 6) — **landed** on `WorkflowStore` (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`). `ctx.requestApproval` parks until resolve. Inspector Allow/Deny calls `resolveSuspend`.
-- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing and inspector effect-id picker not started.
-- Debugger UI / DAP server — not started.
+- Tools `execute()` wrap over `EffectGate` = **landed**. Runtime `effectGate` is `parkingEffectGate` (debugger handler then host). Bare gates still throw if they return suspend.
+- `WorkflowStore` suspend (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`) + `suspended` run status — **landed**. Inspector Allow/Deny.
+- Inspection debugger L1 (Pause / Continue / Step) — **landed** on the same store; in-process `SuspendStore` duplicate **deleted**. DAP server — not started.
+- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing not started.
 - Env CoW research (§4) — not started.
 - Wave 0 governance inventory + cheap alignments — **shipped** (`t7e08c6c7`). Changeset-presence CI still deferred (see [`mage-governance.md`](./mage-governance.md) inventory #5).
 - Session `workflowRunId` overwrite on nested episode registration — **fixed** in wave 0.

@@ -25,7 +25,7 @@ When a plan or note is fully landed, **delete it** (or shrink it to remaining op
 | [`mage-governance.md`](./mage-governance.md)               | MAGE-style review capacity — wave 0 shipped; remaining spine is suspend → debugger          |
 | [`ai-sdk-upgrade.md`](./ai-sdk-upgrade.md)                 | Landed: Vercel `ai` / `@ai-sdk/*` v7 as core peers                                          |
 | [`npm-release-candidates.md`](./npm-release-candidates.md) | Registry RCs: `*-rc.N` / `@rc` via Changesets `pre` + Publish RC workflow                   |
-| [`tsk-handoffs/`](./tsk-handoffs/)                         | Open `tsk task fork` briefs (spine + tree split, store move, waterfall perf)                |
+| [`tsk-handoffs/`](./tsk-handoffs/)                         | Empty — landed fork briefs deleted                                                          |
 | [`human-validation.md`](./human-validation.md)             | Pre-publish checklist                                                                       |
 | [`tool-sandboxing.md`](./tool-sandboxing.md)               | `@agent-dev-lab/tools` threat model, remaining approval / macOS work                        |
 | [`inspection-ui.md`](./inspection-ui.md)                   | Control vs data plane, SSE, deferred streaming-tool UI                                      |
