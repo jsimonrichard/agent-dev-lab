@@ -1,6 +1,5 @@
 /**
  * Contract tests for MessageStore / WorkflowStore implementations.
- * Message stores live in this folder; workflow stores live under observability/.
  */
 
 import { mkdtemp } from "node:fs/promises";
@@ -10,12 +9,12 @@ import path from "node:path";
 import { describe, expect, it } from "bun:test";
 
 import { createAdlRuntime } from "../runtime/create";
-import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
-import { sqliteWorkflowStore } from "../observability/sqlite-workflow-store";
 import { inMemoryMessageStore } from "./in-memory";
 import { sqliteMessageStore } from "./sqlite";
 import type { MessageStore } from "./types";
-import type { WorkflowStore } from "../observability/workflow-store";
+import { inMemoryWorkflowStore } from "./in-memory-workflow-store";
+import { sqliteWorkflowStore } from "./sqlite-workflow-store";
+import type { WorkflowStore } from "./workflow-store";
 import { EVENT_SCHEMA_VERSION } from "../observability/events";
 
 async function uniqueDbPath(): Promise<string> {

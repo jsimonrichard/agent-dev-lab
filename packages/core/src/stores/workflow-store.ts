@@ -5,8 +5,8 @@ import type {
   StepRecord,
   StepSlot,
   WorkflowRunSummary,
-} from "./events";
-import type { TokenUsage } from "./token-usage";
+} from "../observability/events";
+import type { TokenUsage } from "../observability/token-usage";
 import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,

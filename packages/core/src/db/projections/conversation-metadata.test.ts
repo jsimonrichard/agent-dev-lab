@@ -5,7 +5,7 @@ import path from "node:path";
 import { convertArrayToReadableStream } from "ai/test";
 import { describe, expect, it } from "bun:test";
 
-import { sqliteWorkflowStore } from "../../observability/sqlite-workflow-store";
+import { sqliteWorkflowStore } from "../../stores/sqlite-workflow-store";
 import { createTestRuntime } from "../../runtime/create-test";
 import { sqliteConversationMetadataStore } from "../../stores/conversation-metadata";
 

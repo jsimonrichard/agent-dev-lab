@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { createAdlRuntime } from "../runtime/create";
-import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
+import { inMemoryWorkflowStore } from "../stores/in-memory-workflow-store";
 import { createWorkflow } from "./create";
 import { resolveAttemptChildRunId } from "./retry-attempt";
 import type { RetryAttempt } from "./retry-attempt";

@@ -351,7 +351,7 @@ Open briefs live under [`tsk-handoffs/`](./tsk-handoffs/). Landed HANDOFFs (gove
 | Fork                            | HANDOFF                                                                                            | Concern                                            |
 | ------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `adl-split-workflow-tree-panel` | [`tsk-handoffs/adl-split-workflow-tree-panel.md`](./tsk-handoffs/adl-split-workflow-tree-panel.md) | Split tree panel; keep INP comparators             |
-| `adl-move-workflow-store`       | [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md)             | Move `WorkflowStore` into `stores/`                |
+| `adl-move-workflow-store`       | [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md)             | **Shipped** — `WorkflowStore` in `stores/`         |
 | `adl-waterfall-perf`            | [`tsk-handoffs/adl-waterfall-perf.md`](./tsk-handoffs/adl-waterfall-perf.md)                       | Measure then cut dual-pane DOM cost (not D3-first) |
 
 Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim. AI SDK 5→7 and npm RCs shipped (`main` + `@rc`).

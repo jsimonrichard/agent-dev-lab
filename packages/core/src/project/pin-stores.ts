@@ -1,5 +1,5 @@
 import type { MessageStore } from "../stores/types";
-import type { WorkflowStore } from "../observability/workflow-store";
+import type { WorkflowStore } from "../stores/workflow-store";
 import type { RuntimeServices } from "../runtime/types";
 import type { AdlProjectConfig } from "./config";
 

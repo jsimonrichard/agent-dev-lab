@@ -1,5 +1,7 @@
 # HANDOFF — adl-move-workflow-store
 
+**Status:** Implemented 2026-10-03. `WorkflowStore` lives in `packages/core/src/stores/`. Observer interfaces remain in `observability/`.
+
 ## Goal
 
 Move `WorkflowStore` and its in-memory / SQLite implementations from `packages/core/src/observability/` to `packages/core/src/stores/`. Persistence, not observer sink.

@@ -38,8 +38,6 @@ export type {
   WorkflowObserver,
   WorkflowObservers,
 } from "./observers";
-export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
-export { sqliteWorkflowStore } from "./sqlite-workflow-store";
 export {
   inMemoryEventLog,
   InMemoryEventLog,
@@ -47,12 +45,6 @@ export {
 } from "./in-memory-event-log";
 export type { InMemoryEventLogOptions } from "./in-memory-event-log";
 export type { EventLog, ListLoggedEventsFilter, LoggedRunEvent } from "./event-log";
-export type {
-  AgentEpisodeSummary,
-  ListEventsFilter,
-  ListEventsScope,
-  WorkflowStore,
-} from "./workflow-store";
 export { EVENT_SCHEMA_VERSION } from "./events";
 export {
   computeEpisodeTiming,

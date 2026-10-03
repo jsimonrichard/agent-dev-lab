@@ -5,7 +5,7 @@ import type { Agent, AgentDefinition } from "../agent/types";
 import type { MessageStore } from "../stores/types";
 import type { ConversationForkLineage } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
-import type { WorkflowStore } from "../observability/workflow-store";
+import type { WorkflowStore } from "../stores/workflow-store";
 import type { CreateToolFromAgentOptions, DefaultToolInput } from "../tools/from-agent";
 import type { CreateToolFromWorkflowOptions } from "../tools/from-workflow";
 import type { Template, TemplateConfig } from "../template/types";

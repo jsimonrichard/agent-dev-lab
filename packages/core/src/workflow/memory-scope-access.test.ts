@@ -3,7 +3,7 @@ import { convertArrayToReadableStream } from "ai/test";
 
 import { createTestRuntime } from "../runtime/create-test";
 import type { AdlRuntime } from "../runtime/types";
-import type { WorkflowStore } from "../observability/workflow-store";
+import type { WorkflowStore } from "../stores/workflow-store";
 import { mockLanguageModel } from "../test/mock-language-model";
 
 function workflowStore(adl: AdlRuntime): WorkflowStore {

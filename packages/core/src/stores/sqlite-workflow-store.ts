@@ -24,15 +24,15 @@ import type {
   RunEventType,
   StepRecord,
   WorkflowRunSummary,
-} from "./events";
+} from "../observability/events";
 import type {
   AgentEpisodeSummary,
   ListEventsFilter,
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
-import { toTokenUsage } from "./token-usage";
-import type { SqliteStoreOptions } from "../stores/sqlite";
+import { toTokenUsage } from "../observability/token-usage";
+import type { SqliteStoreOptions } from "./sqlite";
 import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,

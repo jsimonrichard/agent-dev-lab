@@ -120,7 +120,7 @@ export const workflowRunTags = sqliteTable(
   ],
 );
 
-/** Matches {@link AgentEpisodeSummary.status} in `observability/workflow-store.ts`. */
+/** Matches {@link AgentEpisodeSummary.status} in `stores/workflow-store.ts`. */
 export const AGENT_EPISODE_STATUSES = ["running", "ok", "error"] as const;
 
 /**

@@ -5,7 +5,7 @@ import type {
   StepRecord,
   StepSlot,
   WorkflowRunSummary,
-} from "./events";
+} from "../observability/events";
 import type {
   AgentEpisodeSummary,
   ListEventsFilter,

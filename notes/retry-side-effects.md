@@ -26,7 +26,7 @@ This is not the [memory pipeline](./memory-pipeline.md). That shapes the list se
 
 ## Revisit `WorkflowStore` first
 
-Do this before the mutation record becomes more methods on [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts).
+Do this before the mutation record becomes more methods on [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts).
 
 The interface is already the persistence port and the retry write-back port. `seedRetryAttempt` on the in-memory and SQLite stores delegates to `seedRetryAttemptOnStore`, which then calls `materializeAttemptRun` and `materializeAttemptStep` on that same store. `listDescendantRuns` and `listStepRecords` were added the same way. A custom store implements every one of them.
 

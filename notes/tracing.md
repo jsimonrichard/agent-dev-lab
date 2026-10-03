@@ -4,7 +4,7 @@ How ADL fits with **OpenTelemetry** — no parallel tracing API in `@agent-dev-l
 
 **Status:** Workflow / step / agent boundaries start OTel spans (`withActiveSpan`); `RunRecorder` also mirrors run events onto the active span. Agent `streamText` calls forward AI SDK `telemetry` (OpenTelemetry, not Vercel analytics) via `createAdlRuntime({ telemetry })`, which registers peer `@ai-sdk/otel`. Install an exporter in the application; ADL does not ship a parallel tracing API.
 
-Related: [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
+Related: [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts), [workflows guide](../apps/docs/src/content/docs/core/workflows.md), [`RunEvent`](../packages/core/src/observability/events.ts), [AI SDK notes](../packages/core/src/index.ts).
 
 ---
 
@@ -89,7 +89,7 @@ The episode inspector surfaces the same numbers next to token usage.
 | **`WorkflowObserver` / `AgentObserver`** | Push-only adapters (stdout, bespoke backends), or bridging {@link RunEvent} to another system                            |
 | **Both**                                 | Common: ADL activates context for user OTel; an observer exports the same run events to SQLite/SSE for the inspection UI |
 
-An OTel-backed observer can map `onEvent` payloads to spans without core exposing span types. See [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts) and observers in `packages/core/src/observability/`.
+An OTel-backed observer can map `onEvent` payloads to spans without core exposing span types. See [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts) and observers in `packages/core/src/observability/`.
 
 ---
 

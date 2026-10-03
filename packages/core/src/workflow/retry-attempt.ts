@@ -6,7 +6,7 @@ import type {
   StepRecord,
   WorkflowRunSummary,
 } from "../observability/events";
-import type { WorkflowStore } from "../observability/workflow-store";
+import type { WorkflowStore } from "../stores/workflow-store";
 
 export type SeedRetryAttemptArgs = {
   /** Run that contains the target step (any run in its forest). */

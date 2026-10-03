@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 
 import { ensureAdlSchema } from "../db";
 
-import { sqliteWorkflowStore } from "./sqlite-workflow-store";
+import { sqliteWorkflowStore } from "../stores/sqlite-workflow-store";
 import { EVENT_SCHEMA_VERSION } from "./events";
 
 type PragmaColumn = { name: string };

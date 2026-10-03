@@ -22,9 +22,9 @@ A later edit should stop drilling the flag by hand. It should not start showing 
 
 `packages/core/src/workflow/retry-attempt.ts` is one seed algorithm. Leave it as one algorithm.
 
-The surface that grew is [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts): `seedRetryAttempt`, `materializeAttemptRun`, `materializeAttemptStep`, `listStepRecords`, `listDescendantRuns`. A custom store implements every one of them. Do not add another required method family on top. The revisit is already in [`retry-side-effects.md`](./retry-side-effects.md).
+The surface that grew is [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts): `seedRetryAttempt`, `materializeAttemptRun`, `materializeAttemptStep`, `listStepRecords`, `listDescendantRuns`. A custom store implements every one of them. Do not add another required method family on top. The revisit is already in [`retry-side-effects.md`](./retry-side-effects.md).
 
-[`WorkflowStore`](../packages/core/src/observability/workflow-store.ts) also sits in the wrong folder. It is not only an observer sink. `getStepOutput` is what a skipped step replays, and `seedRetryAttempt` writes the next attempt. That is the same kind of persistence as [`MessageStore`](../packages/core/src/stores/types.ts), which already lives in `packages/core/src/stores/`. Move `WorkflowStore` and its in-memory and SQLite implementations there. Leave the observer interfaces in `observability/`. This is a move, not a behavior change, and it is separate from the interface revisit above. HANDOFF: [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md).
+**Status (folder move, 2026-10-03):** `WorkflowStore` and its in-memory / SQLite implementations live in `packages/core/src/stores/` next to `MessageStore`. Observer interfaces stay in `observability/`. HANDOFF: [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md).
 
 ## `notes/tool-sandboxing.md`
 

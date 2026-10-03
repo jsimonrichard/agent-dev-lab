@@ -1,7 +1,7 @@
 import type { AgentMemoryConfig } from "../agent/types";
 import { inMemoryMessageStore } from "../stores/in-memory";
 import { trackMessageStoreAccess } from "../stores/track-access";
-import { inMemoryWorkflowStore } from "../observability/in-memory-workflow-store";
+import { inMemoryWorkflowStore } from "../stores/in-memory-workflow-store";
 import { TemplateEngine } from "../template/engine";
 import { WorkflowContextScope } from "../workflow/workflow-context-scope";
 import type { AdlRuntimeConfig, AdlRuntimeOverrides, RuntimeServices } from "./types";

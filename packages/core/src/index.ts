@@ -147,17 +147,23 @@ export type {
 export {
   CUSTOM_MESSAGE_STORE_KIND,
   inMemoryMessageStore,
+  inMemoryWorkflowStore,
   inspectMessageStoreKind,
   sqliteConversationMetadataStore,
   sqliteInspectorAgentSettingsStore,
   sqliteMessageStore,
+  sqliteWorkflowStore,
 } from "./stores";
 export type {
+  AgentEpisodeSummary,
   ConversationFork,
   ConversationMetadataRecord,
   InspectorAgentSettingsRecord,
+  ListEventsFilter,
+  ListEventsScope,
   MessageStore,
   SqliteStoreOptions,
+  WorkflowStore,
 } from "./stores";
 export {
   DEFAULT_EVENT_LOG_MAX_EVENTS,
@@ -166,15 +172,12 @@ export {
   computeEpisodeTimingByAgentCallId,
   inMemoryEventLog,
   InMemoryEventLog,
-  inMemoryWorkflowStore,
   isEpisodeTimingEvent,
-  sqliteWorkflowStore,
   sumTokenUsage,
   toTokenUsage,
   unionIntervalMs,
 } from "./observability";
 export type {
-  AgentEpisodeSummary,
   EpisodeTiming,
   EpisodeTimingSourceEvent,
   EventLog,
@@ -193,8 +196,6 @@ export type {
   ConversationEventBase,
   ConversationForkedEvent,
   ConversationForkLineage,
-  ListEventsFilter,
-  ListEventsScope,
   ListLoggedEventsFilter,
   RunEvent,
   RunEventOfType,
@@ -207,7 +208,6 @@ export type {
   WorkflowRunEventBase,
   WorkflowRunSummary,
   WorkflowStartedEvent,
-  WorkflowStore,
   WorkflowTitleSetEvent,
   AgentTitleSetEvent,
 } from "./observability";

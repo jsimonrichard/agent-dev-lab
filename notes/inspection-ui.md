@@ -6,7 +6,7 @@ How the TanStack Start inspection UI talks to the runtime, plus **takeaways** fr
 
 Still open: template playground, a dedicated token-debug pane, registry “run a tool manually,” and the questions at the bottom. Backlog: [`near-term-roadmap.md`](./near-term-roadmap.md).
 
-Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/observability/workflow-store.ts), [AI SDK notes](../packages/core/src/index.ts).
+Related: [`RunEvent`](../packages/core/src/observability/events.ts), [`WorkflowStore`](../packages/core/src/stores/workflow-store.ts), [AI SDK notes](../packages/core/src/index.ts).
 
 ---
 

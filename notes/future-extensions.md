@@ -253,5 +253,5 @@ UI-written columns moved into the log as events first.
 
 - [x] Document only (this file + cross-links)
 - [x] Ship **structured output** on agents without extensions ([agents guide](../apps/docs/src/content/docs/core/agents.md))
-- [x] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/observability/workflow-store.ts))
+- [x] Ship **`WorkflowStore`** run/step I/O ([`WorkflowStore`](../packages/core/src/stores/workflow-store.ts))
 - [ ] Defer `ctx.requestApproval`, extension registry, RAG package, stateful code-execution tool
