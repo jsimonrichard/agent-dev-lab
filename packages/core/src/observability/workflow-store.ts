@@ -10,6 +10,7 @@ import type { TokenUsage } from "./token-usage";
 import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
+  ForkFromCursorArgs,
   RetryAttempt,
   SeedRetryAttemptArgs,
 } from "../workflow/retry-attempt";
@@ -120,7 +121,14 @@ export interface WorkflowStore {
   listAgentEpisodes(filter?: { agentId?: string; limit?: number }): Promise<AgentEpisodeSummary[]>;
 
   /**
-   * Seed a new attempt forest from a prior `(fromWorkflowRunId, fromStepId)`.
+   * Seed a new attempt forest from a {@link import("../effect/types").TraceCursor}.
+   * Step-boundary cursors (`stepId`) are supported. `effectId` / `runSeq` throw
+   * until effect intents are persisted. Does not mutate the prior attempt.
+   */
+  seedRetryFromCursor(args: ForkFromCursorArgs): Promise<RetryAttempt>;
+
+  /**
+   * Compatibility: seed from `(fromWorkflowRunId, fromStepId)` via a step-boundary cursor.
    * Throws if `fromStepId` is unknown. Does not mutate the prior attempt.
    */
   seedRetryAttempt(args: SeedRetryAttemptArgs): Promise<RetryAttempt>;

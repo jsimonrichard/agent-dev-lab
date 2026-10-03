@@ -92,6 +92,7 @@ export type {
   PriorChildLink,
   RetryAttempt,
   SeedRetryAttemptArgs,
+  ForkFromCursorArgs,
   StepFn,
   StepIdentity,
   StepOptions,
@@ -106,6 +107,7 @@ export {
   computeReExecStepIds,
   resolveAttemptChildRunId,
   seedRetryAttemptOnStore,
+  seedRetryFromCursorOnStore,
 } from "./workflow";
 
 export {

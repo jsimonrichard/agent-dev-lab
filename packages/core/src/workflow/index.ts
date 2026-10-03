@@ -16,6 +16,7 @@ export type {
 export type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
+  ForkFromCursorArgs,
   PriorChildLink,
   RetryAttempt,
   SeedRetryAttemptArgs,
@@ -24,4 +25,5 @@ export {
   computeReExecStepIds,
   resolveAttemptChildRunId,
   seedRetryAttemptOnStore,
+  seedRetryFromCursorOnStore,
 } from "./retry-attempt";

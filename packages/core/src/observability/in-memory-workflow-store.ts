@@ -16,7 +16,7 @@ import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
 } from "../workflow/retry-attempt";
-import { seedRetryAttemptOnStore } from "../workflow/retry-attempt";
+import { seedRetryAttemptOnStore, seedRetryFromCursorOnStore } from "../workflow/retry-attempt";
 import { stepSlotKey } from "../db/projections/step-records";
 
 type StepKey = string;
@@ -354,6 +354,10 @@ export class InMemoryWorkflowStore implements WorkflowStore {
       return episodes.slice(0, filter.limit);
     }
     return episodes;
+  }
+
+  seedRetryFromCursor(args: Parameters<WorkflowStore["seedRetryFromCursor"]>[0]) {
+    return seedRetryFromCursorOnStore(this, args);
   }
 
   seedRetryAttempt(args: Parameters<WorkflowStore["seedRetryAttempt"]>[0]) {

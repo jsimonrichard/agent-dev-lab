@@ -37,7 +37,7 @@ import type {
   AttemptRunMaterialization,
   AttemptStepMaterialization,
 } from "../workflow/retry-attempt";
-import { seedRetryAttemptOnStore } from "../workflow/retry-attempt";
+import { seedRetryAttemptOnStore, seedRetryFromCursorOnStore } from "../workflow/retry-attempt";
 
 function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, string[]> {
   const tagsByRun = new Map<string, string[]>();
@@ -338,6 +338,10 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
         .orderBy(desc(agentEpisodes.startedAt));
       const rows = (filter?.limit !== undefined ? query.limit(filter.limit) : query).all();
       return rows.map(toEpisodeSummary);
+    },
+
+    seedRetryFromCursor(args) {
+      return seedRetryFromCursorOnStore(this, args);
     },
 
     seedRetryAttempt(args) {

@@ -1,3 +1,4 @@
+import type { TraceCursor } from "../effect/types";
 import { createId } from "../internal/ids";
 import type {
   MemoryScopeSnapshot,
@@ -13,6 +14,31 @@ export type SeedRetryAttemptArgs = {
   /** Step to retry from; unknown id throws. */
   fromStepId: string;
 };
+
+/** Seed a new attempt from a {@link TraceCursor}. Immutable prior forests stay. */
+export type ForkFromCursorArgs = {
+  cursor: TraceCursor;
+};
+
+function resolveCursorToStep(cursor: TraceCursor): SeedRetryAttemptArgs {
+  if (cursor.effectId !== undefined && cursor.effectId !== "") {
+    throw new Error(
+      "seedRetryFromCursor: effectId is not addressable yet — effect intents are not persisted on the run; pass stepId (UI alias) until intent emission lands",
+    );
+  }
+  const fromStepId = cursor.stepId;
+  if (fromStepId === undefined || fromStepId === "") {
+    throw new Error(
+      "seedRetryFromCursor: cursor.stepId is required until effect intents are persisted",
+    );
+  }
+  if (cursor.runSeq !== undefined) {
+    throw new Error(
+      "seedRetryFromCursor: cursor.runSeq is not implemented; omit it or retry from the step boundary",
+    );
+  }
+  return { fromWorkflowRunId: cursor.workflowRunId, fromStepId };
+}
 
 /** Prior nested-child spawn record used to resolve mapped ids on re-entry. */
 export type PriorChildLink = {
@@ -516,7 +542,19 @@ export function resolveAttemptChildRunId(
 }
 
 /**
+ * Seed a new attempt from a {@link TraceCursor}. Step id is the UI alias for a
+ * step-boundary cursor; `effectId` / `runSeq` fail closed until those streams persist.
+ */
+export async function seedRetryFromCursorOnStore(
+  store: WorkflowStore,
+  args: ForkFromCursorArgs,
+): Promise<RetryAttempt> {
+  return seedRetryAttemptOnStore(store, resolveCursorToStep(args.cursor));
+}
+
+/**
  * Seed a new attempt on `store`: materialize replayed runs/steps, return attempt handle.
+ * Compatibility wrapper: `{ fromWorkflowRunId, fromStepId }` → step-boundary cursor.
  */
 export async function seedRetryAttemptOnStore(
   store: WorkflowStore,

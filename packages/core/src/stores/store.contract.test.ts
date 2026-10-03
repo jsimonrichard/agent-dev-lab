@@ -246,6 +246,37 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(await store.listEvents({ memoryScope: "fork:nope" })).toEqual([]);
       expect(await store.listEvents({ agentCallId: "call-1" })).toEqual([]);
     });
+
+    it("exposes seedRetryFromCursor as the addressed retry API", async () => {
+      const store = await createStore();
+      const runtime = createAdlRuntime({
+        stores: { workflow: store },
+        loadEnv: false,
+        version: false,
+      });
+      const workflow = runtime.createWorkflow({
+        id: "contract-cursor-retry",
+        run: async (_input, ctx) => {
+          await ctx.step("only", async () => 1);
+          return { ok: true };
+        },
+      });
+      const handle = workflow.run({});
+      await handle.result;
+      const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+      const step = events.find((e) => e.type === "step_finished" && e.name === "only");
+      expect(step?.type).toBe("step_finished");
+      if (step?.type !== "step_finished") {
+        throw new Error("expected step_finished");
+      }
+
+      const attempt = await store.seedRetryFromCursor({
+        cursor: { workflowRunId: handle.workflowRunId, stepId: step.stepId },
+      });
+      expect(attempt.retriesFromRunId).toBe(handle.workflowRunId);
+      expect(attempt.reExecStepIds.has(step.stepId)).toBe(true);
+      expect((await store.getRun(handle.workflowRunId))?.workflowRunId).toBe(handle.workflowRunId);
+    });
   });
 }
 
