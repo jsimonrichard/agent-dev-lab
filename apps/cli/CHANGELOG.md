@@ -1,5 +1,39 @@
 # @agent-dev-lab/cli
 
+## 1.0.0
+
+### Major Changes
+
+- 5467c9c: **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2` (replaces `0.0.x`).
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+### Minor Changes
+
+- 6e695bf: Add a host-only `adl.config` model catalog (`models[]` with factory), inspector next-turn picker, CLI `--model`, and optional `apiKeyEnv` preflight — core still only receives live `LanguageModel` via `AgentRunInput.model`.
+
+### Patch Changes
+
+- Updated dependencies [5467c9c]
+- Updated dependencies [d458df4]
+- Updated dependencies [07f75a9]
+- Updated dependencies [6e695bf]
+- Updated dependencies [52db055]
+- Updated dependencies [c7ff0e3]
+- Updated dependencies [b0ce1e4]
+- Updated dependencies [96def5e]
+- Updated dependencies [9296894]
+- Updated dependencies [e84a42a]
+  - @agent-dev-lab/core@1.0.0
+  - @agent-dev-lab/web@1.0.0
+
 ## 0.0.8
 
 ### Patch Changes

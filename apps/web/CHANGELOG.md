@@ -1,5 +1,39 @@
 # @agent-dev-lab/web
 
+## 1.0.0
+
+### Major Changes
+
+- 5467c9c: **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2` (replaces `0.0.x`).
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+### Minor Changes
+
+- 6e695bf: Add a host-only `adl.config` model catalog (`models[]` with factory), inspector next-turn picker, CLI `--model`, and optional `apiKeyEnv` preflight — core still only receives live `LanguageModel` via `AgentRunInput.model`.
+
+### Patch Changes
+
+- 07f75a9: Add `computeEpisodeTiming` (also `@agent-dev-lab/core/episode-timing` for client-safe import) for tool-wait vs LLM-active from run events, and surface it on the episode inspector.
+- 52db055: Fix false 404s on workflow-linked conversation scopes. Session hydration no longer latches “done” before episode registration, so concurrent loaders can resolve `${workflowRunId}:suffix` (and nested) scopes that exist only as episodes. Decode `%3A` in agent location paths.
+- b0ce1e4: Workflow-run sidebar token totals include nested child runs in the same parent forest, not only agents on that run's own `workflowRunId`.
+- 9296894: Show live preliminary tool-result payloads on pending chat tool cards via the existing SSE path.
+- e84a42a: Give waterfall timespan bars a 4px CSS min-width so short steps stay visible without padding stored durations.
+- Updated dependencies [5467c9c]
+- Updated dependencies [d458df4]
+- Updated dependencies [07f75a9]
+- Updated dependencies [6e695bf]
+- Updated dependencies [c7ff0e3]
+- Updated dependencies [96def5e]
+  - @agent-dev-lab/core@1.0.0
+
 ## 0.0.6
 
 ### Patch Changes
