@@ -36,4 +36,4 @@ First-party step debugger: pause at effect/step boundaries, inspect state, conti
 
 ## Handoff notes
 
-Depends on: `adl-suspend-persistence`. Parallel later: env CoW, DAP polish.
+Depends on: `adl-suspend-persistence` for durable waiters. **L1 inspection pause (2026-10-03):** in-process `SuspendStore` + `debugSession` on `RuntimeServices`; no DAP server.

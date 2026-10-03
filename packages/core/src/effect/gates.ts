@@ -1,4 +1,4 @@
-import type { EffectGate } from "./types";
+import type { EffectGate, EffectHandler } from "./types";
 
 /**
  * Explicit accept-all gate for tests, CI, and permissive local hosts.
@@ -6,6 +6,13 @@ import type { EffectGate } from "./types";
  */
 export const allowAllGate: EffectGate = {
   handle() {
+    return Promise.resolve({ action: "allow" });
+  },
+};
+
+/** Same policy as {@link allowAllGate}, as a handler for {@link composeEffectHandlers}. */
+export const allowAllHandler: EffectHandler = {
+  onIntent() {
     return Promise.resolve({ action: "allow" });
   },
 };

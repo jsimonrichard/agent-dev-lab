@@ -1,7 +1,9 @@
 export { composeEffectHandlers, EFFECT_GATE_UNDECIDED_REASON } from "./compose";
-export { allowAllGate } from "./gates";
+export { allowAllGate, allowAllHandler } from "./gates";
 export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./park";
 export type { ParkOnSuspend } from "./park";
+export { createDebugSession } from "./debug-session";
+export type { DebugSession } from "./debug-session";
 export type {
   EffectDecision,
   EffectGate,
@@ -10,9 +12,10 @@ export type {
   EffectKind,
   EffectOutcome,
   Reversibility,
+  SettledEffectDecision,
   SuspendHandle,
-  SuspendReason,
   SuspendRecord,
+  SuspendReason,
   SuspendResolveDecision,
   TraceCursor,
 } from "./types";

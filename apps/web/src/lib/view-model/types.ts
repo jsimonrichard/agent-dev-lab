@@ -96,7 +96,9 @@ export type RunEventType =
   | "run_suspended"
   | "run_resumed"
   | "agent_failed"
-  | "run_title_set";
+  | "run_title_set"
+  | "effect_suspended"
+  | "effect_resumed";
 
 export interface RunEventBase {
   runSeq: number;
@@ -213,6 +215,22 @@ export interface RunTitleSetEvent extends RunEventBase {
   title: string;
 }
 
+export interface EffectSuspendedEvent extends RunEventBase {
+  type: "effect_suspended";
+  handleId: string;
+  reason: string;
+  intentKind: string;
+  intentId: string;
+  stepId?: string | null;
+  payload: JsonValue;
+}
+
+export interface EffectResumedEvent extends RunEventBase {
+  type: "effect_resumed";
+  handleId: string;
+  action: string;
+}
+
 export interface AgentFailedEvent extends RunEventBase {
   type: "agent_failed";
   stepId: string;
@@ -247,7 +265,9 @@ export type RunEvent =
   | RunCancelledEvent
   | RunSuspendedEvent
   | RunResumedEvent
-  | RunTitleSetEvent;
+  | RunTitleSetEvent
+  | EffectSuspendedEvent
+  | EffectResumedEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";
 
@@ -401,6 +421,14 @@ export interface RunViewState {
    * covered the retry point; only that beginning is copied.
    */
   copiedPrefixMs?: number;
+  /** Cooperative pause (debugger or approval) parked on SuspendStore. */
+  pause?: {
+    handleId: string;
+    reason: string;
+    intentKind: string;
+    stepId?: string | null;
+    payload: JsonValue;
+  };
 }
 
 export type ChatTextPart = {

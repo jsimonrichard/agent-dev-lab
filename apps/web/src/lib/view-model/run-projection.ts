@@ -89,6 +89,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
   let finishedAt: string | undefined;
   let lastSeq = 0;
   let title: string | undefined;
+  let pause: RunViewState["pause"];
 
   for (const event of events) {
     if (event.runSeq <= lastSeq) continue;
@@ -218,26 +219,52 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
         output = event.output;
         finishedAt = event.at;
         settleOpenWork(stepMap, "completed", event.at);
+        pause = undefined;
         break;
       case "run_failed":
         status = "failed";
         error = event.error;
         finishedAt = event.at;
         settleOpenWork(stepMap, "failed", event.at);
+        pause = undefined;
         break;
       case "run_cancelled":
         status = "cancelled";
         finishedAt = event.at;
         settleOpenWork(stepMap, "completed", event.at);
+        pause = undefined;
         break;
       case "run_suspended":
         status = "suspended";
+        pause = {
+          handleId: event.handleId,
+          reason: event.reason,
+          intentKind:
+            typeof event.payload === "object" && event.payload && "kind" in event.payload
+              ? String((event.payload as { kind?: unknown }).kind ?? "")
+              : "",
+          stepId: null,
+          payload: event.payload ?? null,
+        };
         break;
       case "run_resumed":
         status = "running";
+        pause = undefined;
         break;
       case "run_title_set":
         title = event.title;
+        break;
+      case "effect_suspended":
+        pause = {
+          handleId: event.handleId,
+          reason: event.reason,
+          intentKind: event.intentKind,
+          stepId: event.stepId,
+          payload: event.payload,
+        };
+        break;
+      case "effect_resumed":
+        pause = undefined;
         break;
       case "step_failed": {
         const step = stepMap.get(event.stepId);
@@ -274,6 +301,7 @@ export function buildRunViewState(runId: string, events: RunEvent[]): RunViewSta
     startedAt,
     finishedAt,
     title,
+    pause,
   };
 }
 

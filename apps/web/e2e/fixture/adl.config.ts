@@ -7,9 +7,10 @@ import { toolLoopAgent } from "./src/agents/tool-loop-agent";
 import { hangForRetry } from "./src/workflows/hang-for-retry";
 import { retryLineage } from "./src/workflows/retry-lineage";
 import { retryNestLeaf, retryNestedLineage } from "./src/workflows/retry-nested-lineage";
-import { suspendApproval } from "./src/workflows/suspend-approval";
 import { tickBurst } from "./src/workflows/tick-burst";
 import { wideTree } from "./src/workflows/wide-tree";
+import { suspendApproval } from "./src/workflows/suspend-approval";
+import { slowSteps } from "./src/workflows/slow-steps";
 
 const agents: AnyAgent[] = [echoAgent, toolLoopAgent, failAgent];
 
@@ -30,5 +31,6 @@ export default {
     wideTree,
     tickBurst,
     suspendApproval,
+    slowSteps,
   ],
 } satisfies AdlProjectConfig;

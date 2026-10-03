@@ -2,6 +2,8 @@ import type { LanguageModel, Tool, ToolSet } from "ai";
 import type { z } from "zod";
 
 import type { Agent, AgentDefinition } from "../agent/types";
+import type { DebugSession } from "../effect/debug-session";
+import type { EffectGate } from "../effect/types";
 import type { MessageStore } from "../stores/types";
 import type { ConversationForkLineage } from "../observability/events";
 import type { AgentObservers, WorkflowObservers } from "../observability/observers";
@@ -61,6 +63,13 @@ export type AdlTelemetrySettings = AdlOpenTelemetrySettings;
 
 /** Options for {@link createAdlRuntime}. */
 export type AdlRuntimeConfig = AdlRuntimeOptions & {
+  /**
+   * Host policy after the debugger handler. Defaults to {@link allowAllGate}.
+   * Wrapped with the process debugger + {@link import("../effect/park").parkingEffectGate} on
+   * {@link RuntimeServices.effectGate}. Tool factories still require an
+   * explicit gate argument — pass `runtime.services.effectGate` to share this chain.
+   */
+  effectGate?: EffectGate;
   defaults?: AdlRuntimeDefaults;
   /** Merged under each agent's `tools` (agent keys win). */
   tools?: ToolSet;
@@ -104,6 +113,13 @@ export type RuntimeServices = {
   observers: RuntimeObservers;
   templateEngine: TemplateEngine;
   workflowContextScope: WorkflowContextScope;
+  /** L1–L3 pause policy; composed onto {@link effectGate}. */
+  debugSession: DebugSession;
+  /**
+   * Settling gate: debugger handler, then the host gate (default allow-all).
+   * `suspend` decisions park on {@link RuntimeStores.workflow} instead of returning to callers.
+   */
+  effectGate: EffectGate;
   defaults: AdlRuntimeDefaults;
   tools: ToolSet;
   /** OpenTelemetry / AI SDK `telemetry` (not Vercel product telemetry). */

@@ -2,6 +2,8 @@ import type { ModelMessage } from "ai";
 
 import type {
   EffectIntent,
+  EffectKind,
+  SettledEffectDecision,
   SuspendHandle,
   SuspendReason,
   SuspendResolveDecision,
@@ -175,6 +177,25 @@ export type WorkflowTitleSetEvent = WorkflowRunEventBase & {
   title: string;
 };
 
+/** Parked at the effect gate (`SuspendStore.create`). Shared by approval and debugger. */
+export type EffectSuspendedEvent = WorkflowRunEventBase & {
+  type: "effect_suspended";
+  handle: SuspendHandle;
+  intent: {
+    id: string;
+    kind: EffectKind;
+    stepId?: string | null;
+    payload: unknown;
+  };
+};
+
+/** `SuspendStore.resolve` (or abort while waiting) unparked the intent. */
+export type EffectResumedEvent = WorkflowRunEventBase & {
+  type: "effect_resumed";
+  handleId: string;
+  decision: SettledEffectDecision;
+};
+
 export type AgentStartedEvent = AgentEventBase & {
   type: "agent_started";
   agentId: string;
@@ -330,7 +351,9 @@ export type RunEvent =
   | AgentTextDeltaEvent
   | AgentMessagesCommittedEvent
   | AgentTitleSetEvent
-  | ConversationForkedEvent;
+  | ConversationForkedEvent
+  | EffectSuspendedEvent
+  | EffectResumedEvent;
 
 export type RunEventType = RunEvent["type"];
 
@@ -354,7 +377,9 @@ export type WorkflowObserverEvent =
   | StepSkippedEvent
   | StepFailedEvent
   | WorkflowCustomEvent
-  | WorkflowTitleSetEvent;
+  | WorkflowTitleSetEvent
+  | EffectSuspendedEvent
+  | EffectResumedEvent;
 
 /** Agent episodes — may omit `workflowRunId` when not started from a workflow. */
 export type AgentObserverEvent =

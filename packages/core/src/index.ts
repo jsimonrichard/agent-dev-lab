@@ -46,10 +46,17 @@ export { err, fromAsyncThrowable, fromThrowable, ok, unwrap, unwrapErr } from ".
 export type { Err, Ok, Result } from "./result";
 export type { MaybePromise } from "./maybe-promise";
 
-export { allowAllGate, composeEffectHandlers, EFFECT_GATE_UNDECIDED_REASON } from "./effect";
+export {
+  allowAllGate,
+  allowAllHandler,
+  composeEffectHandlers,
+  EFFECT_GATE_UNDECIDED_REASON,
+} from "./effect";
 export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./effect";
 export type { ParkOnSuspend } from "./effect";
+export { createDebugSession } from "./effect";
 export type {
+  DebugSession,
   EffectDecision,
   EffectGate,
   EffectHandler,
@@ -57,9 +64,10 @@ export type {
   EffectKind,
   EffectOutcome,
   Reversibility,
+  SettledEffectDecision,
   SuspendHandle,
-  SuspendReason,
   SuspendRecord,
+  SuspendReason,
   SuspendResolveDecision,
   TraceCursor,
 } from "./effect";
@@ -201,6 +209,8 @@ export type {
   ConversationEventBase,
   ConversationForkedEvent,
   ConversationForkLineage,
+  EffectResumedEvent,
+  EffectSuspendedEvent,
   ListLoggedEventsFilter,
   RunEvent,
   RunEventOfType,

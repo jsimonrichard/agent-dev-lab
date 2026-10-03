@@ -179,7 +179,9 @@ export class RunRecorder {
       event.type === "workflow_resumed" ||
       event.type.startsWith("step_") ||
       event.type === "custom" ||
-      event.type === "workflow_title_set"
+      event.type === "workflow_title_set" ||
+      event.type === "effect_suspended" ||
+      event.type === "effect_resumed"
     );
   }
 

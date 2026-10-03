@@ -288,4 +288,49 @@ describe("buildRunViewState", () => {
     expect(episodes.find((e) => e.episodeId === "ep-researcher")?.status).toBe("running");
     expect(episodes.find((e) => e.episodeId === "ep-researcher")?.streamingText).toBe("partial");
   });
+
+  it("tracks an effect-gate pause until resume", () => {
+    const suspended: RunEvent[] = [
+      {
+        runSeq: 1,
+        runId: "run-1",
+        type: "run_started",
+        at: AT,
+        workflowId: "slow-steps",
+        input: {},
+      },
+      {
+        runSeq: 2,
+        runId: "run-1",
+        type: "effect_suspended",
+        at: AT,
+        handleId: "h1",
+        reason: "debugger",
+        intentKind: "step",
+        intentId: "i1",
+        stepId: "s1",
+        payload: { name: "tick" },
+      },
+    ];
+    expect(buildRunViewState("run-1", suspended).pause).toEqual({
+      handleId: "h1",
+      reason: "debugger",
+      intentKind: "step",
+      stepId: "s1",
+      payload: { name: "tick" },
+    });
+    expect(
+      buildRunViewState("run-1", [
+        ...suspended,
+        {
+          runSeq: 3,
+          runId: "run-1",
+          type: "effect_resumed",
+          at: AT,
+          handleId: "h1",
+          action: "allow",
+        },
+      ]).pause,
+    ).toBeUndefined();
+  });
 });

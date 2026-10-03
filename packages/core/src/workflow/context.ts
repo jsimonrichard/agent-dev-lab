@@ -1,12 +1,12 @@
 import { raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
-import type { MemoryScopeSnapshot } from "../observability/events";
-import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
-import type { RuntimeServices } from "../runtime/types";
 import { AdlError } from "../errors";
 import { createSuspendHandle, parkUntilResolved } from "../effect/park";
 import type { EffectIntent } from "../effect/types";
+import type { MemoryScopeSnapshot } from "../observability/events";
+import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
+import type { RuntimeServices } from "../runtime/types";
 import { formatStepPathSegment, StepRegistry } from "./step-registry";
 import type { StepOptions, WorkflowContext } from "./types";
 import { retargetMemoryScope, type RetryAttempt } from "./retry-attempt";
@@ -201,6 +201,14 @@ export class WorkflowContextImpl implements WorkflowContext {
       ...(impure ? { pure: false as const } : {}),
     });
 
+    await settleStepEnter(this, {
+      stepId,
+      name,
+      key,
+      path,
+      impure,
+    });
+
     const childCtx = createChildWorkflowContext(this, {
       stepId,
       parentStepId: parentId,
@@ -360,4 +368,48 @@ export function refreshWorkflowContext(
 
 export function createWorkflowContext(options: WorkflowContextOptions): WorkflowContextImpl {
   return new WorkflowContextImpl(options);
+}
+
+async function settleStepEnter(
+  ctx: WorkflowContextImpl,
+  step: {
+    stepId: string;
+    name: string;
+    key: string | undefined;
+    path: string[];
+    impure: boolean;
+  },
+): Promise<void> {
+  const intent: EffectIntent = {
+    id: createId(),
+    kind: "step",
+    reversibility: step.impure ? "irreversible" : "compensable",
+    workflowRunId: ctx.workflowRunId,
+    stepId: step.stepId,
+    payload: { name: step.name, key: step.key, path: step.path, phase: "enter" },
+  };
+  const decision = await ctx.services.effectGate.handle(intent);
+  switch (decision.action) {
+    case "allow":
+      return;
+    case "deny":
+      throw new AdlError("INVALID_CONTEXT", `Step enter denied: ${decision.reason}`);
+    case "rewrite":
+      throw new AdlError(
+        "INVALID_CONTEXT",
+        "EffectGate rewrite is not supported for kind: step intents",
+      );
+    case "suspend":
+      throw new AdlError(
+        "INVALID_CONTEXT",
+        "Runtime effectGate returned suspend; wrap with parkingEffectGate so suspend persists",
+      );
+    default: {
+      const _exhaustive: never = decision;
+      throw new AdlError(
+        "INVALID_CONTEXT",
+        `EffectGate returned an unknown decision: ${JSON.stringify(_exhaustive)}`,
+      );
+    }
+  }
 }

@@ -12,6 +12,8 @@ export type {
   ConversationEventBase,
   ConversationForkedEvent,
   ConversationForkLineage,
+  EffectResumedEvent,
+  EffectSuspendedEvent,
   RunEvent,
   RunEventOfType,
   RunEventType,

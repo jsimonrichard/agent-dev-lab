@@ -72,7 +72,7 @@ Lane E already landed required gates in tools — “document fail-closed if E n
 
 ## Later waves (after current A–J land + wave 0)
 
-See [`execution-control-plan.md`](./execution-control-plan.md) § Next forks. Spine remaining: suspend persistence → debugger L1. Parallel: `$` / todo when free.
+See [`execution-control-plan.md`](./execution-control-plan.md) § Next forks. Spine remaining: suspend persistence. Parallel: `$` / todo when free.
 
 ---
 

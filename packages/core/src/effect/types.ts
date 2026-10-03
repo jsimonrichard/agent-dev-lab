@@ -60,6 +60,9 @@ export type EffectDecision =
   | { action: "rewrite"; payload: unknown }
   | { action: "suspend"; handle: SuspendHandle };
 
+/** Gate result after a suspend has been resolved (or never parked). */
+export type SettledEffectDecision = Exclude<EffectDecision, { action: "suspend" }>;
+
 /**
  * Optional policy step in a handler chain. Return `undefined` to defer to the
  * next handler. When every handler defers, {@link composeEffectHandlers} denies.

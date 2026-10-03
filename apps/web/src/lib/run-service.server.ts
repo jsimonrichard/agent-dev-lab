@@ -453,6 +453,36 @@ export async function cancelWorkflowRun(runId: string): Promise<{ cancelled: boo
   return { cancelled: true };
 }
 
+export async function pauseWorkflowRun(runId: string): Promise<{ paused: boolean }> {
+  const runtime = await getAdlRuntime();
+  runtime.services.debugSession.pause(runId);
+  return { paused: true };
+}
+
+export async function continueWorkflowDebug(args: {
+  runId: string;
+  mode: "continue" | "step";
+}): Promise<{ handleId: string }> {
+  const runtime = await getAdlRuntime();
+  const store = await getWorkflowStore();
+  const pending = await store.listPendingSuspends({ workflowRunId: args.runId });
+  if (pending.length === 0) {
+    throw new AdlError("INVALID_CONTEXT", `No pending suspend for workflow run ${args.runId}`);
+  }
+  if (pending.length > 1) {
+    throw new AdlError(
+      "INVALID_CONTEXT",
+      `Workflow run ${args.runId} has ${pending.length} pending suspends; expected one`,
+    );
+  }
+  const record = pending[0]!;
+  if (args.mode === "step") {
+    runtime.services.debugSession.armStepOver(args.runId);
+  }
+  await store.resolveSuspend(record.handle.id, { action: "allow" });
+  return { handleId: record.handle.id };
+}
+
 /**
  * Seed a new attempt forest from `stepId` on `runId` and re-enter the forest root
  * workflow with the prior root input.

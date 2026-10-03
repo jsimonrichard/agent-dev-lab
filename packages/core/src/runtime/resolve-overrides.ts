@@ -1,4 +1,9 @@
 import type { AgentMemoryConfig } from "../agent/types";
+import { composeEffectHandlers } from "../effect/compose";
+import { createDebugSession } from "../effect/debug-session";
+import { allowAllGate } from "../effect/gates";
+import { parkingEffectGate } from "../effect/park";
+import type { EffectGate, EffectHandler } from "../effect/types";
 import { inMemoryMessageStore } from "../stores/in-memory";
 import { trackMessageStoreAccess } from "../stores/track-access";
 import { inMemoryWorkflowStore } from "../stores/in-memory-workflow-store";
@@ -28,15 +33,36 @@ export function resolveDefinitionServices(
   };
 }
 
+function gateAsHandler(gate: EffectGate): EffectHandler {
+  return {
+    onIntent(intent) {
+      return gate.handle(intent);
+    },
+  };
+}
+
 export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServices {
   const workflowContextScope = new WorkflowContextScope();
+  const debugSession = createDebugSession();
+  const hostGate = config.effectGate ?? allowAllGate;
+  const inner = composeEffectHandlers([debugSession.handler, gateAsHandler(hostGate)]);
+  const workflowStore = config.stores?.workflow ?? inMemoryWorkflowStore();
+  const effectGate: EffectGate = {
+    handle(intent) {
+      return parkingEffectGate(inner, {
+        store: workflowStore,
+        recorder: workflowContextScope.peekRunRecorder(),
+        signal: workflowContextScope.peek()?.signal,
+      }).handle(intent);
+    },
+  };
   return {
     stores: {
       message: trackMessageStoreAccess(
         config.stores?.message ?? inMemoryMessageStore(),
         workflowContextScope,
       ),
-      workflow: config.stores?.workflow ?? inMemoryWorkflowStore(),
+      workflow: workflowStore,
     },
     observers: {
       workflows: config.observers?.workflows ?? [],
@@ -44,6 +70,8 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     },
     templateEngine: new TemplateEngine(),
     workflowContextScope,
+    debugSession,
+    effectGate,
     defaults: config.defaults ?? {},
     tools: config.tools ?? {},
     telemetry: config.telemetry,
@@ -74,6 +102,8 @@ export function resolveRuntimeOverrides(
     },
     templateEngine: base.templateEngine,
     workflowContextScope: base.workflowContextScope,
+    debugSession: base.debugSession,
+    effectGate: base.effectGate,
     defaults: base.defaults,
     tools: base.tools,
     telemetry: base.telemetry,

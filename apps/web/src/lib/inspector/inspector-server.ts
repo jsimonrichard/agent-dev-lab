@@ -19,8 +19,10 @@ import {
   startAgentTurn,
   startWorkflowRun,
   cancelWorkflowRun,
-  retryWorkflowRun,
+  pauseWorkflowRun,
+  continueWorkflowDebug,
   resolveWorkflowSuspend,
+  retryWorkflowRun,
   createStandaloneAgentSession,
   listAgentSessionsForUi,
   renameAgentSession,
@@ -100,6 +102,18 @@ export const cancelInspectionWorkflowRun = createServerFn({ method: "POST" })
   .validator((runId: string) => runId)
   .handler(async ({ data: runId }) => {
     return cancelWorkflowRun(runId);
+  });
+
+export const pauseInspectionWorkflowRun = createServerFn({ method: "POST" })
+  .validator((runId: string) => runId)
+  .handler(async ({ data: runId }) => {
+    return pauseWorkflowRun(runId);
+  });
+
+export const continueInspectionWorkflow = createServerFn({ method: "POST" })
+  .validator((payload: { runId: string; mode: "continue" | "step" }) => payload)
+  .handler(async ({ data }) => {
+    return fromAsyncThrowable(() => continueWorkflowDebug(data));
   });
 
 export const retryInspectionWorkflowRun = createServerFn({ method: "POST" })

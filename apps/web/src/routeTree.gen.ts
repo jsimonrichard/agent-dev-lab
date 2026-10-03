@@ -29,6 +29,8 @@ import { Route as ApiRunsRunIdRetryRouteImport } from './routes/api/runs/$runId/
 import { Route as ApiRunsRunIdSuspendRouteImport } from './routes/api/runs/$runId/suspend'
 import { Route as AppAgentAgentIdRunRunIdRouteImport } from './routes/_app/agent/$agentId/run/$runId'
 import { Route as AppWorkflowsWorkflowIdRunRunIdRouteImport } from './routes/_app/workflows/$workflowId/run/$runId'
+import { Route as ApiRunsRunIdDebugPauseRouteImport } from './routes/api/runs/$runId/debug.pause'
+import { Route as ApiRunsRunIdSuspendResolveRouteImport } from './routes/api/runs/$runId/suspend.resolve'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -132,6 +134,17 @@ const AppWorkflowsWorkflowIdRunRunIdRoute =
     path: '/workflows/$workflowId/run/$runId',
     getParentRoute: () => AppRoute,
   } as any)
+const ApiRunsRunIdDebugPauseRoute = ApiRunsRunIdDebugPauseRouteImport.update({
+  id: '/debug/pause',
+  path: '/debug/pause',
+  getParentRoute: () => ApiRunsRunIdRoute,
+} as any)
+const ApiRunsRunIdSuspendResolveRoute =
+  ApiRunsRunIdSuspendResolveRouteImport.update({
+    id: '/resolve',
+    path: '/resolve',
+    getParentRoute: () => ApiRunsRunIdSuspendRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -148,11 +161,13 @@ export interface FileRoutesByFullPath {
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
   '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
-  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRoute
+  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRouteWithChildren
   '/agent/$agentId/': typeof AppAgentAgentIdIndexRoute
   '/workflows/$workflowId/': typeof AppWorkflowsWorkflowIdIndexRoute
   '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
   '/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
+  '/api/runs/$runId/debug/pause': typeof ApiRunsRunIdDebugPauseRoute
+  '/api/runs/$runId/suspend/resolve': typeof ApiRunsRunIdSuspendResolveRoute
 }
 export interface FileRoutesByTo {
   '/api/events': typeof ApiEventsRoute
@@ -169,11 +184,13 @@ export interface FileRoutesByTo {
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
   '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
-  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRoute
+  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRouteWithChildren
   '/agent/$agentId': typeof AppAgentAgentIdIndexRoute
   '/workflows/$workflowId': typeof AppWorkflowsWorkflowIdIndexRoute
   '/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
   '/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
+  '/api/runs/$runId/debug/pause': typeof ApiRunsRunIdDebugPauseRoute
+  '/api/runs/$runId/suspend/resolve': typeof ApiRunsRunIdSuspendResolveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -192,11 +209,13 @@ export interface FileRoutesById {
   '/api/agent-runs/$memoryScope/events': typeof ApiAgentRunsMemoryScopeEventsRoute
   '/api/runs/$runId/events': typeof ApiRunsRunIdEventsRoute
   '/api/runs/$runId/retry': typeof ApiRunsRunIdRetryRoute
-  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRoute
+  '/api/runs/$runId/suspend': typeof ApiRunsRunIdSuspendRouteWithChildren
   '/_app/agent/$agentId/': typeof AppAgentAgentIdIndexRoute
   '/_app/workflows/$workflowId/': typeof AppWorkflowsWorkflowIdIndexRoute
   '/_app/agent/$agentId/run/$runId': typeof AppAgentAgentIdRunRunIdRoute
   '/_app/workflows/$workflowId/run/$runId': typeof AppWorkflowsWorkflowIdRunRunIdRoute
+  '/api/runs/$runId/debug/pause': typeof ApiRunsRunIdDebugPauseRoute
+  '/api/runs/$runId/suspend/resolve': typeof ApiRunsRunIdSuspendResolveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -220,6 +239,8 @@ export interface FileRouteTypes {
     | '/workflows/$workflowId/'
     | '/agent/$agentId/run/$runId'
     | '/workflows/$workflowId/run/$runId'
+    | '/api/runs/$runId/debug/pause'
+    | '/api/runs/$runId/suspend/resolve'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/api/events'
@@ -241,6 +262,8 @@ export interface FileRouteTypes {
     | '/workflows/$workflowId'
     | '/agent/$agentId/run/$runId'
     | '/workflows/$workflowId/run/$runId'
+    | '/api/runs/$runId/debug/pause'
+    | '/api/runs/$runId/suspend/resolve'
   id:
     | '__root__'
     | '/_app'
@@ -263,6 +286,8 @@ export interface FileRouteTypes {
     | '/_app/workflows/$workflowId/'
     | '/_app/agent/$agentId/run/$runId'
     | '/_app/workflows/$workflowId/run/$runId'
+    | '/api/runs/$runId/debug/pause'
+    | '/api/runs/$runId/suspend/resolve'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -416,6 +441,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkflowsWorkflowIdRunRunIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/runs/$runId/debug/pause': {
+      id: '/api/runs/$runId/debug/pause'
+      path: '/debug/pause'
+      fullPath: '/api/runs/$runId/debug/pause'
+      preLoaderRoute: typeof ApiRunsRunIdDebugPauseRouteImport
+      parentRoute: typeof ApiRunsRunIdRoute
+    }
+    '/api/runs/$runId/suspend/resolve': {
+      id: '/api/runs/$runId/suspend/resolve'
+      path: '/resolve'
+      fullPath: '/api/runs/$runId/suspend/resolve'
+      preLoaderRoute: typeof ApiRunsRunIdSuspendResolveRouteImport
+      parentRoute: typeof ApiRunsRunIdSuspendRoute
+    }
   }
 }
 
@@ -457,16 +496,29 @@ const ApiProjectRouteWithChildren = ApiProjectRoute._addFileChildren(
   ApiProjectRouteChildren,
 )
 
+interface ApiRunsRunIdSuspendRouteChildren {
+  ApiRunsRunIdSuspendResolveRoute: typeof ApiRunsRunIdSuspendResolveRoute
+}
+
+const ApiRunsRunIdSuspendRouteChildren: ApiRunsRunIdSuspendRouteChildren = {
+  ApiRunsRunIdSuspendResolveRoute: ApiRunsRunIdSuspendResolveRoute,
+}
+
+const ApiRunsRunIdSuspendRouteWithChildren =
+  ApiRunsRunIdSuspendRoute._addFileChildren(ApiRunsRunIdSuspendRouteChildren)
+
 interface ApiRunsRunIdRouteChildren {
   ApiRunsRunIdEventsRoute: typeof ApiRunsRunIdEventsRoute
   ApiRunsRunIdRetryRoute: typeof ApiRunsRunIdRetryRoute
-  ApiRunsRunIdSuspendRoute: typeof ApiRunsRunIdSuspendRoute
+  ApiRunsRunIdSuspendRoute: typeof ApiRunsRunIdSuspendRouteWithChildren
+  ApiRunsRunIdDebugPauseRoute: typeof ApiRunsRunIdDebugPauseRoute
 }
 
 const ApiRunsRunIdRouteChildren: ApiRunsRunIdRouteChildren = {
   ApiRunsRunIdEventsRoute: ApiRunsRunIdEventsRoute,
   ApiRunsRunIdRetryRoute: ApiRunsRunIdRetryRoute,
-  ApiRunsRunIdSuspendRoute: ApiRunsRunIdSuspendRoute,
+  ApiRunsRunIdSuspendRoute: ApiRunsRunIdSuspendRouteWithChildren,
+  ApiRunsRunIdDebugPauseRoute: ApiRunsRunIdDebugPauseRoute,
 }
 
 const ApiRunsRunIdRouteWithChildren = ApiRunsRunIdRoute._addFileChildren(

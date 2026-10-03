@@ -2,9 +2,9 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { allowAllGate } from "@agent-dev-lab/core";
 import { createWorkspaceToolProvider, resolveDefaultSandboxRoot } from "@agent-dev-lab/tools";
 
+import { adl } from "../adl";
 import { bashSafetyCheck } from "../workflows/bash-safety-check";
 
 const playgroundRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -26,9 +26,10 @@ mkdirSync(sandboxRoot, { recursive: true });
  * are missing rather than silently running unsandboxed. Layers the `bash-safety-check`
  * workflow on top as an AI-based check for non-filesystem dangerous intent the sandbox
  * itself can't catch. `LoadedAdlProject` supplies `projectRoot` for pool keying.
+ * Shares the project runtime's settling effect gate so inspector Pause parks tool calls.
  */
 export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
-  effectGate: allowAllGate,
+  effectGate: adl.services.effectGate,
   allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
   safetyCheck: bashSafetyCheck,
@@ -42,7 +43,7 @@ export const sandboxWorkspaceAsrt = createWorkspaceToolProvider({
  * (with and without one) stay exercised.
  */
 export const sandboxWorkspaceNative = createWorkspaceToolProvider({
-  effectGate: allowAllGate,
+  effectGate: adl.services.effectGate,
   allowWrite: [sandboxRoot],
   cwd: sandboxRoot,
   backend: "native",

@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, PanelRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, PanelRight, Pause, Play, RotateCcw, StepForward } from "lucide-react";
 
 import {
   cancelInspectionWorkflowRun,
   fetchChildWorkflowRuns,
   fetchMessagesForWorkflowRun,
   fetchWorkflowRun,
-  retryInspectionWorkflowRun,
+  pauseInspectionWorkflowRun,
+  continueInspectionWorkflow,
   resolveInspectionWorkflowSuspend,
+  retryInspectionWorkflowRun,
 } from "#/lib/inspector/inspector-server";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import {
@@ -718,8 +720,64 @@ export function RunWorkspace({
             {view.status === "suspended" && !offline ? " · waiting" : ""}
             {view.status === "running" && offline ? " · server stopped" : ""}
             {view.status === "suspended" && offline ? " · server stopped" : ""}
+            {view.pause ? " · paused" : ""}
           </p>
         </div>
+        {view.status === "running" && !offline && !view.pause ? (
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="debug-pause"
+            onClick={() => {
+              void (async () => {
+                await pauseInspectionWorkflowRun({ data: summary.runId });
+              })();
+            }}
+          >
+            <Pause className="mr-2 size-4" />
+            Pause
+          </Button>
+        ) : null}
+        {view.status === "suspended" && !offline && view.pause?.reason === "debugger" ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="debug-continue"
+              onClick={() => {
+                void (async () => {
+                  const result = await continueInspectionWorkflow({
+                    data: { runId: summary.runId, mode: "continue" },
+                  });
+                  if (result.isErr) {
+                    setRetryError(result.error);
+                  }
+                })();
+              }}
+            >
+              <Play className="mr-2 size-4" />
+              Continue
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="debug-step"
+              onClick={() => {
+                void (async () => {
+                  const result = await continueInspectionWorkflow({
+                    data: { runId: summary.runId, mode: "step" },
+                  });
+                  if (result.isErr) {
+                    setRetryError(result.error);
+                  }
+                })();
+              }}
+            >
+              <StepForward className="mr-2 size-4" />
+              Step
+            </Button>
+          </>
+        ) : null}
         {view.status === "running" && !offline ? (
           <Button
             variant="outline"
@@ -765,6 +823,19 @@ export function RunWorkspace({
             Retry failed
           </span>
           <ErrorIndicator error={retryError} className="min-w-0 flex-1" />
+        </div>
+      ) : null}
+
+      {view.pause ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-4 py-1.5">
+          <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+            Paused
+          </span>
+          <p className="truncate text-xs text-muted-foreground">
+            {view.pause.reason}
+            {view.pause.intentKind ? ` · ${view.pause.intentKind}` : ""}
+            {view.pause.stepId ? ` · ${view.pause.stepId}` : ""}
+          </p>
         </div>
       ) : null}
 
