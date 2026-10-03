@@ -328,7 +328,7 @@ A–J were provisioned via orch; those lane briefs were removed after the work l
 
 **Still open from that wave:** H `$` estimates; UI Allow/Deny + `ctx.requestApproval` (E follow-up). Session/`workflowRunId` overwrite on nested episodes — **fixed in wave 0**.
 
-**Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, structural cleanup, macOS bash, LSP, `writeFile` mkdir.
+**Not provisioned (open placement / lower urgency):** todo tool (core vs tools), datasets, json-editor `showErrors`, `tool-sandboxing.md` trim, macOS bash, LSP, `writeFile` mkdir, `$` estimates.
 
 **Integrator WC:** tsk task `tde88a16b` holds this plan + governance notes.
 
@@ -346,7 +346,25 @@ Open briefs live under [`tsk-handoffs/`](./tsk-handoffs/). Landed HANDOFFs (gove
 | 3     | `adl-suspend-persistence` | [`tsk-handoffs/adl-suspend-persistence.md`](./tsk-handoffs/adl-suspend-persistence.md) | `SuspendStore` + resume; shared pause for approval + debugger                          |
 | 4     | `adl-debugger-l1`         | [`tsk-handoffs/adl-debugger-l1.md`](./tsk-handoffs/adl-debugger-l1.md)                 | L1–L3 pause/continue in inspection UI on suspend substrate                             |
 
-**Parallel when free (not on the spine):** `$` estimates (H), todo-tool placement. AI SDK 5→7 and npm RCs shipped (`main` + `@rc`).
+**Parallel (not on the spine):**
+
+| Fork                            | HANDOFF                                                                                            | Concern                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `adl-split-workflow-tree-panel` | [`tsk-handoffs/adl-split-workflow-tree-panel.md`](./tsk-handoffs/adl-split-workflow-tree-panel.md) | Split tree panel; keep INP comparators             |
+| `adl-move-workflow-store`       | [`tsk-handoffs/adl-move-workflow-store.md`](./tsk-handoffs/adl-move-workflow-store.md)             | Move `WorkflowStore` into `stores/`                |
+| `adl-waterfall-perf`            | [`tsk-handoffs/adl-waterfall-perf.md`](./tsk-handoffs/adl-waterfall-perf.md)                       | Measure then cut dual-pane DOM cost (not D3-first) |
+
+Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim. AI SDK 5→7 and npm RCs shipped (`main` + `@rc`).
+
+**Provisioned (2026-10-03)** from integrator `tde88a16b`:
+
+| Fork                            | tsk id      |
+| ------------------------------- | ----------- |
+| `adl-suspend-persistence`       | `t36a26405` |
+| `adl-debugger-l1`               | `tca825881` |
+| `adl-split-workflow-tree-panel` | `t877b5370` |
+| `adl-move-workflow-store`       | `ta7c2bdf7` |
+| `adl-waterfall-perf`            | `td705fa38` |
 
 **Example:**
 

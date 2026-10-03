@@ -4,7 +4,7 @@ Open work after the published **core/web 0.0.6** / **cli 0.0.8** / **tools 0.0.3
 
 Last reconciled: **2026-10-03**.
 
-**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** `tsk task fork` + remaining [`tsk-handoffs/`](./tsk-handoffs/) — wave 0 governance **shipped**; then suspend persistence → debugger L1.
+**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** spine = suspend persistence → debugger L1. Parallel = tree-panel split, `WorkflowStore` move, waterfall perf (measure first; not D3). Briefs in [`tsk-handoffs/`](./tsk-handoffs/).
 
 ---
 
@@ -92,27 +92,30 @@ One long run should combine: nested + isolated workflows, parallel keyed steps, 
 
 Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md) § Lane map. Next provision: § Next forks + [`tsk-handoffs/`](./tsk-handoffs/).
 
-| Priority   | Item                                                                                                                 | Lane / fork                  |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| **done**   | MAGE-style review governance (inventory + cheap CI)                                                                  | `adl-review-governance`      |
-| **done**   | AI SDK upgrade `ai` 5 → 7 + `ai` peerDependency (breaking) — on `main` and `@rc`                                     | `adl-ai-sdk-upgrade`         |
-| **done**   | npm release candidates (`*-rc.N` / `@rc` dist-tag) — Publish RC job in `release.yml`                                 | `adl-npm-release-candidates` |
-| **done**   | EffectGate at tools materialize (E) — UI Allow/Deny + `ctx.requestApproval` still deferred                           | E                            |
-| **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias; `effectId` not persisted                                | `adl-retry-from-cursor`      |
-| **spine**  | SuspendStore persistence + resume                                                                                    | `adl-suspend-persistence`    |
-| **spine**  | Step debugger L1–L3 on suspend substrate                                                                             | `adl-debugger-l1`            |
-| **design** | Shepherd-shaped execution control + step debugger (design locked)                                                    | A (done as design)           |
-| **P1**     | Per-call model override + episode `{ modelId, provider }` (§1)                                                       | C                            |
-| **done**   | MCP client `ToolProvider` (§2)                                                                                       | D                            |
-| **done**   | Approval dispatcher for file/bash — effect-gate adapter (§2) — UI Allow/Deny follow-up                               | E                            |
-| **P1**     | Nested-run root signal + memory-scope helpers ([`nested-run-followups.md`](./nested-run-followups.md)) — **shipped** | B                            |
-| **done**   | Model catalog + inspector picker (§1)                                                                                | G                            |
-| **P2**     | `$` estimates for usage (pricing table / Gateway) — nested workflow token rollup **done**                            | H                            |
-| **P2**     | Nested-workflow conversation 404 — triage link vs lookup (§4) — **shipped**                                          | F                            |
-| **P2**     | Inspector polish: tool vs LLM time, waterfall min width, preliminary tool-result UI                                  | I (shipped)                  |
-| **P2**     | Playwright for copied bars, nested expand, and the start-workflow JSON editor — **shipped**                          | J                            |
-| **P2**     | Todo tool — after core-vs-tools placement (§2)                                                                       | —                            |
-| **P2**     | Datasets after organizational-vs-evals (§3); skipped-step file mutations after `WorkflowStore` revisit               | —                            |
-| **P3**     | Message stores beyond an appendable list — runtime restore and the transcript UI (§4)                                | —                            |
-| **P3**     | Structural cleanup after this publish ([`structural-cleanup.md`](./structural-cleanup.md))                           | —                            |
-| **P3**     | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                                                 | —                            |
+| Priority   | Item                                                                                                                 | Lane / fork                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **done**   | MAGE-style review governance (inventory + cheap CI)                                                                  | `adl-review-governance`         |
+| **done**   | AI SDK upgrade `ai` 5 → 7 + `ai` peerDependency (breaking) — on `main` and `@rc`                                     | `adl-ai-sdk-upgrade`            |
+| **done**   | npm release candidates (`*-rc.N` / `@rc` dist-tag) — Publish RC job in `release.yml`                                 | `adl-npm-release-candidates`    |
+| **done**   | EffectGate at tools materialize (E) — UI Allow/Deny + `ctx.requestApproval` still deferred                           | E                               |
+| **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias; `effectId` not persisted                                | `adl-retry-from-cursor`         |
+| **spine**  | SuspendStore persistence + resume                                                                                    | `adl-suspend-persistence`       |
+| **spine**  | Step debugger L1–L3 on suspend substrate                                                                             | `adl-debugger-l1`               |
+| **P3**     | Split `workflow-tree-panel.tsx` (keep INP comparators)                                                               | `adl-split-workflow-tree-panel` |
+| **P3**     | Move `WorkflowStore` to `stores/`                                                                                    | `adl-move-workflow-store`       |
+| **P3**     | Waterfall lag: measure INP + streaming; reduce dual-pane DOM (not D3-first)                                          | `adl-waterfall-perf`            |
+| **design** | Shepherd-shaped execution control + step debugger (design locked)                                                    | A (done as design)              |
+| **P1**     | Per-call model override + episode `{ modelId, provider }` (§1)                                                       | C                               |
+| **done**   | MCP client `ToolProvider` (§2)                                                                                       | D                               |
+| **done**   | Approval dispatcher for file/bash — effect-gate adapter (§2) — UI Allow/Deny follow-up                               | E                               |
+| **P1**     | Nested-run root signal + memory-scope helpers ([`nested-run-followups.md`](./nested-run-followups.md)) — **shipped** | B                               |
+| **done**   | Model catalog + inspector picker (§1)                                                                                | G                               |
+| **P2**     | `$` estimates for usage (pricing table / Gateway) — nested workflow token rollup **done**                            | H                               |
+| **P2**     | Nested-workflow conversation 404 — triage link vs lookup (§4) — **shipped**                                          | F                               |
+| **P2**     | Inspector polish: tool vs LLM time, waterfall min width, preliminary tool-result UI                                  | I (shipped)                     |
+| **P2**     | Playwright for copied bars, nested expand, and the start-workflow JSON editor — **shipped**                          | J                               |
+| **P2**     | Todo tool — after core-vs-tools placement (§2)                                                                       | —                               |
+| **P2**     | Datasets after organizational-vs-evals (§3); skipped-step file mutations after `WorkflowStore` revisit               | —                               |
+| **P3**     | Message stores beyond an appendable list — runtime restore and the transcript UI (§4)                                | —                               |
+| **P3**     | json-editor `showErrors` + `tool-sandboxing.md` trim ([`structural-cleanup.md`](./structural-cleanup.md))            | —                               |
+| **P3**     | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                                                 | —                               |
