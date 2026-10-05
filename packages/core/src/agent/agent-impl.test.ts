@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { ModelMessage } from "ai";
+import { NoObjectGeneratedError, stepCountIs, tool, type ModelMessage } from "ai";
 import { convertArrayToReadableStream } from "ai/test";
-import { tool } from "ai";
 import { z } from "zod";
 
 import { AdlError, isAdlError } from "../errors";
@@ -755,6 +754,140 @@ describe("AgentImpl outputSchema", () => {
     const result = await agent.run({ memoryScope: "notes", user: "score this" }).result;
     expect(result.output).toEqual({ title: "Hello", score: 3 });
     expect(result.text).toContain("Hello");
+  });
+
+  it("returns schema JSON from the final step after a tool call", async () => {
+    const schema = z.object({
+      summary: z.string().default(""),
+      issuesFound: z.array(z.string()).default([]),
+      taskComplete: z.boolean().default(false),
+    });
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: mockLanguageModel({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" }));
+            }
+            return finalTextStream(
+              JSON.stringify({
+                summary: "format! is unsupported",
+                issuesFound: ["format!"],
+                taskComplete: true,
+              }),
+            );
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "structured-after-tools",
+      systemPrompt: "Report findings as JSON.",
+      outputSchema: schema,
+      tools: {
+        read_file: tool({
+          description: "Read a file",
+          inputSchema: z.object({ path: z.string() }),
+          execute: async () => 'fn parse() { format!("{}") }',
+        }),
+      },
+    });
+
+    const result = await agent.run({ memoryScope: "notes", user: "review parse.rs" }).result;
+    expect(result.turns).toBe(2);
+    expect(result.output).toEqual({
+      summary: "format! is unsupported",
+      issuesFound: ["format!"],
+      taskComplete: true,
+    });
+  });
+
+  it("fails the episode when the final answer is prose", async () => {
+    const schema = z.object({
+      summary: z.string().default(""),
+      issuesFound: z.array(z.string()).default([]),
+      taskComplete: z.boolean().default(false),
+    });
+    // A leading `{` is enough for partial-JSON repair to emit `{}`. Parsing
+    // that partial against a schema of defaults used to succeed vacuously.
+    const modelText = "{ not json\n**summary**: format! inside a verified region is unsupported";
+    let call = 0;
+    const adl = createTestRuntime({
+      defaults: {
+        model: mockLanguageModel({
+          doStream: async () => {
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" }));
+            }
+            return finalTextStream(modelText);
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "structured-prose",
+      systemPrompt: "Report findings as JSON.",
+      outputSchema: schema,
+      tools: {
+        read_file: tool({
+          description: "Read a file",
+          inputSchema: z.object({ path: z.string() }),
+          execute: async () => 'fn parse() { format!("{}") }',
+        }),
+      },
+    });
+
+    const handle = agent.run({ memoryScope: "notes", user: "review parse.rs" });
+    await expect(handle.result).rejects.toBeInstanceOf(NoObjectGeneratedError);
+
+    const failed = await adl.services.stores.workflow?.getLatestEvent(
+      { agentCallId: handle.agentCallId },
+      "agent_failed",
+    );
+    expect(failed).toMatchObject({
+      type: "agent_failed",
+      error: {
+        name: "AI_NoObjectGeneratedError",
+        text: modelText,
+      },
+    });
+  });
+
+  it("fails when the step budget ends on a tool call", async () => {
+    const schema = z.object({
+      summary: z.string().default(""),
+      taskComplete: z.boolean().default(false),
+    });
+    const adl = createTestRuntime({
+      defaults: {
+        model: mockLanguageModel({
+          doStream: async () =>
+            toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" })),
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "structured-stopped",
+      systemPrompt: "Report findings as JSON.",
+      outputSchema: schema,
+      tools: {
+        read_file: tool({
+          description: "Read a file",
+          inputSchema: z.object({ path: z.string() }),
+          execute: async () => "fn parse() {}",
+        }),
+      },
+    });
+
+    const handle = agent.run({
+      memoryScope: "notes",
+      user: "review parse.rs",
+      stopWhen: stepCountIs(1),
+    });
+    await expect(handle.result).rejects.toBeInstanceOf(NoObjectGeneratedError);
   });
 });
 

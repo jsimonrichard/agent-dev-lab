@@ -1,4 +1,4 @@
-const EXTRA_KEYS = ["code", "statusCode", "url", "responseBody", "cause"] as const;
+const EXTRA_KEYS = ["code", "statusCode", "url", "responseBody", "cause", "text"] as const;
 
 /** JSON-safe error payload for workflow/agent run events. */
 export function serializeError(error: unknown): unknown {

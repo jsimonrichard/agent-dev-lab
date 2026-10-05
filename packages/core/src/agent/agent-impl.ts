@@ -554,10 +554,6 @@ export class AgentImpl<
       },
     }) as unknown as AgentSdkStreamResult<Tools>;
 
-    const structuredPromise = outputSchema
-      ? readStructuredOutputFromStream(streamResult as unknown as AgentSdkStreamResult)
-      : undefined;
-
     if (fullChannel) {
       for await (const part of streamResult.fullStream) {
         fullChannel.push(part);
@@ -568,9 +564,13 @@ export class AgentImpl<
 
     const text = await streamResult.text;
     const turns = (await streamResult.steps).length;
-    const output = outputSchema
-      ? (outputSchema.parse(await structuredPromise) as TOutput)
-      : (text as TOutput);
+    // `streamText`'s `output` promise parses the final step's complete text
+    // (`parseCompleteOutput`) and rejects with `NoObjectGeneratedError` when
+    // that text is not JSON matching the schema. `partialOutputStream` is a
+    // repaired partial: after a tool loop its last value can be `{}` while
+    // the model answered in prose, and `schema.parse({})` then fills every
+    // `.default()`.
+    const output = outputSchema ? ((await streamResult.output) as TOutput) : (text as TOutput);
 
     let usage: TokenUsage | undefined;
     try {
@@ -621,19 +621,6 @@ export class AgentImpl<
       // Title generation is best-effort and must not fail the conversation turn.
     }
   }
-}
-
-/** AI SDK exposes structured stream output only via partialOutputStream on streamText. */
-async function readStructuredOutputFromStream(stream: AgentSdkStreamResult): Promise<unknown> {
-  let last: unknown;
-  try {
-    for await (const partial of stream.partialOutputStream) {
-      last = partial;
-    }
-  } catch {
-    return undefined;
-  }
-  return last;
 }
 
 function resolveMemoryScope(memoryScope: string | undefined): string {

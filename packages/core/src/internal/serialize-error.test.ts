@@ -20,6 +20,16 @@ describe("serializeError", () => {
     });
   });
 
+  it("includes model text from structured-output failures", () => {
+    const error = Object.assign(new Error("No object generated: could not parse the response."), {
+      name: "AI_NoObjectGeneratedError",
+      text: "**summary**: format! is unsupported",
+    });
+    const serialized = serializeError(error) as Record<string, unknown>;
+    expect(serialized.text).toBe("**summary**: format! is unsupported");
+    expect(serialized.message).toBe("No object generated: could not parse the response.");
+  });
+
   it("includes AdlError codes", () => {
     const error = new AdlError("INVALID_INPUT", "bad input");
     const serialized = serializeError(error) as Record<string, unknown>;

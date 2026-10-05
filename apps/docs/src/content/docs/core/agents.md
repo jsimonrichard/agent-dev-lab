@@ -131,6 +131,8 @@ Volatile turn context belongs in **user** messages, not in the system prompt.
 
 Implementation uses **`streamText`** with `output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
 
+The parsed object is the AI SDK's complete parse of the **final step's** text (`result.output`). If that text is not JSON matching the schema, the episode fails with `NoObjectGeneratedError`. The model's text is on the error's `text` field and on the `agent_failed` event. Zod `.default()` values apply only after a JSON object has parsed. A prose answer, or a partial parse left over from an earlier step, does not become a successful all-defaults result.
+
 ### What Agents Do Not Carry
 
 - **Memory pipeline** — deferred; v1 uses load/append/save directly.

@@ -18,8 +18,10 @@ import type { AgentModelInfo } from "./inspect";
 
 /**
  * AI SDK `streamText` result for an ADL agent episode.
- * Runtime context is unused (empty); structured `Output` brand is not tied to
- * {@link AgentRunResult.output} (that comes from our schema parse / text).
+ * Runtime context is unused (empty). When an output schema is set,
+ * {@link AgentRunResult.output} is this result's `output` promise (the
+ * complete final-step parse). The third type argument stays `any`; the
+ * schema type lives on the agent.
  */
 export type AgentSdkStreamResult<Tools extends ToolSet = ToolSet> = StreamTextResult<
   Tools,
@@ -221,6 +223,11 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
  *
  * **`output`:** typed payload from {@link AgentDefinition.outputSchema}
  * (or a per-call override). When no schema is set, this is the same string as `text`.
+ * When a schema is set, this is the AI SDK's complete parse of the final step's
+ * text. The run rejects with `NoObjectGeneratedError` — raw model text on the
+ * error's `text` field, and on `agent_failed` — when that text is not JSON
+ * matching the schema. Zod field defaults apply only to a JSON object that
+ * parsed; they do not turn prose or a partial parse into a successful result.
  */
 export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   text: string;
