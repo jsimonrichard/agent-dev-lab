@@ -2,7 +2,6 @@ import type { ModelMessage } from "ai";
 
 import type {
   EffectIntent,
-  EffectKind,
   SettledEffectDecision,
   SuspendHandle,
   SuspendReason,
@@ -177,22 +176,23 @@ export type WorkflowTitleSetEvent = WorkflowRunEventBase & {
   title: string;
 };
 
-/** Parked at the effect gate (`SuspendStore.create`). Shared by approval and debugger. */
-export type EffectSuspendedEvent = WorkflowRunEventBase & {
-  type: "effect_suspended";
-  handle: SuspendHandle;
-  intent: {
-    id: string;
-    kind: EffectKind;
-    stepId?: string | null;
-    payload: unknown;
-  };
+/**
+ * Gated effect before {@link import("../effect/types").EffectGate.handle}.
+ * Primary address for {@link import("../effect/types").TraceCursor.effectId}.
+ * Park lifecycle stays on {@link WorkflowSuspendedEvent} / {@link WorkflowResumedEvent}.
+ */
+export type EffectIntentEvent = WorkflowRunEventBase & {
+  type: "effect_intent";
+  intent: EffectIntent;
 };
 
-/** `SuspendStore.resolve` (or abort while waiting) unparked the intent. */
-export type EffectResumedEvent = WorkflowRunEventBase & {
-  type: "effect_resumed";
-  handleId: string;
+/**
+ * Settled gate decision after allow / deny / rewrite (including after a suspend resolves).
+ * Does not replace {@link WorkflowResumedEvent} for run-status unpark.
+ */
+export type EffectSettledEvent = WorkflowRunEventBase & {
+  type: "effect_settled";
+  intentId: string;
   decision: SettledEffectDecision;
 };
 
@@ -352,8 +352,8 @@ export type RunEvent =
   | AgentMessagesCommittedEvent
   | AgentTitleSetEvent
   | ConversationForkedEvent
-  | EffectSuspendedEvent
-  | EffectResumedEvent;
+  | EffectIntentEvent
+  | EffectSettledEvent;
 
 export type RunEventType = RunEvent["type"];
 
@@ -378,8 +378,8 @@ export type WorkflowObserverEvent =
   | StepFailedEvent
   | WorkflowCustomEvent
   | WorkflowTitleSetEvent
-  | EffectSuspendedEvent
-  | EffectResumedEvent;
+  | EffectIntentEvent
+  | EffectSettledEvent;
 
 /** Agent episodes — may omit `workflowRunId` when not started from a workflow. */
 export type AgentObserverEvent =

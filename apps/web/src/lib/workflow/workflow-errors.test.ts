@@ -302,7 +302,7 @@ describe("buildRunViewState", () => {
       {
         runSeq: 2,
         runId: "run-1",
-        type: "effect_suspended",
+        type: "run_suspended",
         at: AT,
         handleId: "h1",
         reason: "debugger",
@@ -325,7 +325,7 @@ describe("buildRunViewState", () => {
         {
           runSeq: 3,
           runId: "run-1",
-          type: "effect_resumed",
+          type: "run_resumed",
           at: AT,
           handleId: "h1",
           action: "allow",

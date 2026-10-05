@@ -96,9 +96,7 @@ export type RunEventType =
   | "run_suspended"
   | "run_resumed"
   | "agent_failed"
-  | "run_title_set"
-  | "effect_suspended"
-  | "effect_resumed";
+  | "run_title_set";
 
 export interface RunEventBase {
   runSeq: number;
@@ -201,6 +199,8 @@ export interface RunSuspendedEvent extends RunEventBase {
   handleId: string;
   reason: "approval" | "debugger" | "policy" | "meta_agent";
   intentId: string;
+  intentKind: string;
+  stepId?: string | null;
   payload?: JsonValue;
 }
 
@@ -213,22 +213,6 @@ export interface RunResumedEvent extends RunEventBase {
 export interface RunTitleSetEvent extends RunEventBase {
   type: "run_title_set";
   title: string;
-}
-
-export interface EffectSuspendedEvent extends RunEventBase {
-  type: "effect_suspended";
-  handleId: string;
-  reason: string;
-  intentKind: string;
-  intentId: string;
-  stepId?: string | null;
-  payload: JsonValue;
-}
-
-export interface EffectResumedEvent extends RunEventBase {
-  type: "effect_resumed";
-  handleId: string;
-  action: string;
 }
 
 export interface AgentFailedEvent extends RunEventBase {
@@ -265,9 +249,7 @@ export type RunEvent =
   | RunCancelledEvent
   | RunSuspendedEvent
   | RunResumedEvent
-  | RunTitleSetEvent
-  | EffectSuspendedEvent
-  | EffectResumedEvent;
+  | RunTitleSetEvent;
 
 export type StepNodeStatus = "running" | "completed" | "failed";
 

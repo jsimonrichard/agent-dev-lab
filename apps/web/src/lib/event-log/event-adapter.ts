@@ -65,6 +65,8 @@ export function adaptCoreEventsForWorkflowRun(
           handleId: event.handle.id,
           reason: event.handle.reason,
           intentId: event.handle.intentId,
+          intentKind: event.intent.kind,
+          stepId: event.intent.stepId,
           payload: asJson(event.intent.payload),
         });
         break;
@@ -227,31 +229,10 @@ export function adaptCoreEventsForWorkflowRun(
           title: event.title,
         });
         break;
-      case "effect_suspended":
-        out.push({
-          runSeq: event.runSeq,
-          runId: event.workflowRunId,
-          type: "effect_suspended",
-          at: event.at,
-          handleId: event.handle.id,
-          reason: event.handle.reason,
-          intentKind: event.intent.kind,
-          intentId: event.intent.id,
-          stepId: event.intent.stepId,
-          payload: asJson(event.intent.payload),
-        });
-        break;
-      case "effect_resumed":
-        out.push({
-          runSeq: event.runSeq,
-          runId: event.workflowRunId,
-          type: "effect_resumed",
-          at: event.at,
-          handleId: event.handleId,
-          action: event.decision.action,
-        });
-        break;
+      case "effect_intent":
+      case "effect_settled":
       case "conversation_forked":
+        // Intent stream is for cursor addressing / later UI; park uses workflow_suspended.
         break;
     }
   }
