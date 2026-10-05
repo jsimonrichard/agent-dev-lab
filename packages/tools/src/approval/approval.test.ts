@@ -17,6 +17,8 @@ import {
   approvalDispatcherAsHandler,
   assertToolAllowed,
   createStickyToolAllowHandler,
+  effectScopeFromToolProviderContext,
+  testToolEffectScope,
   TOOL_SUSPEND_UNSUPPORTED_MESSAGE,
   type ApprovalDispatcher,
 } from "./index.ts";
@@ -25,7 +27,7 @@ import { createBashTool } from "../bash/tools.ts";
 import type { BashExecutor, BashExecutorResult, BashExecutorUpdate } from "../bash/executor.ts";
 
 const toolCallOptions = { toolCallId: "gate-test-call", messages: [] as [], context: {} };
-const effectScope = { workflowRunId: "test-run", agentCallId: "agent-call-1" };
+const effectScope = testToolEffectScope("test-run", { agentCallId: "agent-call-1" });
 
 function denyGate(reason = "denied by test"): EffectGate {
   return {
@@ -143,6 +145,31 @@ describe("assertToolAllowed", () => {
       }),
     ).rejects.toThrow(TOOL_SUSPEND_UNSUPPORTED_MESSAGE);
   });
+
+  it("emits effect_intent then effect_settled around the gate", async () => {
+    const events: Array<{ type: string; intentId?: string }> = [];
+    const scoped = testToolEffectScope("test-run", {
+      agentCallId: "agent-call-1",
+      recordEffect: async (event) => {
+        if (event.type === "effect_intent") {
+          events.push({ type: event.type, intentId: event.intent.id });
+        } else if (event.type === "effect_settled") {
+          events.push({ type: event.type, intentId: event.intentId });
+        }
+      },
+    });
+    await assertToolAllowed({
+      gate: allowAllGate,
+      toolName: "readFile",
+      input: { path: "a.txt" },
+      effectScope: scoped,
+      toolCallId: "tool-call-1",
+    });
+    expect(events).toEqual([
+      { type: "effect_intent", intentId: "tool-call-1" },
+      { type: "effect_settled", intentId: "tool-call-1" },
+    ]);
+  });
 });
 
 describe("tool factories honor EffectGate before side effects", () => {
@@ -223,6 +250,16 @@ describe("approvalDispatcherAsHandler", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("effectScopeFromToolProviderContext", () => {
+  it("fails closed when recordEffect is missing", () => {
+    expect(() =>
+      effectScopeFromToolProviderContext({
+        agentCallId: "call-1",
+      }),
+    ).toThrow(/missing recordEffect/);
   });
 });
 

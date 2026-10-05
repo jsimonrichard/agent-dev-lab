@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { isAdlError, allowAllGate } from "@agent-dev-lab/core";
 
+import { testToolEffectScope } from "../approval/types.ts";
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createSearchTools, globArgv, grepArgv } from "./search";
@@ -120,7 +121,7 @@ describe("createSearchTools", () => {
     expect(() =>
       createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor: stubExecutor(),
         root,
         timeoutMs: 0,
@@ -133,7 +134,7 @@ describe("createSearchTools", () => {
       const executor = stubExecutor();
       const { grep } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor,
         root,
       });
@@ -156,7 +157,7 @@ describe("createSearchTools", () => {
       const executor = stubExecutor();
       const { grep } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor,
         root,
       });
@@ -172,7 +173,7 @@ describe("createSearchTools", () => {
     it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
       const { grep } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor: stubExecutor(),
         root,
       });
@@ -185,7 +186,7 @@ describe("createSearchTools", () => {
     it("rejects an absolute path outside the root when allowRead is omitted", async () => {
       const { grep } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor: stubExecutor(),
         root,
       });
@@ -200,7 +201,7 @@ describe("createSearchTools", () => {
       await symlink(outside, path.join(root, "link"));
       const { grep } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor: stubExecutor(),
         root,
       });
@@ -219,7 +220,7 @@ describe("createSearchTools", () => {
       const executor = stubExecutor();
       const { glob } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor,
         root,
       });

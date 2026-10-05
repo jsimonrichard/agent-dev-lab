@@ -13,6 +13,8 @@ export {
   approvalDispatcherAsHandler,
   createStickyToolAllowHandler,
   effectScopeFromToolProviderContext,
+  silentRecordEffect,
+  testToolEffectScope,
   TOOL_SUSPEND_UNSUPPORTED_MESSAGE,
 } from "./approval";
 export type {

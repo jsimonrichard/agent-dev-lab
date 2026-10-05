@@ -2,6 +2,7 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 
 import type { AgentWorkflowScope } from "../agent/types";
+import type { EffectEventRecorder } from "../effect/gate-with-intent";
 import type { MaybePromise } from "../maybe-promise";
 
 /**
@@ -43,6 +44,12 @@ export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
   /** Absolute ADL project root when known; see {@link RuntimeServices.projectRoot}. */
   projectRoot?: string;
   workflow?: AgentWorkflowScope;
+  /**
+   * Persist `effect_intent` / `effect_settled` for gated tools. Usually
+   * {@link import("../runtime/run-recorder").RunRecorder.emit}. Required by
+   * `@agent-dev-lab/tools` when building {@link import("@agent-dev-lab/tools").ToolEffectScope}.
+   */
+  recordEffect?: EffectEventRecorder["emit"];
 } & ToolProviderContextField<ToolProviderContext>;
 
 /**

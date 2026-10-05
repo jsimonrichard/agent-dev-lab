@@ -1,6 +1,7 @@
 import { allowAllGate } from "@agent-dev-lab/core";
 import { describe, expect, it } from "bun:test";
 
+import { testToolEffectScope } from "../approval/types.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import type {
   BashExecutor,
@@ -64,7 +65,7 @@ describe("createBashTool", () => {
 
     const { bash } = createBashTool({
       effectGate: allowAllGate,
-      effectScope: { workflowRunId: "test" },
+      effectScope: testToolEffectScope(),
       executor,
       cwd: "/workspace",
     });
@@ -87,7 +88,7 @@ describe("createBashTool", () => {
 
     const { bash } = createBashTool({
       effectGate: allowAllGate,
-      effectScope: { workflowRunId: "test" },
+      effectScope: testToolEffectScope(),
       executor,
       cwd: "/workspace",
       timeoutMs: 5_000,
@@ -110,7 +111,7 @@ describe("createBashTool", () => {
     const controller = new AbortController();
     const { bash } = createBashTool({
       effectGate: allowAllGate,
-      effectScope: { workflowRunId: "test" },
+      effectScope: testToolEffectScope(),
       executor,
       cwd: "/workspace",
     });
@@ -130,7 +131,7 @@ describe("createBashTool", () => {
 
     const { bash } = createBashTool({
       effectGate: allowAllGate,
-      effectScope: { workflowRunId: "test" },
+      effectScope: testToolEffectScope(),
       executor,
       cwd: "/workspace",
     });
@@ -154,7 +155,7 @@ describe("createBashTool", () => {
 
     const { bash } = createBashTool({
       effectGate: allowAllGate,
-      effectScope: { workflowRunId: "test" },
+      effectScope: testToolEffectScope(),
       executor,
       cwd: "/workspace",
     });
@@ -169,7 +170,7 @@ describe("createBashTool", () => {
     expect(() =>
       createBashTool({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor,
         cwd: "/workspace",
         timeoutMs: 0,

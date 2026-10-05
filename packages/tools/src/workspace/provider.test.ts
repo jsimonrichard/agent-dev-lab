@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import type { BashExecutor, BashExecutorRunOptions, BashExecutorUpdate } from "../bash/executor";
 import { OMIT_TMP_DIR_SCHEMA_DESCRIPTION } from "../bash/asrt/tmp-dir.ts";
 import { DEFAULT_ALLOWED_DOMAINS } from "../bash/executor-pool.ts";
@@ -36,6 +37,7 @@ function ctx(
     agentId: "test-agent",
     agentCallId: "call-1",
     memoryScope: "test-scope",
+    recordEffect: silentRecordEffect,
     toolProviderContext,
   };
 }

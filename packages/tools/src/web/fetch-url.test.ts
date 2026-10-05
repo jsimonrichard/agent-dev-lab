@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import type { Socket } from "node:net";
 
+import { testToolEffectScope } from "../approval/types.ts";
 import { createFetchUrlTool, type FetchUrlResult, type FetchUrlToolOptions } from "./tools.ts";
 
 /**
@@ -232,7 +233,7 @@ async function fetchPath(
 ): Promise<FetchUrlResult> {
   const fetchUrl = createFetchUrlTool({
     effectGate: allowAllGate,
-    effectScope: { workflowRunId: "test" },
+    effectScope: testToolEffectScope(),
     allowedUrls: [`${main.origin}/**`],
     ...options,
   });
@@ -245,7 +246,7 @@ async function fetchPath(
 async function fetchRaw(url: string, options: FetchUrlTestOverrides = {}): Promise<FetchUrlResult> {
   const fetchUrl = createFetchUrlTool({
     effectGate: allowAllGate,
-    effectScope: { workflowRunId: "test" },
+    effectScope: testToolEffectScope(),
     ...options,
   });
   const execute = fetchUrl.execute;
@@ -470,7 +471,7 @@ describe("fetchUrl", () => {
     it("a glob scoped to one directory allows it and everything under it", async () => {
       const fetchUrl = createFetchUrlTool({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         allowedUrls: [`${main.origin}/scoped/*`],
       });
       const execute = fetchUrl.execute;
@@ -490,7 +491,7 @@ describe("fetchUrl", () => {
     it("that same glob does not reach outside its own directory", async () => {
       const fetchUrl = createFetchUrlTool({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         allowedUrls: [`${main.origin}/scoped/*`],
       });
       const execute = fetchUrl.execute;
@@ -504,7 +505,7 @@ describe("fetchUrl", () => {
     it("a RegExp entry scopes by pattern instead of by path prefix", async () => {
       const fetchUrl = createFetchUrlTool({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         allowedUrls: [new RegExp(`^${main.origin.replace(/[.]/g, "\\.")}/regex-only$`)],
       });
       const execute = fetchUrl.execute;
@@ -527,7 +528,7 @@ describe("fetchUrl", () => {
       // loosen the per-hop re-check in any way.
       const fetchUrl = createFetchUrlTool({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         allowedUrls: [`${main.origin}/scoped/*`],
       });
       const execute = fetchUrl.execute;
@@ -545,7 +546,7 @@ describe("fetchUrl", () => {
         () =>
           createFetchUrlTool({
             effectGate: allowAllGate,
-            effectScope: { workflowRunId: "test" },
+            effectScope: testToolEffectScope(),
             timeoutMs: 0,
           }),
         /timeoutMs must be positive/,
@@ -554,7 +555,7 @@ describe("fetchUrl", () => {
         () =>
           createFetchUrlTool({
             effectGate: allowAllGate,
-            effectScope: { workflowRunId: "test" },
+            effectScope: testToolEffectScope(),
             timeoutMs: -1,
           }),
         /timeoutMs must be positive/,
@@ -563,7 +564,7 @@ describe("fetchUrl", () => {
         () =>
           createFetchUrlTool({
             effectGate: allowAllGate,
-            effectScope: { workflowRunId: "test" },
+            effectScope: testToolEffectScope(),
             maxResponseBytes: 0,
           }),
         /maxResponseBytes must be positive/,
@@ -572,7 +573,7 @@ describe("fetchUrl", () => {
         () =>
           createFetchUrlTool({
             effectGate: allowAllGate,
-            effectScope: { workflowRunId: "test" },
+            effectScope: testToolEffectScope(),
             maxRedirects: -1,
           }),
         /maxRedirects must not be negative/,

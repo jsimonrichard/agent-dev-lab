@@ -6,6 +6,7 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { testToolEffectScope } from "../approval/types.ts";
 import type { BashExecutorUpdate } from "../bash/executor.ts";
 import { createNativeBashExecutor } from "../bash/native-executor.ts";
 import { createSearchTools } from "./search.ts";
@@ -43,7 +44,7 @@ describe("createSearchTools — native executor", () => {
         const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
         const { grep } = createSearchTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           executor,
           root,
         });
@@ -82,7 +83,7 @@ describe("createSearchTools — native executor", () => {
         const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
         const { grep } = createSearchTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           executor,
           root,
         });
@@ -112,7 +113,7 @@ describe("createSearchTools — native executor", () => {
       const executor = createNativeBashExecutor({ allowWrite: [root], allowRead: [root] });
       const { glob } = createSearchTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         executor,
         root,
       });

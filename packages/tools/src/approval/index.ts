@@ -15,6 +15,7 @@ export {
 } from "./dispatcher.ts";
 export { effectScopeFromToolProviderContext } from "./scope.ts";
 export { createStickyToolAllowHandler } from "./sticky.ts";
+export { silentRecordEffect, testToolEffectScope } from "./types.ts";
 export type {
   GatedToolOptions,
   ToolEffectPayload,

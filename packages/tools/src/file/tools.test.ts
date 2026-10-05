@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
+import { testToolEffectScope } from "../approval/types.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import { createFileTools } from "./tools";
 
@@ -30,7 +31,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "hello world");
       const { readFile: readFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       const result = await readFileTool.execute?.({ path: "a.txt" }, toolCallOptions);
@@ -40,7 +41,7 @@ describe("createFileTools", () => {
     it("rejects a missing file", async () => {
       const { readFile: readFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(
@@ -52,7 +53,7 @@ describe("createFileTools", () => {
       await mkdir(path.join(root, "sub"), { recursive: true });
       const { readFile: readFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(readFileTool.execute?.({ path: "sub" }, toolCallOptions)).rejects.toThrow();
@@ -62,7 +63,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "big.txt"), "0123456789");
       const { readFile: readFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
         maxReadBytes: 5,
       });
@@ -72,7 +73,7 @@ describe("createFileTools", () => {
     it("rejects a path that escapes the root when allowRead is omitted (defaults to root)", async () => {
       const { readFile: readFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(
@@ -87,7 +88,7 @@ describe("createFileTools", () => {
         await Bun.write(outsideFile, "out");
         const { readFile: readFileTool } = createFileTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           root,
         });
         await expect(
@@ -105,7 +106,7 @@ describe("createFileTools", () => {
         await Bun.write(outsideFile, "out");
         const { readFile: readFileTool } = createFileTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           root,
           allowRead: UNBOUNDED_ALLOW_READ,
         });
@@ -121,7 +122,7 @@ describe("createFileTools", () => {
     it("creates a new file", async () => {
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       const result = await writeFileTool.execute?.(
@@ -136,7 +137,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "old");
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await writeFileTool.execute?.({ path: "a.txt", content: "new" }, toolCallOptions);
@@ -146,7 +147,7 @@ describe("createFileTools", () => {
     it("rejects when the parent directory doesn't exist", async () => {
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(
@@ -157,7 +158,7 @@ describe("createFileTools", () => {
     it("rejects content over the write byte cap", async () => {
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
         maxWriteBytes: 3,
       });
@@ -174,7 +175,7 @@ describe("createFileTools", () => {
         await symlink(outsideFile, path.join(root, "link.txt"));
         const { writeFile: writeFileTool } = createFileTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           root,
         });
         await expect(
@@ -191,7 +192,7 @@ describe("createFileTools", () => {
       await symlink(path.join(root, "target.txt"), path.join(root, "link.txt"));
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await writeFileTool.execute?.({ path: "link.txt", content: "via-link" }, toolCallOptions);
@@ -202,7 +203,7 @@ describe("createFileTools", () => {
       await mkdir(path.join(root, "allowed"), { recursive: true });
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
         allowWrite: [path.join(root, "allowed")],
       });
@@ -216,7 +217,7 @@ describe("createFileTools", () => {
     it("rejects every write when allowWrite is an empty list", async () => {
       const { writeFile: writeFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
         allowWrite: [],
       });
@@ -231,7 +232,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "the quick brown fox");
       const { editFile: editFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       const result = await editFileTool.execute?.(
@@ -246,7 +247,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "the quick brown fox");
       const { editFile: editFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(
@@ -258,7 +259,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "a a a");
       const { editFile: editFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
       });
       await expect(
@@ -272,7 +273,7 @@ describe("createFileTools", () => {
       await Bun.write(path.join(root, "a.txt"), "hi");
       const { editFile: editFileTool } = createFileTools({
         effectGate: allowAllGate,
-        effectScope: { workflowRunId: "test" },
+        effectScope: testToolEffectScope(),
         root,
         maxWriteBytes: 3,
       });
@@ -292,7 +293,7 @@ describe("createFileTools", () => {
         await symlink(outsideFile, path.join(root, "link.txt"));
         const { editFile: editFileTool } = createFileTools({
           effectGate: allowAllGate,
-          effectScope: { workflowRunId: "test" },
+          effectScope: testToolEffectScope(),
           root,
         });
         await expect(

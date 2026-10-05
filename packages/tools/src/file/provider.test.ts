@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import {
   objectSchemaFieldDescription,
@@ -25,6 +26,7 @@ function ctx(
     agentId: "test-agent",
     agentCallId: "call-1",
     memoryScope: "test-scope",
+    recordEffect: silentRecordEffect,
     toolProviderContext,
   };
 }

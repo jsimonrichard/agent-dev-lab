@@ -1,5 +1,6 @@
 import {
   AdlError,
+  gateWithIntent,
   type EffectDecision,
   type EffectGate,
   type ExtendedToolProviderContext,
@@ -14,6 +15,9 @@ import {
   type MCPTransport,
 } from "@ai-sdk/mcp";
 import { randomUUID } from "node:crypto";
+
+import { effectScopeFromToolProviderContext } from "../approval/scope.ts";
+import type { ToolEffectScope } from "../approval/types.ts";
 
 /** HTTP/SSE config or a custom/stdio {@link MCPTransport} — same union AI SDK accepts. */
 export type McpTransport = MCPClientConfig["transport"];
@@ -36,8 +40,9 @@ export type McpToolEffectPayload = {
  * **Trust boundary:** constructing this provider with a `transport` trusts that MCP server's
  * tools at the agent's privilege level. This package does not sandbox remote MCP side effects.
  * `effectGate` is the only pre-materialize policy hook (allow / deny / rewrite). Suspend is
- * fail-closed until a SuspendStore exists (Lane E / later) — do not omit the gate; tests and
- * permissive hosts pass {@link import("@agent-dev-lab/core").allowAllGate} explicitly.
+ * fail-closed unless the host wraps with `parkingEffectGate`. Requires
+ * {@link ExtendedToolProviderContext.recordEffect} so intents persist. Do not omit the gate;
+ * tests and permissive hosts pass {@link import("@agent-dev-lab/core").allowAllGate} explicitly.
  */
 export interface McpToolProviderOptions {
   /**
@@ -109,11 +114,7 @@ function wrapToolWithGate(
   toolName: string,
   tool: GatedTool,
   effectGate: EffectGate,
-  runScope: {
-    workflowRunId: string;
-    agentCallId: string;
-    stepId: string | null;
-  },
+  effectScope: ToolEffectScope,
 ): GatedTool {
   const originalExecute = tool.execute;
   if (typeof originalExecute !== "function") {
@@ -127,12 +128,29 @@ function wrapToolWithGate(
         id: randomUUID(),
         kind: "tool" as const,
         reversibility: "irreversible" as const,
-        workflowRunId: runScope.workflowRunId,
-        stepId: runScope.stepId,
-        agentCallId: runScope.agentCallId,
+        workflowRunId: effectScope.workflowRunId,
+        stepId: effectScope.stepId,
+        agentCallId: effectScope.agentCallId,
         payload: { toolName, input } satisfies McpToolEffectPayload,
       };
-      const decision = await effectGate.handle(intent);
+      let decision;
+      try {
+        decision = await gateWithIntent({
+          recorder: { emit: effectScope.recordEffect },
+          intent,
+          gate: effectGate,
+        });
+      } catch (error) {
+        if (error instanceof AdlError && error.message.includes("parkingEffectGate")) {
+          throw new AdlError(
+            "INVALID_CONTEXT",
+            "createMcpToolProvider: EffectGate suspend is not parked. Wrap the gate with " +
+              "parkingEffectGate from @agent-dev-lab/core so the call can wait for resolveSuspend.",
+            { cause: error },
+          );
+        }
+        throw error;
+      }
 
       switch (decision.action) {
         case "allow":
@@ -141,12 +159,6 @@ function wrapToolWithGate(
           return deniedToolResult(decision.reason);
         case "rewrite":
           return await originalExecute(resolveRewriteInput(decision, toolName), options);
-        case "suspend":
-          throw new AdlError(
-            "INVALID_CONTEXT",
-            "createMcpToolProvider: EffectGate suspend is not parked. Wrap the gate with " +
-              "parkingEffectGate from @agent-dev-lab/core so the call can wait for resolveSuspend.",
-          );
         default: {
           const _exhaustive: never = decision;
           throw new AdlError(
@@ -162,11 +174,7 @@ function wrapToolWithGate(
 function wrapToolsWithGate(
   tools: ToolSet,
   effectGate: EffectGate,
-  runScope: {
-    workflowRunId: string;
-    agentCallId: string;
-    stepId: string | null;
-  },
+  effectScope: ToolEffectScope,
 ): ToolSet {
   const wrapped: ToolSet = {};
   for (const [name, entry] of Object.entries(tools)) {
@@ -174,7 +182,7 @@ function wrapToolsWithGate(
       name,
       entry as GatedTool,
       effectGate,
-      runScope,
+      effectScope,
     ) as ToolSet[string];
   }
   return wrapped;
@@ -259,14 +267,11 @@ export function createMcpToolProvider(
             : undefined,
       }));
 
-      const workflowRunId = ctx.workflow?.workflowRunId ?? ctx.agentCallId;
-      const stepId = ctx.workflow?.stepId ?? null;
-
-      return wrapToolsWithGate(tools as ToolSet, effectGate, {
-        workflowRunId,
-        agentCallId: ctx.agentCallId,
-        stepId,
-      });
+      return wrapToolsWithGate(
+        tools as ToolSet,
+        effectGate,
+        effectScopeFromToolProviderContext(ctx),
+      );
     },
     async dispose(): Promise<void> {
       if (disposed) {

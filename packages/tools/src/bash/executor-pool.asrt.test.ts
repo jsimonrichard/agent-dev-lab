@@ -6,6 +6,7 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import { bashExecutorPoolSizeForTests, resetBashExecutorPoolForTests } from "./executor-pool.ts";
 import { createBashToolProvider } from "./provider.ts";
 import type { BashExecutorResult } from "./executor.ts";
@@ -39,6 +40,7 @@ async function runBash(
     agentCallId: "call-1",
     memoryScope: "scope",
     projectRoot,
+    recordEffect: silentRecordEffect,
     toolProviderContext: { cwd },
   });
   const gen = bash.execute?.({ command }, toolCallOptions);
@@ -119,6 +121,7 @@ describe("pooled createBashToolProvider (ASRT)", () => {
       agentCallId: "call-2",
       memoryScope: "scope",
       projectRoot: root,
+      recordEffect: silentRecordEffect,
       toolProviderContext: { cwd: sandboxB, allowWrite: [sandboxB] },
     });
     assert.equal(bashExecutorPoolSizeForTests(), 2);

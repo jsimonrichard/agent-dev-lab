@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AdlError, allowAllGate } from "@agent-dev-lab/core";
 import {
   createFetchUrlTool,
+  testToolEffectScope,
   type FetchUrlResult,
   type FetchUrlToolOptions,
 } from "@agent-dev-lab/tools";
@@ -103,7 +104,7 @@ export const fetchUrlDemo = adl.createWorkflow({
         return ctx.step(name, async () => {
           const fetchUrl = createFetchUrlTool({
             effectGate: allowAllGate,
-            effectScope: { workflowRunId: "test" },
+            effectScope: testToolEffectScope(),
             allowedUrls,
           });
           const execute = fetchUrl.execute;
@@ -193,7 +194,7 @@ export const fetchUrlDemo = adl.createWorkflow({
         ? await ctx.step("public-probe", async () => {
             const fetchUrl = createFetchUrlTool({
               effectGate: allowAllGate,
-              effectScope: { workflowRunId: "test" },
+              effectScope: testToolEffectScope(),
             });
             const execute = fetchUrl.execute;
             if (!execute) {

@@ -10,6 +10,7 @@ import {
 import { Experimental_StdioMCPTransport } from "@ai-sdk/mcp/mcp-stdio";
 import { fileURLToPath } from "node:url";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import { createMcpToolProvider } from "./provider.ts";
 
 const FIXTURE_SERVER = fileURLToPath(new URL("./fixtures/echo-server.mjs", import.meta.url));
@@ -21,6 +22,7 @@ function ctx(): ExtendedToolProviderContext<undefined> {
     agentId: "test-agent",
     agentCallId: "call-1",
     memoryScope: "test-scope",
+    recordEffect: silentRecordEffect,
   };
 }
 

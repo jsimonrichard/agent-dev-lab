@@ -195,12 +195,14 @@ export class AgentImpl<
             : {}),
         });
 
+        const recordEffect = runRecorder.emit.bind(runRecorder);
         const toolCtx = buildToolProviderContext({
           agentId: this.definition.id,
           agentCallId,
           memoryScope,
           projectRoot: this.services.projectRoot,
           toolProviderContext: input.toolProviderContext,
+          recordEffect,
           ...(workflowRunId ? { workflow: { workflowRunId, stepId } } : {}),
         });
 
@@ -279,6 +281,7 @@ export class AgentImpl<
             runtimeTools: this.services.tools,
             inputTools: input.tools,
             toolProviderContext: input.toolProviderContext,
+            recordEffect,
             ...(workflowRunId ? { workflow: { workflowRunId, stepId } } : {}),
           });
           const initialMessages = messages;

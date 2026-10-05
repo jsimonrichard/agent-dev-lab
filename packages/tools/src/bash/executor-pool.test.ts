@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 
 import { AdlError, allowAllGate } from "@agent-dev-lab/core";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import { UNBOUNDED_ALLOW_READ } from "../unbounded-allow-read.ts";
 import {
   acquireBashExecutor,
@@ -156,6 +157,7 @@ describe("createBashToolProvider pooled vs executor", () => {
       agentCallId: "c1",
       memoryScope: "s",
       projectRoot: "/tmp",
+      recordEffect: silentRecordEffect,
     });
     expect(bashExecutorPoolSizeForTests()).toBe(1);
     await provider.dispose?.();

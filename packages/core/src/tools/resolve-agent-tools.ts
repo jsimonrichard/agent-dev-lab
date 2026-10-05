@@ -1,6 +1,7 @@
 import type { ToolSet } from "ai";
 
 import type { AgentWorkflowScope } from "../agent/types";
+import type { EffectEventRecorder } from "../effect/gate-with-intent";
 import { resolveToolSource, type ExtendedToolProviderContext, type ToolProvider } from "./provider";
 
 /**
@@ -20,6 +21,7 @@ export function buildToolProviderContext<ToolProviderContext>(options: {
   projectRoot?: string;
   toolProviderContext?: ToolProviderContext;
   workflow?: AgentWorkflowScope;
+  recordEffect?: EffectEventRecorder["emit"];
 }): ExtendedToolProviderContext<ToolProviderContext> {
   // Cast: `ToolProviderContext` is unresolved here, so TS can't evaluate
   // `ToolProviderContextField<ToolProviderContext>`'s conditional (required vs. optional key)
@@ -33,6 +35,7 @@ export function buildToolProviderContext<ToolProviderContext>(options: {
     ...(options.projectRoot !== undefined ? { projectRoot: options.projectRoot } : {}),
     toolProviderContext: options.toolProviderContext,
     ...(options.workflow ? { workflow: options.workflow } : {}),
+    ...(options.recordEffect ? { recordEffect: options.recordEffect } : {}),
   } as ExtendedToolProviderContext<ToolProviderContext>;
 }
 
@@ -46,6 +49,7 @@ export async function resolveAgentTools<ToolProviderContext, Tools extends ToolS
   inputTools: ToolSet | ToolProvider<ToolSet> | undefined;
   toolProviderContext?: ToolProviderContext;
   workflow?: AgentWorkflowScope;
+  recordEffect?: EffectEventRecorder["emit"];
 }): Promise<{
   tools: ToolSet;
   toolProviderContext: ToolProviderContext | undefined;
@@ -58,6 +62,7 @@ export async function resolveAgentTools<ToolProviderContext, Tools extends ToolS
     projectRoot: options.projectRoot,
     toolProviderContext: options.toolProviderContext,
     workflow: options.workflow,
+    recordEffect: options.recordEffect,
   });
 
   const [definitionTools, inputTools] = await Promise.all([

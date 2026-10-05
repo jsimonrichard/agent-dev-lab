@@ -1,5 +1,6 @@
 import {
   AdlError,
+  gateWithIntent,
   type EffectGate,
   type EffectIntent,
   type Reversibility,
@@ -31,6 +32,8 @@ function isToolEffectPayload(value: unknown): value is ToolEffectPayload {
  * - `rewrite` — return `payload.input` from the rewritten tool payload
  * - `deny` — throw {@link AdlError} (`INVALID_INPUT`)
  * - `suspend` — throw unless the host wrapped the gate with `parkingEffectGate`
+ *
+ * Emits `effect_intent` / `effect_settled` via {@link ToolEffectScope.recordEffect}.
  */
 export async function assertToolAllowed<TInput>(args: {
   gate: EffectGate;
@@ -51,7 +54,19 @@ export async function assertToolAllowed<TInput>(args: {
     payload,
   };
 
-  const decision = await args.gate.handle(intent);
+  let decision;
+  try {
+    decision = await gateWithIntent({
+      recorder: { emit: args.effectScope.recordEffect },
+      intent,
+      gate: args.gate,
+    });
+  } catch (error) {
+    if (error instanceof AdlError && error.message.includes("parkingEffectGate")) {
+      throw new AdlError("INVALID_CONTEXT", TOOL_SUSPEND_UNSUPPORTED_MESSAGE, { cause: error });
+    }
+    throw error;
+  }
 
   switch (decision.action) {
     case "allow":
@@ -75,8 +90,6 @@ export async function assertToolAllowed<TInput>(args: {
       }
       return decision.payload.input as TInput;
     }
-    case "suspend":
-      throw new AdlError("INVALID_CONTEXT", TOOL_SUSPEND_UNSUPPORTED_MESSAGE);
     default: {
       const _exhaustive: never = decision;
       throw new AdlError(

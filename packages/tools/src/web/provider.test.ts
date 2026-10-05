@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { allowAllGate, type ExtendedToolProviderContext } from "@agent-dev-lab/core";
 
+import { silentRecordEffect } from "../approval/types.ts";
 import { createWebToolProvider, type WebToolProviderContext } from "./provider.ts";
 import {
   DEFAULT_FETCH_TIMEOUT_MS,
@@ -21,6 +22,7 @@ function ctx(
     agentId: "test-agent",
     agentCallId: "call-1",
     memoryScope: "test-scope",
+    recordEffect: silentRecordEffect,
     toolProviderContext,
   };
 }
