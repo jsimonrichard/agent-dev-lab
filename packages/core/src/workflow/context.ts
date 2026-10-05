@@ -2,6 +2,7 @@ import { raceAbort, throwIfAborted } from "../internal/abort";
 import { createId } from "../internal/ids";
 import { serializeError } from "../internal/serialize-error";
 import { AdlError } from "../errors";
+import { gateWithIntent } from "../effect/gate-with-intent";
 import { createSuspendHandle, parkUntilResolved } from "../effect/park";
 import type { EffectIntent } from "../effect/types";
 import type { MemoryScopeSnapshot } from "../observability/events";
@@ -116,6 +117,11 @@ export class WorkflowContextImpl implements WorkflowContext {
       stepId: this.stepId,
       payload: payload ?? {},
     };
+    await this.runRecorder.emit({
+      type: "effect_intent",
+      workflowRunId: this.workflowRunId,
+      intent,
+    });
     const handle = createSuspendHandle({ intent, reason: "approval" });
     const decision = await parkUntilResolved({
       store,
@@ -123,6 +129,12 @@ export class WorkflowContextImpl implements WorkflowContext {
       intent,
       recorder: this.runRecorder,
       signal: this.signal,
+    });
+    await this.runRecorder.emit({
+      type: "effect_settled",
+      workflowRunId: this.workflowRunId,
+      intentId: intent.id,
+      decision,
     });
     if (decision.action === "deny") {
       throw new AdlError("INVALID_INPUT", `Approval denied: ${decision.reason}`);
@@ -388,7 +400,11 @@ async function settleStepEnter(
     stepId: step.stepId,
     payload: { name: step.name, key: step.key, path: step.path, phase: "enter" },
   };
-  const decision = await ctx.services.effectGate.handle(intent);
+  const decision = await gateWithIntent({
+    recorder: ctx.runRecorder,
+    intent,
+    gate: ctx.services.effectGate,
+  });
   switch (decision.action) {
     case "allow":
       return;
@@ -398,11 +414,6 @@ async function settleStepEnter(
       throw new AdlError(
         "INVALID_CONTEXT",
         "EffectGate rewrite is not supported for kind: step intents",
-      );
-    case "suspend":
-      throw new AdlError(
-        "INVALID_CONTEXT",
-        "Runtime effectGate returned suspend; wrap with parkingEffectGate so suspend persists",
       );
     default: {
       const _exhaustive: never = decision;

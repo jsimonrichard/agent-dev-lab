@@ -54,6 +54,8 @@ export {
 } from "./effect";
 export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./effect";
 export type { ParkOnSuspend } from "./effect";
+export { gateWithIntent } from "./effect";
+export type { EffectEventRecorder } from "./effect";
 export { createDebugSession, LIVE_RUN_CLOSED_DENY } from "./effect";
 export type {
   DebugSession,
