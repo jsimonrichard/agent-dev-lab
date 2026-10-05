@@ -349,7 +349,7 @@ No open briefs. The 2026-10-03 stack (store move → tree split → waterfall CS
 | —     | `adl-move-workflow-store`       | **Shipped** (`ta7c2bdf7`)                                                                                  |
 | —     | `adl-waterfall-perf`            | **Shipped** (`td705fa38`) — CSS axis vars; numbers in [`waterfall-perf-plan.md`](./waterfall-perf-plan.md) |
 
-Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim, DAP, env CoW, `effectId` cursor addressing.
+Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim, DAP, env CoW. **`effectId` cursor:** plan in [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code).
 
 ---
 
@@ -358,7 +358,7 @@ Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-e
 - Tools `execute()` wrap over `EffectGate` = **landed**. Runtime `effectGate` is `parkingEffectGate` (debugger handler then host). Bare gates still throw if they return suspend.
 - `WorkflowStore` suspend (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`) + `suspended` run status — **landed**. Inspector Allow/Deny. Waiters are process-local. SQLite keeps the pending row; that does **not** revive `workflow.run`. Inspector boot calls `abandonLiveRunsLostOnRestart` (once per OS process, not from `createAdlRuntime` / reload) so leftover `running` / `suspended` rows become `workflow_failed` / `agent_failed`. Continue = seed a new attempt.
 - Inspection debugger L1 (Pause / Continue / Step) — **landed** on the same store; in-process `SuspendStore` duplicate **deleted**. DAP server — not started.
-- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing not started.
+- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing — plan for review: [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md).
 - Env CoW research (§4) — not started.
 - Wave 0 governance inventory + cheap alignments — **shipped** (`t7e08c6c7`). Changeset-presence CI still deferred (see [`mage-governance.md`](./mage-governance.md) inventory #5).
 - Session `workflowRunId` overwrite on nested episode registration — **fixed** in wave 0.

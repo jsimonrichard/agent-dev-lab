@@ -4,7 +4,7 @@ Open work after the published **core/web 0.0.6** / **cli 0.0.8** / **tools 0.0.3
 
 Last reconciled: **2026-10-05**.
 
-**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** persist effect intents (`effectId` cursor), DAP, env CoW, `$` estimates, todo-tool placement, json-editor `showErrors`. Spine suspend + debugger L1 landed on the integrator (unpushed). Cross-process unpark skipped; inspector boot fail-closes live rows (2026-10-05).
+**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code), then DAP, env CoW, `$` estimates, todo-tool placement, json-editor `showErrors`. Spine suspend + debugger L1 landed on the integrator (unpushed). Cross-process unpark skipped; inspector boot fail-closes live rows (2026-10-05).
 
 ---
 
