@@ -117,5 +117,5 @@ Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md
 | **P2**     | Todo tool — after core-vs-tools placement (§2)                                                                       | —                               |
 | **P2**     | Datasets after organizational-vs-evals (§3); skipped-step file mutations after `WorkflowStore` revisit               | —                               |
 | **P3**     | Message stores beyond an appendable list — runtime restore and the transcript UI (§4)                                | —                               |
-| **P3**     | json-editor `showErrors` + `tool-sandboxing.md` trim ([`structural-cleanup.md`](./structural-cleanup.md))            | —                               |
+| **P3**     | json-editor `showErrors` ([`structural-cleanup.md`](./structural-cleanup.md)); `tool-sandboxing.md` trim **done**    | —                               |
 | **P3**     | macOS native bash; LSP tool; `writeFile` mkdir; deferred files above                                                 | —                               |

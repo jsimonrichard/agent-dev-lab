@@ -1,6 +1,6 @@
 # Structural cleanup (after this release)
 
-**Status:** Split + `WorkflowStore` move landed (2026-10-03). Remaining: json-editor `showErrors`, `tool-sandboxing.md` trim. Last reconciled: **2026-10-03**.
+**Status:** Split + `WorkflowStore` move + `tool-sandboxing.md` trim landed (2026-10-05). Remaining: json-editor `showErrors`. Last reconciled: **2026-10-05**.
 
 These are the structures called out in the pre-release review. They are worth changing, and they are not release blockers. Each item is its own later change.
 
@@ -28,4 +28,4 @@ The surface that grew is [`WorkflowStore`](../packages/core/src/stores/workflow-
 
 ## `notes/tool-sandboxing.md`
 
-[`tool-sandboxing.md`](./tool-sandboxing.md) mixes the threat model with a long writeup of what already shipped (ASRT, the executor split, the Node test path). Keep the threat model and the open decisions: the approval dispatcher, the macOS `sandbox-exec` backend, and the `writeFile` parent-directory jail gap. Those are also rows in [`near-term-roadmap.md`](./near-term-roadmap.md) §2. Carving the shipped diary out is its own edit, separate from any sandbox code change.
+**Done (2026-10-05).** Threat model + open decisions only; shipped API points at `packages/tools/README.md`.

@@ -28,7 +28,7 @@ When a plan or note is fully landed, **delete it** (or shrink it to remaining op
 | [`npm-release-candidates.md`](./npm-release-candidates.md)                 | Registry RCs: `*-rc.N` / `@rc` via Changesets `pre` + Publish RC workflow                   |
 | [`tsk-handoffs/`](./tsk-handoffs/)                                         | Empty — landed fork briefs deleted                                                          |
 | [`human-validation.md`](./human-validation.md)                             | Pre-publish checklist                                                                       |
-| [`tool-sandboxing.md`](./tool-sandboxing.md)                               | `@agent-dev-lab/tools` threat model, remaining approval / macOS work                        |
+| [`tool-sandboxing.md`](./tool-sandboxing.md)                               | Threat model + open tools gaps (shipped API → package README)                               |
 | [`inspection-ui.md`](./inspection-ui.md)                                   | Control vs data plane, SSE, deferred streaming-tool UI                                      |
 | [`tracing.md`](./tracing.md)                                               | OTel spans vs AI SDK telemetry                                                              |
 | [`resumability.md`](./resumability.md)                                     | Shipped attempt lineage + residual gaps; long-term shape → execution-control plan           |

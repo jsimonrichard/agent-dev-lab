@@ -349,7 +349,7 @@ No open briefs. The 2026-10-03 stack (store move → tree split → waterfall CS
 | —     | `adl-move-workflow-store`       | **Shipped** (`ta7c2bdf7`)                                                                                  |
 | —     | `adl-waterfall-perf`            | **Shipped** (`td705fa38`) — CSS axis vars; numbers in [`waterfall-perf-plan.md`](./waterfall-perf-plan.md) |
 
-Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, `tool-sandboxing.md` trim, DAP, env CoW. **`effectId` cursor:** plan in [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code).
+Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, DAP, env CoW. **`effectId` cursor:** plan in [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code). `tool-sandboxing.md` trim — **done** (2026-10-05).
 
 ---
 
