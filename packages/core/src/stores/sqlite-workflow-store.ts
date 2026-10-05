@@ -33,11 +33,12 @@ import type {
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
-import type {
-  EffectIntent,
-  SuspendHandle,
-  SuspendRecord,
-  SuspendResolveDecision,
+import {
+  LIVE_RUN_CLOSED_DENY,
+  type EffectIntent,
+  type SuspendHandle,
+  type SuspendRecord,
+  type SuspendResolveDecision,
 } from "../effect/types";
 import {
   alreadyResolvedSuspendError,
@@ -172,7 +173,24 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
 
   return {
     async recordEvent(event) {
+      const workflowRunId =
+        "workflowRunId" in event && event.workflowRunId ? event.workflowRunId : null;
+      const pendingHandleIds =
+        workflowRunId &&
+        (event.type === "workflow_finished" ||
+          event.type === "workflow_failed" ||
+          event.type === "workflow_cancelled")
+          ? db
+              .select({ handleId: suspends.handleId })
+              .from(suspends)
+              .where(and(eq(suspends.workflowRunId, workflowRunId), eq(suspends.status, "pending")))
+              .all()
+              .map((row) => row.handleId)
+          : [];
       materializeEvent(db, event);
+      for (const handleId of pendingHandleIds) {
+        waiters.settle(handleId, LIVE_RUN_CLOSED_DENY);
+      }
     },
 
     async listEvents(scope, filter) {

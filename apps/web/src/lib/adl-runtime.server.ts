@@ -1,10 +1,33 @@
-import type { AdlRuntime, MessageStore, WorkflowStore } from "@agent-dev-lab/core";
+import {
+  abandonLiveRunsLostOnRestart,
+  type AdlRuntime,
+  type MessageStore,
+  type WorkflowStore,
+} from "@agent-dev-lab/core";
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { ensureInspectorAgentObserver } from "#/lib/inspector/inspector-agent-observer.server";
 import { armServerShutdown } from "#/lib/server-shutdown.server";
 
 armServerShutdown();
+
+const abandonOnBootKey = "__adlAbandonedLiveRunsOnBoot" as const;
+
+type BootGlobal = typeof globalThis & {
+  [abandonOnBootKey]?: Promise<void>;
+};
+
+/**
+ * Once per OS process. Must not run from `createAdlRuntime` — config reload
+ * reconstructs the runtime while in-flight closures are still valid.
+ */
+async function abandonLiveRunsOnInspectorBoot(store: WorkflowStore): Promise<void> {
+  const g = globalThis as BootGlobal;
+  if (!g[abandonOnBootKey]) {
+    g[abandonOnBootKey] = abandonLiveRunsLostOnRestart(store).then(() => undefined);
+  }
+  await g[abandonOnBootKey];
+}
 
 /** Shared process runtime from the loaded ADL project (`adl.config.ts` → `src/adl.ts`). */
 export async function getAdlRuntime(): Promise<AdlRuntime> {
@@ -17,6 +40,10 @@ export async function getAdlRuntime(): Promise<AdlRuntime> {
   }
 
   await ensureInspectorAgentObserver(runtime, project);
+  const store = runtime.services.stores.workflow;
+  if (store) {
+    await abandonLiveRunsOnInspectorBoot(store);
+  }
   return runtime;
 }
 

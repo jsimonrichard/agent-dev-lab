@@ -4,19 +4,19 @@
 
 Attempt lineage is **shipped**: new-attempt seed (`seedRetryAttempt`), path-stable step skip, `StepOptions.pure`, nested forests (`parentWorkflowRunId` / `parentStepId`), and inspection-UI Retry. User-facing contract lives in the [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md#resumability). Do not restate that API here.
 
-Last reconciled: **2026-10-01**.
+Last reconciled: **2026-10-05**.
 
 ---
 
 ## Still open (under today's API; target shape is the execution-control plan)
 
-| Item                                  | Notes                                                                                                                                                                           |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Crash mid-closure / `ctx.checkpoint`  | Fold into effect-gate suspend + trace cursor ([`execution-control-plan.md`](./execution-control-plan.md)); Temporal-class durability stays out                                  |
-| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts; express as replay of recorded model outcomes when the gate allows                                                     |
-| Mid-stream token resume               | Still a non-goal                                                                                                                                                                |
-| Skipped-step file edits               | Run-scoped transcripts are copied when the writer step is skipped. File edits are not. See [`retry-side-effects.md`](./retry-side-effects.md). Env CoW is execution-control §4. |
-| Copied-bar / nested-expand Playwright | API retry, 409-while-running, workflow-row Retry, **copied-bar layout**, and **nested expand settle** are in `retry-attempt.spec.ts`.                                           |
+| Item                                  | Notes                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crash mid-closure / `ctx.checkpoint`  | **Skipped as continue-after-restart.** `run()` is an in-process closure; there is no workflow VM. Inspector boot fail-closes live rows via `abandonLiveRunsLostOnRestart`. Re-entry stays `seedRetryAttempt` / cursor-from-step. Do not add Temporal-class checkpoints. |
+| Agent episode `cacheable`             | Skip re-running identical agent episodes across attempts; express as replay of recorded model outcomes when the gate allows                                                                                                                                             |
+| Mid-stream token resume               | Still a non-goal                                                                                                                                                                                                                                                        |
+| Skipped-step file edits               | Run-scoped transcripts are copied when the writer step is skipped. File edits are not. See [`retry-side-effects.md`](./retry-side-effects.md). Env CoW is execution-control §4.                                                                                         |
+| Copied-bar / nested-expand Playwright | API retry, 409-while-running, workflow-row Retry, **copied-bar layout**, and **nested expand settle** are in `retry-attempt.spec.ts`.                                                                                                                                   |
 
 ---
 

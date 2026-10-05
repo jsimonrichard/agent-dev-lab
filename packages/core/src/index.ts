@@ -54,7 +54,7 @@ export {
 } from "./effect";
 export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./effect";
 export type { ParkOnSuspend } from "./effect";
-export { createDebugSession } from "./effect";
+export { createDebugSession, LIVE_RUN_CLOSED_DENY } from "./effect";
 export type {
   DebugSession,
   EffectDecision,
@@ -165,8 +165,11 @@ export {
   sqliteInspectorAgentSettingsStore,
   sqliteMessageStore,
   sqliteWorkflowStore,
+  abandonLiveRunsLostOnRestart,
+  PROCESS_RESTART_RUN_GONE,
 } from "./stores";
 export type {
+  AbandonedLiveRuns,
   AgentEpisodeSummary,
   ConversationFork,
   ConversationMetadataRecord,

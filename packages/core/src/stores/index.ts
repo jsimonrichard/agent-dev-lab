@@ -9,6 +9,8 @@ export { CUSTOM_MESSAGE_STORE_KIND, inspectMessageStoreKind } from "./inspect";
 export type { MessageStore } from "./types";
 export { inMemoryWorkflowStore } from "./in-memory-workflow-store";
 export { sqliteWorkflowStore } from "./sqlite-workflow-store";
+export { abandonLiveRunsLostOnRestart, PROCESS_RESTART_RUN_GONE } from "./abandon-live-runs";
+export type { AbandonedLiveRuns } from "./abandon-live-runs";
 export type {
   AgentEpisodeSummary,
   ListEventsFilter,

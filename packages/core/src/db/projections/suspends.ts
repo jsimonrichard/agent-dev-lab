@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { AdlDb } from "../index";
 import { suspends } from "../schema";
 
+import { LIVE_RUN_CLOSED_DENY } from "../../effect/types";
 import type { RunEvent } from "../../observability/events";
 
 /**
@@ -47,6 +48,21 @@ export function projectSuspend(db: AdlDb, event: RunEvent): void {
         resolvedAt: event.at,
       })
       .where(and(eq(suspends.handleId, event.handleId), eq(suspends.status, "pending")))
+      .run();
+  }
+
+  if (
+    event.type === "workflow_finished" ||
+    event.type === "workflow_failed" ||
+    event.type === "workflow_cancelled"
+  ) {
+    db.update(suspends)
+      .set({
+        status: "resolved",
+        decisionJson: JSON.stringify(LIVE_RUN_CLOSED_DENY),
+        resolvedAt: event.at,
+      })
+      .where(and(eq(suspends.workflowRunId, event.workflowRunId), eq(suspends.status, "pending")))
       .run();
   }
 }

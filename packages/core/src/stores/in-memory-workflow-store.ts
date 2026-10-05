@@ -12,11 +12,12 @@ import type {
   ListEventsScope,
   WorkflowStore,
 } from "./workflow-store";
-import type {
-  EffectIntent,
-  SuspendHandle,
-  SuspendRecord,
-  SuspendResolveDecision,
+import {
+  LIVE_RUN_CLOSED_DENY,
+  type EffectIntent,
+  type SuspendHandle,
+  type SuspendRecord,
+  type SuspendResolveDecision,
 } from "../effect/types";
 import {
   alreadyResolvedSuspendError,
@@ -56,6 +57,33 @@ export class InMemoryWorkflowStore implements WorkflowStore {
   private readonly suspends = new Map<string, SuspendRecord>();
   private readonly waiters = new SuspendWaiterHub();
 
+  private closePendingSuspends(workflowRunId: string, at: string): void {
+    for (const [handleId, record] of this.suspends) {
+      if (record.handle.workflowRunId !== workflowRunId || record.status !== "pending") {
+        continue;
+      }
+      this.suspends.set(
+        handleId,
+        toSuspendRecord({
+          handle: record.handle,
+          intent: record.intent,
+          status: "resolved",
+          decision: LIVE_RUN_CLOSED_DENY,
+          resolvedAt: at,
+        }),
+      );
+      this.waiters.settle(handleId, LIVE_RUN_CLOSED_DENY);
+    }
+    const run = this.runs.get(workflowRunId);
+    if (run?.suspendHandleId) {
+      this.runs.set(workflowRunId, {
+        ...run,
+        suspendHandleId: undefined,
+        suspendReason: undefined,
+      });
+    }
+  }
+
   async recordEvent(event: RunEvent): Promise<void> {
     if ("workflowRunId" in event && event.workflowRunId) {
       const wfId = event.workflowRunId;
@@ -85,18 +113,21 @@ export class InMemoryWorkflowStore implements WorkflowStore {
           this.runs.set(wfId, { ...run, status: "ok", finishedAt: event.at });
         }
         this.runOutputs.set(wfId, event.output);
+        this.closePendingSuspends(wfId, event.at);
       }
       if (event.type === "workflow_failed") {
         const run = this.runs.get(wfId);
         if (run) {
           this.runs.set(wfId, { ...run, status: "error", finishedAt: event.at });
         }
+        this.closePendingSuspends(wfId, event.at);
       }
       if (event.type === "workflow_cancelled") {
         const run = this.runs.get(wfId);
         if (run) {
           this.runs.set(wfId, { ...run, status: "cancelled", finishedAt: event.at });
         }
+        this.closePendingSuspends(wfId, event.at);
       }
       if (event.type === "workflow_suspended") {
         const run = this.runs.get(wfId);

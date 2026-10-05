@@ -43,6 +43,15 @@ export interface SuspendHandle {
 export type SuspendResolveDecision = Exclude<EffectDecision, { action: "suspend" }>;
 
 /**
+ * Deny written when a terminal run event closes a still-pending suspend
+ * (`workflow_finished` / `workflow_failed` / `workflow_cancelled`).
+ */
+export const LIVE_RUN_CLOSED_DENY: SuspendResolveDecision = {
+  action: "deny",
+  reason: "Run is no longer live; pending suspend was closed.",
+};
+
+/**
  * Persisted pause. Approval and debugger share this shape; {@link SuspendHandle.reason}
  * is the subtype.
  */

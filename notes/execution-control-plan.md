@@ -1,6 +1,6 @@
 # Execution control — Shepherd-shaped traces, debugger, approvals
 
-**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); `WorkflowStore` suspend + inspection debugger L1 landed on the integrator stack (2026-10-03). DAP / env CoW remain later.
+**Status:** Design reviewed (2026-10-01). Decisions 1–6 locked. EffectGate types + compose land in `@agent-dev-lab/core`; tools EffectGate wiring landed (Lane E); MCP ToolProvider landed (Lane D); `WorkflowStore` suspend + inspection debugger L1 landed on the integrator stack (2026-10-03). Cross-process unpark of a parked closure is **not possible** (plain async `run()`); inspector boot fail-closes live rows (`abandonLiveRunsLostOnRestart`, 2026-10-05). DAP / env CoW remain later.
 **Parent plan:** this file. **Next provision:** none open under [`tsk-handoffs/`](./tsk-handoffs/) (orch is deprecated for new work; landed briefs were deleted).
 **Governance (beforehand):** [`mage-governance.md`](./mage-governance.md) — wave 0 review-capacity conversion.
 **Paper:** [Shepherd: Enabling Programmable Meta-Agents via Reversible Agentic Execution Traces](https://arxiv.org/abs/2605.10913) (Yu et al., arXiv:2605.10913).
@@ -356,7 +356,7 @@ Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-e
 ## Gaps / not done
 
 - Tools `execute()` wrap over `EffectGate` = **landed**. Runtime `effectGate` is `parkingEffectGate` (debugger handler then host). Bare gates still throw if they return suspend.
-- `WorkflowStore` suspend (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`) + `suspended` run status — **landed**. Inspector Allow/Deny.
+- `WorkflowStore` suspend (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`) + `suspended` run status — **landed**. Inspector Allow/Deny. Waiters are process-local. SQLite keeps the pending row; that does **not** revive `workflow.run`. Inspector boot calls `abandonLiveRunsLostOnRestart` (once per OS process, not from `createAdlRuntime` / reload) so leftover `running` / `suspended` rows become `workflow_failed` / `agent_failed`. Continue = seed a new attempt.
 - Inspection debugger L1 (Pause / Continue / Step) — **landed** on the same store; in-process `SuspendStore` duplicate **deleted**. DAP server — not started.
 - `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing not started.
 - Env CoW research (§4) — not started.

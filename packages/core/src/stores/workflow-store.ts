@@ -163,8 +163,9 @@ export interface WorkflowStore {
   resolveSuspend(handleId: string, decision: SuspendResolveDecision): Promise<void>;
 
   /**
-   * Wait until {@link resolveSuspend} (same process or after store reopen).
-   * Already-resolved handles return the stored decision.
+   * Wait until {@link resolveSuspend}. Already-resolved handles return the stored
+   * decision. Waiters are process-local — a new process must not assume the
+   * original `workflow.run` closure is still parked.
    */
   waitForSuspendResolution(handleId: string): Promise<SuspendResolveDecision>;
 }

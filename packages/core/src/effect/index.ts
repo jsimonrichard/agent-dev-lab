@@ -4,6 +4,7 @@ export { createSuspendHandle, parkUntilResolved, parkingEffectGate } from "./par
 export type { ParkOnSuspend } from "./park";
 export { createDebugSession } from "./debug-session";
 export type { DebugSession } from "./debug-session";
+export { LIVE_RUN_CLOSED_DENY } from "./types";
 export type {
   EffectDecision,
   EffectGate,

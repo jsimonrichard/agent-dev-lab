@@ -105,5 +105,20 @@ export async function waitForRecordResolution(
     }
     return record.decision;
   }
-  return hub.wait(handleId);
+  const waiting = hub.wait(handleId);
+  const latest = await load();
+  if (latest?.status === "resolved") {
+    if (!latest.decision) {
+      throw new AdlError(
+        "INVALID_CONTEXT",
+        `Suspend handle "${handleId}" is marked resolved but has no decision.`,
+      );
+    }
+    hub.settle(handleId, latest.decision);
+    return latest.decision;
+  }
+  if (!latest) {
+    throw missingSuspendError(handleId);
+  }
+  return waiting;
 }

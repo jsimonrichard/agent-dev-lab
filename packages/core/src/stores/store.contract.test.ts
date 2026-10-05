@@ -314,6 +314,51 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect((await store.getRun(handle.workflowRunId))?.status).toBe("ok");
     });
 
+    it("closes a pending suspend when the run terminals", async () => {
+      const store = await createStore();
+      await store.recordEvent({
+        type: "workflow_started",
+        workflowRunId: "run-term",
+        workflowId: "suspend-demo",
+        input: {},
+        runSeq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+      await store.createSuspend({
+        handle: {
+          id: "handle-term",
+          intentId: "intent-term",
+          workflowRunId: "run-term",
+          reason: "approval",
+          createdAt: "2026-01-01T00:00:01.000Z",
+        },
+        intent: {
+          id: "intent-term",
+          kind: "approval",
+          reversibility: "irreversible",
+          workflowRunId: "run-term",
+          payload: {},
+        },
+      });
+      const waited = store.waitForSuspendResolution("handle-term");
+      await store.recordEvent({
+        type: "workflow_failed",
+        workflowRunId: "run-term",
+        error: { message: "gone" },
+        runSeq: 3,
+        at: "2026-01-01T00:00:02.000Z",
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+      await expect(waited).resolves.toEqual({
+        action: "deny",
+        reason: "Run is no longer live; pending suspend was closed.",
+      });
+      expect(await store.listPendingSuspends({ workflowRunId: "run-term" })).toEqual([]);
+      expect((await store.getRun("run-term"))?.status).toBe("error");
+      expect((await store.getRun("run-term"))?.suspendHandleId).toBeUndefined();
+    });
+
     it("fails closed when resolving a missing suspend handle", async () => {
       const store = await createStore();
       await expect(store.resolveSuspend("missing-handle", { action: "allow" })).rejects.toThrow(

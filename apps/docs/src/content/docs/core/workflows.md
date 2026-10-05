@@ -255,13 +255,13 @@ When the step **re-runs**, `agent.run` executes again and typically **loads** wh
 
 ### Not in v1
 
-| Capability                              | Status                                                       |
-| --------------------------------------- | ------------------------------------------------------------ |
-| Auto resume mid-closure (TS variables)  | Not supported — use step outputs + skip                      |
-| Checkpoints (`ctx.checkpoint`)          | Deferred                                                     |
-| Agent episode cache (`cacheable: true`) | Deferred                                                     |
-| Mid-stream token resume                 | Not a goal                                                   |
-| Durable crash resume without re-entry   | SQLite stores persist I/O; mid-closure resume still deferred |
+| Capability                              | Status                                                                                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auto resume mid-closure (TS variables)  | Not supported — use step outputs + skip                                                                                                             |
+| Checkpoints (`ctx.checkpoint`)          | Deferred                                                                                                                                            |
+| Agent episode cache (`cacheable: true`) | Deferred                                                                                                                                            |
+| Mid-stream token resume                 | Not a goal                                                                                                                                          |
+| Durable crash resume without re-entry   | Not supported. SQLite keeps I/O; a process restart fail-closes leftover live rows (`abandonLiveRunsLostOnRestart`). Continue from a step via Retry. |
 
 ## WorkflowContext
 
