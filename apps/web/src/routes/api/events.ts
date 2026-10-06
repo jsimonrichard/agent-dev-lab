@@ -5,7 +5,9 @@ import { getEventLog, tailLoggedEvents } from "#/lib/event-log/event-log.server"
 import { onRequestOrServerShutdown, getServerShutdownSignal } from "#/lib/server-shutdown.server";
 import { encodeLoggedRunEventSse } from "#/lib/sse.server";
 
-const HEARTBEAT_MS = 15_000;
+// Stay under Node's 5s keepAliveTimeout so an idle stream is not dropped
+// (`ERR_INCOMPLETE_CHUNKED_ENCODING`).
+const HEARTBEAT_MS = 4_000;
 
 export const Route = createFileRoute("/api/events")({
   server: {

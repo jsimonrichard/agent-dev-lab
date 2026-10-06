@@ -40,7 +40,7 @@ test("pause a live run from the inspector and continue", async ({ page, request 
     .poll(
       async () => {
         const run = await fetchRun(request, runId);
-        return run.events.some((event) => event.type === "workflow_suspended");
+        return run.events.some((event) => event.type === "run_suspended");
       },
       { timeout: 20_000 },
     )

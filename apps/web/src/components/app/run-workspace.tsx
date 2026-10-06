@@ -173,7 +173,9 @@ export function RunWorkspace({
       (last.type === "run_started" ||
         last.type === "run_finished" ||
         last.type === "run_failed" ||
-        last.type === "run_cancelled")
+        last.type === "run_cancelled" ||
+        last.type === "run_suspended" ||
+        last.type === "run_resumed")
         ? last
         : null;
 
@@ -641,6 +643,12 @@ export function RunWorkspace({
 
   const [suspendBusy, setSuspendBusy] = useState(false);
   const [suspendError, setSuspendError] = useState<string | null>(null);
+  // The banner is in the SSR HTML before this component's onClick exists.
+  // Stay disabled until mount so a click cannot land on a button with no handler.
+  const [suspendActionsReady, setSuspendActionsReady] = useState(false);
+  useEffect(() => {
+    setSuspendActionsReady(true);
+  }, []);
 
   async function handleResolveSuspend(action: "allow" | "deny") {
     if (!pendingSuspend) {
@@ -873,7 +881,7 @@ export function RunWorkspace({
             variant="outline"
             size="sm"
             data-testid="resolve-suspend-allow"
-            disabled={suspendBusy || !pendingSuspend || offline}
+            disabled={suspendBusy || !pendingSuspend || offline || !suspendActionsReady}
             onClick={() => {
               void handleResolveSuspend("allow");
             }}
@@ -884,7 +892,7 @@ export function RunWorkspace({
             variant="outline"
             size="sm"
             data-testid="resolve-suspend-deny"
-            disabled={suspendBusy || !pendingSuspend || offline}
+            disabled={suspendBusy || !pendingSuspend || offline || !suspendActionsReady}
             onClick={() => {
               void handleResolveSuspend("deny");
             }}

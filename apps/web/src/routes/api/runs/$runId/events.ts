@@ -1,12 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getWorkflowStore } from "#/lib/adl-runtime.server";
-import { onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
+import { getServerShutdownSignal, onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
 import {
   encodeRunEventSse,
   shouldCloseWorkflowRunStream,
   workflowRunStreamIsTerminal,
 } from "#/lib/sse.server";
+
+// Node's default keepAliveTimeout is 5s. A comment interval longer than that
+// lets the dev server drop an otherwise idle parked-run stream
+// (`ERR_INCOMPLETE_CHUNKED_ENCODING` / Vite "socket hang up").
+const HEARTBEAT_MS = 4_000;
 
 export const Route = createFileRoute("/api/runs/$runId/events")({
   server: {
@@ -16,30 +21,65 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
         const afterSeq = Number(url.searchParams.get("afterSeq") ?? "0");
         const store = await getWorkflowStore();
         const runId = params.runId;
+        let stopStream = () => {};
 
         const stream = new ReadableStream({
           async start(controller) {
+            if (request.signal.aborted) {
+              return;
+            }
+
             const encoder = new TextEncoder();
             let cursor = afterSeq;
             let closed = false;
             let pushing = false;
             const poll = { timer: undefined as ReturnType<typeof setInterval> | undefined };
 
-            const close = () => {
+            const enqueue = (chunk: string) => {
+              if (closed) {
+                return false;
+              }
+              try {
+                controller.enqueue(encoder.encode(chunk));
+                return true;
+              } catch {
+                stop(false);
+                return false;
+              }
+            };
+
+            const heartbeat = setInterval(() => {
+              enqueue(": ping\n\n");
+            }, HEARTBEAT_MS);
+
+            const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
               closed = true;
+              clearInterval(heartbeat);
               if (poll.timer) {
                 clearInterval(poll.timer);
                 poll.timer = undefined;
               }
-              try {
-                controller.close();
-              } catch {
-                // already closed
+              // End the HTTP body on a real terminal close so the client sees
+              // EOF. Skip when the client already left — Vite's proxy logs
+              // controller.close() on that path as "socket hang up".
+              if (endResponse) {
+                try {
+                  controller.close();
+                } catch {
+                  // already closed
+                }
               }
             };
+
+            stopStream = () => stop(false);
+
+            // First bytes flush the SSE response. A parked run has nothing
+            // after the client's cursor, and an idle body looks like a hung
+            // socket to Vite (`Internal server error: socket hang up`).
+            enqueue(": connected\n\n");
 
             const push = async () => {
               if (closed || pushing) {
@@ -54,13 +94,15 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
                 let sawTerminal = false;
                 for (const event of events) {
                   cursor = event.runSeq;
-                  controller.enqueue(encoder.encode(encodeRunEventSse(event)));
+                  if (!enqueue(encodeRunEventSse(event))) {
+                    return;
+                  }
                   if (workflowRunStreamIsTerminal(event)) {
                     sawTerminal = true;
                   }
                 }
                 if (sawTerminal) {
-                  close();
+                  stop(true);
                   return;
                 }
                 if (events.length === 0) {
@@ -72,7 +114,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
                       runStatus: run?.status,
                     })
                   ) {
-                    close();
+                    stop(true);
                   }
                 }
               } finally {
@@ -80,18 +122,30 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               }
             };
 
-            await push();
+            try {
+              await push();
+            } catch {
+              stop(false);
+              return;
+            }
             if (closed) {
               return;
             }
 
             poll.timer = setInterval(() => {
               void push().catch(() => {
-                close();
+                stop(false);
               });
             }, 400);
 
-            onRequestOrServerShutdown(request, close);
+            onRequestOrServerShutdown(request, () => {
+              stop(getServerShutdownSignal().aborted);
+            });
+          },
+          cancel() {
+            // Client left (navigation / EventSource close). Do not
+            // controller.close() — Vite logs that as a socket hang up.
+            stopStream();
           },
         });
 
