@@ -24,6 +24,7 @@
     "preliminary-tool-result-ui",
     "retry-from-cursor",
     "structured-output-final-parse",
+    "structured-output-tool-loop",
     "suspend-persistence",
     "tools-effect-gate",
     "waterfall-bar-min-width",

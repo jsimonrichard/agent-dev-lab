@@ -1,5 +1,13 @@
 # @agent-dev-lab/cli
 
+## 0.0.9-rc.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @agent-dev-lab/core@0.0.7-rc.2
+  - @agent-dev-lab/web@0.0.7-rc.2
+
 ## 0.0.9-rc.1
 
 ### Patch Changes
