@@ -223,11 +223,16 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
  *
  * **`output`:** typed payload from {@link AgentDefinition.outputSchema}
  * (or a per-call override). When no schema is set, this is the same string as `text`.
- * When a schema is set, this is the AI SDK's complete parse of the final step's
- * text. The run rejects with `NoObjectGeneratedError` — raw model text on the
- * error's `text` field, and on `agent_failed` — when that text is not JSON
- * matching the schema. Zod field defaults apply only to a JSON object that
- * parsed; they do not turn prose or a partial parse into a successful result.
+ * When a schema is set, this is the AI SDK's complete parse of the final answer
+ * text. A schema plus tools does not send a JSON response format on the tool
+ * loop (that combination makes some models skip the tools and emit a minimal
+ * object). If that loop stops with text that is not schema JSON, one tool-free
+ * follow-up call parses into `output`, and `text` is that follow-up. The run
+ * rejects with `NoObjectGeneratedError` — raw model text on the error's `text`
+ * field, and on `agent_failed` — when the answer is not JSON matching the
+ * schema. Zod field defaults apply only to a JSON object that parsed; they do
+ * not turn prose or a partial parse into a successful result. A `stopWhen`
+ * that ends on a tool call fails the same way and does not run the follow-up.
  */
 export type AgentRunResult<Tools extends ToolSet = ToolSet, TOutput = string> = {
   text: string;

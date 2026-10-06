@@ -1,4 +1,12 @@
-import { Output, streamText, type LanguageModel, type ModelMessage, type ToolSet } from "ai";
+import {
+  NoObjectGeneratedError,
+  Output,
+  stepCountIs,
+  streamText,
+  type LanguageModel,
+  type ModelMessage,
+  type ToolSet,
+} from "ai";
 import type { z } from "zod";
 
 import { createAsyncChannel, type AsyncChannel } from "../async-channel";
@@ -11,7 +19,7 @@ import { inspectMessageStoreKind } from "../stores/inspect";
 import type { Result } from "../result";
 import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
-import { toTokenUsage, type TokenUsage } from "../observability/token-usage";
+import { sumTokenUsage, toTokenUsage, type TokenUsage } from "../observability/token-usage";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import type { ToolProvider } from "../tools/provider";
@@ -421,8 +429,119 @@ export class AgentImpl<
    * `onStepEnd`, and returns the episode text/output/turns. Emit
    * `agent_finished` / title updates in the caller after this resolves.
    * `persistResponseMessages` may mutate caller message locals via closure.
+   *
+   * A schema and tools are not sent on the same model call. JSON response
+   * format plus tools makes some models skip the tools and emit a minimal
+   * object (Zod defaults then look like a successful empty result). The tool
+   * loop is a normal text call. If it stops with schema JSON, that is the
+   * result. If it stops with other text, one tool-free follow-up sends
+   * `output`. A loop that stops on `tool-calls` fails with
+   * `NoObjectGeneratedError` and does not run the follow-up.
    */
   private async consumeModelStream(options: {
+    model: LanguageModel;
+    instructions: string | undefined;
+    tools: ToolSet | undefined;
+    messages: ModelMessage[];
+    abortSignal: AbortSignal;
+    stopWhen: AgentStopWhen;
+    outputSchema: z.ZodType<TOutput> | undefined;
+    agentCallId: string;
+    workflowRunId: string | undefined;
+    stepId: string | null;
+    runRecorder: RunRecorder;
+    textChannel?: AsyncChannel<string>;
+    fullChannel?: AsyncChannel<FullStreamPart>;
+    persistResponseMessages: (responseMessages: ModelMessage[]) => Promise<void>;
+    onStreamError: (error: unknown) => void;
+  }): Promise<{
+    text: string;
+    output: TOutput;
+    turns: number;
+    sdk: AgentSdkStreamResult<Tools>;
+    usage?: TokenUsage;
+  }> {
+    const { tools, messages, outputSchema, stopWhen, persistResponseMessages } = options;
+    const separateStructuredOutput = outputSchema != null && toolSetHasTools(tools);
+
+    let conversation = [...messages];
+    const persistAndTrack = async (responseMessages: ModelMessage[]) => {
+      await persistResponseMessages(responseMessages);
+      if (responseMessages.length > 0) {
+        conversation = [...conversation, ...responseMessages];
+      }
+    };
+
+    const runStream = (stream: {
+      messages: ModelMessage[];
+      tools: ToolSet | undefined;
+      outputSchema: z.ZodType<TOutput> | undefined;
+      stopWhen: AgentStopWhen;
+    }) =>
+      this.streamModelCall({
+        ...options,
+        ...stream,
+        persistResponseMessages: persistAndTrack,
+      });
+
+    const toolLoop = await runStream({
+      messages: conversation,
+      tools,
+      outputSchema: separateStructuredOutput ? undefined : outputSchema,
+      stopWhen,
+    });
+
+    if (!separateStructuredOutput || outputSchema == null) {
+      return toolLoop;
+    }
+
+    const steps = await toolLoop.sdk.steps;
+    const last = steps.at(-1);
+    if (last == null) {
+      throw new Error(`Agent "${this.id}" model stream produced no steps (invariant broken).`);
+    }
+
+    try {
+      const output = (await Output.object({ schema: outputSchema }).parseCompleteOutput(
+        { text: last.text },
+        {
+          response: last.response,
+          usage: last.usage,
+          finishReason: last.finishReason,
+        },
+      )) as TOutput;
+      return { ...toolLoop, text: last.text, output };
+    } catch (error) {
+      // Only a normal stop with non-JSON text gets a format follow-up.
+      // `tool-calls` means the step budget ended before an answer.
+      if (!NoObjectGeneratedError.isInstance(error) || last.finishReason !== "stop") {
+        throw error;
+      }
+    }
+
+    await persistAndTrack([{ role: "user", content: STRUCTURED_OUTPUT_FOLLOW_UP }]);
+
+    const formatted = await runStream({
+      messages: conversation,
+      tools: undefined,
+      outputSchema,
+      stopWhen: stepCountIs(1),
+    });
+
+    return {
+      text: formatted.text,
+      output: formatted.output,
+      turns: toolLoop.turns + formatted.turns,
+      sdk: formatted.sdk,
+      usage: sumTokenUsage([toolLoop.usage, formatted.usage]),
+    };
+  }
+
+  /**
+   * One `streamText` call. `output` is set only when `outputSchema` is passed,
+   * so a tool loop can omit it.
+   */
+  private async streamModelCall(options: {
     model: LanguageModel;
     instructions: string | undefined;
     tools: ToolSet | undefined;
@@ -626,4 +745,11 @@ export class AgentImpl<
 function resolveMemoryScope(memoryScope: string | undefined): string {
   const trimmed = memoryScope?.trim();
   return trimmed ? trimmed : createId();
+}
+
+/** JSON response format is a separate call so the tool loop can still call tools. */
+const STRUCTURED_OUTPUT_FOLLOW_UP = "Report the result as JSON matching the requested schema.";
+
+function toolSetHasTools(tools: ToolSet | undefined): boolean {
+  return tools != null && Object.keys(tools).length > 0;
 }

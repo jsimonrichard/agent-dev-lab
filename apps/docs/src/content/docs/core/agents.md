@@ -129,9 +129,11 @@ Volatile turn context belongs in **user** messages, not in the system prompt.
 | Agent default | `adl.createAgent({ outputSchema })` | Every `run` / `stream` uses structured output unless overridden |
 | Per call      | `agent.run({ outputSchema })`       | Overrides agent default for one episode                         |
 
-Implementation uses **`streamText`** with `output` when a schema is set — same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
+Implementation uses **`streamText`** — the same path for `run` and `stream`. `Agent` is generic over `TOutput` (inferred from `outputSchema`, defaulting to `string`). `AgentRunResult.output` is that type: the parsed object when a schema is set, or the episode `text` when it is not.
 
-The parsed object is the AI SDK's complete parse of the **final step's** text (`result.output`). If that text is not JSON matching the schema, the episode fails with `NoObjectGeneratedError`. The model's text is on the error's `text` field and on the `agent_failed` event. Zod `.default()` values apply only after a JSON object has parsed. A prose answer, or a partial parse left over from an earlier step, does not become a successful all-defaults result.
+A schema with **no tools** sends `output` (`Output.object`) on that call, so the provider asks for JSON. A schema **with tools** does not. Sending a JSON response format and tools on the same request makes some models skip the tools and return a minimal object that still validates (Zod `.default()` values fill the rest). The tool loop runs as an ordinary text-and-tools call. If it stops with text that already matches the schema, that text is the result. If it stops with other text, one follow-up call with no tools and `output` set turns the transcript into the object. That follow-up is an extra model request beyond `stopWhen`, and a user message asking for the JSON object is stored ahead of it. If `stopWhen` ends the loop on a tool call, the episode fails and the follow-up does not run.
+
+The parsed object is the AI SDK's complete parse of that final answer text (`result.output`). If it is not JSON matching the schema, the episode fails with `NoObjectGeneratedError`. The model's text is on the error's `text` field and on the `agent_failed` event. Zod `.default()` values apply only after a JSON object has parsed. A prose answer, or a partial parse left over from an earlier step, does not become a successful all-defaults result.
 
 ### What Agents Do Not Carry
 

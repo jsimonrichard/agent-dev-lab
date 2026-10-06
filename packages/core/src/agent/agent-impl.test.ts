@@ -796,12 +796,82 @@ describe("AgentImpl outputSchema", () => {
     });
 
     const result = await agent.run({ memoryScope: "notes", user: "review parse.rs" }).result;
+    expect(call).toBe(2);
     expect(result.turns).toBe(2);
     expect(result.output).toEqual({
       summary: "format! is unsupported",
       issuesFound: ["format!"],
       taskComplete: true,
     });
+  });
+
+  it("requests JSON only on a tool-free follow-up after a prose tool loop", async () => {
+    const schema = z.object({
+      summary: z.string().default(""),
+      issuesFound: z.array(z.string()).default([]),
+      taskComplete: z.boolean().default(false),
+    });
+    const calls: Array<{ responseFormatType: string | undefined; toolCount: number }> = [];
+    let call = 0;
+    const json = JSON.stringify({
+      summary: "format! is unsupported",
+      issuesFound: ["format!"],
+      taskComplete: true,
+    });
+    const adl = createTestRuntime({
+      defaults: {
+        model: mockLanguageModel({
+          doStream: async (options: {
+            responseFormat?: { type?: string };
+            tools?: readonly unknown[];
+          }) => {
+            calls.push({
+              responseFormatType: options.responseFormat?.type,
+              toolCount: options.tools?.length ?? 0,
+            });
+            call += 1;
+            if (call === 1) {
+              return toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" }));
+            }
+            if (call === 2) {
+              return finalTextStream("format! inside a verified region is unsupported");
+            }
+            return finalTextStream(json);
+          },
+        }),
+      },
+    });
+    const agent = adl.createAgent({
+      id: "structured-follow-up",
+      systemPrompt: "Investigate, then report.",
+      outputSchema: schema,
+      tools: {
+        read_file: tool({
+          description: "Read a file",
+          inputSchema: z.object({ path: z.string() }),
+          execute: async () => 'fn parse() { format!("{}") }',
+        }),
+      },
+    });
+
+    const result = await agent.run({ memoryScope: "notes", user: "review parse.rs" }).result;
+    expect(calls.map((entry) => entry.responseFormatType)).toEqual([undefined, undefined, "json"]);
+    expect(calls.map((entry) => entry.toolCount)).toEqual([1, 1, 0]);
+    expect(result.turns).toBe(3);
+    expect(result.usage).toEqual({ inputTokens: 3, outputTokens: 3, totalTokens: 6 });
+    expect(result.text).toBe(json);
+    expect(result.output).toEqual({
+      summary: "format! is unsupported",
+      issuesFound: ["format!"],
+      taskComplete: true,
+    });
+    expect(
+      result.messages.some(
+        (message) =>
+          message.role === "user" &&
+          flattenText(message) === "Report the result as JSON matching the requested schema.",
+      ),
+    ).toBe(true);
   });
 
   it("fails the episode when the final answer is prose", async () => {
@@ -842,6 +912,7 @@ describe("AgentImpl outputSchema", () => {
 
     const handle = agent.run({ memoryScope: "notes", user: "review parse.rs" });
     await expect(handle.result).rejects.toBeInstanceOf(NoObjectGeneratedError);
+    expect(call).toBe(3);
 
     const failed = await adl.services.stores.workflow?.getLatestEvent(
       { agentCallId: handle.agentCallId },
@@ -861,11 +932,14 @@ describe("AgentImpl outputSchema", () => {
       summary: z.string().default(""),
       taskComplete: z.boolean().default(false),
     });
+    let call = 0;
     const adl = createTestRuntime({
       defaults: {
         model: mockLanguageModel({
-          doStream: async () =>
-            toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" })),
+          doStream: async () => {
+            call += 1;
+            return toolCallStream("read_file", JSON.stringify({ path: "src/parse.rs" }));
+          },
         }),
       },
     });
@@ -888,6 +962,7 @@ describe("AgentImpl outputSchema", () => {
       stopWhen: stepCountIs(1),
     });
     await expect(handle.result).rejects.toBeInstanceOf(NoObjectGeneratedError);
+    expect(call).toBe(1);
   });
 });
 
