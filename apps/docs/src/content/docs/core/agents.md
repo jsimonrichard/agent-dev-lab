@@ -161,6 +161,8 @@ type AgentRunInput = {
   messages?: ModelMessage[];
   outputSchema?: z.ZodType<unknown>;
   stopWhen?: StopCondition | StopCondition[]; // AI SDK stopWhen; default stepCountIs(20)
+  maxRetries?: number; // request retries before streaming; omit for the SDK default (2)
+  streamRetries?: number; // retries after streaming starts; omit to leave them off
   systemPromptConflict?: "keep-pinned" | "use-current";
   suppressSystemPromptConflictWarning?: boolean;
   workflow?: { workflowRunId: string; stepId: string | null };
@@ -175,6 +177,12 @@ Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active
 `tools` overrides the agent's tools for this episode (`ToolSet` or [`ToolProvider`](/core/tool-provider/)). `toolProviderContext` is the raw value passed into a provider's `getTools` — the framework never validates it.
 
 `tags` labels this episode. The inspection UI shows them in a **Tags** footer (no run-list filter). Every `agent.run` also records automatic `version:` / `commit:` provenance unless you pass a tag with the same prefix or set `createAdlRuntime({ version: false })`. See [Run tags](/core/workflows/#run-tags).
+
+`maxRetries` and `streamRetries` are set on the agent or on the call (the call wins, including `0`). Omit both to keep the current defaults: `maxRetries` is the AI SDK default (2), and `streamRetries` is off.
+
+`maxRetries` is forwarded to [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text). It retries a retryable failure of the request itself, before any response body is read.
+
+`streamRetries` retries a provider stream that closes after the response has started (HTTP 200, `isRetryable`). Set it to a positive integer, for example `2`. The AI SDK option reruns a step when the model stream emits an error chunk. This drop rejects the stream instead, so ADL also retries that model call directly, up to `streamRetries` times. Each of those attempts is held until it finishes, and only a finished attempt is emitted — partial text and tool calls from a dropped attempt are discarded. Earlier completed steps stay. When every attempt drops, the episode still fails. `0` turns this off.
 
 ### Turn Input
 
@@ -249,7 +257,7 @@ await researcher.run({
 2. `store.load(memoryScope)` (leading pin extracted; stray `system` messages dropped)
 3. If `user` / `messages` → append to the stored transcript
 4. Resolve `systemPrompt` (pinned copy, unless `systemPromptConflict: "use-current"`) → pass as the **`system`** option to `streamText`
-5. **`streamText`** with AI SDK `stopWhen` — forward text deltas and tool call/result events; persist after each step
+5. **`streamText`** with AI SDK `stopWhen`, plus `maxRetries` / `streamRetries` when set — forward text deltas and tool call/result events; persist after each step
 6. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the SDK step count)
 
 ## Tool Calls and Persistence

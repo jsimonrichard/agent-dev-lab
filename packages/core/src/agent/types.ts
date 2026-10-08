@@ -104,6 +104,27 @@ export type AgentDefinition<
    * Pass `stepCountIs(1)` when a workflow should own each model step.
    */
   stopWhen?: AgentStopWhen;
+  /**
+   * AI SDK `streamText` `maxRetries`: retryable errors from the request
+   * itself, before response streaming starts. Overridable per call via
+   * {@link AgentRunInput.maxRetries}. Omit to keep the SDK default (2).
+   * `0` disables those retries.
+   */
+  maxRetries?: number;
+  /**
+   * Retry the current model call when the provider drops the response stream.
+   * Overridable per call via {@link AgentRunInput.streamRetries}.
+   *
+   * Omit to leave this off. `0` disables it. A positive value does two things:
+   * it is forwarded to AI SDK `streamText` `streamRetries` (retries
+   * `{ type: "error" }` chunks; earlier completed steps stay), and a stream
+   * that instead *rejects* with a retryable HTTP 200 `APICallError` — a
+   * socket close while reading a successful response — is retried this many
+   * times inside that model call. Each of those attempts is buffered until
+   * it finishes, so a dropped attempt's partial text and tool calls are not
+   * emitted. The last failure still rejects the episode.
+   */
+  streamRetries?: number;
   memory?: AgentMemoryConfig;
   /**
    * Optional workflow that names the conversation after the first successful episode
@@ -159,6 +180,17 @@ export type AgentRunInput<ToolProviderContext = unknown> = {
   outputSchema?: z.ZodType<unknown>;
   /** Per-call override of the agent's `stopWhen`. */
   stopWhen?: AgentStopWhen;
+  /**
+   * Per-call override of {@link AgentDefinition.maxRetries}. Wins over the
+   * definition, including `0`. Omit both to keep the AI SDK default (2).
+   */
+  maxRetries?: number;
+  /**
+   * Per-call override of {@link AgentDefinition.streamRetries}. Wins over
+   * the definition, including `0`. Omit both to leave stream retries off.
+   * See {@link AgentDefinition.streamRetries} for what a positive value retries.
+   */
+  streamRetries?: number;
   /**
    * Per-call live {@link LanguageModel} override. Wins over
    * {@link AgentDefinition.model} and the runtime `defaults.model`.

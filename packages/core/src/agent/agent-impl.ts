@@ -21,6 +21,7 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { sumTokenUsage, toTokenUsage, type TokenUsage } from "../observability/token-usage";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
+import { retryDroppedProviderStream } from "./retry-dropped-stream";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import type { ToolProvider } from "../tools/provider";
 import { invokeToolProviderOnRunEnd } from "../tools/provider";
@@ -168,6 +169,10 @@ export class AgentImpl<
     const workflowRunId = input.workflow?.workflowRunId ?? activeCtx?.workflowRunId;
     const stepId = input.workflow?.stepId ?? activeCtx?.stepId ?? null;
     const stopWhen = input.stopWhen ?? this.stopWhen;
+    // Omit when unset so streamText keeps its own defaults: maxRetries 2,
+    // streamRetries off (which also keeps incremental tool streaming).
+    const maxRetries = input.maxRetries ?? this.definition.maxRetries;
+    const streamRetries = input.streamRetries ?? this.definition.streamRetries;
 
     return withActiveSpan(
       "agent.turn",
@@ -347,6 +352,8 @@ export class AgentImpl<
             messages,
             abortSignal,
             stopWhen,
+            maxRetries,
+            streamRetries,
             outputSchema: outputSchema as z.ZodType<TOutput> | undefined,
             agentCallId,
             workflowRunId,
@@ -445,6 +452,8 @@ export class AgentImpl<
     messages: ModelMessage[];
     abortSignal: AbortSignal;
     stopWhen: AgentStopWhen;
+    maxRetries: number | undefined;
+    streamRetries: number | undefined;
     outputSchema: z.ZodType<TOutput> | undefined;
     agentCallId: string;
     workflowRunId: string | undefined;
@@ -548,6 +557,8 @@ export class AgentImpl<
     messages: ModelMessage[];
     abortSignal: AbortSignal;
     stopWhen: AgentStopWhen;
+    maxRetries: number | undefined;
+    streamRetries: number | undefined;
     outputSchema: z.ZodType<TOutput> | undefined;
     agentCallId: string;
     workflowRunId: string | undefined;
@@ -571,6 +582,8 @@ export class AgentImpl<
       messages,
       abortSignal,
       stopWhen,
+      maxRetries,
+      streamRetries,
       outputSchema,
       agentCallId,
       workflowRunId,
@@ -600,8 +613,19 @@ export class AgentImpl<
     // onError payload so agent_failed records the model error, not the wrapper.
     // Tool provider context is closed over when tools are built — AI SDK 7 no
     // longer has a shared `experimental_context` blob on streamText.
+    // streamText retries `{ type: "error" }` chunks only. A socket drop rejects
+    // the provider stream; retry that inside doStream when the caller opted in.
+    // String model ids are resolved inside streamText, so only model objects
+    // can be wrapped. Callers in this repo pass model objects.
+    const modelForStream =
+      streamRetries !== undefined &&
+      Number.isInteger(streamRetries) &&
+      streamRetries > 0 &&
+      typeof model === "object"
+        ? retryDroppedProviderStream(model, streamRetries)
+        : model;
     const streamResult = streamText({
-      model,
+      model: modelForStream,
       ...(instructions ? { instructions } : {}),
       allowSystemInMessages: false,
       tools,
@@ -612,6 +636,8 @@ export class AgentImpl<
       runtimeContext,
       abortSignal,
       stopWhen,
+      ...(maxRetries !== undefined ? { maxRetries } : {}),
+      ...(streamRetries !== undefined ? { streamRetries } : {}),
       onError: ({ error }) => {
         onStreamError(error);
       },

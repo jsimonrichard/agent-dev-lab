@@ -1,3 +1,4 @@
+import { APICallError } from "@ai-sdk/provider";
 import { describe, expect, it } from "bun:test";
 import { NoObjectGeneratedError, stepCountIs, tool, type ModelMessage } from "ai";
 import { convertArrayToReadableStream } from "ai/test";
@@ -9,7 +10,7 @@ import { createTestRuntime } from "../runtime/create-test";
 import { createToolProvider } from "../tools/provider";
 import type { ExtendedToolProviderContext } from "../tools/provider";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
-import { mockLanguageModel } from "../test/mock-language-model";
+import { mockLanguageModel, mockTextStreamResult } from "../test/mock-language-model";
 
 function flattenText(message: ModelMessage): string {
   if (typeof message.content === "string") {
@@ -1645,6 +1646,198 @@ describe("AgentImpl model stream failures", () => {
       type: "agent_failed",
       error: { message: "Fixture model refused to stream" },
     });
+  });
+});
+
+/** Rejects the provider stream after a partial chunk. Later calls return `recoverText` when set. */
+function mockDroppingStream(
+  recoverText: string | undefined,
+  error: APICallError | Error = new APICallError({
+    message: "Failed to process successful response",
+    url: "https://api.together.xyz/v1/chat/completions",
+    requestBodyValues: {},
+    statusCode: 200,
+    isRetryable: true,
+  }),
+) {
+  let calls = 0;
+  const model = mockLanguageModel({
+    doStream: async () => {
+      calls += 1;
+      if (recoverText !== undefined && calls > 1) {
+        return mockTextStreamResult(recoverText);
+      }
+      return {
+        stream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            controller.enqueue({ type: "text-start", id: "text-1" });
+            controller.enqueue({ type: "text-delta", id: "text-1", delta: "partial" });
+            controller.error(error);
+          },
+        }),
+      };
+    },
+  });
+  return { model, calls: () => calls };
+}
+
+describe("AgentImpl provider retries", () => {
+  it("forwards streamRetries to streamText for an error chunk", async () => {
+    let calls = 0;
+    const model = mockLanguageModel({
+      doStream: async () => {
+        calls += 1;
+        if (calls > 1) {
+          return mockTextStreamResult("recovered");
+        }
+        return {
+          stream: convertArrayToReadableStream([
+            { type: "stream-start", warnings: [] },
+            { type: "error", error: new Error("provider error chunk") },
+          ]),
+        };
+      },
+    });
+    const adl = createTestRuntime({ defaults: { model } });
+    const agent = adl.createAgent({ id: "error-chunk-retry", systemPrompt: "Be brief." });
+
+    const result = await agent.run({ memoryScope: "notes", user: "hi", streamRetries: 1 }).result;
+    expect(calls).toBe(2);
+    expect(result.text).toBe("recovered");
+  });
+
+  it("does not retry a dropped stream unless streamRetries is set", async () => {
+    const dropping = mockDroppingStream("recovered");
+    const adl = createTestRuntime({ defaults: { model: dropping.model } });
+    const agent = adl.createAgent({ id: "no-stream-retry", systemPrompt: "Be brief." });
+
+    await expect(agent.run({ memoryScope: "notes", user: "hi" }).result).rejects.toThrow(
+      "Failed to process successful response",
+    );
+    expect(dropping.calls()).toBe(1);
+  });
+
+  it("retries a dropped response stream and drops the failed attempt's partial text", async () => {
+    const dropping = mockDroppingStream("recovered");
+    const adl = createTestRuntime({ defaults: { model: dropping.model } });
+    const agent = adl.createAgent({ id: "call-stream-retry", systemPrompt: "Be brief." });
+
+    const result = await agent.run({
+      memoryScope: "notes",
+      user: "hi",
+      streamRetries: 1,
+    }).result;
+
+    expect(dropping.calls()).toBe(2);
+    expect(result.text).toBe("recovered");
+    expect(result.messages.map(flattenText).join("\n")).not.toContain("partial");
+  });
+
+  it("still throws when every streamRetries attempt drops", async () => {
+    const dropping = mockDroppingStream(undefined);
+    const adl = createTestRuntime({ defaults: { model: dropping.model } });
+    const agent = adl.createAgent({ id: "stream-retry-exhausted", systemPrompt: "Be brief." });
+
+    await expect(
+      agent.run({ memoryScope: "notes", user: "hi", streamRetries: 1 }).result,
+    ).rejects.toThrow("Failed to process successful response");
+    expect(dropping.calls()).toBe(2);
+  });
+
+  it("does not treat a retryable non-200 stream error as a dropped response", async () => {
+    const dropping = mockDroppingStream(
+      "recovered",
+      new APICallError({
+        message: "rate limited",
+        url: "https://example.test/v1/chat/completions",
+        requestBodyValues: {},
+        statusCode: 429,
+        isRetryable: true,
+      }),
+    );
+    const adl = createTestRuntime({ defaults: { model: dropping.model } });
+    const agent = adl.createAgent({ id: "stream-retry-429", systemPrompt: "Be brief." });
+
+    await expect(
+      agent.run({ memoryScope: "notes", user: "hi", streamRetries: 2 }).result,
+    ).rejects.toThrow("rate limited");
+    expect(dropping.calls()).toBe(1);
+  });
+
+  it("uses definition streamRetries, and a per-call 0 disables it", async () => {
+    const fromDefinition = mockDroppingStream("recovered");
+    const adl = createTestRuntime({ defaults: { model: fromDefinition.model } });
+    const agent = adl.createAgent({
+      id: "def-stream-retry",
+      systemPrompt: "Be brief.",
+      streamRetries: 1,
+    });
+
+    const result = await agent.stream({ memoryScope: "notes", user: "hi" }).finished;
+    expect(fromDefinition.calls()).toBe(2);
+    expect(result.text).toBe("recovered");
+
+    const disabled = mockDroppingStream("recovered");
+    const adlOff = createTestRuntime({ defaults: { model: disabled.model } });
+    const agentOff = adlOff.createAgent({
+      id: "def-stream-retry-off",
+      systemPrompt: "Be brief.",
+      streamRetries: 1,
+    });
+    await expect(
+      agentOff.run({ memoryScope: "notes", user: "hi", streamRetries: 0 }).result,
+    ).rejects.toThrow("Failed to process successful response");
+    expect(disabled.calls()).toBe(1);
+  });
+
+  it("forwards maxRetries for a retryable error before the stream starts", async () => {
+    let calls = 0;
+    const model = mockLanguageModel({
+      doStream: async () => {
+        calls += 1;
+        if (calls === 1) {
+          throw new APICallError({
+            message: "rate limited",
+            url: "https://example.test/v1/chat/completions",
+            requestBodyValues: {},
+            statusCode: 429,
+            isRetryable: true,
+          });
+        }
+        return mockTextStreamResult("after-retry");
+      },
+    });
+    const adl = createTestRuntime({ defaults: { model } });
+    const agent = adl.createAgent({
+      id: "max-retries",
+      systemPrompt: "Be brief.",
+      maxRetries: 1,
+    });
+
+    const result = await agent.run({ memoryScope: "notes", user: "hi" }).result;
+    expect(calls).toBe(2);
+    expect(result.text).toBe("after-retry");
+
+    let blocked = 0;
+    const once = mockLanguageModel({
+      doStream: async () => {
+        blocked += 1;
+        throw new APICallError({
+          message: "rate limited",
+          url: "https://example.test/v1/chat/completions",
+          requestBodyValues: {},
+          statusCode: 429,
+          isRetryable: true,
+        });
+      },
+    });
+    const adlOff = createTestRuntime({ defaults: { model: once } });
+    const agentOff = adlOff.createAgent({ id: "max-retries-off", systemPrompt: "Be brief." });
+    await expect(
+      agentOff.run({ memoryScope: "notes", user: "hi", maxRetries: 0 }).result,
+    ).rejects.toThrow("rate limited");
+    expect(blocked).toBe(1);
   });
 });
 
