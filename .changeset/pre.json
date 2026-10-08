@@ -23,6 +23,7 @@
     "per-call-model-override",
     "preliminary-tool-result-ui",
     "retry-from-cursor",
+    "stream-retries",
     "structured-output-final-parse",
     "structured-output-tool-loop",
     "suspend-persistence",
