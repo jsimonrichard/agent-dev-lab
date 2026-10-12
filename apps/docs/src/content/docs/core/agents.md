@@ -97,7 +97,7 @@ Title generation uses a re-entrancy guard so a `titleWorkflow` that itself calls
 
 ### System Prompt
 
-Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`system`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
+Declared as a **template ref** or static string. On a **new** `memoryScope`, the resolved text is persisted as the first stored message and passed to the AI SDK via the **`instructions`** option (not `messages`, which avoids the SDK's system-in-messages warning). Later episodes on that scope reuse the pinned copy, so a hot-reload of the live definition does not change an in-flight conversation.
 
 Calling the **same** agent again on that scope is the normal conversation pattern — no warning, the pin stays:
 
@@ -106,7 +106,7 @@ await researcher.run({ memoryScope: "notes", user: "First turn" }).result;
 await researcher.run({ memoryScope: "notes", user: "Follow-up" }).result;
 ```
 
-A **different** agent with a **different** system prompt is the conflict case: the runner **keeps the pinned prompt** and `console.warn`s. Prompts are not stacked — the AI SDK `system` option is a single string, and two identities in one blob usually fight each other. Pass `suppressSystemPromptConflictWarning: true` to silence the warning, or `systemPromptConflict: "use-current"` to apply this agent's prompt for that episode only (the stored pin is not rewritten):
+A **different** agent with a **different** system prompt is the conflict case: the runner **keeps the pinned prompt** and `console.warn`s. Prompts are not stacked — the AI SDK `instructions` option is a single string, and two identities in one blob usually fight each other. Pass `suppressSystemPromptConflictWarning: true` to silence the warning, or `systemPromptConflict: "use-current"` to apply this agent's prompt for that episode only (the stored pin is not rewritten):
 
 ```ts
 await researcher.run({ memoryScope: "notes", user: "Draft the section" }).result;
@@ -208,7 +208,7 @@ await researcher.run({
 }).result;
 ```
 
-Stray `system` messages in `messages` are dropped before the model call (the agent’s system prompt is passed via the AI SDK `system` option).
+Stray `system` messages in `messages` are dropped before the model call (the agent’s system prompt is passed via the AI SDK `instructions` option).
 
 ### memoryScope
 
@@ -256,7 +256,7 @@ await researcher.run({
 1. Resolve `memoryScope` (caller value, or a random id)
 2. `store.load(memoryScope)` (leading pin extracted; stray `system` messages dropped)
 3. If `user` / `messages` → append to the stored transcript
-4. Resolve `systemPrompt` (pinned copy, unless `systemPromptConflict: "use-current"`) → pass as the **`system`** option to `streamText`
+4. Resolve `systemPrompt` (pinned copy, unless `systemPromptConflict: "use-current"`) → pass as the **`instructions`** option to `streamText`
 5. **`streamText`** with AI SDK `stopWhen`, plus `maxRetries` / `streamRetries` when set — forward text deltas and tool call/result events; persist after each step
 6. Return `AgentRunResult` (`text` / `output` are the **final** response; `turns` is the SDK step count)
 

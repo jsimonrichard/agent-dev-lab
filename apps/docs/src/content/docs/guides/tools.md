@@ -41,11 +41,14 @@ const coder = adl.createAgent({
   id: "coder",
   systemPrompt: "You edit files and run commands only inside the sandbox.",
   tools: createWorkspaceToolProvider({
+    effectGate: adl.services.effectGate,
     allowWrite: [cwd],
     cwd,
   }),
 });
 ```
+
+Every factory and provider requires an `effectGate`; there is no default. `adl.services.effectGate` is the runtime's gate (see [Gating Tool Calls](#gating-tool-calls)). Tests that do not need a policy pass `allowAllGate` from `@agent-dev-lab/core` explicitly.
 
 `resolveDefaultSandboxRoot()` is `.data/sandbox` under the current working directory, or `ADL_SANDBOX_ROOT` when set. It only resolves a path — create the directory yourself.
 
@@ -60,6 +63,34 @@ await coder.run({
 
 Call `dispose()` on the tool provider (project reload does this for outgoing providers) to release pool refs; unused supervisors exit when the refcount hits zero.
 
+## Gating Tool Calls
+
+Before a tool runs, it records an `effect_intent` event on the run log (`kind: "tool"`, `payload: { toolName, input }`) and asks its `effectGate` for a decision:
+
+- `allow` runs the tool with the original input.
+- `deny` fails the tool call with the reason.
+- `rewrite` runs the tool with `payload.input` from the decision. The tool name cannot change.
+- `suspend` parks the run until someone resolves it, for example with **Allow** / **Deny** in the inspection UI. Only the runtime gate (`adl.services.effectGate`) can park; any other gate that returns `suspend` fails the call.
+
+An `effect_settled` event records the outcome. Put the policy on the runtime, then hand `adl.services.effectGate` to the tools. This example asks for approval before every tool call:
+
+```ts
+import { createAdlRuntime, createSuspendHandle } from "@agent-dev-lab/core";
+
+const adl = createAdlRuntime({
+  effectGate: {
+    async handle(intent) {
+      if (intent.kind === "tool") {
+        return { action: "suspend", handle: createSuspendHandle({ intent, reason: "approval" }) };
+      }
+      return { action: "allow" };
+    },
+  },
+});
+```
+
+The runtime puts the inspection UI's debugger in front of this policy, so **Pause** also stops tool calls.
+
 ## Factories
 
 | Factory                                        | Tools                                                                                           | When to Use It                            |
@@ -72,7 +103,7 @@ Call `dispose()` on the tool provider (project reload does this for outgoing pro
 
 Providers also expose a `describe*Env` tool so the model can see the resolved root, byte caps, bash permissions, and `fetchUrl` allowlist.
 
-Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `toolProviderContext`. Pass the plain tool objects when the sandbox is fixed at construction.
+Pass a provider as `tools` when `cwd` / `root` / timeouts should come from `toolProviderContext`. Plain tool objects (`createFileTools`, `createBashTool`, `createFetchUrlTool`, …) also need an `effectScope`: the run identity and a `recordEffect` hook for intent events. Providers get both from the runtime on each turn, so prefer them inside agents; use plain tools in tests (`testToolEffectScope()`).
 
 `fetchUrl` is included in the workspace provider when `allowNetwork` is true. It is omitted when `allowNetwork` is false (the default) or when constructed with `fetchUrl: false`. Use `createWebToolProvider` (or `createFetchUrlTool`) alone when an agent only needs to retrieve URLs. Timeouts are `bashTimeoutMs` and `fetchTimeoutMs` so the two knobs cannot collide. Empty `allowedUrls` still allows public http(s) — it does not remove the tool. Workspace `allowedDomains` / `deniedDomains` apply to both bash and `fetchUrl`.
 
@@ -123,9 +154,10 @@ for await (const update of tools.bash.execute({ command: "pwd" }, toolCallOption
 Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown). Private, loopback, and link-local addresses are refused — including after redirects — unless you set a concrete-host `allowedUrls` entry or `allowPrivateNetwork: true`. Host-wildcard patterns like `**` alone do not bypass the address check. On the workspace provider, `allowedDomains` / `deniedDomains` also restrict which hosts `fetchUrl` may reach. A non-2xx status is returned as data. Treat the body as untrusted third-party content.
 
 ```ts
-import { createFetchUrlTool } from "@agent-dev-lab/tools";
+import { createWebToolProvider } from "@agent-dev-lab/tools";
 
-const fetchUrl = createFetchUrlTool({
+const web = createWebToolProvider({
+  effectGate: adl.services.effectGate,
   allowedUrls: ["https://docs.example.com/**"],
 });
 ```

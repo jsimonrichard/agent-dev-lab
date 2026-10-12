@@ -289,6 +289,7 @@ type WorkflowContext = {
   runLocalScope: (suffix: string) => string;
   emit(name: string, payload?: unknown): void;
   setTitle(title: string): Promise<void>;
+  requestApproval(payload?: unknown): Promise<void>;
 };
 ```
 
@@ -385,6 +386,23 @@ export const literatureReview = adl.createWorkflow({
 ```
 
 See [Template](/api/interfaces/template/) in the API reference.
+
+## Approvals and Suspends
+
+`await ctx.requestApproval(payload?)` parks the run until a person decides. It records an `effect_intent` (`kind: "approval"`), persists a suspend record on the workflow store, emits `workflow_suspended`, and sets the run status to `suspended`. The inspection UI shows the pending approval with **Allow** / **Deny**; code can call `store.resolveSuspend(handleId, { action: "allow" })` (find the handle with `store.listPendingSuspends({ workflowRunId })`). Allow emits `workflow_resumed` and returns; deny throws an `AdlError` with the reason, which fails the step or run unless you catch it. Approvals cannot be rewritten.
+
+```ts
+export const publish = adl.createWorkflow({
+  id: "publish",
+  run: async (input, ctx) => {
+    const draft = await ctx.step("draft", async () => writeDraft(input));
+    await ctx.requestApproval({ message: "Publish this draft?", draft });
+    return ctx.step("publish", async () => publishDraft(draft));
+  },
+});
+```
+
+Tool calls gated by [`adl.services.effectGate`](/core/runtime/#effect-gate) and the inspection UI's debugger (**Pause** / **Continue** / **Step**) park on the same suspend records. A parked run lives in the process that started it. If that process exits, the run cannot continue: the next inspector start marks it failed. Cancelling a parked run closes its pending suspend.
 
 ## Parallelism
 

@@ -58,6 +58,12 @@ const researcher = adl.createAgent(
 - **`stores.message` / `stores.workflow`**: replace the runtime default for this agent/workflow/run.
 - **`observers.workflows` / `observers.agents`**: **append** to lists from `createAdlRuntime` (not replace).
 
+### Effect Gate
+
+`effectGate` on `createAdlRuntime` is the host's policy for effects that ask permission: tool calls from [`@agent-dev-lab/tools`](/guides/tools/#gating-tool-calls), workflow step entry, and `ctx.requestApproval`. A gate receives an `EffectIntent` and returns `allow`, `deny`, `rewrite`, or `suspend`. When omitted, the host policy allows everything. Only tools that are handed `adl.services.effectGate` go through it; tool factories never pick it up implicitly.
+
+`adl.services.effectGate` is the composed gate: the inspection UI debugger first, then your policy. A `suspend` decision persists a suspend record on the run's `WorkflowStore`, marks the run `suspended`, and waits until `store.resolveSuspend(handleId, decision)` records `allow`, `deny`, or `rewrite`. The inspection UI's **Allow** / **Deny** buttons call it. Suspends need a workflow run: a standalone `agent.run` outside a workflow cannot park.
+
 ## EventLog
 
 [`inMemoryEventLog()`](/api/functions/inmemoryeventlog/) is a ring-buffer [`EventLog`](/api/interfaces/eventlog/) that also implements `WorkflowObserver` and `AgentObserver`. Register the **same instance** on both lists so workflow and agent events share one `logSeq` (process-wide, unlike per-run `RunEvent.runSeq`):

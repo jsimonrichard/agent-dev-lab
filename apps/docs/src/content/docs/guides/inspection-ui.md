@@ -30,6 +30,9 @@ Registered ids come from `adl.config` `workflows`. The sidebar lists startable w
 3. Select a step or agent call for output, errors, and the conversation transcript for that `memoryScope`. Tags from `workflow.run(input, { tags })` / `agent.run({ tags })`, plus the automatic `version:` or `commit:` tag, appear in a footer on the inspector. There is no run-list tag filter.
 4. **Retry** (run header or the workflow-row menu) and **Retry from here** (step menu or step inspector) seed a new attempt. The prior run stays in the list. Retry is unavailable while any run in that attempt forest is still running. Copied steps link back to the original and keep the prior attempt's duration on the waterfall.
 5. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, nested workflow runs, and child `agent.run` / `streamText` calls on that run. Cancelling a nested run id aborts the active root. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
+6. A run waiting on [`ctx.requestApproval`](/core/workflows/#approvals-and-suspends) or a gated tool call shows as **suspended** with **Allow** / **Deny**. Deny fails the waiting step with an "Approval denied" error.
+7. **Pause** on a running run stops it at the next step entry or gated tool call. While it is paused at a breakpoint, **Continue** resumes and **Step** resumes until the next step entry. Continue and Step only resolve debugger pauses; an approval still needs Allow or Deny.
+8. Runs still running or suspended when the inspector process stops cannot continue. The next start marks them failed with a "Process restarted" reason instead of leaving them live.
 
 Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `runSeq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
 
