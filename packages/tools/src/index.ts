@@ -11,6 +11,7 @@
 export {
   assertToolAllowed,
   approvalDispatcherAsHandler,
+  decideToolCall,
   effectScopeFromToolProviderContext,
   silentRecordEffect,
   testToolEffectScope,
@@ -122,9 +123,13 @@ export type {
   WebToolProviderContext,
   WebToolProviderOptions,
 } from "./web";
-export { createMcpToolProvider } from "./mcp";
+export {
+  createMcpToolProvider,
+  DEFAULT_MCP_CALL_TIMEOUT_MS,
+  DEFAULT_MCP_INIT_TIMEOUT_MS,
+  DEFAULT_MCP_MAX_OUTPUT_BYTES,
+} from "./mcp";
 export type {
-  McpToolEffectPayload,
   McpToolProviderOptions,
   McpToolSchemas,
   McpTransport,

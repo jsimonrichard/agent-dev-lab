@@ -159,13 +159,14 @@ Retrieves **one** http(s) URL and returns readable text (HTML becomes markdown).
 
 ## MCP
 
-Wraps the AI SDK MCP client (`@ai-sdk/mcp`) as a `ToolProvider`. One provider = one server; use `combineToolProviders` for multiple. Both `transport` and `effectGate` are required — there is no ambient default server and no omit→allow gate. Pass `allowAllGate` from `@agent-dev-lab/core` explicitly for tests or permissive local hosts.
+Wraps the AI SDK MCP client (`@ai-sdk/mcp`) as a `ToolProvider`. One provider = one server; use `combineToolProviders` for multiple (it throws if two servers expose the same tool name). `serverId`, `transport`, and `effectGate` are required — there is no ambient default server and no omit→allow gate. Pass `allowAllGate` from `@agent-dev-lab/core` explicitly for tests or permissive local hosts.
 
 ```ts
 import { allowAllGate } from "@agent-dev-lab/core";
 import { createMcpToolProvider } from "@agent-dev-lab/tools";
 
 const mcpTools = createMcpToolProvider({
+  serverId: "example",
   transport: {
     type: "http",
     url: "https://mcp.example.com/mcp",
@@ -175,7 +176,9 @@ const mcpTools = createMcpToolProvider({
 });
 ```
 
-For local stdio servers, pass `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio` as `transport`. The client connects lazily on the first `getTools` call and closes in `dispose()` (process-scoped — not per agent episode). Constructing the provider trusts that server's tools at the agent's privilege level; this package does not sandbox MCP side effects. Every tool `execute` goes through `effectGate` before the MCP call (allow / deny / rewrite). Suspend decisions fail closed unless the host wraps the gate with `parkingEffectGate` from `@agent-dev-lab/core`.
+For local stdio servers, pass `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio` as `transport`. The client connects lazily on the first `getTools` call and closes in `dispose()` (process-scoped — not per agent episode). Constructing the provider trusts that server's tools at the agent's privilege level; this package does not sandbox MCP side effects. Every tool `execute` goes through `effectGate` before the MCP call (allow / deny / rewrite). Suspend decisions fail closed unless the host wraps the gate with `parkingEffectGate` from `@agent-dev-lab/core`. Each intent's payload is `{ toolName, input, source: "mcp:<serverId>" }` and its id is the AI SDK `toolCallId`; a rewrite cannot change `toolName` or `source`, and remembered approvals are keyed by both.
+
+Connecting and `initialize` are bounded by `initTimeoutMs` (default 30 s) and each call by `callTimeoutMs` (default 120 s); a timed-out call throws, which the model sees as a tool error. A result larger than `maxOutputBytes` (default 256 KiB of UTF-8 JSON) is replaced by an error result.
 
 Pin `@ai-sdk/mcp` to the AI SDK 7 line (`^2` / matching `ai@^7`). Do not mix with `@ai-sdk/mcp@0.0.x` (AI SDK 5).
 

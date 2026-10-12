@@ -1,7 +1,5 @@
 import {
   AdlError,
-  gateWithIntent,
-  type EffectDecision,
   type EffectGate,
   type ExtendedToolProviderContext,
   type ToolProvider,
@@ -14,8 +12,7 @@ import {
   type MCPClientConfig,
   type MCPTransport,
 } from "@ai-sdk/mcp";
-import { randomUUID } from "node:crypto";
-
+import { decideToolCall } from "../approval/assert-tool-allowed.ts";
 import { effectScopeFromToolProviderContext } from "../approval/scope.ts";
 import type { ToolEffectScope } from "../approval/types.ts";
 
@@ -25,14 +22,14 @@ export type McpTransport = MCPClientConfig["transport"];
 /** Optional typed schemas forwarded to `client.tools({ schemas })`. */
 export type McpToolSchemas = NonNullable<Parameters<MCPClient["tools"]>[0]>["schemas"];
 
-/**
- * Payload shape for `kind: "tool"` intents produced by this provider — and the expected
- * shape of an EffectGate `rewrite` decision's `payload`.
- */
-export type McpToolEffectPayload = {
-  toolName: string;
-  input: unknown;
-};
+/** Default bound on the `initialize` handshake. */
+export const DEFAULT_MCP_INIT_TIMEOUT_MS = 30_000;
+/** Default bound on one `tools/call`. */
+export const DEFAULT_MCP_CALL_TIMEOUT_MS = 120_000;
+/** Default cap on one tool result, measured as UTF-8 JSON. */
+export const DEFAULT_MCP_MAX_OUTPUT_BYTES = 256 * 1024;
+
+const SERVER_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 /**
  * Options for {@link createMcpToolProvider}.
@@ -46,6 +43,12 @@ export type McpToolEffectPayload = {
  */
 export interface McpToolProviderOptions {
   /**
+   * Required. Stable id for this server (`[A-Za-z0-9_-]+`, e.g. `"github"`). Every intent
+   * carries `source: "mcp:<serverId>"`, so gates and remembered approvals can tell this
+   * server's `search` from another server's `search`.
+   */
+  serverId: string;
+  /**
    * Required. Connection to the MCP server — HTTP/SSE config object or an `MCPTransport`
    * (e.g. `Experimental_StdioMCPTransport` from `@ai-sdk/mcp/mcp-stdio`). No ambient default.
    */
@@ -57,6 +60,15 @@ export interface McpToolProviderOptions {
   effectGate: EffectGate;
   /** When set, forwarded to `client.tools({ schemas })` (typed / filtered tool subset). */
   schemas?: McpToolSchemas;
+  /** Bound on connecting and `initialize`. Defaults to {@link DEFAULT_MCP_INIT_TIMEOUT_MS}. */
+  initTimeoutMs?: number;
+  /** Bound on each tool call. Defaults to {@link DEFAULT_MCP_CALL_TIMEOUT_MS}. */
+  callTimeoutMs?: number;
+  /**
+   * Larger results are replaced by an error result the model can see. Defaults to
+   * {@link DEFAULT_MCP_MAX_OUTPUT_BYTES}.
+   */
+  maxOutputBytes?: number;
   /** Forwarded to `createMCPClient`. */
   onUncaughtError?: MCPClientConfig["onUncaughtError"];
   /** Forwarded to `createMCPClient` (defaults apply in the AI SDK). */
@@ -71,50 +83,32 @@ type GatedTool = {
   [key: string]: unknown;
 };
 
-function isMcpToolEffectPayload(value: unknown): value is McpToolEffectPayload {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "toolName" in value &&
-    typeof (value as { toolName: unknown }).toolName === "string" &&
-    "input" in value
-  );
+function deniedToolResult(reason: string) {
+  return errorToolResult(`MCP tool call denied: ${reason}`);
 }
 
-function resolveRewriteInput(
-  decision: Extract<EffectDecision, { action: "rewrite" }>,
-  toolName: string,
-): unknown {
-  if (!isMcpToolEffectPayload(decision.payload)) {
-    throw new AdlError(
-      "INVALID_INPUT",
-      "createMcpToolProvider: EffectGate rewrite payload must be { toolName, input }.",
-    );
-  }
-  if (decision.payload.toolName !== toolName) {
-    throw new AdlError(
-      "INVALID_INPUT",
-      `createMcpToolProvider: EffectGate rewrite changed toolName from "${toolName}" to "${decision.payload.toolName}".`,
-    );
-  }
-  return decision.payload.input;
-}
-
-function deniedToolResult(reason: string): {
+function errorToolResult(text: string): {
   content: Array<{ type: "text"; text: string }>;
   isError: true;
 } {
-  return {
-    content: [{ type: "text", text: `MCP tool call denied: ${reason}` }],
-    isError: true,
-  };
+  return { content: [{ type: "text", text }], isError: true };
 }
+
+type ToolExecuteOptions = { toolCallId?: string; abortSignal?: AbortSignal };
+
+function isToolExecuteOptions(value: unknown): value is ToolExecuteOptions {
+  return typeof value === "object" && value !== null;
+}
+
+type McpCallLimits = { callTimeoutMs: number; maxOutputBytes: number };
 
 function wrapToolWithGate(
   toolName: string,
   tool: GatedTool,
   effectGate: EffectGate,
   effectScope: ToolEffectScope,
+  source: string,
+  limits: McpCallLimits,
 ): GatedTool {
   const originalExecute = tool.execute;
   if (typeof originalExecute !== "function") {
@@ -124,49 +118,51 @@ function wrapToolWithGate(
   return {
     ...tool,
     async execute(input: unknown, options: unknown) {
-      const intent = {
-        id: randomUUID(),
-        kind: "tool" as const,
-        reversibility: "irreversible" as const,
-        workflowRunId: effectScope.workflowRunId,
-        stepId: effectScope.stepId,
-        agentCallId: effectScope.agentCallId,
-        payload: { toolName, input } satisfies McpToolEffectPayload,
-      };
-      let decision;
+      if (!isToolExecuteOptions(options)) {
+        throw new AdlError(
+          "INVALID_CONTEXT",
+          `createMcpToolProvider: "${toolName}" was executed without AI SDK tool options.`,
+        );
+      }
+      const decision = await decideToolCall({
+        gate: effectGate,
+        toolName,
+        input,
+        effectScope,
+        reversibility: "irreversible",
+        source,
+        ...(options.toolCallId !== undefined ? { toolCallId: options.toolCallId } : {}),
+      });
+      if (decision.isErr) {
+        return deniedToolResult(decision.error);
+      }
+
+      const timeout = AbortSignal.timeout(limits.callTimeoutMs);
+      const abortSignal = options.abortSignal
+        ? AbortSignal.any([options.abortSignal, timeout])
+        : timeout;
+      let result: unknown;
       try {
-        decision = await gateWithIntent({
-          recorder: { emit: effectScope.recordEffect },
-          intent,
-          gate: effectGate,
-        });
+        result = await originalExecute(decision.value, { ...options, abortSignal });
       } catch (error) {
-        if (error instanceof AdlError && error.message.includes("parkingEffectGate")) {
+        if (timeout.aborted && !options.abortSignal?.aborted) {
           throw new AdlError(
             "INVALID_CONTEXT",
-            "createMcpToolProvider: EffectGate suspend is not parked. Wrap the gate with " +
-              "parkingEffectGate from @agent-dev-lab/core so the call can wait for resolveSuspend.",
+            `MCP tool "${toolName}" on ${source} did not finish within ${limits.callTimeoutMs} ms.`,
             { cause: error },
           );
         }
         throw error;
       }
 
-      switch (decision.action) {
-        case "allow":
-          return await originalExecute(input, options);
-        case "deny":
-          return deniedToolResult(decision.reason);
-        case "rewrite":
-          return await originalExecute(resolveRewriteInput(decision, toolName), options);
-        default: {
-          const _exhaustive: never = decision;
-          throw new AdlError(
-            "INVALID_INPUT",
-            `createMcpToolProvider: unexpected EffectDecision ${JSON.stringify(_exhaustive)}`,
-          );
-        }
+      const bytes = Buffer.byteLength(JSON.stringify(result) ?? "", "utf8");
+      if (bytes > limits.maxOutputBytes) {
+        return errorToolResult(
+          `MCP tool "${toolName}" on ${source} returned ${bytes} bytes, over the ` +
+            `${limits.maxOutputBytes}-byte limit; the result was dropped.`,
+        );
       }
+      return result;
     },
   };
 }
@@ -175,6 +171,8 @@ function wrapToolsWithGate(
   tools: ToolSet,
   effectGate: EffectGate,
   effectScope: ToolEffectScope,
+  source: string,
+  limits: McpCallLimits,
 ): ToolSet {
   const wrapped: ToolSet = {};
   for (const [name, entry] of Object.entries(tools)) {
@@ -183,9 +181,24 @@ function wrapToolsWithGate(
       entry as GatedTool,
       effectGate,
       effectScope,
+      source,
+      limits,
     ) as ToolSet[string];
   }
   return wrapped;
+}
+
+function positiveLimit(name: string, value: number | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      `createMcpToolProvider: ${name} must be a positive, finite number (got ${value}).`,
+    );
+  }
+  return value;
 }
 
 /**
@@ -215,7 +228,33 @@ export function createMcpToolProvider(
     );
   }
 
+  if (typeof options.serverId !== "string" || !SERVER_ID_PATTERN.test(options.serverId)) {
+    throw new AdlError(
+      "INVALID_INPUT",
+      "createMcpToolProvider: serverId is required and must match [A-Za-z0-9_-]+ " +
+        `(got ${JSON.stringify(options.serverId)}).`,
+    );
+  }
+
   const { transport, effectGate, schemas, onUncaughtError, name, version } = options;
+  const source = `mcp:${options.serverId}`;
+  const initTimeoutMs = positiveLimit(
+    "initTimeoutMs",
+    options.initTimeoutMs,
+    DEFAULT_MCP_INIT_TIMEOUT_MS,
+  );
+  const limits: McpCallLimits = {
+    callTimeoutMs: positiveLimit(
+      "callTimeoutMs",
+      options.callTimeoutMs,
+      DEFAULT_MCP_CALL_TIMEOUT_MS,
+    ),
+    maxOutputBytes: positiveLimit(
+      "maxOutputBytes",
+      options.maxOutputBytes,
+      DEFAULT_MCP_MAX_OUTPUT_BYTES,
+    ),
+  };
 
   let clientPromise: Promise<MCPClient> | undefined;
   let client: MCPClient | undefined;
@@ -232,6 +271,7 @@ export function createMcpToolProvider(
     if (!clientPromise) {
       clientPromise = createMCPClient({
         transport,
+        initializationOptions: { timeout: initTimeoutMs },
         onUncaughtError,
         name,
         version,
@@ -271,6 +311,8 @@ export function createMcpToolProvider(
         tools as ToolSet,
         effectGate,
         effectScopeFromToolProviderContext(ctx),
+        source,
+        limits,
       );
     },
     async dispose(): Promise<void> {

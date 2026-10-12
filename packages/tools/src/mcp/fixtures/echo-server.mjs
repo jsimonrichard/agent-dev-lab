@@ -6,6 +6,9 @@
 import { createInterface } from "node:readline";
 
 const PROTOCOL_VERSION = "2025-06-18";
+// Test knobs: delay the handshake or each tools/call by this many ms.
+const INIT_DELAY_MS = Number(process.env.ADL_MCP_FIXTURE_INIT_DELAY_MS ?? "0");
+const CALL_DELAY_MS = Number(process.env.ADL_MCP_FIXTURE_CALL_DELAY_MS ?? "0");
 
 function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -103,6 +106,12 @@ rl.on("line", (line) => {
     return;
   }
   if (message.method) {
-    handleRequest(message);
+    const delay =
+      message.method === "initialize"
+        ? INIT_DELAY_MS
+        : message.method === "tools/call"
+          ? CALL_DELAY_MS
+          : 0;
+    setTimeout(() => handleRequest(message), delay);
   }
 });

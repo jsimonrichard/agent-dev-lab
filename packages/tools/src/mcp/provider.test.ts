@@ -26,11 +26,21 @@ function ctx(): ExtendedToolProviderContext<undefined> {
   };
 }
 
-function stdioTransport(): Experimental_StdioMCPTransport {
+function stdioTransport(env: Record<string, string> = {}): Experimental_StdioMCPTransport {
   return new Experimental_StdioMCPTransport({
     command: process.execPath,
     args: [FIXTURE_SERVER],
+    env: { ...(process.env as Record<string, string>), ...env },
   });
+}
+
+function recordingGate(intents: EffectIntent[]): EffectGate {
+  return {
+    async handle(intent: EffectIntent): Promise<EffectDecision> {
+      intents.push(intent);
+      return { action: "allow" };
+    },
+  };
 }
 
 function denyAllGate(reason = "blocked by test"): EffectGate {
@@ -44,10 +54,10 @@ function denyAllGate(reason = "blocked by test"): EffectGate {
 function rewriteGate(input: unknown): EffectGate {
   return {
     async handle(intent: EffectIntent): Promise<EffectDecision> {
-      const payload = intent.payload as { toolName: string; input: unknown };
+      const payload = intent.payload as { toolName: string; input: unknown; source?: string };
       return {
         action: "rewrite",
-        payload: { toolName: payload.toolName, input },
+        payload: { ...payload, input },
       };
     },
   };
@@ -57,6 +67,7 @@ describe("createMcpToolProvider", () => {
   it("throws when transport is missing", () => {
     expect(() =>
       createMcpToolProvider({
+        serverId: "echo",
         // @ts-expect-error — intentional missing transport
         transport: undefined,
         effectGate: allowAllGate,
@@ -64,6 +75,7 @@ describe("createMcpToolProvider", () => {
     ).toThrow(AdlError);
     try {
       createMcpToolProvider({
+        serverId: "echo",
         // @ts-expect-error — intentional missing transport
         transport: undefined,
         effectGate: allowAllGate,
@@ -78,6 +90,7 @@ describe("createMcpToolProvider", () => {
   it("throws when effectGate is missing", () => {
     try {
       createMcpToolProvider({
+        serverId: "echo",
         transport: stdioTransport(),
         // @ts-expect-error — intentional missing gate
         effectGate: undefined,
@@ -92,6 +105,7 @@ describe("createMcpToolProvider", () => {
 
   it("connects to a stdio fixture and executes echo under allowAllGate", async () => {
     const provider = createMcpToolProvider({
+      serverId: "echo",
       transport: stdioTransport(),
       effectGate: allowAllGate,
     });
@@ -117,6 +131,7 @@ describe("createMcpToolProvider", () => {
 
   it("denies without calling the MCP server when the gate denies", async () => {
     const provider = createMcpToolProvider({
+      serverId: "echo",
       transport: stdioTransport(),
       effectGate: denyAllGate("nope"),
     });
@@ -138,6 +153,7 @@ describe("createMcpToolProvider", () => {
 
   it("applies rewrite payloads before materializing the MCP call", async () => {
     const provider = createMcpToolProvider({
+      serverId: "echo",
       transport: stdioTransport(),
       effectGate: rewriteGate({ message: "rewritten" }),
     });
@@ -159,6 +175,7 @@ describe("createMcpToolProvider", () => {
 
   it("dispose is idempotent and blocks further getTools", async () => {
     const provider = createMcpToolProvider({
+      serverId: "echo",
       transport: stdioTransport(),
       effectGate: allowAllGate,
     });
@@ -168,5 +185,113 @@ describe("createMcpToolProvider", () => {
     await expect(provider.getTools(ctx())).rejects.toMatchObject({
       code: "INVALID_CONTEXT",
     });
+  });
+
+  it("rejects a missing or malformed serverId", () => {
+    for (const serverId of [undefined, "", "has space", "mcp:echo"]) {
+      expect(() =>
+        createMcpToolProvider({
+          // @ts-expect-error — intentional bad serverId
+          serverId,
+          transport: stdioTransport(),
+          effectGate: allowAllGate,
+        }),
+      ).toThrow(/serverId is required/);
+    }
+  });
+
+  it("stamps the server as the intent source and uses the AI SDK toolCallId", async () => {
+    const intents: EffectIntent[] = [];
+    const provider = createMcpToolProvider({
+      serverId: "echo",
+      transport: stdioTransport(),
+      effectGate: recordingGate(intents),
+    });
+    try {
+      const { echo } = await provider.getTools(ctx());
+      await echo!.execute!({ message: "hi" }, toolCallOptions);
+      expect(intents).toHaveLength(1);
+      expect(intents[0]?.id).toBe(toolCallOptions.toolCallId);
+      expect(intents[0]?.payload).toEqual({
+        toolName: "echo",
+        input: { message: "hi" },
+        source: "mcp:echo",
+      });
+    } finally {
+      await provider.dispose?.();
+    }
+  });
+
+  it("refuses a rewrite that changes the tool's source", async () => {
+    const provider = createMcpToolProvider({
+      serverId: "echo",
+      transport: stdioTransport(),
+      effectGate: {
+        async handle(): Promise<EffectDecision> {
+          return {
+            action: "rewrite",
+            payload: { toolName: "echo", input: { message: "x" }, source: "mcp:other" },
+          };
+        },
+      },
+    });
+    try {
+      const { echo } = await provider.getTools(ctx());
+      await expect(echo!.execute!({ message: "hi" }, toolCallOptions)).rejects.toThrow(
+        /changed the source/,
+      );
+    } finally {
+      await provider.dispose?.();
+    }
+  });
+
+  it("replaces a result over maxOutputBytes with an error result", async () => {
+    const provider = createMcpToolProvider({
+      serverId: "echo",
+      transport: stdioTransport(),
+      effectGate: allowAllGate,
+      maxOutputBytes: 64,
+    });
+    try {
+      const { echo } = await provider.getTools(ctx());
+      const result = await echo!.execute!({ message: "x".repeat(200) }, toolCallOptions);
+      expect(result).toMatchObject({ isError: true });
+      expect(JSON.stringify(result)).toContain("over the 64-byte limit");
+    } finally {
+      await provider.dispose?.();
+    }
+  });
+
+  it("fails a call that runs past callTimeoutMs", async () => {
+    const provider = createMcpToolProvider({
+      serverId: "echo",
+      transport: stdioTransport({ ADL_MCP_FIXTURE_CALL_DELAY_MS: "5000" }),
+      effectGate: allowAllGate,
+      callTimeoutMs: 100,
+    });
+    try {
+      const { echo } = await provider.getTools(ctx());
+      await expect(echo!.execute!({ message: "slow" }, toolCallOptions)).rejects.toThrow(
+        /did not finish within 100 ms/,
+      );
+    } finally {
+      await provider.dispose?.();
+    }
+  });
+
+  it("fails getTools when initialize runs past initTimeoutMs", async () => {
+    const provider = createMcpToolProvider({
+      serverId: "echo",
+      transport: stdioTransport({ ADL_MCP_FIXTURE_INIT_DELAY_MS: "5000" }),
+      effectGate: allowAllGate,
+      initTimeoutMs: 100,
+    });
+    try {
+      const started = Date.now();
+      await expect(provider.getTools(ctx())).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(4_000);
+    } finally {
+      await provider.dispose?.();
+    }
   });
 });
