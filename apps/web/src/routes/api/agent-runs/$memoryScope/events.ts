@@ -32,7 +32,9 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
             let closed = false;
             const poll = { timer: undefined as ReturnType<typeof setInterval> | undefined };
 
+            let releaseShutdown = () => {};
             const stopPolling = () => {
+              releaseShutdown();
               if (poll.timer) {
                 clearInterval(poll.timer);
                 poll.timer = undefined;
@@ -101,7 +103,7 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               void push().catch(fail);
             }, 400);
 
-            onRequestOrServerShutdown(request, () => {
+            releaseShutdown = onRequestOrServerShutdown(request, () => {
               stopPolling();
               closed = true;
               try {

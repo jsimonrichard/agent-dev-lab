@@ -333,13 +333,26 @@ export function getServerShutdownSignal(): AbortSignal {
   return state().controller.signal;
 }
 
-/** Run `stop` when the client disconnects or the server is shutting down (HTTP release). */
-export function onRequestOrServerShutdown(request: Request, stop: () => void): void {
+/**
+ * Run `stop` once when the client disconnects or the server is shutting down (HTTP
+ * release). Returns a disposer for streams that end on their own: the shutdown signal
+ * is process-wide, so a listener left on it outlives the request.
+ */
+export function onRequestOrServerShutdown(request: Request, stop: () => void): () => void {
   const shutdown = getServerShutdownSignal();
   if (request.signal.aborted || shutdown.aborted) {
     stop();
-    return;
+    return () => {};
   }
-  request.signal.addEventListener("abort", stop, { once: true });
-  shutdown.addEventListener("abort", stop, { once: true });
+  const dispose = () => {
+    request.signal.removeEventListener("abort", fire);
+    shutdown.removeEventListener("abort", fire);
+  };
+  const fire = () => {
+    dispose();
+    stop();
+  };
+  request.signal.addEventListener("abort", fire, { once: true });
+  shutdown.addEventListener("abort", fire, { once: true });
+  return dispose;
 }

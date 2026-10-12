@@ -43,11 +43,13 @@ export const Route = createFileRoute("/api/project/events")({
               enqueue(": ping\n\n");
             }, HEARTBEAT_MS);
 
+            let releaseShutdown = () => {};
             const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
               closed = true;
+              releaseShutdown();
               clearInterval(heartbeat);
               unsubscribe();
               if (endResponse) {
@@ -77,7 +79,7 @@ export const Route = createFileRoute("/api/project/events")({
               }),
             );
 
-            onRequestOrServerShutdown(request, () => {
+            releaseShutdown = onRequestOrServerShutdown(request, () => {
               stop(getServerShutdownSignal().aborted);
             });
           },

@@ -4,6 +4,7 @@ import {
   beginGracefulShutdown,
   forceShutdown,
   getServerShutdownSignal,
+  onRequestOrServerShutdown,
   registerShutdownRunHooks,
   resetServerShutdownForTests,
 } from "./server-shutdown.server";
@@ -84,5 +85,33 @@ describe("server shutdown drain / force", () => {
     await new Promise((r) => setImmediate(r));
     expect(getServerShutdownSignal().aborted).toBe(true);
     expect(exited).toBe(0);
+  });
+});
+
+describe("onRequestOrServerShutdown", () => {
+  afterEach(() => {
+    resetServerShutdownForTests();
+  });
+
+  it("calls stop once on client abort, and not at all after dispose", () => {
+    const client = new AbortController();
+    let stops = 0;
+    onRequestOrServerShutdown(new Request("http://localhost/", { signal: client.signal }), () => {
+      stops += 1;
+    });
+    client.abort();
+    client.abort();
+    expect(stops).toBe(1);
+
+    const other = new AbortController();
+    const dispose = onRequestOrServerShutdown(
+      new Request("http://localhost/", { signal: other.signal }),
+      () => {
+        stops += 1;
+      },
+    );
+    dispose();
+    other.abort();
+    expect(stops).toBe(1);
   });
 });

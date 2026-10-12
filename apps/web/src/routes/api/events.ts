@@ -47,11 +47,13 @@ export const Route = createFileRoute("/api/events")({
               enqueue(": ping\n\n");
             }, HEARTBEAT_MS);
 
+            let releaseShutdown = () => {};
             const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
               closed = true;
+              releaseShutdown();
               clearInterval(heartbeat);
               if (!abort.signal.aborted) {
                 abort.abort();
@@ -74,7 +76,7 @@ export const Route = createFileRoute("/api/events")({
             // socket to Vite's proxy (`Internal server error: socket hang up`).
             enqueue(": connected\n\n");
 
-            onRequestOrServerShutdown(request, () => {
+            releaseShutdown = onRequestOrServerShutdown(request, () => {
               stop(getServerShutdownSignal().aborted);
             });
 

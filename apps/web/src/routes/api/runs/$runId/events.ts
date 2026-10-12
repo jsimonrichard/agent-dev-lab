@@ -53,11 +53,13 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               enqueue(": ping\n\n");
             }, HEARTBEAT_MS);
 
+            let releaseShutdown = () => {};
             const stop = (endResponse: boolean) => {
               if (closed) {
                 return;
               }
               closed = true;
+              releaseShutdown();
               clearInterval(heartbeat);
               if (poll.timer) {
                 clearInterval(poll.timer);
@@ -142,7 +144,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               void push().catch(fail);
             }, 400);
 
-            onRequestOrServerShutdown(request, () => {
+            releaseShutdown = onRequestOrServerShutdown(request, () => {
               stop(getServerShutdownSignal().aborted);
             });
           },
