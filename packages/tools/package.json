@@ -1,6 +1,6 @@
 {
   "name": "@agent-dev-lab/tools",
-  "version": "0.0.4-rc.3",
+  "version": "0.0.4",
   "private": false,
   "license": "MIT",
   "publishConfig": {

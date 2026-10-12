@@ -1,5 +1,52 @@
 # @agent-dev-lab/web
 
+## 0.0.7
+
+### Patch Changes
+
+- 2530485: Add `abandonLiveRunsLostOnRestart`. The inspection UI calls it at boot so runs and agent episodes left `running` or `suspended` by a process that has exited are marked failed with a visible reason instead of appearing live forever. `workflow_started` and `agent_started` now record an `owner` (`RunOwner`: pid, hostname, per-process id). Live rows owned by another process still alive on this host, or by a process on another host, are left live and listed in `leftLive`. Rows recorded before owners existed are treated as abandoned.
+- 5467c9c: **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2`.
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. Tools no longer receive the `ToolProviderContext` through `experimental_context`; read it from the `ToolProvider.getTools(context)` closure instead. `telemetry.metadata` is forwarded as AI SDK `runtimeContext`.
+  5. `AgentRunResult.sdk` and `AgentStreamResult` now carry AI SDK v7 result types.
+  6. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+- f83f670: Inspection UI Pause / Continue / Step on the shared suspend substrate (`workflow_suspended` / `run_suspended`, no second pause channel).
+- 07f75a9: Add `computeEpisodeTiming` (also `@agent-dev-lab/core/episode-timing` for client-safe import) for tool-wait vs LLM-active from run events, and surface it on the episode inspector.
+- 0ee9395: Fix the inspection UI accepting requests from other machines and sites. `adl dashboard --serve` / `--prebuilt` now listen on `127.0.0.1` instead of every interface. The inspector answers only when the `Host` header is a loopback name (blocking DNS rebinding) and rejects POSTs whose Origin or `Sec-Fetch-Site` is another site, so a web page can no longer start, cancel, approve, or retry runs. Clients that send no Origin (curl, scripts) still work.
+- 6e695bf: Add a host-only `adl.config` model catalog (`models[]` with factory), inspector next-turn picker, CLI `--model`, and optional `apiKeyEnv` preflight — core still only receives live `LanguageModel` via `AgentRunInput.model`.
+- 52db055: Fix false 404s on workflow-linked conversation scopes. Session hydration no longer latches “done” before episode registration, so concurrent loaders can resolve `${workflowRunId}:suffix` (and nested) scopes that exist only as episodes. Decode `%3A` in agent location paths.
+- b0ce1e4: Workflow-run sidebar token totals include nested child runs in the same parent forest, not only agents on that run's own `workflowRunId`.
+- 9296894: Show live preliminary tool-result payloads on pending chat tool cards via the existing SSE path.
+- 6c00ba0: Persist EffectGate suspends on the WorkflowStore. A gate that returns `suspend` parks the run (`workflow_suspended`, run status `"suspended"`) until `resolveSuspend` records a decision, then the run continues from the parked cursor (`workflow_resumed`). Approvals and debugger pauses share the same suspend record. The inspection UI shows pending approvals with Allow / Deny.
+
+  **Breaking for custom stores:** `WorkflowStore` gains suspend methods (`createSuspend`, `resolveSuspend`, `getSuspend`, `listPendingSuspends`, `waitForSuspendResolution`, `seedRetryFromCursor`), and `WorkflowRunSummary.status` can be `"suspended"`. The bundled in-memory and SQLite stores implement them; existing SQLite databases upgrade in place.
+
+- e84a42a: Give waterfall timespan bars a 4px CSS min-width so short steps stay visible without padding stored durations.
+- f403734: Re-scale the live workflow waterfall with CSS axis variables instead of reconciling every dual-pane React row each clock tick.
+- Updated dependencies [2530485]
+- Updated dependencies [5467c9c]
+- Updated dependencies [0794306]
+- Updated dependencies [f83f670]
+- Updated dependencies [d458df4]
+- Updated dependencies [07f75a9]
+- Updated dependencies [6e695bf]
+- Updated dependencies [c7ff0e3]
+- Updated dependencies [96def5e]
+- Updated dependencies [a1442d0]
+- Updated dependencies [e9c8aaa]
+- Updated dependencies [68ee7f2]
+- Updated dependencies [1ddb478]
+- Updated dependencies [6c00ba0]
+  - @agent-dev-lab/core@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

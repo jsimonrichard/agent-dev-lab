@@ -1,5 +1,41 @@
 # @agent-dev-lab/core
 
+## 0.0.7
+
+### Patch Changes
+
+- 2530485: Add `abandonLiveRunsLostOnRestart`. The inspection UI calls it at boot so runs and agent episodes left `running` or `suspended` by a process that has exited are marked failed with a visible reason instead of appearing live forever. `workflow_started` and `agent_started` now record an `owner` (`RunOwner`: pid, hostname, per-process id). Live rows owned by another process still alive on this host, or by a process on another host, are left live and listed in `leftLive`. Rows recorded before owners existed are treated as abandoned.
+- 5467c9c: **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2`.
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. Tools no longer receive the `ToolProviderContext` through `experimental_context`; read it from the `ToolProvider.getTools(context)` closure instead. `telemetry.metadata` is forwarded as AI SDK `runtimeContext`.
+  5. `AgentRunResult.sdk` and `AgentStreamResult` now carry AI SDK v7 result types.
+  6. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+- 0794306: **Breaking:** `combineToolProviders` throws `INVALID_CONFIG` when two sources provide the same tool name. In 0.0.6 the later source silently replaced the earlier tool, so for example an MCP server could shadow a built-in. Rename or filter one of the tools. Per-call `tools` still override definition tools on `agent.run`.
+- f83f670: Add a runtime debugger session (`createDebugSession`) with pause, continue, and step-over. Step entry records a step-boundary effect intent, so a debugger break parks on the same persisted suspend record as an approval.
+- d458df4: Add the EffectGate substrate: `EffectIntent` / `EffectDecision` types, `composeEffectHandlers` (denies when no handler decides), an explicit `allowAllGate` for hosts and tests, and `gateWithIntent`, which records an `effect_intent` event before the gate decides and an `effect_settled` event after. Tool approval, `ctx.requestApproval`, and the step debugger all go through this one gate. `createAdlRuntime` uses `allowAllGate` as the host policy when `effectGate` is omitted (the debugger still runs first). `ExtendedToolProviderContext` gains a required `recordEffect`; the agent runner supplies it, so only code that builds that context by hand (usually tests calling `getTools` directly) needs to pass one.
+- 07f75a9: Add `computeEpisodeTiming` (also `@agent-dev-lab/core/episode-timing` for client-safe import) for tool-wait vs LLM-active from run events, and surface it on the episode inspector.
+- 6e695bf: Add a host-only `adl.config` model catalog (`models[]` with factory), inspector next-turn picker, CLI `--model`, and optional `apiKeyEnv` preflight — core still only receives live `LanguageModel` via `AgentRunInput.model`.
+- c7ff0e3: Expose `rootWorkflowRunId` on `WorkflowContext` (with existing `parentWorkflowRunId`). **Breaking:** `memoryScopeWithSuffix` now keys the nest-tree root (`${rootWorkflowRunId}:${suffix}`) instead of the immediate run; add `runLocalScope` for the prior immediate-run formula. Isolated runs stay their own root.
+- 96def5e: Add per-call `AgentRunInput.model` (`input.model ?? definition.model ?? defaults.model`) and record a read-only `{ modelId, provider }` descriptor on `agent_started` / agent episode projections.
+- a1442d0: Add `WorkflowStore.seedRetryFromCursor` (`TraceCursor`). `cursor.effectId` resolves through the persisted `effect_intent` events to the enclosing step (step-atomic replay); `stepId` is the UI alias. Unknown, conflicting, and root-level effect ids are rejected, and `runSeq` cursors are not supported yet. `seedRetryAttempt({ fromStepId })` keeps working as a wrapper.
+- e9c8aaa: Forward `maxRetries` and `streamRetries` from the agent definition and from `agent.run` / `agent.stream` into `streamText`. A positive `streamRetries` also covers a dropped provider stream (retryable HTTP 200): ADL turns that rejection into an error chunk so the SDK's own retry reruns the step, on the same budget. Text still streams incrementally, so a dropped attempt's partial text can appear on live streams; the result, structured output, and stored transcript exclude it. `streamRetries` with a string model id fails with `INVALID_INPUT`. Omit both to keep the SDK defaults.
+
+  An error chunk the SDK does not retry now fails the episode, even after partial text; previously the step finished with that partial text as the answer.
+
+- 68ee7f2: Structured output uses the final step's complete JSON parse. A prose final answer fails the episode with `NoObjectGeneratedError` (model text on the error and `agent_failed`).
+- 1ddb478: Structured output with tools no longer sends a JSON response format on the tool loop. Models that receive both skip the tools and return a minimal schema object. A tool-free follow-up call formats the answer when the loop stops with non-JSON text.
+- 6c00ba0: Persist EffectGate suspends on the WorkflowStore. A gate that returns `suspend` parks the run (`workflow_suspended`, run status `"suspended"`) until `resolveSuspend` records a decision, then the run continues from the parked cursor (`workflow_resumed`). Approvals and debugger pauses share the same suspend record. The inspection UI shows pending approvals with Allow / Deny.
+
+  **Breaking for custom stores:** `WorkflowStore` gains suspend methods (`createSuspend`, `resolveSuspend`, `getSuspend`, `listPendingSuspends`, `waitForSuspendResolution`, `seedRetryFromCursor`), and `WorkflowRunSummary.status` can be `"suspended"`. The bundled in-memory and SQLite stores implement them; existing SQLite databases upgrade in place.
+
 ## 0.0.6
 
 ### Patch Changes

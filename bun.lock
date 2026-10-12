@@ -21,7 +21,7 @@
     },
     "apps/cli": {
       "name": "@agent-dev-lab/cli",
-      "version": "0.0.9-rc.3",
+      "version": "0.0.9",
       "bin": {
         "adl": "./dist/cli.js",
       },
@@ -39,7 +39,7 @@
     },
     "apps/docs": {
       "name": "@agent-dev-lab/docs",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@astrojs/starlight": "^0.39.2",
         "astro": "^6.3.1",
@@ -71,7 +71,7 @@
     },
     "apps/web": {
       "name": "@agent-dev-lab/web",
-      "version": "0.0.7-rc.3",
+      "version": "0.0.7",
       "dependencies": {
         "@agent-dev-lab/core": "workspace:*",
         "@codemirror/commands": "^6.11.1",
@@ -124,7 +124,7 @@
     },
     "packages/core": {
       "name": "@agent-dev-lab/core",
-      "version": "0.0.7-rc.3",
+      "version": "0.0.7",
       "dependencies": {
         "@opentelemetry/api": "^1.9.0",
         "@types/better-sqlite3": "^9.6.0",
@@ -154,7 +154,7 @@
     },
     "packages/tools": {
       "name": "@agent-dev-lab/tools",
-      "version": "0.0.4-rc.3",
+      "version": "0.0.4",
       "dependencies": {
         "@agent-dev-lab/core": "workspace:*",
         "@ai-sdk/mcp": "^2.0.66",

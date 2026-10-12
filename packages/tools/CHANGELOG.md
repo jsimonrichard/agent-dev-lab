@@ -1,5 +1,40 @@
 # @agent-dev-lab/tools
 
+## 0.0.4
+
+### Patch Changes
+
+- 5467c9c: **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
+
+  ### Consumer migration
+  1. Install peers in every host that runs agents:
+     ```bash
+     bun add ai@^7 @ai-sdk/otel@^1
+     ```
+  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2`.
+  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
+  4. Tools no longer receive the `ToolProviderContext` through `experimental_context`; read it from the `ToolProvider.getTools(context)` closure instead. `telemetry.metadata` is forwarded as AI SDK `runtimeContext`.
+  5. `AgentRunResult.sdk` and `AgentStreamResult` now carry AI SDK v7 result types.
+  6. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
+
+- f96b0f1: Add `createMcpToolProvider`: wraps `@ai-sdk/mcp` (`^2`) as a ToolProvider with a required `serverId`, transport, and EffectGate, process-scoped dispose, and fail-closed defaults. Every MCP tool call records an effect intent (`source: "mcp:<serverId>"`, id = the AI SDK `toolCallId`) and goes through the gate. Connecting, `initialize`, and each call are time-bounded (`initTimeoutMs`, `callTimeoutMs`), and results over `maxOutputBytes` are replaced by an error result. Also adds `decideToolCall`, the non-throwing form of `assertToolAllowed`.
+- 2629836: **Breaking:** every tool factory and provider now requires an `EffectGate` (and an `effectScope` on factories). `createWebToolProvider` and `createFetchUrlTool` can no longer be called without options, and `getTools` throws unless the context supplies `recordEffect`, which the ADL runtime always does. Each tool call records an `effect_intent`, asks the gate, and records `effect_settled`; a `suspend` decision parks the run on the runtime's persisted suspend. Also ships an `ApprovalDispatcher` adapter: an allow covers one call unless the dispatcher returns `remember: "agentCall"`, which allows the same tool (same `source` and name) for the rest of that agent call. Pass `allowAllGate` explicitly in tests. Intents are labelled for gates: `bash`, `fetchUrl`, `writeFile`, `editFile`, and MCP calls are `irreversible`; reads and `describe*Env` are `reversible`. `assertToolAllowed` requires `reversibility`.
+- Updated dependencies [2530485]
+- Updated dependencies [5467c9c]
+- Updated dependencies [0794306]
+- Updated dependencies [f83f670]
+- Updated dependencies [d458df4]
+- Updated dependencies [07f75a9]
+- Updated dependencies [6e695bf]
+- Updated dependencies [c7ff0e3]
+- Updated dependencies [96def5e]
+- Updated dependencies [a1442d0]
+- Updated dependencies [e9c8aaa]
+- Updated dependencies [68ee7f2]
+- Updated dependencies [1ddb478]
+- Updated dependencies [6c00ba0]
+  - @agent-dev-lab/core@0.0.7
+
 ## 0.0.3
 
 ### Patch Changes
