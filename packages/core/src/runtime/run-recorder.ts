@@ -7,6 +7,7 @@ import type {
   WorkflowObserverEvent,
 } from "../observability/events";
 import { EVENT_SCHEMA_VERSION } from "../observability/events";
+import { currentRunOwner } from "./run-owner";
 import type { RuntimeServices } from "./types";
 
 const TRACER_NAME = "agent-dev-lab";
@@ -80,7 +81,11 @@ export class RunRecorder {
     }
   }
 
-  private attachMeta(event: RunEventEmit): RunEvent {
+  private attachMeta(emitted: RunEventEmit): RunEvent {
+    const event =
+      emitted.type === "workflow_started" || emitted.type === "agent_started"
+        ? { ...emitted, owner: currentRunOwner() }
+        : emitted;
     if ("workflowRunId" in event && event.workflowRunId) {
       return {
         ...event,

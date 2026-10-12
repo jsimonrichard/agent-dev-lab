@@ -7,6 +7,7 @@ import type {
   SuspendReason,
   SuspendResolveDecision,
 } from "../effect/types";
+import type { RunOwner } from "../runtime/run-owner";
 import type { TokenUsage } from "./token-usage";
 
 /**
@@ -71,6 +72,8 @@ export type WorkflowStartedEvent = WorkflowRunEventBase & {
   retriesFromRunId?: string | null;
   /** Prior run this row replays (copy); omitted when the run re-executes. */
   replayOfRunId?: string | null;
+  /** Process running this run. Set by `RunRecorder`; omitted on events recorded before owners. */
+  owner?: RunOwner;
 };
 
 export type WorkflowFinishedEvent = WorkflowRunEventBase & {
@@ -217,6 +220,8 @@ export type AgentStartedEvent = AgentEventBase & {
    * this is a snapshot for inspection / fork seeding.
    */
   toolProviderContext?: unknown;
+  /** Process running this episode. Set by `RunRecorder`; omitted on events recorded before owners. */
+  owner?: RunOwner;
 };
 
 export type AgentFinishedEvent = AgentEventBase & {

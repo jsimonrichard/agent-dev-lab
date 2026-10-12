@@ -1,6 +1,8 @@
 import { AdlError } from "../errors";
 import { EVENT_SCHEMA_VERSION, isLiveWorkflowRunStatus } from "../observability/events";
+import type { RunEvent } from "../observability/events";
 import { serializeError } from "../internal/serialize-error";
+import { runOwnerLiveness, type RunOwner } from "../runtime/run-owner";
 import { nextRunSeq, nowIso } from "./suspend-records";
 import type { WorkflowStore } from "./workflow-store";
 
@@ -15,10 +17,16 @@ export const PROCESS_RESTART_RUN_GONE =
 export type AbandonedLiveRuns = {
   workflowRunIds: string[];
   agentCallIds: string[];
+  /**
+   * Live rows owned by a process that may still be running them — another
+   * live process on this host, or any process on another host — left as is.
+   */
+  leftLive: { workflowRunIds: string[]; agentCallIds: string[] };
 };
 
 /**
- * Terminalize every live workflow run and running agent episode on `store`.
+ * Terminalize every live workflow run and running agent episode on `store`
+ * whose owning process is gone (exited, or recorded before run owners).
  *
  * Hosts call this **once per OS process** at boot (not from `createAdlRuntime` —
  * config reload reconstructs the runtime while in-flight closures are still
@@ -32,8 +40,12 @@ export async function abandonLiveRunsLostOnRestart(
 ): Promise<AbandonedLiveRuns> {
   const at = nowIso();
   const error = serializeError(new AdlError("INVALID_CONTEXT", PROCESS_RESTART_RUN_GONE));
+  const result: AbandonedLiveRuns = {
+    workflowRunIds: [],
+    agentCallIds: [],
+    leftLive: { workflowRunIds: [], agentCallIds: [] },
+  };
 
-  const agentCallIds: string[] = [];
   const episodes = await store.listAgentEpisodes();
   for (const episode of episodes) {
     if (episode.status !== "running") {
@@ -42,6 +54,13 @@ export async function abandonLiveRunsLostOnRestart(
     const seqScope = episode.workflowRunId
       ? await store.listEvents({ workflowRunId: episode.workflowRunId })
       : await store.listEvents({ agentCallId: episode.agentCallId });
+    const started = seqScope.find(
+      (event) => event.type === "agent_started" && event.agentCallId === episode.agentCallId,
+    );
+    if (!ownerIsGone(started)) {
+      result.leftLive.agentCallIds.push(episode.agentCallId);
+      continue;
+    }
     await store.recordEvent({
       type: "agent_failed",
       agentCallId: episode.agentCallId,
@@ -53,16 +72,20 @@ export async function abandonLiveRunsLostOnRestart(
       at,
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
-    agentCallIds.push(episode.agentCallId);
+    result.agentCallIds.push(episode.agentCallId);
   }
 
-  const workflowRunIds: string[] = [];
   const runs = await store.listRuns();
   for (const run of runs) {
     if (!isLiveWorkflowRunStatus(run.status)) {
       continue;
     }
     const events = await store.listEvents({ workflowRunId: run.workflowRunId });
+    const started = events.find((event) => event.type === "workflow_started");
+    if (!ownerIsGone(started)) {
+      result.leftLive.workflowRunIds.push(run.workflowRunId);
+      continue;
+    }
     await store.recordEvent({
       type: "workflow_failed",
       workflowRunId: run.workflowRunId,
@@ -71,8 +94,16 @@ export async function abandonLiveRunsLostOnRestart(
       at,
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
-    workflowRunIds.push(run.workflowRunId);
+    result.workflowRunIds.push(run.workflowRunId);
   }
 
-  return { workflowRunIds, agentCallIds };
+  return result;
+}
+
+function ownerIsGone(started: RunEvent | undefined): boolean {
+  const owner: RunOwner | undefined =
+    started && (started.type === "workflow_started" || started.type === "agent_started")
+      ? started.owner
+      : undefined;
+  return runOwnerLiveness(owner) === "gone";
 }

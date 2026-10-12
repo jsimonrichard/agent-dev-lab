@@ -32,7 +32,7 @@ Registered ids come from `adl.config` `workflows`. The sidebar lists startable w
 5. **Cancel** calls `handle.cancel()`, which aborts `ctx.signal`, in-flight `ctx.step` bodies, nested workflow runs, and child `agent.run` / `streamText` calls on that run. Cancelling a nested run id aborts the active root. Isolated helper runs (for example conversation `titleWorkflow`) are not cancelled with the parent.
 6. A run waiting on [`ctx.requestApproval`](/core/workflows/#approvals-and-suspends) or a gated tool call shows as **suspended** with **Allow** / **Deny**. Deny fails the waiting step with an "Approval denied" error.
 7. **Pause** on a running run stops it at the next step entry or gated tool call. While it is paused at a breakpoint, **Continue** resumes and **Step** resumes until the next step entry. Continue and Step only resolve debugger pauses; an approval still needs Allow or Deny.
-8. Runs still running or suspended when the inspector process stops cannot continue. The next start marks them failed with a "Process restarted" reason instead of leaving them live.
+8. Runs still running or suspended when their process stops cannot continue. On start, the inspector marks them failed with a "Process restarted" reason instead of leaving them live. Runs started by another process that is still alive on this machine, or by any process on another host, are left alone.
 
 Live updates use **SSE** (`GET /api/runs/:runId/events?afterSeq=`). Reconnects replay from the last applied `runSeq`. History is always the SQLite (or in-memory) [`WorkflowStore`](/api/interfaces/workflowstore/), so you can reopen a finished run later.
 

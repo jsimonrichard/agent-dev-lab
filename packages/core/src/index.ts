@@ -170,6 +170,7 @@ export {
   abandonLiveRunsLostOnRestart,
   PROCESS_RESTART_RUN_GONE,
 } from "./stores";
+export type { RunOwner } from "./runtime/run-owner";
 export type {
   AbandonedLiveRuns,
   AgentEpisodeSummary,

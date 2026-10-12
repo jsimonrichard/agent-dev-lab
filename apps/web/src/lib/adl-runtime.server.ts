@@ -7,26 +7,29 @@ import {
 
 import { getLoadedAdlProject } from "#/lib/adl-project.server";
 import { ensureInspectorAgentObserver } from "#/lib/inspector/inspector-agent-observer.server";
+import { createOnceAsync } from "#/lib/once-async";
 import { armServerShutdown } from "#/lib/server-shutdown.server";
 
 armServerShutdown();
 
-const abandonOnBootKey = "__adlAbandonedLiveRunsOnBoot" as const;
+const abandonOnBootKey = "__adlAbandonLiveRunsOnBootOnce" as const;
 
 type BootGlobal = typeof globalThis & {
-  [abandonOnBootKey]?: Promise<void>;
+  [abandonOnBootKey]?: () => Promise<void>;
 };
 
 /**
- * Once per OS process. Must not run from `createAdlRuntime` — config reload
- * reconstructs the runtime while in-flight closures are still valid.
+ * Once per OS process (the latch lives on `globalThis` so dev module reloads
+ * keep it). Must not run from `createAdlRuntime` — config reload reconstructs
+ * the runtime while in-flight closures are still valid. A failed attempt is
+ * retried by the next request rather than cached.
  */
 async function abandonLiveRunsOnInspectorBoot(store: WorkflowStore): Promise<void> {
   const g = globalThis as BootGlobal;
-  if (!g[abandonOnBootKey]) {
-    g[abandonOnBootKey] = abandonLiveRunsLostOnRestart(store).then(() => undefined);
-  }
-  await g[abandonOnBootKey];
+  g[abandonOnBootKey] ??= createOnceAsync(async () => {
+    await abandonLiveRunsLostOnRestart(store);
+  });
+  await g[abandonOnBootKey]();
 }
 
 /** Shared process runtime from the loaded ADL project (`adl.config.ts` → `src/adl.ts`). */
