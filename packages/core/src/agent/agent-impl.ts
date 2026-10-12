@@ -21,7 +21,7 @@ import { RunRecorder, withActiveSpan } from "../runtime/run-recorder";
 import type { RuntimeServices } from "../runtime/types";
 import { sumTokenUsage, toTokenUsage, type TokenUsage } from "../observability/token-usage";
 import { generateConversationTitle, isGeneratingConversationTitle } from "./conversation-title";
-import { retryDroppedProviderStream } from "./retry-dropped-stream";
+import { retryableDroppedStream } from "./retry-dropped-stream";
 import { inspectLanguageModel, type AgentModelInfo } from "./inspect";
 import type { ToolProvider } from "../tools/provider";
 import { invokeToolProviderOnRunEnd } from "../tools/provider";
@@ -221,7 +221,6 @@ export class AgentImpl<
 
         let turnError: unknown;
         let turnResult: AgentRunResult<Tools, TOutput> | undefined;
-        let streamError: unknown;
         try {
           throwIfAborted(abortSignal);
           const storedMessages = await messageStore.load(memoryScope);
@@ -362,9 +361,6 @@ export class AgentImpl<
             textChannel,
             fullChannel,
             persistResponseMessages,
-            onStreamError: (error) => {
-              streamError ??= error;
-            },
           });
 
           if (!isGeneratingConversationTitle()) {
@@ -399,7 +395,7 @@ export class AgentImpl<
             ...(streamed.usage ? { usage: streamed.usage } : {}),
           };
         } catch (error) {
-          turnError = abortSignal.aborted ? abortError(abortSignal) : (streamError ?? error);
+          turnError = abortSignal.aborted ? abortError(abortSignal) : error;
           await runRecorder.emit({
             type: "agent_failed",
             agentCallId,
@@ -462,7 +458,6 @@ export class AgentImpl<
     textChannel?: AsyncChannel<string>;
     fullChannel?: AsyncChannel<FullStreamPart>;
     persistResponseMessages: (responseMessages: ModelMessage[]) => Promise<void>;
-    onStreamError: (error: unknown) => void;
   }): Promise<{
     text: string;
     output: TOutput;
@@ -567,7 +562,6 @@ export class AgentImpl<
     textChannel?: AsyncChannel<string>;
     fullChannel?: AsyncChannel<FullStreamPart>;
     persistResponseMessages: (responseMessages: ModelMessage[]) => Promise<void>;
-    onStreamError: (error: unknown) => void;
   }): Promise<{
     text: string;
     output: TOutput;
@@ -592,7 +586,6 @@ export class AgentImpl<
       textChannel,
       fullChannel,
       persistResponseMessages,
-      onStreamError,
     } = options;
     const telemetry = this.services.telemetry;
 
@@ -609,21 +602,14 @@ export class AgentImpl<
 
     // streamText puts model failures on fullStream error parts and calls
     // onError; awaiting `.text` / `.steps` then rejects with
-    // NoOutputGeneratedError ("check the stream for errors"). Keep the
-    // onError payload so agent_failed records the model error, not the wrapper.
+    // NoOutputGeneratedError ("check the stream for errors"). Keep the latest
+    // onError payload so agent_failed records the model error, not the wrapper;
+    // a step that completes clears it, since streamRetries recovered from it.
     // Tool provider context is closed over when tools are built — AI SDK 7 no
     // longer has a shared `experimental_context` blob on streamText.
-    // streamText retries `{ type: "error" }` chunks only. A socket drop rejects
-    // the provider stream; retry that inside doStream when the caller opted in.
-    // String model ids are resolved inside streamText, so only model objects
-    // can be wrapped. Callers in this repo pass model objects.
+    let streamError: unknown;
     const modelForStream =
-      streamRetries !== undefined &&
-      Number.isInteger(streamRetries) &&
-      streamRetries > 0 &&
-      typeof model === "object"
-        ? retryDroppedProviderStream(model, streamRetries)
-        : model;
+      streamRetries !== undefined && streamRetries > 0 ? retryableModel(model) : model;
     const streamResult = streamText({
       model: modelForStream,
       ...(instructions ? { instructions } : {}),
@@ -639,7 +625,7 @@ export class AgentImpl<
       ...(maxRetries !== undefined ? { maxRetries } : {}),
       ...(streamRetries !== undefined ? { streamRetries } : {}),
       onError: ({ error }) => {
-        onStreamError(error);
+        streamError = error;
       },
       telemetry: {
         isEnabled: telemetry?.isEnabled !== false,
@@ -658,6 +644,7 @@ export class AgentImpl<
           }
         : {}),
       onStepEnd: async (step) => {
+        streamError = undefined;
         await persistResponseMessages(step.response.messages);
       },
       onChunk: ({ chunk }) => {
@@ -699,23 +686,34 @@ export class AgentImpl<
       },
     }) as unknown as AgentSdkStreamResult<Tools>;
 
-    if (fullChannel) {
+    let text: string;
+    let turns: number;
+    let output: TOutput;
+    try {
+      // streamText forwards an `error` part only when it will not retry it. The
+      // step still "finishes" with the attempt's partial text, so treat it as fatal.
+      let unrecovered: { error: unknown } | undefined;
       for await (const part of streamResult.fullStream) {
-        fullChannel.push(part);
+        fullChannel?.push(part);
+        if (part.type === "error") {
+          unrecovered = { error: part.error };
+        }
       }
-    } else {
-      await streamResult.text;
+      if (unrecovered) {
+        throw unrecovered.error;
+      }
+      text = await streamResult.text;
+      turns = (await streamResult.steps).length;
+      // `streamText`'s `output` promise parses the final step's complete text
+      // (`parseCompleteOutput`) and rejects with `NoObjectGeneratedError` when
+      // that text is not JSON matching the schema. `partialOutputStream` is a
+      // repaired partial: after a tool loop its last value can be `{}` while
+      // the model answered in prose, and `schema.parse({})` then fills every
+      // `.default()`.
+      output = outputSchema ? ((await streamResult.output) as TOutput) : (text as TOutput);
+    } catch (error) {
+      throw streamError ?? error;
     }
-
-    const text = await streamResult.text;
-    const turns = (await streamResult.steps).length;
-    // `streamText`'s `output` promise parses the final step's complete text
-    // (`parseCompleteOutput`) and rejects with `NoObjectGeneratedError` when
-    // that text is not JSON matching the schema. `partialOutputStream` is a
-    // repaired partial: after a tool loop its last value can be `{}` while
-    // the model answered in prose, and `schema.parse({})` then fills every
-    // `.default()`.
-    const output = outputSchema ? ((await streamResult.output) as TOutput) : (text as TOutput);
 
     let usage: TokenUsage | undefined;
     try {
@@ -766,6 +764,20 @@ export class AgentImpl<
       // Title generation is best-effort and must not fail the conversation turn.
     }
   }
+}
+
+/**
+ * A string model id resolves inside `streamText`, past the point where it can be
+ * wrapped, so a dropped stream on it would quietly go unretried.
+ */
+function retryableModel(model: LanguageModel): Exclude<LanguageModel, string> {
+  if (typeof model === "string") {
+    throw new AdlError(
+      "INVALID_INPUT",
+      `streamRetries needs a LanguageModel object, not the model id "${model}". Pass the provider's model instance.`,
+    );
+  }
+  return retryableDroppedStream(model);
 }
 
 function resolveMemoryScope(memoryScope: string | undefined): string {

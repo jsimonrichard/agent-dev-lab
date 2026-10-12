@@ -1,14 +1,4 @@
-import { APICallError, type LanguageModel } from "ai";
-
-import { throwIfAborted } from "../internal/abort";
-
-type DoStreamOptions = {
-  abortSignal?: AbortSignal;
-};
-
-type DoStreamResult = {
-  stream: ReadableStream;
-};
+import { APICallError, wrapLanguageModel, type LanguageModel } from "ai";
 
 /**
  * A provider body that dies after HTTP 200. `streamText`'s `streamRetries`
@@ -20,98 +10,51 @@ function isDroppedSuccessfulResponse(error: unknown): boolean {
   return APICallError.isInstance(error) && error.statusCode === 200 && error.isRetryable === true;
 }
 
-/**
- * When `streamRetries` is a positive integer, retry a dropped provider stream
- * inside `doStream` before `streamText` observes it. Each attempt is buffered
- * until it finishes, so a failed attempt's partial text and tool calls are not
- * emitted. The last failure is rethrown as a stream error — the same shape
- * `agent.run` already surfaces.
- */
 type LanguageModelObject = Exclude<LanguageModel, string>;
 
-export function retryDroppedProviderStream(
-  model: LanguageModelObject,
-  streamRetries: number,
-): LanguageModelObject {
-  return new Proxy(model, {
-    get(target, property, receiver) {
-      if (property !== "doStream") {
-        const value: unknown = Reflect.get(target, property, receiver);
-        return typeof value === "function" ? value.bind(target) : value;
-      }
-      const doStream = (
-        target as LanguageModelObject & {
-          doStream: (options: DoStreamOptions) => PromiseLike<DoStreamResult>;
-        }
-      ).doStream.bind(target);
-      return (options: DoStreamOptions) => streamWithDropRetries(doStream, options, streamRetries);
+/**
+ * Turns a dropped provider stream into an `{ type: "error" }` part so
+ * `streamText`'s own `streamRetries` reruns the step. Chunks pass through
+ * unbuffered; every other rejection (aborts, non-200 errors) still rejects.
+ */
+export function retryableDroppedStream(model: LanguageModelObject): LanguageModelObject {
+  return wrapLanguageModel({
+    model,
+    middleware: {
+      wrapStream: async ({ doStream }) => {
+        const result = await doStream();
+        return { ...result, stream: errorPartOnDrop(result.stream) };
+      },
     },
   });
 }
 
-async function streamWithDropRetries(
-  doStream: (options: DoStreamOptions) => PromiseLike<DoStreamResult>,
-  options: DoStreamOptions,
-  streamRetries: number,
-): Promise<DoStreamResult> {
-  for (let attempt = 0; attempt <= streamRetries; attempt++) {
-    if (options.abortSignal) {
-      throwIfAborted(options.abortSignal);
-    }
-    const result = await doStream(options);
-    try {
-      const chunks = await readToEnd(result.stream);
-      return { ...result, stream: chunksToStream(chunks) };
-    } catch (error) {
-      const retriesLeft = attempt < streamRetries;
-      if (
-        !retriesLeft ||
-        options.abortSignal?.aborted ||
-        isAbortError(error) ||
-        !isDroppedSuccessfulResponse(error)
-      ) {
-        return { ...result, stream: erroringStream(error) };
-      }
-    }
-  }
-  throw new Error("retryDroppedProviderStream: retries ended without a stream");
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError";
-}
-
-async function readToEnd(stream: ReadableStream): Promise<unknown[]> {
+function errorPartOnDrop<T>(
+  stream: ReadableStream<T>,
+): ReadableStream<T | { type: "error"; error: unknown }> {
   const reader = stream.getReader();
-  const chunks: unknown[] = [];
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        return chunks;
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-function chunksToStream(chunks: readonly unknown[]): ReadableStream {
   return new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(chunk);
+    async pull(controller) {
+      let next: Awaited<ReturnType<typeof reader.read>>;
+      try {
+        next = await reader.read();
+      } catch (error) {
+        if (!isDroppedSuccessfulResponse(error)) {
+          controller.error(error);
+          return;
+        }
+        controller.enqueue({ type: "error", error });
+        controller.close();
+        return;
       }
-      controller.close();
+      if (next.done) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(next.value);
     },
-  });
-}
-
-function erroringStream(error: unknown): ReadableStream {
-  return new ReadableStream({
-    start(controller) {
-      controller.error(error);
+    cancel(reason) {
+      return reader.cancel(reason);
     },
   });
 }

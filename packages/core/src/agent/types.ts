@@ -112,17 +112,20 @@ export type AgentDefinition<
    */
   maxRetries?: number;
   /**
-   * Retry the current model call when the provider drops the response stream.
+   * Retry the current model step when the provider stream fails after it started.
    * Overridable per call via {@link AgentRunInput.streamRetries}.
    *
-   * Omit to leave this off. `0` disables it. A positive value does two things:
-   * it is forwarded to AI SDK `streamText` `streamRetries` (retries
-   * `{ type: "error" }` chunks; earlier completed steps stay), and a stream
-   * that instead *rejects* with a retryable HTTP 200 `APICallError` — a
-   * socket close while reading a successful response — is retried this many
-   * times inside that model call. Each of those attempts is buffered until
-   * it finishes, so a dropped attempt's partial text and tool calls are not
-   * emitted. The last failure still rejects the episode.
+   * Omit to leave this off. `0` disables it. A positive value is forwarded to AI
+   * SDK `streamText` `streamRetries` (reruns the step on `{ type: "error" }`
+   * chunks; earlier completed steps stay). A stream that instead *rejects* with
+   * a retryable HTTP 200 `APICallError` — a socket close while reading a
+   * successful response — is turned into such a chunk, so one budget covers both.
+   *
+   * Text is not buffered: a dropped attempt's partial text may already be on
+   * `textStream` / `fullStream` / `agent_text_delta`. The SDK excludes it from
+   * the result, structured output, and stored messages, and holds tool calls
+   * until an attempt finishes. Requires a model object; a string model id
+   * fails with `INVALID_INPUT`. The last failure still rejects the episode.
    */
   streamRetries?: number;
   memory?: AgentMemoryConfig;

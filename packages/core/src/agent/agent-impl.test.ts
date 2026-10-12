@@ -10,7 +10,11 @@ import { createTestRuntime } from "../runtime/create-test";
 import { createToolProvider } from "../tools/provider";
 import type { ExtendedToolProviderContext } from "../tools/provider";
 import type { ConversationTitleInput, ConversationTitleOutput } from "./types";
-import { mockLanguageModel, mockTextStreamResult } from "../test/mock-language-model";
+import {
+  mockLanguageModel,
+  mockProviderUsage,
+  mockTextStreamResult,
+} from "../test/mock-language-model";
 
 function flattenText(message: ModelMessage): string {
   if (typeof message.content === "string") {
@@ -1789,6 +1793,101 @@ describe("AgentImpl provider retries", () => {
       agentOff.run({ memoryScope: "notes", user: "hi", streamRetries: 0 }).result,
     ).rejects.toThrow("Failed to process successful response");
     expect(disabled.calls()).toBe(1);
+  });
+
+  it("streams text deltas before the provider finishes when streamRetries is set", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const model = mockLanguageModel({
+      doStream: async () => ({
+        stream: new ReadableStream({
+          async start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            controller.enqueue({ type: "text-start", id: "text-1" });
+            controller.enqueue({ type: "text-delta", id: "text-1", delta: "early" });
+            await gate;
+            controller.enqueue({ type: "text-end", id: "text-1" });
+            controller.enqueue({
+              type: "finish",
+              finishReason: { unified: "stop" },
+              usage: mockProviderUsage(),
+            });
+            controller.close();
+          },
+        }),
+      }),
+    });
+    const adl = createTestRuntime({ defaults: { model } });
+    const agent = adl.createAgent({ id: "incremental-retry", systemPrompt: "Be brief." });
+    const handle = agent.stream({ memoryScope: "notes", user: "hi", streamRetries: 2 });
+    const iterator = handle.textStream[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    expect(first.value).toBe("early");
+    release();
+    await handle.finished;
+  });
+
+  it("reports the final failure, not an error chunk a retry recovered from", async () => {
+    let calls = 0;
+    const model = mockLanguageModel({
+      doStream: async () => {
+        calls += 1;
+        if (calls > 1) {
+          return mockTextStreamResult("not json");
+        }
+        return {
+          stream: convertArrayToReadableStream([
+            { type: "stream-start", warnings: [] },
+            { type: "error", error: new Error("provider error chunk") },
+          ]),
+        };
+      },
+    });
+    const adl = createTestRuntime({ defaults: { model } });
+    const agent = adl.createAgent({
+      id: "recovered-error-chunk",
+      systemPrompt: "Be brief.",
+      outputSchema: z.object({ answer: z.string() }),
+    });
+
+    const error = await agent
+      .run({ memoryScope: "notes", user: "hi", streamRetries: 1 })
+      .result.then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+    expect(calls).toBe(2);
+    expect(NoObjectGeneratedError.isInstance(error)).toBe(true);
+  });
+
+  it("fails the episode on an unretried error chunk after partial text", async () => {
+    const model = mockLanguageModel({
+      doStream: async () => ({
+        stream: convertArrayToReadableStream([
+          { type: "stream-start", warnings: [] },
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", delta: "partial" },
+          { type: "error", error: new Error("provider error chunk") },
+        ]),
+      }),
+    });
+    const adl = createTestRuntime({ defaults: { model } });
+    const agent = adl.createAgent({ id: "unretried-error-chunk", systemPrompt: "Be brief." });
+
+    await expect(agent.run({ memoryScope: "notes", user: "hi" }).result).rejects.toThrow(
+      "provider error chunk",
+    );
+  });
+
+  it("rejects streamRetries on a string model id instead of skipping the retry", async () => {
+    const adl = createTestRuntime({ defaults: { model: "openai/gpt-test" } });
+    const agent = adl.createAgent({ id: "string-model-retry", systemPrompt: "Be brief." });
+
+    await expect(
+      agent.run({ memoryScope: "notes", user: "hi", streamRetries: 1 }).result,
+    ).rejects.toThrow(/streamRetries needs a LanguageModel object/);
   });
 
   it("forwards maxRetries for a retryable error before the stream starts", async () => {

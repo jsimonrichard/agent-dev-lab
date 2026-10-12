@@ -182,7 +182,9 @@ Inside a workflow step, `workflowRunId` / `stepId` are picked up from the active
 
 `maxRetries` is forwarded to [`streamText`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text). It retries a retryable failure of the request itself, before any response body is read.
 
-`streamRetries` retries a provider stream that closes after the response has started (HTTP 200, `isRetryable`). Set it to a positive integer, for example `2`. The AI SDK option reruns a step when the model stream emits an error chunk. This drop rejects the stream instead, so ADL also retries that model call directly, up to `streamRetries` times. Each of those attempts is held until it finishes, and only a finished attempt is emitted — partial text and tool calls from a dropped attempt are discarded. Earlier completed steps stay. When every attempt drops, the episode still fails. `0` turns this off.
+`streamRetries` is forwarded to `streamText`, which reruns the current model step when the provider stream emits an error chunk. ADL also turns a provider stream that closes after the response has started (HTTP 200, `isRetryable`) into such an error chunk, because that drop otherwise rejects the stream and the SDK never retries it. Set a positive integer, for example `2`; it is one budget for both cases. Earlier completed steps stay. `0` turns this off.
+
+Text streams as it arrives, so a dropped attempt's partial text can already be in `textStream`, `fullStream`, and `agent_text_delta` before the retry. The SDK holds back tool calls until an attempt finishes, and it leaves the dropped attempt out of `result.text`, structured output, and the stored transcript. An error chunk that is not retried fails the episode, even when partial text came before it. `streamRetries` needs a model object: with a string model id the call fails with `INVALID_INPUT`.
 
 ### Turn Input
 
