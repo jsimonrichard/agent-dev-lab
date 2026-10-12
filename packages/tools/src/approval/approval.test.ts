@@ -6,9 +6,7 @@ import path from "node:path";
 import {
   allowAllGate,
   composeEffectHandlers,
-  type EffectDecision,
   type EffectGate,
-  type EffectHandler,
   type EffectIntent,
   type SuspendHandle,
 } from "@agent-dev-lab/core";
@@ -16,11 +14,12 @@ import {
 import {
   approvalDispatcherAsHandler,
   assertToolAllowed,
-  createStickyToolAllowHandler,
   effectScopeFromToolProviderContext,
   testToolEffectScope,
   TOOL_SUSPEND_UNSUPPORTED_MESSAGE,
+  type ApprovalDecision,
   type ApprovalDispatcher,
+  type ApprovalRequest,
 } from "./index.ts";
 import { createFileTools } from "../file/tools.ts";
 import { createBashTool } from "../bash/tools.ts";
@@ -56,17 +55,6 @@ function suspendGate(): EffectGate {
   return {
     handle() {
       return Promise.resolve({ action: "suspend", handle });
-    },
-  };
-}
-
-function recordingHandler(): EffectHandler & { intents: EffectIntent[] } {
-  const intents: EffectIntent[] = [];
-  return {
-    intents,
-    async onIntent(intent) {
-      intents.push(intent);
-      return { action: "allow" };
     },
   };
 }
@@ -263,40 +251,70 @@ describe("effectScopeFromToolProviderContext", () => {
   });
 });
 
-describe("createStickyToolAllowHandler", () => {
-  it("asks the inner handler once per tool name, then allows", async () => {
-    const recording = recordingHandler();
-    const sticky = createStickyToolAllowHandler(recording);
-    const gate = composeEffectHandlers([sticky]);
+describe("approvalDispatcherAsHandler remember", () => {
+  function toolIntent(
+    id: string,
+    toolName: string,
+    extras: { agentCallId?: string; source?: string } = {},
+  ): EffectIntent {
+    return {
+      id,
+      kind: "tool",
+      reversibility: "irreversible",
+      workflowRunId: "run",
+      ...(extras.agentCallId ? { agentCallId: extras.agentCallId } : {}),
+      payload: {
+        toolName,
+        input: {},
+        ...(extras.source ? { source: extras.source } : {}),
+      },
+    };
+  }
 
-    const first = await gate.handle({
-      id: "1",
-      kind: "tool",
-      reversibility: "compensable",
-      workflowRunId: "run",
-      payload: { toolName: "bash", input: { command: "echo 1" } },
-    });
-    const second = await gate.handle({
-      id: "2",
-      kind: "tool",
-      reversibility: "compensable",
-      workflowRunId: "run",
-      payload: { toolName: "bash", input: { command: "echo 2" } },
-    });
-    const other = await gate.handle({
-      id: "3",
-      kind: "tool",
-      reversibility: "compensable",
-      workflowRunId: "run",
-      payload: { toolName: "readFile", input: { path: "a.txt" } },
-    });
+  function countingDispatcher(decision: ApprovalDecision) {
+    const requests: ApprovalRequest[] = [];
+    const dispatcher: ApprovalDispatcher = {
+      async request(req) {
+        requests.push(req);
+        return decision;
+      },
+    };
+    return { dispatcher, requests };
+  }
 
-    expect(first).toEqual({ action: "allow" } satisfies EffectDecision);
-    expect(second).toEqual({ action: "allow" });
-    expect(other).toEqual({ action: "allow" });
-    expect(recording.intents.map((i) => (i.payload as { toolName: string }).toolName)).toEqual([
-      "bash",
-      "readFile",
-    ]);
+  it("asks every time for a plain allow", async () => {
+    const { dispatcher, requests } = countingDispatcher({ decision: "allow" });
+    const handler = approvalDispatcherAsHandler(dispatcher);
+    await handler.onIntent(toolIntent("1", "bash", { agentCallId: "call-1" }));
+    await handler.onIntent(toolIntent("2", "bash", { agentCallId: "call-1" }));
+    expect(requests).toHaveLength(2);
+  });
+
+  it("remembers an allow only for the same agent call, source, and tool", async () => {
+    const { dispatcher, requests } = countingDispatcher({
+      decision: "allow",
+      remember: "agentCall",
+    });
+    const handler = approvalDispatcherAsHandler(dispatcher);
+    const github = { agentCallId: "call-1", source: "mcp:github" };
+    await handler.onIntent(toolIntent("1", "search", github));
+    await handler.onIntent(toolIntent("2", "search", github));
+    await handler.onIntent(
+      toolIntent("3", "search", { agentCallId: "call-1", source: "mcp:evil" }),
+    );
+    await handler.onIntent(
+      toolIntent("4", "search", { agentCallId: "call-2", source: "mcp:github" }),
+    );
+    await handler.onIntent(toolIntent("5", "fetch", github));
+    expect(requests.map((req) => req.intentId)).toEqual(["1", "3", "4", "5"]);
+    expect(requests[0]?.source).toBe("mcp:github");
+  });
+
+  it("refuses to remember an allow outside an agent call", async () => {
+    const { dispatcher } = countingDispatcher({ decision: "allow", remember: "agentCall" });
+    const handler = approvalDispatcherAsHandler(dispatcher);
+    await expect(handler.onIntent(toolIntent("1", "bash"))).rejects.toThrow(
+      /outside an agent call/,
+    );
   });
 });

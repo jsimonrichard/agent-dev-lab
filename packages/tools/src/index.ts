@@ -11,7 +11,6 @@
 export {
   assertToolAllowed,
   approvalDispatcherAsHandler,
-  createStickyToolAllowHandler,
   effectScopeFromToolProviderContext,
   silentRecordEffect,
   testToolEffectScope,

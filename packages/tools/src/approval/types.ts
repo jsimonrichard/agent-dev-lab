@@ -34,6 +34,12 @@ export interface GatedToolOptions {
 export interface ToolEffectPayload {
   toolName: string;
   input: unknown;
+  /**
+   * Where the tool runs when it is not one of this package's built-ins, e.g. `"mcp:github"`.
+   * Part of the tool's identity: a rewrite cannot change it, and remembered approvals are
+   * keyed by it, so a same-named tool from another server is asked about separately.
+   */
+  source?: string;
 }
 
 export type ToolReversibility = Reversibility;

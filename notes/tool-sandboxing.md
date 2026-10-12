@@ -36,7 +36,7 @@ See the package README for current API. In short:
 
 These are also rows in [`near-term-roadmap.md`](./near-term-roadmap.md) §2.
 
-1. **Inspection UI Allow/Deny** — host awaits a human inside `ApprovalDispatcher.request` (or suspend + `WorkflowStore.resolveSuspend`). Substrate is per-call; sticky allow-by-tool-name is handler policy (`createStickyToolAllowHandler`), not a core decision variant. **Default without a gate: fail-closed** — pass `allowAllGate` explicitly for tests/CI.
+1. **Inspection UI Allow/Deny** — host awaits a human inside `ApprovalDispatcher.request` (or suspend + `WorkflowStore.resolveSuspend`). Substrate is per-call; remembering an allow is dispatcher policy (`ApprovalDecision.remember: "agentCall"`, keyed by agent call + `source` + tool name — `createStickyToolAllowHandler` was removed 2026-10-12 because it remembered every allow by tool name alone), not a core decision variant. **Default without a gate: fail-closed** — pass `allowAllGate` explicitly for tests/CI.
 2. **`createNativeBashExecutor` macOS backend** — Seatbelt (`sandbox-exec`) not implemented; throws on `darwin`. Use ASRT on Mac until a verified SBPL profile exists.
 3. **`writeFile` / `editFile` parent-directory creation** — parent must already exist. Safe `mkdir -p` needs level-by-level jail checks (symlink defeat mid-path).
 4. **Resource limits beyond wall-clock timeout** (`ulimit` / cgroups) — undecided.
