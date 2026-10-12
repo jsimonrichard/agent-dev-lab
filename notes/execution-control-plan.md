@@ -342,14 +342,14 @@ No open briefs. The 2026-10-03 stack (store move → tree split → waterfall CS
 | ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | 0     | `adl-review-governance`         | **Shipped** (`t7e08c6c7`)                                                                                  |
 | 1     | `adl-effect-gate-tools`         | **Shipped** (Lane E). Residual: `ctx.requestApproval` is now wired; DAP still later                        |
-| 2     | `adl-retry-from-cursor`         | **API landed** — `seedRetryFromCursor`; `effectId` not persisted                                           |
+| 2     | `adl-retry-from-cursor`         | **Shipped** — `seedRetryFromCursor`; `effectId` via persisted `effect_intent` (step-atomic)                |
 | 3     | `adl-suspend-persistence`       | **Shipped** (`t36a26405`) — `WorkflowStore` suspend + inspector Allow/Deny                                 |
 | 4     | `adl-debugger-l1`               | **Shipped** (`tca825881`) — Pause / Continue / Step on the same store; no DAP                              |
 | —     | `adl-split-workflow-tree-panel` | **Shipped** (`t877b5370`)                                                                                  |
 | —     | `adl-move-workflow-store`       | **Shipped** (`ta7c2bdf7`)                                                                                  |
 | —     | `adl-waterfall-perf`            | **Shipped** (`td705fa38`) — CSS axis vars; numbers in [`waterfall-perf-plan.md`](./waterfall-perf-plan.md) |
 
-Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, DAP, env CoW. **`effectId` cursor:** plan in [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code). `tool-sandboxing.md` trim — **done** (2026-10-05).
+Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-editor `showErrors`, DAP, env CoW. **`effectId` cursor:** **shipped** (2026-10-12) — see [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md). Residual: model-call intents, finer-than-step replay, `runSeq` cursors, inspector effect-id picker. `tool-sandboxing.md` trim — **done** (2026-10-05).
 
 ---
 
@@ -358,7 +358,7 @@ Also still open, **not provisioned:** `$` estimates, todo-tool placement, json-e
 - Tools `execute()` wrap over `EffectGate` = **landed**. Runtime `effectGate` is `parkingEffectGate` (debugger handler then host). Bare gates still throw if they return suspend.
 - `WorkflowStore` suspend (`createSuspend` / `resolveSuspend` / `waitForSuspendResolution`) + `suspended` run status — **landed**. Inspector Allow/Deny. Waiters are process-local. SQLite keeps the pending row; that does **not** revive `workflow.run`. Inspector boot calls `abandonLiveRunsLostOnRestart` (once per OS process, not from `createAdlRuntime` / reload) so leftover `running` / `suspended` rows become `workflow_failed` / `agent_failed`. Continue = seed a new attempt.
 - Inspection debugger L1 (Pause / Continue / Step) — **landed** on the same store; in-process `SuspendStore` duplicate **deleted**. DAP server — not started.
-- `seedRetryFromCursor` / inspector cursor picker — **store API landed** (`stepId` alias). Effect-intent addressing — plan for review: [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md).
+- `seedRetryFromCursor` — **shipped** (`stepId` alias + `effectId` via `effect_intent`, step-atomic). Inspector effect-id picker — optional later. Residual deferrals in [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) Out of scope.
 - Env CoW research (§4) — not started.
 - Wave 0 governance inventory + cheap alignments — **shipped** (`t7e08c6c7`). Changeset-presence CI still deferred (see [`mage-governance.md`](./mage-governance.md) inventory #5).
 - Session `workflowRunId` overwrite on nested episode registration — **fixed** in wave 0.

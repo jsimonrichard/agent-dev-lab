@@ -21,22 +21,53 @@ export type ForkFromCursorArgs = {
   cursor: TraceCursor;
 };
 
-function resolveCursorToStep(cursor: TraceCursor): SeedRetryAttemptArgs {
-  if (cursor.effectId !== undefined && cursor.effectId !== "") {
-    throw new Error(
-      "seedRetryFromCursor: effectId is not addressable yet — effect intents are not persisted on the run; pass stepId (UI alias) until intent emission lands",
-    );
-  }
-  const fromStepId = cursor.stepId;
-  if (fromStepId === undefined || fromStepId === "") {
-    throw new Error(
-      "seedRetryFromCursor: cursor.stepId is required until effect intents are persisted",
-    );
-  }
+/**
+ * Map a {@link TraceCursor} to a step-boundary seed.
+ * `effectId` resolves via `effect_intent` on the run log (v1: step-atomic).
+ * Root-level intents (`stepId` null/absent) and `runSeq` fail closed.
+ */
+async function resolveCursorToStep(
+  store: WorkflowStore,
+  cursor: TraceCursor,
+): Promise<SeedRetryAttemptArgs> {
   if (cursor.runSeq !== undefined) {
     throw new Error(
-      "seedRetryFromCursor: cursor.runSeq is not implemented; omit it or retry from the step boundary",
+      "seedRetryFromCursor: cursor.runSeq is not implemented; omit it or retry from stepId / effectId",
     );
+  }
+
+  if (cursor.effectId !== undefined && cursor.effectId !== "") {
+    const events = await store.listEvents({ workflowRunId: cursor.workflowRunId });
+    const intentEvent = events.find(
+      (event) => event.type === "effect_intent" && event.intent.id === cursor.effectId,
+    );
+    if (intentEvent === undefined || intentEvent.type !== "effect_intent") {
+      throw new Error(
+        `seedRetryFromCursor: unknown effectId "${cursor.effectId}" on run ${cursor.workflowRunId}`,
+      );
+    }
+    if (intentEvent.intent.workflowRunId !== cursor.workflowRunId) {
+      throw new Error(
+        `seedRetryFromCursor: effectId "${cursor.effectId}" belongs to run ${intentEvent.intent.workflowRunId}, not ${cursor.workflowRunId}`,
+      );
+    }
+    const fromStepId = intentEvent.intent.stepId;
+    if (fromStepId === undefined || fromStepId === null || fromStepId === "") {
+      throw new Error(
+        `seedRetryFromCursor: effectId "${cursor.effectId}" is a root-level intent (no stepId); refuse until a root cursor policy exists`,
+      );
+    }
+    if (cursor.stepId !== undefined && cursor.stepId !== "" && cursor.stepId !== fromStepId) {
+      throw new Error(
+        `seedRetryFromCursor: cursor.stepId "${cursor.stepId}" conflicts with effectId "${cursor.effectId}" (enclosing step ${fromStepId})`,
+      );
+    }
+    return { fromWorkflowRunId: cursor.workflowRunId, fromStepId };
+  }
+
+  const fromStepId = cursor.stepId;
+  if (fromStepId === undefined || fromStepId === "") {
+    throw new Error("seedRetryFromCursor: cursor.stepId or cursor.effectId is required");
   }
   return { fromWorkflowRunId: cursor.workflowRunId, fromStepId };
 }
@@ -543,14 +574,15 @@ export function resolveAttemptChildRunId(
 }
 
 /**
- * Seed a new attempt from a {@link TraceCursor}. Step id is the UI alias for a
- * step-boundary cursor; `effectId` / `runSeq` fail closed until those streams persist.
+ * Seed a new attempt from a {@link TraceCursor}. `effectId` maps to the enclosing
+ * step via persisted `effect_intent` events (step-atomic replay). `stepId` remains
+ * the UI alias. `runSeq` is not implemented.
  */
 export async function seedRetryFromCursorOnStore(
   store: WorkflowStore,
   args: ForkFromCursorArgs,
 ): Promise<RetryAttempt> {
-  return seedRetryAttemptOnStore(store, resolveCursorToStep(args.cursor));
+  return seedRetryAttemptOnStore(store, await resolveCursorToStep(store, args.cursor));
 }
 
 /**

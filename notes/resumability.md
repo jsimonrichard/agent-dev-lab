@@ -4,7 +4,7 @@
 
 Attempt lineage is **shipped**: new-attempt seed (`seedRetryAttempt`), path-stable step skip, `StepOptions.pure`, nested forests (`parentWorkflowRunId` / `parentStepId`), and inspection-UI Retry. User-facing contract lives in the [workflows guide — Resumability](../apps/docs/src/content/docs/core/workflows.md#resumability). Do not restate that API here.
 
-Last reconciled: **2026-10-05**.
+Last reconciled: **2026-10-12** (`effectId` cursors via persisted `effect_intent`; still step-atomic).
 
 ---
 

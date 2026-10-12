@@ -2,9 +2,9 @@
 
 Open work after the published **core/web 0.0.6** / **cli 0.0.8** / **tools 0.0.3** surface. Design notes for deferred areas live in the linked files.
 
-Last reconciled: **2026-10-05**.
+Last reconciled: **2026-10-12**.
 
-**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Next work:** [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md) (review before code), then DAP, env CoW, `$` estimates, todo-tool placement, json-editor `showErrors`. Spine suspend + debugger L1 landed on the integrator (unpushed). Cross-process unpark skipped; inspector boot fail-closes live rows (2026-10-05).
+**Execution-control wave:** longer-term retry / debugger / shared pause substrate is planned in [`execution-control-plan.md`](./execution-control-plan.md) (Shepherd-inspired). Historical orch A–J map: that file § Lane map (briefs deleted after land). **Effect-intent persistence / `effectId` cursors shipped** (2026-10-12) — see [`effect-intent-persistence-plan.md`](./effect-intent-persistence-plan.md). **Next work:** DAP, env CoW, `$` estimates, todo-tool placement, json-editor `showErrors`; residual: model-call intents, finer-than-step replay, `runSeq` cursors. Cross-process unpark skipped; inspector boot fail-closes live rows (2026-10-05).
 
 ---
 
@@ -98,7 +98,7 @@ Historical orch A–J: [`execution-control-plan.md`](./execution-control-plan.md
 | **done**   | AI SDK upgrade `ai` 5 → 7 + `ai` peerDependency (breaking) — on `main` and `@rc`                                     | `adl-ai-sdk-upgrade`            |
 | **done**   | npm release candidates (`*-rc.N` / `@rc` dist-tag) — Publish RC job in `release.yml`                                 | `adl-npm-release-candidates`    |
 | **done**   | EffectGate at tools materialize (E) — inspector Allow/Deny + `ctx.requestApproval`                                   | E                               |
-| **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias; `effectId` not persisted                                | `adl-retry-from-cursor`         |
+| **done**   | `seedRetryFromCursor` (+ `fromStepId` wrapper) — step alias + `effectId` via `effect_intent`                         | `adl-retry-from-cursor`         |
 | **done**   | SuspendStore persistence + resume (`WorkflowStore.createSuspend` / `resolveSuspend`, `suspended` run status)         | `adl-suspend-persistence`       |
 | **done**   | Step debugger L1 on suspend substrate (Pause / Continue / Step; no DAP)                                              | `adl-debugger-l1`               |
 | **done**   | Split `workflow-tree-panel.tsx` (keep INP comparators)                                                               | `adl-split-workflow-tree-panel` |

@@ -133,7 +133,62 @@ describe("retry attempt lineage", () => {
     expect(bCount).toBe(1);
   });
 
-  it("seedRetryFromCursor fails closed when only effectId is set", async () => {
+  it("seedRetryFromCursor with effectId matches stepId seed for a step-enter intent", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+    let aCount = 0;
+    let bCount = 0;
+
+    const workflow = createWorkflow(runtime, {
+      id: "cursor-effect-id",
+      run: async (_input, ctx) => {
+        await ctx.step("a", async () => {
+          aCount += 1;
+          return "A";
+        });
+        await ctx.step("b", async () => {
+          bCount += 1;
+          return "B";
+        });
+        return { ok: true };
+      },
+    });
+
+    const first = workflow.run({});
+    await first.result;
+    const events = await store.listEvents({ workflowRunId: first.workflowRunId });
+    const bIntent = events.find(
+      (e) =>
+        e.type === "effect_intent" &&
+        e.intent.kind === "step" &&
+        (e.intent.payload as { name?: string } | undefined)?.name === "b",
+    );
+    expect(bIntent?.type).toBe("effect_intent");
+    if (bIntent?.type !== "effect_intent" || !bIntent.intent.stepId) {
+      throw new Error("expected step-enter effect_intent for b");
+    }
+
+    const viaStep = await store.seedRetryFromCursor({
+      cursor: { workflowRunId: first.workflowRunId, stepId: bIntent.intent.stepId },
+    });
+    const viaEffect = await store.seedRetryFromCursor({
+      cursor: { workflowRunId: first.workflowRunId, effectId: bIntent.intent.id },
+    });
+    expect([...viaEffect.reExecStepIds].sort()).toEqual([...viaStep.reExecStepIds].sort());
+
+    aCount = 0;
+    bCount = 0;
+    await workflow.run({}, { workflowRunId: viaEffect.newRootRunId, retryAttempt: viaEffect })
+      .result;
+    expect(aCount).toBe(0);
+    expect(bCount).toBe(1);
+  });
+
+  it("seedRetryFromCursor throws on unknown effectId", async () => {
     const store = inMemoryWorkflowStore();
     const runtime = createAdlRuntime({
       stores: { workflow: store },
@@ -141,7 +196,7 @@ describe("retry attempt lineage", () => {
       version: false,
     });
     const workflow = createWorkflow(runtime, {
-      id: "cursor-effect-unwired",
+      id: "cursor-effect-unknown",
       run: async (_input, ctx) => {
         await ctx.step("only", async () => 1);
         return null;
@@ -152,18 +207,96 @@ describe("retry attempt lineage", () => {
 
     await expect(
       store.seedRetryFromCursor({
-        cursor: { workflowRunId: handle.workflowRunId, effectId: "intent-not-persisted" },
+        cursor: { workflowRunId: handle.workflowRunId, effectId: "intent-missing" },
       }),
-    ).rejects.toThrow(/effectId is not addressable/);
+    ).rejects.toThrow(/unknown effectId/);
   });
 
-  it("seedRetryFromCursor throws without stepId", async () => {
+  it("seedRetryFromCursor throws when stepId conflicts with effectId", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+    const workflow = createWorkflow(runtime, {
+      id: "cursor-effect-conflict",
+      run: async (_input, ctx) => {
+        await ctx.step("a", async () => 1);
+        await ctx.step("b", async () => 2);
+        return null;
+      },
+    });
+    const handle = workflow.run({});
+    await handle.result;
+    const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+    const aIntent = events.find(
+      (e) =>
+        e.type === "effect_intent" &&
+        e.intent.kind === "step" &&
+        (e.intent.payload as { name?: string } | undefined)?.name === "a",
+    );
+    const bFinished = events.find((e) => e.type === "step_finished" && e.name === "b");
+    expect(aIntent?.type).toBe("effect_intent");
+    expect(bFinished?.type).toBe("step_finished");
+    if (aIntent?.type !== "effect_intent" || bFinished?.type !== "step_finished") {
+      throw new Error("expected a intent and b step");
+    }
+
+    await expect(
+      store.seedRetryFromCursor({
+        cursor: {
+          workflowRunId: handle.workflowRunId,
+          effectId: aIntent.intent.id,
+          stepId: bFinished.stepId,
+        },
+      }),
+    ).rejects.toThrow(/conflicts with effectId/);
+  });
+
+  it("seedRetryFromCursor refuses root-level effectId (no stepId)", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+    const workflow = createWorkflow(runtime, {
+      id: "cursor-effect-root",
+      run: async (_input, ctx) => {
+        await ctx.requestApproval({ message: "root?" });
+        return { ok: true };
+      },
+    });
+    const handle = workflow.run({});
+    const started = Date.now();
+    while ((await store.getRun(handle.workflowRunId))?.status !== "suspended") {
+      if (Date.now() - started > 5_000) {
+        throw new Error("timed out waiting for suspended");
+      }
+      await Bun.sleep(10);
+    }
+    const pending = await store.listPendingSuspends({ workflowRunId: handle.workflowRunId });
+    const effectId = pending[0]!.intent.id;
+    expect(pending[0]!.intent.stepId == null).toBe(true);
+
+    await expect(
+      store.seedRetryFromCursor({
+        cursor: { workflowRunId: handle.workflowRunId, effectId },
+      }),
+    ).rejects.toThrow(/root-level intent/);
+
+    await store.resolveSuspend(pending[0]!.handle.id, { action: "allow" });
+    await handle.result;
+  });
+
+  it("seedRetryFromCursor throws without stepId or effectId", async () => {
     const store = inMemoryWorkflowStore();
     await expect(
       store.seedRetryFromCursor({
         cursor: { workflowRunId: "any-run" },
       }),
-    ).rejects.toThrow(/cursor.stepId is required/);
+    ).rejects.toThrow(/stepId or cursor.effectId is required/);
   });
 
   it("re-runs pure:false steps even when they started before T_end", async () => {

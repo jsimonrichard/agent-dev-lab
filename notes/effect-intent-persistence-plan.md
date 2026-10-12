@@ -1,8 +1,8 @@
 # Effect-intent persistence (`effectId` cursors)
 
-**Status:** Approved for implementation (2026-10-05). Still subject to later project-wide deep review; do not treat shipping this lane as that review.
+**Status:** Shipped (2026-10-12) — emit + `effectId` cursor resolve (step-atomic). Still subject to later project-wide deep review; do not treat shipping this lane as that review.
 **Parent:** [`execution-control-plan.md`](./execution-control-plan.md) § Trace cursor + Gaps.
-**Blocked by:** nothing on the integrator stack. Cross-process unpark was skipped (`abandonLiveRunsLostOnRestart`); this lane is addressable re-entry on a **finished or failed** prior attempt, not mid-closure resume.
+**Blocked by:** nothing. Cross-process unpark was skipped (`abandonLiveRunsLostOnRestart`); this lane is addressable re-entry on a **finished or failed** prior attempt, not mid-closure resume.
 
 **Locked decisions (2026-10-05):**
 
@@ -134,12 +134,12 @@ Inspector: optional effect-id picker later; step id remains default UI. No UI re
 
 ---
 
-## Open decisions (need review before code)
+## Open decisions (locked 2026-10-05; shipped 2026-10-12)
 
-1. **Event names:** introduce `effect_intent` / `effect_settled`, or overload/repurpose unused `effect_suspended` / `effect_resumed`? Recommendation: add intent/settled; keep `workflow_suspended` as the only park status event; delete or stop advertising unused `effect_suspended` in UI if never emitted.
-2. **Tools emit hook:** require `RunRecorder` (or `recordEffect: (e) => Promise<void>`) on `ToolEffectScope` vs. thread `workflow` store + adoptRunSeq only. Prefer a required callback so tools stay free of RunRecorder import cycles — fail closed if missing.
-3. **Root-level intents** (`stepId` null): refuse `effectId` retry until a root policy exists, or re-exec entire run. Recommendation: **refuse** with a clear error in v1.
-4. **Model-call intents:** defer to a follow-up (agent loop before `streamText`). v1 can land step + approval + tool only.
+1. **Event names:** `effect_intent` / `effect_settled`; park stays `workflow_suspended` / `workflow_resumed` only.
+2. **Tools emit hook:** required `recordEffect` on `ToolEffectScope` — fail closed if missing.
+3. **Root-level intents** (`stepId` null): refuse with a clear error in v1.
+4. **Model-call intents:** still deferred (agent loop before `streamText`).
 
 ---
 

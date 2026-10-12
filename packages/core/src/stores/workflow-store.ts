@@ -128,8 +128,9 @@ export interface WorkflowStore {
 
   /**
    * Seed a new attempt forest from a {@link import("../effect/types").TraceCursor}.
-   * Step-boundary cursors (`stepId`) are supported. `effectId` / `runSeq` throw
-   * until effect intents are persisted. Does not mutate the prior attempt.
+   * `effectId` resolves via `effect_intent` on the run log to the enclosing step
+   * (step-atomic). `stepId` is the UI alias. Unknown / root-level `effectId` and
+   * `runSeq` throw. Does not mutate the prior attempt.
    */
   seedRetryFromCursor(args: ForkFromCursorArgs): Promise<RetryAttempt>;
 

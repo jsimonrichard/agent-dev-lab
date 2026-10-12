@@ -212,9 +212,18 @@ await retry.result;
 
 Seeding copies still-valid run/step **projections** with `replayOf*` links and seeds the new attempt’s skip cache. The target step, its descendants, path/`parentWorkflowRunId` ancestors, time-subsequent steps (`step_started.at` > `T_end`), and `{ pure: false }` steps re-execute. Unknown `fromStepId` throws.
 
+The same seed is available as `seedRetryFromCursor` with a [`TraceCursor`](/api/interfaces/tracecursor/). Prefer `effectId` (the gated `effect_intent.id` on the run log); `stepId` is the UI alias for a step-boundary intent. Resolving an `effectId` maps to the enclosing step and reuses the step-atomic skip/re-exec rules above — tool or approval intents inside a step still re-run the whole step. Unknown `effectId`, a conflicting `stepId`, and root-level intents (`stepId` null) throw. `runSeq` cursors are not implemented.
+
+```ts
+const intent = await store.getLatestEvent({ workflowRunId: first.workflowRunId }, "effect_intent");
+const attempt = await store.seedRetryFromCursor({
+  cursor: { workflowRunId: first.workflowRunId, effectId: intent!.intent.id },
+});
+```
+
 Same-`workflowRunId` re-entry (without seeding) still skips via the path-stable cache when outputs remain — useful for simple mid-run retries, but superseded for forest retry by attempt lineage.
 
-The inspection UI exposes this as **Retry** (run header and the workflow-row menu) and **Retry from here** (step menu and step inspector). Retry is refused while any run in the attempt forest is still running. Other hosts call `seedRetryAttempt` the same way.
+The inspection UI exposes this as **Retry** (run header and the workflow-row menu) and **Retry from here** (step menu and step inspector). Retry is refused while any run in the attempt forest is still running. Other hosts call `seedRetryAttempt` / `seedRetryFromCursor` the same way.
 
 ### Pure vs force
 
