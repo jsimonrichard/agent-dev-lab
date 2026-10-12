@@ -5,10 +5,13 @@ import { z } from "zod";
 import { combineToolProviders, createToolProvider, resolveToolSource } from "./provider";
 import type { ExtendedToolProviderContext } from "./provider";
 
+const recordEffect: ExtendedToolProviderContext["recordEffect"] = async () => {};
+
 const ctx: ExtendedToolProviderContext = {
   agentId: "researcher",
   agentCallId: "call-1",
   memoryScope: "notes",
+  recordEffect,
 };
 
 const lookup = tool({
@@ -97,6 +100,7 @@ describe("combineToolProviders", () => {
       agentId: "researcher",
       agentCallId: "call-1",
       memoryScope: "notes",
+      recordEffect,
       toolProviderContext: {},
     });
 
@@ -120,6 +124,7 @@ describe("combineToolProviders", () => {
         agentId: "researcher",
         agentCallId: "call-1",
         memoryScope: "notes",
+        recordEffect,
         toolProviderContext: {},
       }),
     ).rejects.toThrow(/"builtin" and "mcp" both provide a tool named "lookup"/);
@@ -141,6 +146,7 @@ describe("combineToolProviders", () => {
       agentId: "researcher",
       agentCallId: "call-1",
       memoryScope: "notes",
+      recordEffect,
       toolProviderContext: {},
     });
 
@@ -286,6 +292,7 @@ describe("createToolProvider", () => {
       agentId: "researcher",
       agentCallId: "call-1",
       memoryScope: "notes",
+      recordEffect,
     });
 
     expect(resolved).toEqual({ lookup });

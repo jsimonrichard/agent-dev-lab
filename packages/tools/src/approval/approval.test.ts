@@ -249,9 +249,9 @@ describe("approvalDispatcherAsHandler", () => {
 describe("effectScopeFromToolProviderContext", () => {
   it("fails closed when recordEffect is missing", () => {
     expect(() =>
-      effectScopeFromToolProviderContext({
-        agentCallId: "call-1",
-      }),
+      effectScopeFromToolProviderContext({ agentCallId: "call-1" } as Parameters<
+        typeof effectScopeFromToolProviderContext
+      >[0]),
     ).toThrow(/missing recordEffect/);
   });
 });

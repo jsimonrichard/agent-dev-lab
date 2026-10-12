@@ -1,8 +1,10 @@
 import type { EffectGate, EffectHandler } from "./types";
 
 /**
- * Explicit accept-all gate for tests, CI, and permissive local hosts.
- * Must be passed deliberately — never the ambient default when a gate is omitted.
+ * Accept-all gate for tests, CI, and permissive local hosts. Tool factories and providers
+ * take their gate as a required argument and never fall back to this. `createAdlRuntime`
+ * uses it as the host policy when `effectGate` is omitted; the debugger handler still runs
+ * first, and tools only see that chain when handed `runtime.services.effectGate`.
  */
 export const allowAllGate: EffectGate = {
   handle() {

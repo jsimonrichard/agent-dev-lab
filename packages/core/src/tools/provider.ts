@@ -46,11 +46,11 @@ export type ExtendedToolProviderContext<ToolProviderContext = unknown> = {
   projectRoot?: string;
   workflow?: AgentWorkflowScope;
   /**
-   * Persist `effect_intent` / `effect_settled` for gated tools. Usually
-   * {@link import("../runtime/run-recorder").RunRecorder.emit}. Required by
-   * `@agent-dev-lab/tools` when building {@link import("@agent-dev-lab/tools").ToolEffectScope}.
+   * Persist `effect_intent` / `effect_settled` for gated tools. The agent runner always passes
+   * its {@link import("../runtime/run-recorder").RunRecorder.emit}; a test that builds this
+   * context by hand passes a no-op (`silentRecordEffect` in `@agent-dev-lab/tools`).
    */
-  recordEffect?: EffectEventRecorder["emit"];
+  recordEffect: EffectEventRecorder["emit"];
 } & ToolProviderContextField<ToolProviderContext>;
 
 /**

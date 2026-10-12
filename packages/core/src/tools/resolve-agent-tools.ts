@@ -21,7 +21,7 @@ export function buildToolProviderContext<ToolProviderContext>(options: {
   projectRoot?: string;
   toolProviderContext?: ToolProviderContext;
   workflow?: AgentWorkflowScope;
-  recordEffect?: EffectEventRecorder["emit"];
+  recordEffect: EffectEventRecorder["emit"];
 }): ExtendedToolProviderContext<ToolProviderContext> {
   // Cast: `ToolProviderContext` is unresolved here, so TS can't evaluate
   // `ToolProviderContextField<ToolProviderContext>`'s conditional (required vs. optional key)
@@ -35,7 +35,7 @@ export function buildToolProviderContext<ToolProviderContext>(options: {
     ...(options.projectRoot !== undefined ? { projectRoot: options.projectRoot } : {}),
     toolProviderContext: options.toolProviderContext,
     ...(options.workflow ? { workflow: options.workflow } : {}),
-    ...(options.recordEffect ? { recordEffect: options.recordEffect } : {}),
+    recordEffect: options.recordEffect,
   } as ExtendedToolProviderContext<ToolProviderContext>;
 }
 
@@ -49,7 +49,7 @@ export async function resolveAgentTools<ToolProviderContext, Tools extends ToolS
   inputTools: ToolSet | ToolProvider<ToolSet> | undefined;
   toolProviderContext?: ToolProviderContext;
   workflow?: AgentWorkflowScope;
-  recordEffect?: EffectEventRecorder["emit"];
+  recordEffect: EffectEventRecorder["emit"];
 }): Promise<{
   tools: ToolSet;
   toolProviderContext: ToolProviderContext | undefined;
