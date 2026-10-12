@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import type { RunRecorder } from "../runtime/run-recorder";
+import type { RuntimeServices } from "../runtime/types";
 import type { WorkflowContextImpl } from "./context";
 import type { WorkflowContext } from "./types";
 
@@ -23,6 +24,11 @@ export class WorkflowContextScope {
 
   peek(): WorkflowContext | undefined {
     return this.storage.getStore();
+  }
+
+  /** The active run's services, including per-call store overrides. */
+  peekServices(): RuntimeServices | undefined {
+    return this.storage.getStore()?.services;
   }
 
   /** Returns the workflow's RunRecorder when an agent runs inside a workflow/step. */

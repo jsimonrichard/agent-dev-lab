@@ -110,6 +110,32 @@ describe("workflow step debugger", () => {
     expect(finished.some((event) => event.type === "workflow_finished")).toBe(true);
   });
 
+  it("parks on a per-definition workflow store override", async () => {
+    const runtimeStore = inMemoryWorkflowStore();
+    const overrideStore = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: runtimeStore },
+      loadEnv: false,
+      version: false,
+    });
+    const workflow = runtime.createWorkflow(
+      {
+        id: "debug-override-store",
+        run: async (_input, ctx) => ctx.step("only", async () => 1),
+      },
+      { stores: { workflow: overrideStore } },
+    );
+
+    runtime.services.debugSession.pause();
+    const handle = workflow.run({});
+    const pending = await waitForPending(overrideStore, handle.workflowRunId);
+    expect(pending[0]?.handle.reason).toBe("debugger");
+    expect(await runtimeStore.listPendingSuspends()).toEqual([]);
+
+    await overrideStore.resolveSuspend(pending[0]!.handle.id, { action: "allow" });
+    await expect(handle.result).resolves.toBe(1);
+  });
+
   it("does not pause when the debugger is idle", async () => {
     const runtime = createAdlRuntime({ loadEnv: false, version: false });
     const workflow = runtime.createWorkflow({

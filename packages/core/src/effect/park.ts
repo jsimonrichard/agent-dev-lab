@@ -13,7 +13,8 @@ import type {
 } from "./types";
 
 export type ParkOnSuspend = {
-  store: WorkflowStore;
+  /** Where suspends persist. Without one, a `suspend` decision throws instead of parking. */
+  store: WorkflowStore | undefined;
   recorder?: Pick<RunRecorder, "adoptRunSeq">;
   signal?: AbortSignal;
 };
@@ -67,6 +68,12 @@ export function parkingEffectGate(inner: EffectGate, park: ParkOnSuspend): Effec
         throw new AdlError(
           "INVALID_CONTEXT",
           `Suspend handle run "${decision.handle.workflowRunId}" does not match intent run "${intent.workflowRunId}".`,
+        );
+      }
+      if (!park.store) {
+        throw new AdlError(
+          "INVALID_CONTEXT",
+          `Cannot park intent "${intent.id}" on run "${intent.workflowRunId}": no workflow store is configured.`,
         );
       }
       return parkUntilResolved({

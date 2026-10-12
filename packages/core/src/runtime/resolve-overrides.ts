@@ -46,23 +46,25 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
   const debugSession = createDebugSession();
   const hostGate = config.effectGate ?? allowAllGate;
   const inner = composeEffectHandlers([debugSession.handler, gateAsHandler(hostGate)]);
-  const workflowStore = config.stores?.workflow ?? inMemoryWorkflowStore();
   const effectGate: EffectGate = {
     handle(intent) {
+      // Read the store at decision time: per-call overrides live on the active run's
+      // services, and project reload re-pins `services.stores.workflow` in place.
+      const store = (workflowContextScope.peekServices() ?? services).stores.workflow;
       return parkingEffectGate(inner, {
-        store: workflowStore,
+        store,
         recorder: workflowContextScope.peekRunRecorder(),
         signal: workflowContextScope.peek()?.signal,
       }).handle(intent);
     },
   };
-  return {
+  const services: RuntimeServices = {
     stores: {
       message: trackMessageStoreAccess(
         config.stores?.message ?? inMemoryMessageStore(),
         workflowContextScope,
       ),
-      workflow: workflowStore,
+      workflow: config.stores?.workflow ?? inMemoryWorkflowStore(),
     },
     observers: {
       workflows: config.observers?.workflows ?? [],
@@ -78,6 +80,7 @@ export function resolveRuntimeConfig(config: AdlRuntimeConfig = {}): RuntimeServ
     version: config.version,
     projectRoot: config.projectRoot,
   };
+  return services;
 }
 
 /** Merges runtime services with per-call overrides (observer lists concatenated). */
