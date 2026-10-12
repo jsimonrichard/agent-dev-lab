@@ -101,8 +101,8 @@ async function isInspectionPortFree(port: number): Promise<boolean> {
  * Packed Nitro/srvx swallows listen errors (`serve().catch(() => {})`), so a
  * second dashboard on the same port never prints `Listening on` and never
  * exits. Pick a free port before spawn (preferred, then increment unless
- * `strictPort`). Checks both loopback families because Vite binds
- * `127.0.0.1` and Nitro often binds IPv6-any.
+ * `strictPort`). Checks both loopback families so another server listening on
+ * either one counts as busy.
  */
 export async function resolveInspectionPort(
   preferred: number,
@@ -151,6 +151,7 @@ export function spawnInspectionUi(options: {
         cwd: webRoot,
         env: {
           ...env,
+          NITRO_HOST: "127.0.0.1",
           ADL_INSPECTOR_SERVE: "1",
         },
         stdio: "inherit",
