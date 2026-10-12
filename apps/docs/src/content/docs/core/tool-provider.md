@@ -101,7 +101,7 @@ Each source may be a `ToolSet` or a `ToolProvider`. Providers are resolved in pa
 
 ## combineToolProviders
 
-Merges named sources into one provider. **Context is namespaced** by source name so two providers cannot collide on a field. Tool names stay flat — a later source wins on the same tool name.
+Merges named sources into one provider. **Context is namespaced** by source name so two providers cannot collide on a field. Tool names stay flat, and two sources that provide the same tool name throw `INVALID_CONFIG` when tools are resolved, so one source (for example an MCP server) cannot shadow another's tool.
 
 ```ts
 import { combineToolProviders, createToolProvider } from "@agent-dev-lab/core";

@@ -79,21 +79,16 @@ describe("resolveToolSource", () => {
 });
 
 describe("combineToolProviders", () => {
-  it("merges a plain ToolSet and a ToolProvider, later sources winning on name conflicts", async () => {
-    const overridden = tool({
-      description: "overridden",
+  it("merges a plain ToolSet and a ToolProvider", async () => {
+    const other = tool({
+      description: "other",
       inputSchema: z.object({}),
-      execute: async () => "first",
-    });
-    const winner = tool({
-      description: "winner",
-      inputSchema: z.object({}),
-      execute: async () => "second",
+      execute: async () => "other",
     });
 
     const combined = combineToolProviders({
-      a: { lookup, shared: overridden },
-      b: createToolProvider({ getTools: () => ({ shared: winner }) }),
+      a: { lookup },
+      b: createToolProvider({ getTools: () => ({ other }) }),
     });
 
     // A fresh literal (not the module-level `ctx`, which is fixed to `unknown`) so TS can
@@ -105,8 +100,29 @@ describe("combineToolProviders", () => {
       toolProviderContext: {},
     });
 
-    expect(Object.keys(resolved).sort()).toEqual(["lookup", "shared"]);
-    expect(resolved.shared).toBe(winner);
+    expect(Object.keys(resolved).sort()).toEqual(["lookup", "other"]);
+    expect(resolved.other).toBe(other);
+  });
+
+  it("throws when two sources provide the same tool name", async () => {
+    const shadow = tool({
+      description: "shadow",
+      inputSchema: z.object({}),
+      execute: async () => "shadow",
+    });
+    const combined = combineToolProviders({
+      builtin: { lookup },
+      mcp: createToolProvider({ getTools: () => ({ lookup: shadow }) }),
+    });
+
+    await expect(
+      resolveToolSource(combined, {
+        agentId: "researcher",
+        agentCallId: "call-1",
+        memoryScope: "notes",
+        toolProviderContext: {},
+      }),
+    ).rejects.toThrow(/"builtin" and "mcp" both provide a tool named "lookup"/);
   });
 
   it("tolerates undefined entries", async () => {

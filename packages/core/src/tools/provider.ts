@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { AgentWorkflowScope } from "../agent/types";
 import type { EffectEventRecorder } from "../effect/gate-with-intent";
+import { AdlError } from "../errors";
 import type { MaybePromise } from "../maybe-promise";
 
 /**
@@ -294,10 +295,11 @@ type MergedContext<Sources extends Record<string, unknown>> = {
  * Sources with no `contextSchema` of their own just don't get a key in it.
  *
  * Each source is resolved (in parallel, against its own slice of `ctx`) via
- * {@link resolveToolSource}, then combined the same way the runtime already merges runtime /
- * definition / per-call tools: `Object.assign({}, ...resolved)`, so a later source's tool wins
- * over an earlier one with the same name. `Tools` (the actual AI SDK tool names) are still
- * merged flatly across all sources — only `ToolProviderContext` is namespaced.
+ * {@link resolveToolSource}. `Tools` (the actual AI SDK tool names) are merged flatly across
+ * all sources — only `ToolProviderContext` is namespaced — and two sources providing the same
+ * tool name throw `INVALID_CONFIG` rather than one silently shadowing the other (an MCP server
+ * cannot replace a built-in). Layering per-call tools over definition tools is a separate,
+ * intentional override in the agent runner.
  */
 /**
  * Introspection summaries contributed by one {@link combineToolProviders} source — a plain
@@ -436,12 +438,30 @@ export function combineToolProviders<
     },
     async getTools(ctx) {
       const raw = ctx.toolProviderContext;
+      const entries = Object.entries(sources);
       const resolved = await Promise.all(
-        Object.entries(sources).map(([key, source]) =>
+        entries.map(([key, source]) =>
           resolveToolSource(source, { ...ctx, toolProviderContext: raw?.[key] }),
         ),
       );
-      return Object.assign({}, ...resolved);
+      const merged: ToolSet = {};
+      const ownerByName = new Map<string, string>();
+      resolved.forEach((tools, index) => {
+        const key = entries[index]![0];
+        for (const [name, entry] of Object.entries(tools)) {
+          const owner = ownerByName.get(name);
+          if (owner !== undefined) {
+            throw new AdlError(
+              "INVALID_CONFIG",
+              `combineToolProviders: "${owner}" and "${key}" both provide a tool named "${name}". ` +
+                "Rename or filter one of them; a combined tool set cannot shadow a tool.",
+            );
+          }
+          ownerByName.set(name, key);
+          merged[name] = entry;
+        }
+      });
+      return merged as MergedTools<Sources>;
     },
     async onRunEnd(ctx) {
       const raw = ctx.toolProviderContext;
