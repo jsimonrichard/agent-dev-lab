@@ -78,20 +78,6 @@ describe("createFileToolProvider", () => {
     expect(() => provider.getTools(ctx())).toThrow();
   });
 
-  it("reuses one cached FileTools instance for the same resolved root/caps", async () => {
-    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
-    const first = await provider.getTools(ctx());
-    const second = await provider.getTools(ctx());
-    expect(first.readFile).toBe(second.readFile);
-  });
-
-  it("does not reuse the cached instance when maxReadBytes differs for the same root", async () => {
-    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
-    const first = await provider.getTools(ctx({ maxReadBytes: 10 }));
-    const second = await provider.getTools(ctx({ maxReadBytes: 20 }));
-    expect(first.readFile).not.toBe(second.readFile);
-  });
-
   it("describeFileEnv reports the resolved root as allowRead when omitted", async () => {
     const provider = createFileToolProvider({
       effectGate: allowAllGate,
@@ -136,18 +122,10 @@ describe("createFileToolProvider", () => {
     });
   });
 
-  it("does not reuse the cached instance when allowRead differs for the same root", async () => {
-    const provider = createFileToolProvider({ effectGate: allowAllGate, root });
-    const first = await provider.getTools(ctx());
-    const second = await provider.getTools(ctx({ allowRead: null }));
-    expect(first.readFile).not.toBe(second.readFile);
-  });
-
-  it("does not treat allowWrite [] as omitted (cache and enforcement)", async () => {
+  it("does not treat allowWrite [] as omitted", async () => {
     const provider = createFileToolProvider({ effectGate: allowAllGate, root });
     const omitted = await provider.getTools(ctx());
     const empty = await provider.getTools(ctx({ allowWrite: [] }));
-    expect(omitted.writeFile).not.toBe(empty.writeFile);
     await expect(
       empty.writeFile.execute?.({ path: "nope.txt", content: "x" }, toolCallOptions),
     ).rejects.toThrow(/outside the allowed write roots/);

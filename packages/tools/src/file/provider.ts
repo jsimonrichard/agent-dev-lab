@@ -163,46 +163,15 @@ export type FileProviderTools = {
   describeFileEnv: DescribeFileEnvTool;
 };
 
-function cacheKey(
-  root: string,
-  maxReadBytes: number,
-  maxWriteBytes: number,
-  allowRead: FileAllowRead | undefined,
-  denyRead: readonly string[] | undefined,
-  allowWrite: readonly string[] | undefined,
-  denyWrite: readonly string[] | undefined,
-  workflowRunId: string,
-  agentCallId: string | null | undefined,
-  stepId: string | null | undefined,
-): string {
-  const read =
-    allowRead === undefined
-      ? "default-root"
-      : allowRead === UNBOUNDED_ALLOW_READ
-        ? "unbounded"
-        : allowRead === null
-          ? "none"
-          : allowRead.join("\0");
-  // Omitted allowWrite ([root]) must not share a cache slot with [] (no writes).
-  const write = allowWrite === undefined ? "omit" : `list:${allowWrite.join("\0")}`;
-  return (
-    `${root}::${maxReadBytes}::${maxWriteBytes}::${read}::${(denyRead ?? []).join("\0")}::${write}::` +
-    `${(denyWrite ?? []).join("\0")}::${workflowRunId}::${agentCallId ?? ""}::${stepId ?? ""}`
-  );
-}
-
 /**
  * `ToolProvider` wrapping `createFileTools` so `root`/`allowRead`/`maxReadBytes`/`maxWriteBytes`
  * can be set per `agent.run()` call via `toolProviderContext` (set by the workflow/host, not
- * the model) instead of being fixed at construction time. Caches the constructed `FileTools`
- * (and its `FileJail`'s cached `realpath` promise) per distinct resolved policy combination,
- * since the common case is the same combination recurring across many calls in one run.
+ * the model) instead of being fixed at construction time. Tools are built per `getTools` call:
+ * they close over that call's effect scope, so nothing is shared across agent calls.
  */
 export function createFileToolProvider(
   options: FileToolProviderOptions,
 ): ToolProvider<FileProviderTools, FileToolProviderContext | undefined> {
-  const cache = new Map<string, FileTools>();
-
   return {
     contextSchema: z.object({
       root: z.string().optional().describe(omitAnchorSchemaDescription("root")),
@@ -243,33 +212,17 @@ export function createFileToolProvider(
 
       const resolvedRoot = path.resolve(root);
       const effectScope = effectScopeFromToolProviderContext(ctx);
-      const key = cacheKey(
-        resolvedRoot,
+      const fileTools = createFileTools({
+        root: resolvedRoot,
+        allowRead,
+        allowWrite,
+        denyRead,
+        denyWrite,
         maxReadBytes,
         maxWriteBytes,
-        allowRead,
-        denyRead,
-        allowWrite,
-        denyWrite,
-        effectScope.workflowRunId,
-        effectScope.agentCallId,
-        effectScope.stepId,
-      );
-      let fileTools = cache.get(key);
-      if (!fileTools) {
-        fileTools = createFileTools({
-          root: resolvedRoot,
-          allowRead,
-          allowWrite,
-          denyRead,
-          denyWrite,
-          maxReadBytes,
-          maxWriteBytes,
-          effectGate: options.effectGate,
-          effectScope,
-        });
-        cache.set(key, fileTools);
-      }
+        effectGate: options.effectGate,
+        effectScope,
+      });
 
       const describeFileEnv: DescribeFileEnvTool = tool({
         description: describeFileEnvDescription,
