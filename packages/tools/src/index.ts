@@ -129,9 +129,4 @@ export {
   DEFAULT_MCP_INIT_TIMEOUT_MS,
   DEFAULT_MCP_MAX_OUTPUT_BYTES,
 } from "./mcp";
-export type {
-  McpToolProviderOptions,
-  McpToolSchemas,
-  McpTransport,
-  MCPTransport,
-} from "./mcp";
+export type { McpToolProviderOptions, McpToolSchemas, McpTransport, MCPTransport } from "./mcp";

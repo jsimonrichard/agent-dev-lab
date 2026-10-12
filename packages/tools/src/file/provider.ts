@@ -234,7 +234,7 @@ export function createFileToolProvider(
             input: rawInput,
             effectScope,
             toolCallId,
-            reversibility: "compensable",
+            reversibility: "reversible",
           });
           return {
             fileAccess: describeFileAccess(

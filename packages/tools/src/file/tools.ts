@@ -138,7 +138,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "reversible",
         });
         const resolved = await jail.resolveForRead(requestedPath);
         await assertReadable(resolved, requestedPath);
@@ -159,7 +159,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "irreversible",
         });
         const bytes = Buffer.byteLength(content, "utf8");
         assertWritable(bytes);
@@ -187,7 +187,7 @@ export function createFileTools(options: FileToolsOptions): FileTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "irreversible",
         });
         const resolved = await jail.resolveForWrite(requestedPath);
         await assertReadable(resolved, requestedPath);

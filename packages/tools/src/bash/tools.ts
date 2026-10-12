@@ -67,7 +67,7 @@ export function createBashTool(options: BashToolOptions): BashTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "irreversible",
         });
         yield* options.executor.run(["/bin/bash", "-c", command], {
           cwd: options.cwd,

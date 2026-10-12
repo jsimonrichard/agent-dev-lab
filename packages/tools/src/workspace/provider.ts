@@ -547,7 +547,7 @@ export function createWorkspaceToolProvider(
             input: rawInput,
             effectScope,
             toolCallId,
-            reversibility: "compensable",
+            reversibility: "reversible",
           });
           return {
             fileAccess: describeFileAccess(

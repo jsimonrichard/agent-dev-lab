@@ -424,7 +424,7 @@ export function createBashToolProvider(
             input: rawInput,
             effectScope,
             toolCallId,
-            reversibility: "compensable",
+            reversibility: "reversible",
           });
           return {
             bashAccess: describeBashAccess(executor, cwd, resolvedTimeoutMs),
@@ -449,7 +449,7 @@ export function createBashToolProvider(
             input: rawInput,
             effectScope,
             toolCallId: toolOptions.toolCallId,
-            reversibility: "compensable",
+            reversibility: "irreversible",
           });
           const verdict = await runSafetyCheck(safetyCheck, { command: input.command, cwd });
           if (!verdict.safe) {

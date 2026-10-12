@@ -194,7 +194,7 @@ export function createWebToolProvider(
             input: rawInput,
             effectScope,
             toolCallId,
-            reversibility: "compensable",
+            reversibility: "reversible",
           });
           return {
             webAccess: describeWebAccess(

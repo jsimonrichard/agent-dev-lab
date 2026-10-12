@@ -32,7 +32,11 @@ type ToolCallArgs<TInput> = {
   input: TInput;
   effectScope: ToolEffectScope;
   toolCallId?: string;
-  reversibility?: Reversibility;
+  /**
+   * Required: what a gate weighs. `reversible` — no world change (reads, env descriptions);
+   * `irreversible` — overwrites, shell commands, network requests, remote (MCP) calls.
+   */
+  reversibility: Reversibility;
   /** {@link ToolEffectPayload.source}; omit for this package's built-in tools. */
   source?: string;
 };
@@ -61,7 +65,7 @@ export async function decideToolCall<TInput>(
   const intent: EffectIntent = {
     id: args.toolCallId ?? randomUUID(),
     kind: "tool",
-    reversibility: args.reversibility ?? "compensable",
+    reversibility: args.reversibility,
     workflowRunId: args.effectScope.workflowRunId,
     stepId: args.effectScope.stepId,
     agentCallId: args.effectScope.agentCallId,

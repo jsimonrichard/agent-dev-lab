@@ -116,7 +116,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "reversible",
         });
         const searchPath = await jail.resolveForRead(requestedPath ?? ".");
         yield* options.executor.run(grepArgv(pattern, searchPath, glob, rgPath), {
@@ -139,7 +139,7 @@ export function createSearchTools(options: SearchToolsOptions): SearchTools {
           input: rawInput,
           effectScope: options.effectScope,
           toolCallId,
-          reversibility: "compensable",
+          reversibility: "reversible",
         });
         const searchPath = await jail.resolveForRead(".");
         yield* options.executor.run(globArgv(pattern, searchPath, rgPath), {

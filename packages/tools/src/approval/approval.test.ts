@@ -94,6 +94,7 @@ describe("assertToolAllowed", () => {
     const input = { path: "a.txt" };
     await expect(
       assertToolAllowed({
+        reversibility: "irreversible",
         gate: allowAllGate,
         toolName: "readFile",
         input,
@@ -105,6 +106,7 @@ describe("assertToolAllowed", () => {
   it("throws on deny", async () => {
     await expect(
       assertToolAllowed({
+        reversibility: "irreversible",
         gate: denyGate("nope"),
         toolName: "writeFile",
         input: { path: "a.txt", content: "x" },
@@ -115,6 +117,7 @@ describe("assertToolAllowed", () => {
 
   it("applies rewrite payload input", async () => {
     const rewritten = await assertToolAllowed({
+      reversibility: "irreversible",
       gate: rewriteGate({ toolName: "writeFile", input: { path: "b.txt", content: "rewritten" } }),
       toolName: "writeFile",
       input: { path: "a.txt", content: "orig" },
@@ -126,6 +129,7 @@ describe("assertToolAllowed", () => {
   it("rejects suspend until SuspendStore exists", async () => {
     await expect(
       assertToolAllowed({
+        reversibility: "irreversible",
         gate: suspendGate(),
         toolName: "bash",
         input: { command: "echo hi" },
@@ -147,6 +151,7 @@ describe("assertToolAllowed", () => {
       },
     });
     await assertToolAllowed({
+      reversibility: "irreversible",
       gate: allowAllGate,
       toolName: "readFile",
       input: { path: "a.txt" },

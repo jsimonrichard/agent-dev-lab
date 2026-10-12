@@ -156,7 +156,7 @@ export function createFetchUrlTool(options: FetchUrlToolOptions): FetchUrlTool {
         input: rawInput,
         effectScope: options.effectScope,
         toolCallId,
-        reversibility: "compensable",
+        reversibility: "irreversible",
       });
       const response = await fetchGuardedUrl(parseRequestUrl(url), {
         policy,
