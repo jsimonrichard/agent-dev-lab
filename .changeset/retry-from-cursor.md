@@ -2,4 +2,4 @@
 "@agent-dev-lab/core": patch
 ---
 
-Add `WorkflowStore.seedRetryFromCursor` (`TraceCursor`; step id is the UI alias). `seedRetryAttempt({ fromStepId })` is the compatibility wrapper. `effectId` / `runSeq` fail closed until effect intents are persisted.
+Add `WorkflowStore.seedRetryFromCursor` (`TraceCursor`). `cursor.effectId` resolves through the persisted `effect_intent` events to the enclosing step (step-atomic replay); `stepId` is the UI alias. Unknown, conflicting, and root-level effect ids are rejected, and `runSeq` cursors are not supported yet. `seedRetryAttempt({ fromStepId })` keeps working as a wrapper.

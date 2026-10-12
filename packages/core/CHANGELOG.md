@@ -1,47 +1,5 @@
 # @agent-dev-lab/core
 
-## 0.0.7-rc.3
-
-### Patch Changes
-
-- Forward `maxRetries` and `streamRetries` from the agent definition and from `agent.run` / `agent.stream` into `streamText`. A positive `streamRetries` also retries a dropped provider stream (retryable HTTP 200) inside that model call, because the SDK option only sees error chunks and this failure rejects the stream. Omit both to keep the SDK defaults.
-
-## 0.0.7-rc.2
-
-### Patch Changes
-
-- Structured output with tools no longer sends a JSON response format on the tool loop. Models that receive both skip the tools and return a minimal schema object. A tool-free follow-up call formats the answer when the loop stops with non-JSON text.
-
-## 0.0.7-rc.1
-
-### Patch Changes
-
-- Add an in-process SuspendStore, runtime debugger session, and step-enter effect intents so pause/continue/step share the gate with approvals. Suspend records do not survive process restart (persistence is a follow-up).
-- Add `WorkflowStore.seedRetryFromCursor` (`TraceCursor`; step id is the UI alias). `seedRetryAttempt({ fromStepId })` is the compatibility wrapper. `effectId` / `runSeq` fail closed until effect intents are persisted.
-- Structured output uses the final step's complete JSON parse. A prose final answer fails the episode with `NoObjectGeneratedError` (model text on the error and `agent_failed`).
-- Persist EffectGate suspend / approval waits on WorkflowStore and resume via resolveSuspend (same record for approval and debugger). Inspection UI Allow/Deny continues from the parked cursor.
-
-## 0.0.7-rc.0
-
-### Patch Changes
-
-- **Breaking:** upgrade to Vercel AI SDK **v7** and make `ai` a peer of `@agent-dev-lab/core` (no longer a hard dependency).
-
-  ### Consumer migration
-  1. Install peers in every host that runs agents:
-     ```bash
-     bun add ai@^7 @ai-sdk/otel@^1
-     ```
-  2. Bump providers to v7-aligned majors (e.g. `@ai-sdk/openai@^4`). For MCP tools, use `@ai-sdk/mcp@^2` (replaces `0.0.x`).
-  3. Replace removed AI SDK APIs if you used them directly: `CoreMessage` → `ModelMessage`; `streamText({ system })` → `instructions`; `experimental_telemetry` → `telemetry` (ADL registers `@ai-sdk/otel` from `createAdlRuntime` unless `telemetry: { isEnabled: false }`); `experimental_output` → `output`.
-  4. CLI `adl init` scaffolds now declare `ai`, `@ai-sdk/otel`, and `@ai-sdk/openai@^4`.
-
-- Add EffectGate types, `composeEffectHandlers` (fail-closed when undecided), and explicit `allowAllGate` for hosts/tests. Shared substrate for tool approval and the future step debugger; no tools wiring or suspend persistence yet.
-- Add `computeEpisodeTiming` (also `@agent-dev-lab/core/episode-timing` for client-safe import) for tool-wait vs LLM-active from run events, and surface it on the episode inspector.
-- Add a host-only `adl.config` model catalog (`models[]` with factory), inspector next-turn picker, CLI `--model`, and optional `apiKeyEnv` preflight — core still only receives live `LanguageModel` via `AgentRunInput.model`.
-- Expose `rootWorkflowRunId` on `WorkflowContext` (with existing `parentWorkflowRunId`). **Breaking:** `memoryScopeWithSuffix` now keys the nest-tree root (`${rootWorkflowRunId}:${suffix}`) instead of the immediate run; add `runLocalScope` for the prior immediate-run formula. Isolated runs stay their own root.
-- Add per-call `AgentRunInput.model` (`input.model ?? definition.model ?? defaults.model`) and record a read-only `{ modelId, provider }` descriptor on `agent_started` / agent episode projections.
-
 ## 0.0.6
 
 ### Patch Changes

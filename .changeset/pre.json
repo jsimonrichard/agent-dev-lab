@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "rc",
   "initialVersions": {
     "@agent-dev-lab/cli": "0.0.8",

@@ -1,5 +1,5 @@
 ---
-"@agent-dev-lab/core": minor
+"@agent-dev-lab/core": patch
 "@agent-dev-lab/web": patch
 ---
 

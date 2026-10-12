@@ -2,4 +2,4 @@
 "@agent-dev-lab/core": patch
 ---
 
-Add an in-process SuspendStore, runtime debugger session, and step-enter effect intents so pause/continue/step share the gate with approvals. Suspend records do not survive process restart (persistence is a follow-up).
+Add a runtime debugger session (`createDebugSession`) with pause, continue, and step-over. Step entry records a step-boundary effect intent, so a debugger break parks on the same persisted suspend record as an approval.

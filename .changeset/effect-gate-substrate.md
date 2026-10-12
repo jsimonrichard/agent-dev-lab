@@ -1,5 +1,5 @@
 ---
-"@agent-dev-lab/core": minor
+"@agent-dev-lab/core": patch
 ---
 
-Add EffectGate types, `composeEffectHandlers` (fail-closed when undecided), and explicit `allowAllGate` for hosts/tests. Shared substrate for tool approval and the future step debugger; no tools wiring or suspend persistence yet.
+Add the EffectGate substrate: `EffectIntent` / `EffectDecision` types, `composeEffectHandlers` (denies when no handler decides), an explicit `allowAllGate` for hosts and tests, and `gateWithIntent`, which records an `effect_intent` event before the gate decides and an `effect_settled` event after. Tool approval, `ctx.requestApproval`, and the step debugger all go through this one gate.
