@@ -222,14 +222,6 @@ export class WorkflowContextImpl implements WorkflowContext {
       ...(impure ? { pure: false as const } : {}),
     });
 
-    await settleStepEnter(this, {
-      stepId,
-      name,
-      key,
-      path,
-      impure,
-    });
-
     const childCtx = createChildWorkflowContext(this, {
       stepId,
       parentStepId: parentId,
@@ -237,6 +229,13 @@ export class WorkflowContextImpl implements WorkflowContext {
     });
 
     try {
+      await settleStepEnter(this, {
+        stepId,
+        name,
+        key,
+        path,
+        impure,
+      });
       const finished = await withActiveSpan(
         "workflow.step",
         {

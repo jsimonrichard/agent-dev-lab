@@ -136,6 +136,36 @@ describe("workflow step debugger", () => {
     await expect(handle.result).resolves.toBe(1);
   });
 
+  it("records step_failed when the gate denies step entry", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      effectGate: {
+        async handle(intent) {
+          return intent.kind === "step"
+            ? { action: "deny", reason: "steps are off" }
+            : { action: "allow" };
+        },
+      },
+      loadEnv: false,
+      version: false,
+    });
+    const workflow = runtime.createWorkflow({
+      id: "deny-step-entry",
+      run: async (_input, ctx) => ctx.step("only", async () => 1),
+    });
+
+    const handle = workflow.run({});
+    await expect(handle.result).rejects.toThrow(/Step enter denied: steps are off/);
+    const events = await store.listEvents({ workflowRunId: handle.workflowRunId });
+    const started = events.find((event) => event.type === "step_started");
+    const failed = events.find((event) => event.type === "step_failed");
+    expect(started).toBeDefined();
+    expect(failed && "stepId" in failed ? failed.stepId : undefined).toBe(
+      started && "stepId" in started ? started.stepId : undefined,
+    );
+  });
+
   it("does not pause when the debugger is idle", async () => {
     const runtime = createAdlRuntime({ loadEnv: false, version: false });
     const workflow = runtime.createWorkflow({
