@@ -4,6 +4,7 @@ import { getWorkflowStore } from "#/lib/adl-runtime.server";
 import { getServerShutdownSignal, onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
 import {
   encodeRunEventSse,
+  encodeStreamErrorSse,
   shouldCloseWorkflowRunStream,
   workflowRunStreamIsTerminal,
 } from "#/lib/sse.server";
@@ -122,10 +123,15 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
               }
             };
 
+            const fail = (error: unknown) => {
+              enqueue(encodeStreamErrorSse(error));
+              stop(true);
+            };
+
             try {
               await push();
-            } catch {
-              stop(false);
+            } catch (error) {
+              fail(error);
               return;
             }
             if (closed) {
@@ -133,9 +139,7 @@ export const Route = createFileRoute("/api/runs/$runId/events")({
             }
 
             poll.timer = setInterval(() => {
-              void push().catch(() => {
-                stop(false);
-              });
+              void push().catch(fail);
             }, 400);
 
             onRequestOrServerShutdown(request, () => {

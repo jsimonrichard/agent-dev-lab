@@ -5,10 +5,12 @@ import { EVENT_SCHEMA_VERSION, type RunEvent as CoreRunEvent } from "@agent-dev-
 import {
   agentRunStreamIsTerminal,
   encodeLoggedRunEventSse,
+  encodeStreamErrorSse,
   shouldCloseAgentConversationStream,
   shouldCloseWorkflowRunStream,
   workflowRunStreamIsTerminal,
 } from "./sse.server";
+import { parseStreamError, STREAM_ERROR_EVENT } from "./sse-stream-error";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -143,5 +145,22 @@ describe("encodeLoggedRunEventSse", () => {
       },
     };
     expect(encodeLoggedRunEventSse(entry)).toBe(`id: 7\ndata: ${JSON.stringify(entry)}\n\n`);
+  });
+});
+
+describe("encodeStreamErrorSse", () => {
+  it("emits a named adl-error event the client parses back", () => {
+    const frame = encodeStreamErrorSse(new TypeError("database is locked"));
+    expect(frame.startsWith(`event: ${STREAM_ERROR_EVENT}\n`)).toBe(true);
+    expect(frame.endsWith("\n\n")).toBe(true);
+    const data = frame
+      .split("\n")
+      .find((line) => line.startsWith("data: "))!
+      .slice(6);
+    expect(parseStreamError(data)).toEqual({ name: "TypeError", message: "database is locked" });
+  });
+
+  it("still surfaces a malformed error body", () => {
+    expect(parseStreamError("not json")).toEqual({ message: "Live updates stopped: not json" });
   });
 });

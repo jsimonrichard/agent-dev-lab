@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 import { useInspectorConnection } from "#/lib/inspector-connection";
 import { foldPreliminaryToolResult } from "@/lib/preliminary-tool-results";
+import { parseStreamError, STREAM_ERROR_EVENT } from "#/lib/sse-stream-error";
 
 interface UseAgentRunEventsOptions {
   /** Connect after a turn starts and the server has linked the session agentCallId. */
@@ -162,6 +163,11 @@ export function useAgentRunEvents(memoryScope: string, options: UseAgentRunEvent
         // ignore malformed chunks
       }
     };
+
+    source.addEventListener(STREAM_ERROR_EVENT, (message) => {
+      onErrorRef.current(parseStreamError(message.data));
+      stop();
+    });
 
     source.onerror = () => {
       stop();

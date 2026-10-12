@@ -1,8 +1,22 @@
 import type { LoggedRunEvent, RunEvent as CoreRunEvent } from "@agent-dev-lab/core";
 
+import { STREAM_ERROR_EVENT } from "#/lib/sse-stream-error";
+
 export function encodeRunEventSse(event: CoreRunEvent): string {
   const lines = [`id: ${event.runSeq}`, `data: ${JSON.stringify(event)}`, "", ""];
   return lines.join("\n");
+}
+
+/**
+ * Named `adl-error` event: the server stopped polling this stream. Clients show it
+ * instead of waiting on a body that will never carry another event.
+ */
+export function encodeStreamErrorSse(error: unknown): string {
+  const payload =
+    error instanceof Error
+      ? { name: error.name, message: error.message }
+      : { message: String(error) };
+  return [`event: ${STREAM_ERROR_EVENT}`, `data: ${JSON.stringify(payload)}`, "", ""].join("\n");
 }
 
 export function encodeLoggedRunEventSse(entry: LoggedRunEvent): string {

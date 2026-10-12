@@ -5,6 +5,7 @@ import { getWorkflowStore } from "#/lib/adl-runtime.server";
 import { onRequestOrServerShutdown } from "#/lib/server-shutdown.server";
 import {
   encodeRunEventSse,
+  encodeStreamErrorSse,
   agentRunStreamIsTerminal,
   shouldCloseAgentConversationStream,
 } from "#/lib/sse.server";
@@ -72,17 +73,32 @@ export const Route = createFileRoute("/api/agent-runs/$memoryScope/events")({
               }
             };
 
-            await push();
+            const fail = (error: unknown) => {
+              if (closed) {
+                return;
+              }
+              stopPolling();
+              closed = true;
+              try {
+                controller.enqueue(encoder.encode(encodeStreamErrorSse(error)));
+                controller.close();
+              } catch {
+                // client already left
+              }
+            };
+
+            try {
+              await push();
+            } catch (error) {
+              fail(error);
+              return;
+            }
             if (closed) {
               return;
             }
 
             poll.timer = setInterval(() => {
-              void push().catch(() => {
-                stopPolling();
-                closed = true;
-                controller.close();
-              });
+              void push().catch(fail);
             }, 400);
 
             onRequestOrServerShutdown(request, () => {

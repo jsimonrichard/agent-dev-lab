@@ -11,6 +11,7 @@ import {
   type EpisodeTimingEventDto,
 } from "@/lib/view-model/attach-episode-timing";
 import { foldPreliminaryToolResult } from "@/lib/preliminary-tool-results";
+import { parseStreamError, STREAM_ERROR_EVENT } from "#/lib/sse-stream-error";
 
 function isWorkflowRunTerminal(event: RunEvent): boolean {
   return (
@@ -38,6 +39,7 @@ export function useWorkflowRunEvents(
   const [preliminaryByToolCallId, setPreliminaryByToolCallId] = useState(
     () => new Map<string, unknown>(),
   );
+  const [streamError, setStreamError] = useState<unknown>(null);
   const lastSeqRef = useRef(initialEvents.reduce((max, e) => Math.max(max, e.runSeq), 0));
   const seededRunIdRef = useRef(runId);
 
@@ -81,9 +83,14 @@ export function useWorkflowRunEvents(
   }, [runId, initialEvents, initialTimingEvents]);
 
   useEffect(() => {
+    setStreamError(null);
     const source = new EventSource(
       `/api/runs/${encodeURIComponent(runId)}/events?afterSeq=${lastSeqRef.current}`,
     );
+    source.addEventListener(STREAM_ERROR_EVENT, (message) => {
+      setStreamError(parseStreamError(message.data));
+      source.close();
+    });
 
     source.onmessage = (message) => {
       try {
@@ -127,5 +134,5 @@ export function useWorkflowRunEvents(
     [timingEvents],
   );
 
-  return { events, timingEvents, episodeTiming, preliminaryByToolCallId };
+  return { events, timingEvents, episodeTiming, preliminaryByToolCallId, streamError };
 }

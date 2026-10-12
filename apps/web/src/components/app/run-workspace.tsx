@@ -88,7 +88,7 @@ export function RunWorkspace({
   const navigate = useNavigate({ from: "/workflows/$workflowId/run/$runId" });
   const router = useRouter();
   const { offline } = useInspectorConnection();
-  const { events, episodeTiming, preliminaryByToolCallId } = useWorkflowRunEvents(
+  const { events, episodeTiming, preliminaryByToolCallId, streamError } = useWorkflowRunEvents(
     summary.runId,
     initialEvents,
     initialTimingEvents,
@@ -824,6 +824,15 @@ export function RunWorkspace({
           {inspectorOpen ? "Hide inspector" : "Show inspector"}
         </Button>
       </header>
+
+      {streamError ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-1.5">
+          <span className="text-[10px] font-medium tracking-wide text-destructive uppercase">
+            Live updates stopped
+          </span>
+          <ErrorIndicator error={streamError} className="min-w-0 flex-1" />
+        </div>
+      ) : null}
 
       {retryError ? (
         <div className="flex shrink-0 items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-1.5">
