@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { inMemoryWorkflowStore } from "../stores/in-memory-workflow-store";
 import { createAdlRuntime } from "../runtime/create";
-import { createDebugSession } from "./debug-session";
+import { continueDebuggerPause, createDebugSession } from "./debug-session";
 import { composeEffectHandlers } from "./compose";
 import { allowAllHandler } from "./gates";
 import { parkingEffectGate } from "./park";
@@ -120,5 +120,57 @@ describe("workflow step debugger", () => {
       },
     });
     await expect(workflow.run({}).result).resolves.toEqual({ ok: true });
+  });
+});
+
+describe("continueDebuggerPause", () => {
+  it("resolves a debugger pause and leaves an approval pending", async () => {
+    const store = inMemoryWorkflowStore();
+    const runtime = createAdlRuntime({
+      stores: { workflow: store },
+      loadEnv: false,
+      version: false,
+    });
+    const workflow = runtime.createWorkflow({
+      id: "approval-under-debugger",
+      run: async (_input, ctx) => {
+        await ctx.step("first", async () => 1);
+        await ctx.requestApproval({ message: "ship it?" });
+        return { ok: true };
+      },
+    });
+
+    runtime.services.debugSession.pause();
+    const handle = workflow.run({});
+    const paused = await waitForPending(store, handle.workflowRunId);
+    expect(paused[0]?.handle.reason).toBe("debugger");
+
+    const continued = await continueDebuggerPause({
+      store,
+      debugSession: runtime.services.debugSession,
+      workflowRunId: handle.workflowRunId,
+      mode: "continue",
+    });
+    expect(continued).toEqual({
+      isOk: true,
+      isErr: false,
+      value: { handleIds: [paused[0]!.handle.id] },
+    });
+
+    const approval = await waitForPending(store, handle.workflowRunId);
+    expect(approval[0]?.handle.reason).toBe("approval");
+    const refused = await continueDebuggerPause({
+      store,
+      debugSession: runtime.services.debugSession,
+      workflowRunId: handle.workflowRunId,
+      mode: "continue",
+    });
+    expect(refused.isErr).toBe(true);
+    expect(await store.listPendingSuspends({ workflowRunId: handle.workflowRunId })).toHaveLength(
+      1,
+    );
+
+    await store.resolveSuspend(approval[0]!.handle.id, { action: "allow" });
+    await expect(handle.result).resolves.toEqual({ ok: true });
   });
 });

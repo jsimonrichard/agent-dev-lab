@@ -1,6 +1,7 @@
 import {
   AdlError,
   assertCatalogModelApiKey,
+  continueDebuggerPause,
   resolveCatalogModel,
   splitStoredSystemPrompt,
   withStoredSystemPrompt,
@@ -10,6 +11,7 @@ import {
   type TokenUsage,
   type WorkflowRunHandle,
   type WorkflowRunSummary,
+  type Result,
   type SuspendResolveDecision,
 } from "@agent-dev-lab/core";
 import {
@@ -462,25 +464,14 @@ export async function pauseWorkflowRun(runId: string): Promise<{ paused: boolean
 export async function continueWorkflowDebug(args: {
   runId: string;
   mode: "continue" | "step";
-}): Promise<{ handleId: string }> {
+}): Promise<Result<{ handleIds: string[] }>> {
   const runtime = await getAdlRuntime();
-  const store = await getWorkflowStore();
-  const pending = await store.listPendingSuspends({ workflowRunId: args.runId });
-  if (pending.length === 0) {
-    throw new AdlError("INVALID_CONTEXT", `No pending suspend for workflow run ${args.runId}`);
-  }
-  if (pending.length > 1) {
-    throw new AdlError(
-      "INVALID_CONTEXT",
-      `Workflow run ${args.runId} has ${pending.length} pending suspends; expected one`,
-    );
-  }
-  const record = pending[0]!;
-  if (args.mode === "step") {
-    runtime.services.debugSession.armStepOver(args.runId);
-  }
-  await store.resolveSuspend(record.handle.id, { action: "allow" });
-  return { handleId: record.handle.id };
+  return continueDebuggerPause({
+    store: await getWorkflowStore(),
+    debugSession: runtime.services.debugSession,
+    workflowRunId: args.runId,
+    mode: args.mode,
+  });
 }
 
 /**

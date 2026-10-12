@@ -1,4 +1,6 @@
 import { createId } from "../internal/ids";
+import { err, ok, type Result } from "../result";
+import type { WorkflowStore } from "../stores/workflow-store";
 import type { EffectHandler, EffectIntent, SuspendHandle } from "./types";
 
 const BREAK_KINDS = new Set(["step", "tool", "model"]);
@@ -94,4 +96,29 @@ export function createDebugSession(): DebugSession {
       }
     },
   };
+}
+
+/**
+ * Resume every pending **debugger** suspend on `workflowRunId` with `allow`. `step` re-arms a
+ * break on the next intent first. Approval and policy suspends are never touched — they need an
+ * explicit {@link WorkflowStore.resolveSuspend} decision.
+ */
+export async function continueDebuggerPause(args: {
+  store: Pick<WorkflowStore, "listPendingSuspends" | "resolveSuspend">;
+  debugSession: DebugSession;
+  workflowRunId: string;
+  mode: "continue" | "step";
+}): Promise<Result<{ handleIds: string[] }>> {
+  const pending = await args.store.listPendingSuspends({ workflowRunId: args.workflowRunId });
+  const paused = pending.filter((record) => record.handle.reason === "debugger");
+  if (paused.length === 0) {
+    return err(`Workflow run ${args.workflowRunId} is not paused in the debugger.`);
+  }
+  if (args.mode === "step") {
+    args.debugSession.armStepOver(args.workflowRunId);
+  }
+  for (const record of paused) {
+    await args.store.resolveSuspend(record.handle.id, { action: "allow" });
+  }
+  return ok({ handleIds: paused.map((record) => record.handle.id) });
 }

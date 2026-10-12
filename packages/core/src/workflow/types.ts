@@ -111,7 +111,7 @@ export interface WorkflowContext {
 
   /**
    * Park this run until {@link import("../stores/workflow-store").WorkflowStore.resolveSuspend}
-   * (inspector Allow/Deny, debugger continue, or a programmatic resolve). Requires a
+   * (inspector Allow/Deny or a programmatic resolve; debugger Continue never resolves it). Requires a
    * workflow store. Deny throws; rewrite is rejected (approval is not a rewriteable tool).
    */
   requestApproval(payload?: unknown): Promise<void>;

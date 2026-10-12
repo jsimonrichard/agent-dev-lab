@@ -113,7 +113,8 @@ export const pauseInspectionWorkflowRun = createServerFn({ method: "POST" })
 export const continueInspectionWorkflow = createServerFn({ method: "POST" })
   .validator((payload: { runId: string; mode: "continue" | "step" }) => payload)
   .handler(async ({ data }) => {
-    return fromAsyncThrowable(() => continueWorkflowDebug(data));
+    const result = await fromAsyncThrowable(() => continueWorkflowDebug(data));
+    return result.isErr ? result : result.value;
   });
 
 export const retryInspectionWorkflowRun = createServerFn({ method: "POST" })
