@@ -147,8 +147,10 @@ export interface WorkflowStore {
   materializeAttemptStep(step: AttemptStepMaterialization): Promise<void>;
 
   /**
-   * Persist a pending suspend (and park the run). Emits `workflow_suspended`.
-   * At most one pending suspend per run.
+   * Persist a pending suspend for a live run. Does not emit events: the parked
+   * run's recorder emits `workflow_suspended` / `workflow_resumed`, so `runSeq`
+   * has one allocator. A run may hold several pending suspends (parallel steps);
+   * a duplicate handle id throws.
    */
   createSuspend(args: { handle: SuspendHandle; intent: EffectIntent }): Promise<void>;
 
@@ -158,8 +160,8 @@ export interface WorkflowStore {
   listPendingSuspends(filter?: { workflowRunId?: string }): Promise<SuspendRecord[]>;
 
   /**
-   * Resume with allow / deny / rewrite. Missing or already-resolved handles fail
-   * closed — the effect is not allowed.
+   * Resume with allow / deny / rewrite and wake the waiter. Missing or
+   * already-resolved handles fail closed — the effect is not allowed.
    */
   resolveSuspend(handleId: string, decision: SuspendResolveDecision): Promise<void>;
 

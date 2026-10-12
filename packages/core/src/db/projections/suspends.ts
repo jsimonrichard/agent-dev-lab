@@ -24,19 +24,7 @@ export function projectSuspend(db: AdlDb, event: RunEvent): void {
         decisionJson: null,
         resolvedAt: null,
       })
-      .onConflictDoUpdate({
-        target: suspends.handleId,
-        set: {
-          workflowRunId: event.handle.workflowRunId,
-          intentId: event.handle.intentId,
-          reason: event.handle.reason,
-          createdAt: event.handle.createdAt,
-          intentJson: JSON.stringify(event.intent),
-          status: "pending",
-          decisionJson: null,
-          resolvedAt: null,
-        },
-      })
+      .onConflictDoNothing()
       .run();
   }
 

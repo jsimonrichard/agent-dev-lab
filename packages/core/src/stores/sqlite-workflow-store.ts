@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, max } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { createDb, resolveAdlSqlitePath } from "../db";
 import { applyProjections, stepSlotKey } from "../db/projections";
@@ -43,17 +43,13 @@ import {
 import {
   alreadyResolvedSuspendError,
   missingSuspendError,
-  pendingSuspendConflictError,
+  duplicateSuspendHandleError,
   SuspendWaiterHub,
   terminalRunSuspendError,
   unknownRunForSuspendError,
   waitForRecordResolution,
 } from "./suspend-waiters";
-import {
-  assertSuspendResolveDecision,
-  workflowResumedEvent,
-  workflowSuspendedEvent,
-} from "./suspend-records";
+import { assertSuspendResolveDecision, nowIso } from "./suspend-records";
 import { toTokenUsage } from "../observability/token-usage";
 import type { SqliteStoreOptions } from "../stores/sqlite";
 import type {
@@ -79,15 +75,6 @@ function fetchPendingSuspendsByRunId(
     byRun.set(row.workflowRunId, rowToSuspendRecord(row));
   }
   return byRun;
-}
-
-function nextWorkflowRunSeq(db: AdlDb, workflowRunId: string): number {
-  const row = db
-    .select({ maxSeq: max(runEvents.runSeq) })
-    .from(runEvents)
-    .where(eq(runEvents.workflowRunId, workflowRunId))
-    .get();
-  return (row?.maxSeq ?? 0) + 1;
 }
 
 function fetchTagsByRunId(db: AdlDb, workflowRunIds: string[]): Map<string, string[]> {
@@ -530,32 +517,30 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
       if (!run) {
         throw unknownRunForSuspendError(args.handle.workflowRunId);
       }
+      if (!isLiveWorkflowRunStatus(run.status)) {
+        throw terminalRunSuspendError(args.handle.workflowRunId, run.status);
+      }
       const existingHandle = db
         .select({ handleId: suspends.handleId })
         .from(suspends)
         .where(eq(suspends.handleId, args.handle.id))
         .get();
       if (existingHandle) {
-        throw pendingSuspendConflictError(args.handle.workflowRunId);
+        throw duplicateSuspendHandleError(args.handle.id);
       }
-      const pending = db
-        .select({ handleId: suspends.handleId })
-        .from(suspends)
-        .where(
-          and(
-            eq(suspends.workflowRunId, args.handle.workflowRunId),
-            eq(suspends.status, "pending"),
-          ),
-        )
-        .get();
-      if (pending) {
-        throw pendingSuspendConflictError(args.handle.workflowRunId);
-      }
-      const runSeq = nextWorkflowRunSeq(db, args.handle.workflowRunId);
-      materializeEvent(
-        db,
-        workflowSuspendedEvent({ handle: args.handle, intent: args.intent, runSeq }),
-      );
+      db.insert(suspends)
+        .values({
+          handleId: args.handle.id,
+          workflowRunId: args.handle.workflowRunId,
+          intentId: args.handle.intentId,
+          reason: args.handle.reason,
+          createdAt: args.handle.createdAt,
+          intentJson: JSON.stringify(args.intent),
+          status: "pending",
+          decisionJson: null,
+          resolvedAt: null,
+        })
+        .run();
     },
 
     async getSuspend(handleId) {
@@ -592,16 +577,14 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
       if (!isLiveWorkflowRunStatus(run.status)) {
         throw terminalRunSuspendError(record.handle.workflowRunId, run.status);
       }
-      const runSeq = nextWorkflowRunSeq(db, record.handle.workflowRunId);
-      materializeEvent(
-        db,
-        workflowResumedEvent({
-          workflowRunId: record.handle.workflowRunId,
-          handleId,
-          decision,
-          runSeq,
-        }),
-      );
+      db.update(suspends)
+        .set({
+          status: "resolved",
+          decisionJson: JSON.stringify(decision),
+          resolvedAt: nowIso(),
+        })
+        .where(and(eq(suspends.handleId, handleId), eq(suspends.status, "pending")))
+        .run();
       waiters.settle(handleId, decision);
     },
 

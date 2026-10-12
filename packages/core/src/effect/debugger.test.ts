@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { inMemoryWorkflowStore } from "../stores/in-memory-workflow-store";
 import { createAdlRuntime } from "../runtime/create";
+import { RunRecorder } from "../runtime/run-recorder";
 import { continueDebuggerPause, createDebugSession } from "./debug-session";
 import { composeEffectHandlers } from "./compose";
 import { allowAllHandler } from "./gates";
@@ -36,19 +37,18 @@ function stepIntent(workflowRunId: string, path: string[]): EffectIntent {
 describe("debug session + workflow store parking", () => {
   it("pause → inspect pending → continue", async () => {
     const store = inMemoryWorkflowStore();
-    await store.recordEvent({
+    const recorder = new RunRecorder(createAdlRuntime({ stores: { workflow: store } }).services);
+    await recorder.emit({
       type: "workflow_started",
       workflowRunId: "run-1",
       workflowId: "w",
       input: {},
-      runSeq: 1,
-      at: "2026-10-03T00:00:00.000Z",
-      eventSchemaVersion: 1,
       tags: [],
     });
     const debug = createDebugSession();
     const gate = parkingEffectGate(composeEffectHandlers([debug.handler, allowAllHandler]), {
       store,
+      recorder,
     });
     const intent = stepIntent("run-1", ["first"]);
     debug.pause("run-1");

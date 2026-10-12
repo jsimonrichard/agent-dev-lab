@@ -15,24 +15,13 @@ import type {
 export type ParkOnSuspend = {
   /** Where suspends persist. Without one, a `suspend` decision throws instead of parking. */
   store: WorkflowStore | undefined;
-  recorder?: Pick<RunRecorder, "adoptRunSeq">;
+  /**
+   * The parked run's recorder. `workflow_suspended` / `workflow_resumed` go through it so the
+   * run keeps a single `runSeq` allocator. Without one (no active run), suspend throws.
+   */
+  recorder: Pick<RunRecorder, "emit"> | undefined;
   signal?: AbortSignal;
 };
-
-async function adoptLatestSeq(
-  store: WorkflowStore,
-  workflowRunId: string,
-  recorder: Pick<RunRecorder, "adoptRunSeq"> | undefined,
-): Promise<void> {
-  if (!recorder) {
-    return;
-  }
-  const events = await store.listEvents({ workflowRunId });
-  const maxSeq = events.reduce((max, event) => Math.max(max, event.runSeq), 0);
-  if (maxSeq > 0) {
-    recorder.adoptRunSeq(maxSeq);
-  }
-}
 
 /**
  * Persist a suspend handle, park the run, and wait for {@link WorkflowStore.resolveSuspend}.
@@ -41,14 +30,24 @@ export async function parkUntilResolved(args: {
   store: WorkflowStore;
   handle: SuspendHandle;
   intent: EffectIntent;
-  recorder?: Pick<RunRecorder, "adoptRunSeq">;
+  recorder: Pick<RunRecorder, "emit">;
   signal?: AbortSignal;
 }): Promise<SuspendResolveDecision> {
   await args.store.createSuspend({ handle: args.handle, intent: args.intent });
-  await adoptLatestSeq(args.store, args.handle.workflowRunId, args.recorder);
+  await args.recorder.emit({
+    type: "workflow_suspended",
+    workflowRunId: args.handle.workflowRunId,
+    handle: args.handle,
+    intent: args.intent,
+  });
   const wait = args.store.waitForSuspendResolution(args.handle.id);
   const decision = args.signal ? await raceAbort(args.signal, wait) : await wait;
-  await adoptLatestSeq(args.store, args.handle.workflowRunId, args.recorder);
+  await args.recorder.emit({
+    type: "workflow_resumed",
+    workflowRunId: args.handle.workflowRunId,
+    handleId: args.handle.id,
+    decision,
+  });
   return decision;
 }
 
@@ -74,6 +73,12 @@ export function parkingEffectGate(inner: EffectGate, park: ParkOnSuspend): Effec
         throw new AdlError(
           "INVALID_CONTEXT",
           `Cannot park intent "${intent.id}" on run "${intent.workflowRunId}": no workflow store is configured.`,
+        );
+      }
+      if (!park.recorder) {
+        throw new AdlError(
+          "INVALID_CONTEXT",
+          `Cannot park intent "${intent.id}": suspends need an active workflow run (a standalone agent.run cannot park).`,
         );
       }
       return parkUntilResolved({

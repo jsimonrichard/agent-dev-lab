@@ -399,6 +399,69 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       );
     });
 
+    it("holds concurrent suspends on one run and resumes after the last one", async () => {
+      const store = await createStore();
+      await store.recordEvent({
+        type: "workflow_started",
+        workflowRunId: "run-par",
+        workflowId: "suspend-demo",
+        input: {},
+        runSeq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+      const suspendFor = (id: string) =>
+        ({
+          handle: {
+            id,
+            intentId: `intent-${id}`,
+            workflowRunId: "run-par",
+            reason: "approval",
+            createdAt: "2026-01-01T00:00:01.000Z",
+          },
+          intent: {
+            id: `intent-${id}`,
+            kind: "approval",
+            reversibility: "irreversible",
+            workflowRunId: "run-par",
+            payload: {},
+          },
+        }) as const;
+      let runSeq = 1;
+      for (const id of ["a", "b"]) {
+        await store.createSuspend(suspendFor(id));
+        await store.recordEvent({
+          type: "workflow_suspended",
+          workflowRunId: "run-par",
+          ...suspendFor(id),
+          runSeq: ++runSeq,
+          at: "2026-01-01T00:00:01.000Z",
+          eventSchemaVersion: EVENT_SCHEMA_VERSION,
+        });
+      }
+      await expect(store.createSuspend(suspendFor("a"))).rejects.toThrow(/already exists/);
+      expect(await store.listPendingSuspends({ workflowRunId: "run-par" })).toHaveLength(2);
+
+      const resume = async (id: string) => {
+        await store.resolveSuspend(id, { action: "allow" });
+        await store.recordEvent({
+          type: "workflow_resumed",
+          workflowRunId: "run-par",
+          handleId: id,
+          decision: { action: "allow" },
+          runSeq: ++runSeq,
+          at: "2026-01-01T00:00:02.000Z",
+          eventSchemaVersion: EVENT_SCHEMA_VERSION,
+        });
+      };
+      await resume("a");
+      expect((await store.getRun("run-par"))?.status).toBe("suspended");
+      expect((await store.getRun("run-par"))?.suspendHandleId).toBe("b");
+      await resume("b");
+      expect((await store.getRun("run-par"))?.status).toBe("running");
+      expect((await store.getRun("run-par"))?.suspendHandleId).toBeUndefined();
+    });
+
     it("fails closed when resolving a missing suspend handle", async () => {
       const store = await createStore();
       await expect(store.resolveSuspend("missing-handle", { action: "allow" })).rejects.toThrow(
@@ -484,7 +547,7 @@ describe("sqlite stores share a file", () => {
       at: "2026-01-01T00:00:00.000Z",
       eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
-    await first.createSuspend({
+    const suspend = {
       handle: {
         id: "handle-1",
         intentId: "intent-1",
@@ -499,6 +562,15 @@ describe("sqlite stores share a file", () => {
         workflowRunId: "run-suspend",
         payload: { path: ["pause"] },
       },
+    } as const;
+    await first.createSuspend(suspend);
+    await first.recordEvent({
+      type: "workflow_suspended",
+      workflowRunId: "run-suspend",
+      ...suspend,
+      runSeq: 2,
+      at: "2026-01-01T00:00:01.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
     expect((await first.getRun("run-suspend"))?.status).toBe("suspended");
     expect((await first.getRun("run-suspend"))?.suspendReason).toBe("debugger");
@@ -512,6 +584,16 @@ describe("sqlite stores share a file", () => {
     const waited = reopened.waitForSuspendResolution("handle-1");
     await reopened.resolveSuspend("handle-1", { action: "allow" });
     await expect(waited).resolves.toEqual({ action: "allow" });
+    expect((await reopened.getRun("run-suspend"))?.status).toBe("suspended");
+    await reopened.recordEvent({
+      type: "workflow_resumed",
+      workflowRunId: "run-suspend",
+      handleId: "handle-1",
+      decision: { action: "allow" },
+      runSeq: 3,
+      at: "2026-01-01T00:00:02.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
+    });
     expect((await reopened.getRun("run-suspend"))?.status).toBe("running");
     expect(await reopened.listPendingSuspends({ workflowRunId: "run-suspend" })).toEqual([]);
   });

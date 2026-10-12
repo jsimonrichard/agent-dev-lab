@@ -22,19 +22,13 @@ import {
 import {
   alreadyResolvedSuspendError,
   missingSuspendError,
-  pendingSuspendConflictError,
+  duplicateSuspendHandleError,
   SuspendWaiterHub,
   terminalRunSuspendError,
   unknownRunForSuspendError,
   waitForRecordResolution,
 } from "./suspend-waiters";
-import {
-  assertSuspendResolveDecision,
-  nextRunSeq,
-  toSuspendRecord,
-  workflowResumedEvent,
-  workflowSuspendedEvent,
-} from "./suspend-records";
+import { assertSuspendResolveDecision, nowIso, toSuspendRecord } from "./suspend-records";
 import { isLiveWorkflowRunStatus } from "../observability/events";
 import type {
   AttemptRunMaterialization,
@@ -85,6 +79,15 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     }
   }
 
+  private firstPendingSuspend(workflowRunId: string): SuspendRecord | undefined {
+    for (const record of this.suspends.values()) {
+      if (record.handle.workflowRunId === workflowRunId && record.status === "pending") {
+        return record;
+      }
+    }
+    return undefined;
+  }
+
   async recordEvent(event: RunEvent): Promise<void> {
     if ("workflowRunId" in event && event.workflowRunId) {
       const wfId = event.workflowRunId;
@@ -131,8 +134,14 @@ export class InMemoryWorkflowStore implements WorkflowStore {
         this.closePendingSuspends(wfId, event.at);
       }
       if (event.type === "workflow_suspended") {
+        if (!this.suspends.has(event.handle.id)) {
+          this.suspends.set(
+            event.handle.id,
+            toSuspendRecord({ handle: event.handle, intent: event.intent, status: "pending" }),
+          );
+        }
         const run = this.runs.get(wfId);
-        if (run) {
+        if (run && isLiveWorkflowRunStatus(run.status)) {
           this.runs.set(wfId, {
             ...run,
             status: "suspended",
@@ -141,24 +150,10 @@ export class InMemoryWorkflowStore implements WorkflowStore {
             suspendReason: event.handle.reason,
           });
         }
-        this.suspends.set(
-          event.handle.id,
-          toSuspendRecord({ handle: event.handle, intent: event.intent, status: "pending" }),
-        );
       }
       if (event.type === "workflow_resumed") {
-        const run = this.runs.get(wfId);
-        if (run) {
-          this.runs.set(wfId, {
-            ...run,
-            status: "running",
-            finishedAt: undefined,
-            suspendHandleId: undefined,
-            suspendReason: undefined,
-          });
-        }
         const existing = this.suspends.get(event.handleId);
-        if (existing) {
+        if (existing?.status === "pending") {
           this.suspends.set(
             event.handleId,
             toSuspendRecord({
@@ -168,6 +163,26 @@ export class InMemoryWorkflowStore implements WorkflowStore {
               decision: event.decision,
               resolvedAt: event.at,
             }),
+          );
+        }
+        const run = this.runs.get(wfId);
+        if (run?.status === "suspended") {
+          const stillPending = this.firstPendingSuspend(wfId);
+          this.runs.set(
+            wfId,
+            stillPending
+              ? {
+                  ...run,
+                  suspendHandleId: stillPending.handle.id,
+                  suspendReason: stillPending.handle.reason,
+                }
+              : {
+                  ...run,
+                  status: "running",
+                  finishedAt: undefined,
+                  suspendHandleId: undefined,
+                  suspendReason: undefined,
+                },
           );
         }
       }
@@ -525,20 +540,15 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     if (!run) {
       throw unknownRunForSuspendError(args.handle.workflowRunId);
     }
+    if (!isLiveWorkflowRunStatus(run.status)) {
+      throw terminalRunSuspendError(args.handle.workflowRunId, run.status);
+    }
     if (this.suspends.has(args.handle.id)) {
-      throw pendingSuspendConflictError(args.handle.workflowRunId);
+      throw duplicateSuspendHandleError(args.handle.id);
     }
-    for (const record of this.suspends.values()) {
-      if (
-        record.handle.workflowRunId === args.handle.workflowRunId &&
-        record.status === "pending"
-      ) {
-        throw pendingSuspendConflictError(args.handle.workflowRunId);
-      }
-    }
-    const runSeq = nextRunSeq(this.eventsByWorkflowRun.get(args.handle.workflowRunId) ?? []);
-    await this.recordEvent(
-      workflowSuspendedEvent({ handle: args.handle, intent: args.intent, runSeq }),
+    this.suspends.set(
+      args.handle.id,
+      toSuspendRecord({ handle: args.handle, intent: args.intent, status: "pending" }),
     );
   }
 
@@ -576,13 +586,14 @@ export class InMemoryWorkflowStore implements WorkflowStore {
     if (!isLiveWorkflowRunStatus(run.status)) {
       throw terminalRunSuspendError(record.handle.workflowRunId, run.status);
     }
-    const runSeq = nextRunSeq(this.eventsByWorkflowRun.get(record.handle.workflowRunId) ?? []);
-    await this.recordEvent(
-      workflowResumedEvent({
-        workflowRunId: record.handle.workflowRunId,
-        handleId,
+    this.suspends.set(
+      handleId,
+      toSuspendRecord({
+        handle: record.handle,
+        intent: record.intent,
+        status: "resolved",
         decision,
-        runSeq,
+        resolvedAt: nowIso(),
       }),
     );
     this.waiters.settle(handleId, decision);

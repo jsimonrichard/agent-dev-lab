@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 
 import type { AdlDb } from "../index";
-import { workflowRuns, workflowRunTags } from "../schema";
+import { suspends, workflowRuns, workflowRunTags } from "../schema";
 
 import type { RunEvent } from "../../observability/events";
 
@@ -82,15 +82,38 @@ export function projectWorkflowRun(db: AdlDb, event: RunEvent): void {
   if (event.type === "workflow_suspended") {
     db.update(workflowRuns)
       .set({ status: "suspended", finishedAt: null })
-      .where(eq(workflowRuns.workflowRunId, event.workflowRunId))
+      .where(
+        and(
+          eq(workflowRuns.workflowRunId, event.workflowRunId),
+          inArray(workflowRuns.status, ["running", "suspended"]),
+        ),
+      )
       .run();
   }
 
   if (event.type === "workflow_resumed") {
-    db.update(workflowRuns)
-      .set({ status: "running", finishedAt: null })
-      .where(eq(workflowRuns.workflowRunId, event.workflowRunId))
-      .run();
+    const stillPending = db
+      .select({ handleId: suspends.handleId })
+      .from(suspends)
+      .where(
+        and(
+          eq(suspends.workflowRunId, event.workflowRunId),
+          eq(suspends.status, "pending"),
+          ne(suspends.handleId, event.handleId),
+        ),
+      )
+      .get();
+    if (!stillPending) {
+      db.update(workflowRuns)
+        .set({ status: "running", finishedAt: null })
+        .where(
+          and(
+            eq(workflowRuns.workflowRunId, event.workflowRunId),
+            eq(workflowRuns.status, "suspended"),
+          ),
+        )
+        .run();
+    }
   }
 
   if (event.type === "workflow_title_set") {

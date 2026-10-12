@@ -69,11 +69,8 @@ export function alreadyResolvedSuspendError(handleId: string): AdlError {
   );
 }
 
-export function pendingSuspendConflictError(workflowRunId: string): AdlError {
-  return new AdlError(
-    "INVALID_CONTEXT",
-    `Run "${workflowRunId}" already has a pending suspend. Resolve or cancel it before parking again.`,
-  );
+export function duplicateSuspendHandleError(handleId: string): AdlError {
+  return new AdlError("INVALID_CONTEXT", `Suspend handle "${handleId}" already exists.`);
 }
 
 export function unknownRunForSuspendError(workflowRunId: string): AdlError {
@@ -83,7 +80,7 @@ export function unknownRunForSuspendError(workflowRunId: string): AdlError {
 export function terminalRunSuspendError(workflowRunId: string, status: string): AdlError {
   return new AdlError(
     "INVALID_CONTEXT",
-    `Cannot resolve a suspend on run "${workflowRunId}" with status "${status}".`,
+    `Run "${workflowRunId}" has status "${status}"; it can no longer park or resume.`,
   );
 }
 

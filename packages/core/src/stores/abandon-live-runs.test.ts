@@ -30,7 +30,7 @@ async function startLiveRun(
     eventSchemaVersion: EVENT_SCHEMA_VERSION,
   });
   if (args.suspend) {
-    await store.createSuspend({
+    const suspend = {
       handle: {
         id: `h-${args.workflowRunId}`,
         intentId: `i-${args.workflowRunId}`,
@@ -45,6 +45,15 @@ async function startLiveRun(
         workflowRunId: args.workflowRunId,
         payload: {},
       },
+    } as const;
+    await store.createSuspend(suspend);
+    await store.recordEvent({
+      type: "workflow_suspended",
+      workflowRunId: args.workflowRunId,
+      ...suspend,
+      runSeq: 2,
+      at: "2026-01-01T00:00:01.000Z",
+      eventSchemaVersion: EVENT_SCHEMA_VERSION,
     });
   }
   if (args.episode) {
