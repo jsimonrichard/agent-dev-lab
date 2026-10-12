@@ -29,6 +29,7 @@ import {
   waitForRecordResolution,
 } from "./suspend-waiters";
 import {
+  assertSuspendResolveDecision,
   nextRunSeq,
   toSuspendRecord,
   workflowResumedEvent,
@@ -560,6 +561,7 @@ export class InMemoryWorkflowStore implements WorkflowStore {
   }
 
   async resolveSuspend(handleId: string, decision: SuspendResolveDecision): Promise<void> {
+    assertSuspendResolveDecision(decision);
     const record = this.suspends.get(handleId);
     if (!record) {
       throw missingSuspendError(handleId);

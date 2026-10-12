@@ -136,14 +136,23 @@ export class WorkflowContextImpl implements WorkflowContext {
       intentId: intent.id,
       decision,
     });
-    if (decision.action === "deny") {
-      throw new AdlError("INVALID_INPUT", `Approval denied: ${decision.reason}`);
-    }
-    if (decision.action === "rewrite") {
-      throw new AdlError(
-        "INVALID_INPUT",
-        "Approval resume does not accept rewrite; resolve with allow or deny.",
-      );
+    switch (decision.action) {
+      case "allow":
+        return;
+      case "deny":
+        throw new AdlError("INVALID_INPUT", `Approval denied: ${decision.reason}`);
+      case "rewrite":
+        throw new AdlError(
+          "INVALID_INPUT",
+          "Approval resume does not accept rewrite; resolve with allow or deny.",
+        );
+      default: {
+        const _exhaustive: never = decision;
+        throw new AdlError(
+          "INVALID_CONTEXT",
+          `Approval resumed with an unknown decision: ${JSON.stringify(_exhaustive)}`,
+        );
+      }
     }
   };
 

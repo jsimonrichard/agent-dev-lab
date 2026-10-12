@@ -16,6 +16,7 @@ import { inMemoryWorkflowStore } from "./in-memory-workflow-store";
 import { sqliteWorkflowStore } from "./sqlite-workflow-store";
 import type { WorkflowStore } from "./workflow-store";
 import { EVENT_SCHEMA_VERSION } from "../observability/events";
+import type { SuspendResolveDecision } from "../effect/types";
 
 async function uniqueDbPath(): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "adl-store-"));
@@ -357,6 +358,45 @@ function workflowStoreContract(name: string, createStore: () => Promise<Workflow
       expect(await store.listPendingSuspends({ workflowRunId: "run-term" })).toEqual([]);
       expect((await store.getRun("run-term"))?.status).toBe("error");
       expect((await store.getRun("run-term"))?.suspendHandleId).toBeUndefined();
+    });
+
+    it("rejects malformed resume decisions and keeps the suspend pending", async () => {
+      const store = await createStore();
+      await store.recordEvent({
+        type: "workflow_started",
+        workflowRunId: "run-bad-decision",
+        workflowId: "suspend-demo",
+        input: {},
+        runSeq: 1,
+        at: "2026-01-01T00:00:00.000Z",
+        eventSchemaVersion: EVENT_SCHEMA_VERSION,
+      });
+      await store.createSuspend({
+        handle: {
+          id: "handle-bad",
+          intentId: "intent-bad",
+          workflowRunId: "run-bad-decision",
+          reason: "approval",
+          createdAt: "2026-01-01T00:00:01.000Z",
+        },
+        intent: {
+          id: "intent-bad",
+          kind: "approval",
+          reversibility: "irreversible",
+          workflowRunId: "run-bad-decision",
+          payload: {},
+        },
+      });
+      const bogus = { action: "bogus" } as unknown as SuspendResolveDecision;
+      await expect(store.resolveSuspend("handle-bad", bogus)).rejects.toThrow(
+        /allow, deny, or rewrite/,
+      );
+      await expect(
+        store.resolveSuspend("handle-bad", { action: "deny", reason: " " }),
+      ).rejects.toThrow(/non-empty reason/);
+      expect(await store.listPendingSuspends({ workflowRunId: "run-bad-decision" })).toHaveLength(
+        1,
+      );
     });
 
     it("fails closed when resolving a missing suspend handle", async () => {

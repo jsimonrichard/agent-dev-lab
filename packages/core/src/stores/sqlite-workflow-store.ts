@@ -49,7 +49,11 @@ import {
   unknownRunForSuspendError,
   waitForRecordResolution,
 } from "./suspend-waiters";
-import { workflowResumedEvent, workflowSuspendedEvent } from "./suspend-records";
+import {
+  assertSuspendResolveDecision,
+  workflowResumedEvent,
+  workflowSuspendedEvent,
+} from "./suspend-records";
 import { toTokenUsage } from "../observability/token-usage";
 import type { SqliteStoreOptions } from "../stores/sqlite";
 import type {
@@ -573,6 +577,7 @@ export function sqliteWorkflowStore(options: SqliteStoreOptions = {}): WorkflowS
     },
 
     async resolveSuspend(handleId, decision) {
+      assertSuspendResolveDecision(decision);
       const record = await this.getSuspend(handleId);
       if (!record) {
         throw missingSuspendError(handleId);
